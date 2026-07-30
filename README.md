@@ -22,12 +22,11 @@ Le mode démonstration ne fonctionne qu’avec `NODE_ENV` différent de
 ## Commandes
 
 ```bash
-docker compose exec api npx prisma db push
-docker compose exec api node prisma/seed.js
+docker compose exec api npx prisma migrate deploy
+docker compose exec api npm run seed
 docker compose run --rm api npm test
 docker compose logs -f
 ```
 
 Voir [l’architecture](docs/architecture.md), [l’installation](docs/installation.md)
 et [la sécurité](docs/security.md).
-
