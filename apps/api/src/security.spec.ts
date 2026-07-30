@@ -1,14 +1,33 @@
 import { ForbiddenException } from '@nestjs/common';
-import { documents, spaces } from './types';
+import type { ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { AdminGuard } from './security';
 
-describe('deny-by-default authorization model', () => {
-  const visible = (groups: string[]) => {
-    const allowed = new Set(spaces.filter((s) => s.groups.some((g) => groups.includes(g))).map((s) => s.slug));
-    return documents.filter((d) => allowed.has(d.space));
-  };
-  it('ITAD sees IT', () => expect(visible(['ITAD']).some((d) => d.space === 'it')).toBe(true));
-  it('a user outside ITAD cannot see IT', () => expect(visible(['Domain Users']).some((d) => d.space === 'it')).toBe(false));
-  it('search corpus contains no forbidden documents', () => expect(visible(['Domain Users']).map((d) => d.id)).not.toContain('vpn-guide'));
-  it('uses forbidden errors for direct unauthorized access', () => expect(() => { throw new ForbiddenException(); }).toThrow(ForbiddenException));
+const context = (groups: string[]) => ({
+  getHandler: () => function handler() {},
+  getClass: () => class Controller {},
+  switchToHttp: () => ({ getRequest: () => ({ identity: { groups } }) }),
+}) as unknown as ExecutionContext;
+
+describe('AdminGuard', () => {
+  const reflector = { getAllAndOverride: jest.fn() } as unknown as Reflector;
+  const guard = new AdminGuard(reflector);
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('allows public handlers', () => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+    expect(guard.canActivate(context([]))).toBe(true);
+  });
+
+  it('allows configured administrators after trimming group configuration', () => {
+    process.env.ISMS_ADMIN_GROUPS = ' ISMS-ADMINS, ISMS-SUPER-ADMINS ';
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(true);
+    expect(guard.canActivate(context(['ISMS-ADMINS']))).toBe(true);
+  });
+
+  it('denies standard users from admin handlers', () => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(true);
+    expect(() => guard.canActivate(context(['Domain Users']))).toThrow(ForbiddenException);
+  });
 });
-

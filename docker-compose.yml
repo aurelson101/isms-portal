@@ -13,6 +13,13 @@ services:
     read_only: true
     tmpfs: [/var/cache/nginx, /var/run]
     security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
 
   frontend:
     build: {context: ., dockerfile: apps/web/Dockerfile}
@@ -28,11 +35,14 @@ services:
       retries: 12
     networks: [app]
     security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
 
   api:
     build: {context: ., dockerfile: apps/api/Dockerfile}
     restart: unless-stopped
-    env_file: [.env]
+    env_file:
+      - path: .env
+        required: false
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -45,18 +55,27 @@ services:
       retries: 12
     networks: [app, data]
     security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
 
   worker:
     build: {context: ., dockerfile: apps/api/Dockerfile}
     command: ["node", "dist/worker.js"]
     restart: unless-stopped
-    env_file: [.env]
+    env_file:
+      - path: .env
+        required: false
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
       clamav: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
     networks: [data]
     security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
 
   postgres:
     image: postgres:17.2-alpine
@@ -64,7 +83,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-isms}
       POSTGRES_USER: ${POSTGRES_USER:-isms}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     volumes: [postgres-data:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
@@ -91,7 +110,7 @@ services:
     restart: unless-stopped
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-isms-minio}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-change-me}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY must be set}
     volumes: [minio-data:/data]
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
