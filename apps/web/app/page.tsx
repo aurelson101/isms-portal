@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type Locale = 'fr' | 'en';
 type Space = { id: string; slug: string; nameFr: string; nameEn: string };
@@ -122,6 +122,7 @@ export default function Home() {
   const [opened, setOpened] = useState<PortalDocument | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   const loadDocuments = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -141,6 +142,14 @@ export default function Home() {
       if (!signal?.aborted) setLoading(false);
     }
   }, [query, category, space]);
+
+  useEffect(() => {
+    const parameters = new URLSearchParams(window.location.search);
+    const requestedCategory = parameters.get('category');
+    const requestedSpace = parameters.get('space');
+    if (requestedCategory) setCategory(requestedCategory);
+    if (requestedSpace) setSpace(requestedSpace);
+  }, []);
 
   useEffect(() => {
     fetch('/api/me')
@@ -168,6 +177,14 @@ export default function Home() {
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [loadDocuments, query]);
 
+  useEffect(() => {
+    if (!category && !space && !query) return;
+    const timer = window.setTimeout(() => {
+      resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [category, space, query]);
+
   const changeLocale = async (next: Locale) => {
     setLocale(next);
     localStorage.setItem('isms-locale', next);
@@ -181,8 +198,22 @@ export default function Home() {
   };
 
   const selectCategory = (next: string) => {
+    setQuery('');
     setCategory(next);
     setSpace('');
+    window.history.replaceState(null, '', `/?category=${encodeURIComponent(next)}`);
+  };
+  const selectSpace = (next: string) => {
+    setQuery('');
+    setSpace(next);
+    setCategory('');
+    window.history.replaceState(null, '', `/?space=${encodeURIComponent(next)}`);
+  };
+  const selectHome = () => {
+    setQuery('');
+    setCategory('');
+    setSpace('');
+    window.history.replaceState(null, '', '/');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const t = copy[locale];
@@ -196,12 +227,12 @@ export default function Home() {
     <aside>
       <div className="brand"><div className="shield" aria-hidden="true">♙</div><div><strong>ISMS Portal</strong><small>Information Security<br/>Management System</small></div></div>
       <nav aria-label="Navigation principale">
-        <button className={!category && !space ? 'active' : ''} onClick={() => { setCategory(''); setSpace(''); }}>⌂ <span>{t.home}</span></button>
+        <button type="button" className={!category && !space ? 'active' : ''} onClick={selectHome}>⌂ <span>{t.home}</span></button>
         <button className={category === 'policies' ? 'active' : ''} onClick={() => selectCategory('policies')}>♢ <span>{t.policies}</span></button>
         <button className={category === 'procedures' ? 'active' : ''} onClick={() => selectCategory('procedures')}>▤ <span>{t.procedures}</span></button>
         <button className={category === 'guides' ? 'active' : ''} onClick={() => selectCategory('guides')}>▭ <span>{t.guides}</span></button>
         {identity?.spaces.filter((item) => item.slug !== 'general').map((item) =>
-          <button className={space === item.slug ? 'active' : ''} onClick={() => { setSpace(item.slug); setCategory(''); }} key={item.id}>
+          <button type="button" className={space === item.slug ? 'active' : ''} onClick={() => selectSpace(item.slug)} key={item.id}>
             □ <span>{locale === 'fr' ? item.nameFr : item.nameEn}</span>
           </button>)}
       </nav>
@@ -248,9 +279,10 @@ export default function Home() {
           <article className="access" key={item.id}><div className="card-icon">▣</div><div>
             <h2>{locale === 'fr' ? item.nameFr : item.nameEn}</h2>
             <p>{locale === 'fr' ? 'Accessible selon vos autorisations' : 'Available through your permissions'}</p>
-            <button onClick={() => { setSpace(item.slug); setCategory(''); }}>{t.consult}</button>
+            <button type="button" onClick={() => selectSpace(item.slug)}>{t.consult}</button>
           </div></article>)}
       </section>
+      <div ref={resultsRef} className="results-anchor" tabIndex={-1}>
       {loadError && <p role="alert" className="error-state">{t.error}</p>}
       {loading ? <p className="loading-state">{t.loading}</p> : <>
         <h2 className="section-title">{query || category || space ? t.search : t.recent}</h2>
@@ -264,6 +296,7 @@ export default function Home() {
           onLocale={(id, next) => setSelectedLocales((current) => ({ ...current, [id]: next }))}
           onOpen={setOpened}/>
       </>}
+      </div>
     </main>
     {helpOpen && <div className="modal-backdrop" role="presentation" onMouseDown={() => setHelpOpen(false)}>
       <section className="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="help-title" onMouseDown={(event) => event.stopPropagation()}>

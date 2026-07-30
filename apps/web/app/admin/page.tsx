@@ -107,7 +107,18 @@ export default function Admin() {
     }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    const requested = window.location.hash.slice(1) as Tab;
+    if (tabs.some(([key]) => key === requested)) setTab(requested);
+    void refresh();
+  }, [refresh]);
+  const selectTab = (next: Tab) => {
+    setTab(next);
+    setError('');
+    setNotice('');
+    window.history.replaceState(null, '', `/admin#${next}`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const selectRule = (rule: Rule) => {
     setSelectedRule(rule);
     setRuleDraft(permissionKeys.reduce((draft, key) => ({ ...draft, [key]: rule[key] }), {
@@ -141,7 +152,7 @@ export default function Admin() {
     <aside>
       <div className="brand"><div className="shield">♙</div><div><strong>ISMS Portal</strong><small>Administration sécurisée</small></div></div>
       <nav aria-label="Administration">{tabs.map(([key, icon, label]) =>
-        <button className={tab === key ? 'active' : ''} key={key} onClick={() => setTab(key)}>{icon} <span>{label}</span></button>)}</nav>
+        <button type="button" aria-current={tab === key ? 'page' : undefined} className={tab === key ? 'active' : ''} key={key} onClick={() => selectTab(key)}>{icon} <span>{label}</span></button>)}</nav>
       <a className="back-link" href="/">← Retour au portail</a>
     </aside>
     <main>

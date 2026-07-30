@@ -8,7 +8,15 @@ test('navigation, filtering, search and languages are functional', async ({ page
   await expect(page.getByText('Politique de sécurité de l’information').first()).toBeVisible();
 
   await page.locator('aside').getByText('Politiques', { exact: true }).click();
+  await expect(page).toHaveURL(/category=policies/);
   await expect(page.getByText('Politique de sécurité de l’information').first()).toBeVisible();
+
+  for (const [label, value] of [['Procédures', 'procedures'], ['Guides', 'guides']] as const) {
+    await page.locator('aside').getByText(label, { exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`category=${value}`));
+  }
+  await page.locator('aside').getByText('IT', { exact: true }).click();
+  await expect(page).toHaveURL(/space=it/);
 
   const search = page.getByRole('textbox', { name: /Rechercher une politique/ });
   await search.fill('VPN');
