@@ -157,12 +157,12 @@ export default function Admin() {
       <a className="back-link" href="/">← Retour au portail</a>
     </aside>
     <main>
-      <header><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher dans la section…"/><button onClick={() => void refresh()}>Actualiser</button><strong>Administrateur ISMS</strong></header>
+      <header><input list={tab === 'groups' ? 'ad-group-suggestions' : undefined} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tab === 'groups' ? 'Rechercher ou sélectionner un groupe AD…' : 'Rechercher dans la section…'}/>{tab === 'groups' && <datalist id="ad-group-suggestions">{groups.map((group) => <option value={group.name} key={group.id}>{group.distinguishedName}</option>)}</datalist>}<button onClick={() => void refresh()}>Actualiser</button><strong>Administrateur ISMS</strong></header>
       {error && <div className="admin-alert error" role="alert">{error}<button onClick={() => setError('')}>×</button></div>}
       {notice && <div className="admin-alert success" role="status">{notice}<button onClick={() => setNotice('')}>×</button></div>}
       {loading ? <p className="loading-state">Chargement de l’administration…</p> : <>
         {tab === 'dashboard' && <DashboardPanel dashboard={dashboard}/>}
-        {tab === 'groups' && <GroupsPanel groups={groups} search={search}/>}
+        {tab === 'groups' && <GroupsPanel groups={groups} search={search} onChanged={refresh} onError={setError} onNotice={setNotice}/>}
         {tab === 'rules' && <RulesPanel rules={filteredRules} selected={selectedRule} onSelect={selectRule} onNew={() => { setSelectedRule(null); setRuleDraft(emptyRule()); }}/>}
         {tab === 'spaces' && <SpacesPanel spaces={spaces} onChanged={refresh} onError={setError}/>}
         {tab === 'documents' && <DocumentsPanel documents={documents} spaces={spaces} onChanged={refresh} onError={setError}/>}
@@ -203,9 +203,27 @@ function DashboardPanel({ dashboard }: { dashboard: Dashboard | null }) {
   return <><h1>Tableau de bord</h1><p className="lead">État réel de la plateforme ISMS.</p><div className="stats">{stats.map(([label, value]) => <article key={label}><span>{label}</span><strong>{value}</strong></article>)}</div></>;
 }
 
-function GroupsPanel({ groups, search }: { groups: Group[]; search: string }) {
+function GroupsPanel({ groups, search, onChanged, onError, onNotice }: {
+  groups: Group[];
+  search: string;
+  onChanged: () => Promise<void>;
+  onError: (message: string) => void;
+  onNotice: (message: string) => void;
+}) {
+  const [form, setForm] = useState({ name: '', distinguishedName: '', description: '' });
   const filtered = groups.filter((group) => `${group.name} ${group.distinguishedName}`.toLowerCase().includes(search.toLowerCase()));
-  return <><h1>Groupes Active Directory</h1><div className="admin-table-wrap"><table><thead><tr><th>Nom</th><th>DN</th><th>Membres</th><th>Dernière synchro</th><th>Espaces</th><th>État</th></tr></thead><tbody>{filtered.map((group) => <tr key={group.id}><td><strong>{group.name}</strong><small>{group.description}</small></td><td>{group.distinguishedName}</td><td>{group.memberCount}</td><td>{group.lastSyncedAt ? new Date(group.lastSyncedAt).toLocaleString('fr') : 'Jamais'}</td><td>{group.accessRules.map((rule) => rule.space.nameFr).join(', ') || '—'}</td><td><mark>{group.active ? 'Actif' : 'Inactif'}</mark></td></tr>)}</tbody></table></div></>;
+  return <><h1>Groupes Active Directory</h1><p className="lead">Les groupes synchronisés reviennent lors de la prochaine synchronisation s’ils sont supprimés localement.</p>
+    <form className="admin-form inline-form" onSubmit={async (event) => {
+      event.preventDefault();
+      await api('/api/admin/groups', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
+      }).then(async () => {
+        setForm({ name: '', distinguishedName: '', description: '' });
+        onNotice('Référence de groupe AD ajoutée.');
+        await onChanged();
+      }).catch((error) => onError(error.message));
+    }}><h2>Ajouter un groupe AD</h2><input aria-label="Nom du groupe AD" required placeholder="Nom du groupe" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })}/><input aria-label="DN du groupe AD" required placeholder="CN=Groupe,OU=Groups,DC=entreprise,DC=local" value={form.distinguishedName} onChange={(event) => setForm({ ...form, distinguishedName: event.target.value })}/><input aria-label="Description du groupe AD" placeholder="Description" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })}/><button className="primary">Ajouter</button></form>
+    <div className="admin-table-wrap"><table><thead><tr><th>Nom</th><th>DN</th><th>Source</th><th>Membres</th><th>Dernière synchro</th><th>Espaces</th><th>État</th><th>Actions</th></tr></thead><tbody>{filtered.map((group) => <tr key={group.id}><td><strong>{group.name}</strong><small>{group.description}</small></td><td>{group.distinguishedName}</td><td>{group.lastSyncedAt ? 'Synchronisé AD' : 'Ajout local'}</td><td>{group.memberCount}</td><td>{group.lastSyncedAt ? new Date(group.lastSyncedAt).toLocaleString('fr') : 'Jamais'}</td><td>{group.accessRules.map((rule) => rule.space.nameFr).join(', ') || '—'}</td><td><mark>{group.active ? 'Actif' : 'Inactif'}</mark></td><td><button className="danger" onClick={async () => { const warning = `${group.lastSyncedAt ? 'Ce groupe synchronisé pourra revenir à la prochaine synchronisation. ' : ''}${group.accessRules.length} règle(s) associée(s) seront supprimée(s). Continuer ?`; if (!window.confirm(warning)) return; await api(`/api/admin/groups/${group.id}`, { method: 'DELETE' }).then(async () => { onNotice('Groupe supprimé.'); await onChanged(); }).catch((error) => onError(error.message)); }}>Supprimer</button></td></tr>)}</tbody></table></div></>;
 }
 
 function RulesPanel({ rules, selected, onSelect, onNew }: { rules: Rule[]; selected: Rule | null; onSelect: (rule: Rule) => void; onNew: () => void }) {

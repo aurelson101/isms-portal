@@ -116,3 +116,33 @@ test('portal and administration remain usable on mobile', async ({ page }) => {
   await expect(page).toHaveURL(/#documents/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
+
+test('AD groups can be added, suggested in search and deleted', async ({ page, request }) => {
+  const suffix = Date.now().toString(36);
+  const name = `TEST-AD-${suffix}`;
+  const createdResponse = await request.post('/api/admin/groups', {
+    data: {
+      name,
+      distinguishedName: `CN=${name},OU=Groups,DC=demo,DC=local`,
+      description: 'Playwright group lifecycle',
+    },
+  });
+  expect(createdResponse.status()).toBe(201);
+  const created = await createdResponse.json() as { id: string };
+
+  try {
+    const searchResponse = await request.get(`/api/admin/groups?q=${encodeURIComponent(name)}`);
+    expect(searchResponse.ok()).toBeTruthy();
+    expect((await searchResponse.json() as Array<{ name: string }>).map((group) => group.name)).toContain(name);
+
+    await page.goto('/admin#groups');
+    const search = page.getByPlaceholder('Rechercher ou sélectionner un groupe AD…');
+    await search.fill(name);
+    await expect(page.getByText(name, { exact: true })).toBeVisible();
+    await expect(page.locator('#ad-group-suggestions').locator(`option[value="${name}"]`)).toHaveCount(1);
+  } finally {
+    const deletedResponse = await request.delete(`/api/admin/groups/${created.id}`);
+    expect(deletedResponse.ok()).toBeTruthy();
+    expect((await deletedResponse.json()).deleted).toBe(true);
+  }
+});

@@ -39,6 +39,12 @@ export class AccessRuleDto {
   @IsBoolean() administer!: boolean;
 }
 
+export class DirectoryGroupDto {
+  @IsString() @MinLength(2) @MaxLength(160) name!: string;
+  @IsString() @MinLength(3) @MaxLength(1024) distinguishedName!: string;
+  @IsOptional() @IsString() @MaxLength(500) description?: string;
+}
+
 export class DirectoryConnectionDto {
   @IsString() @MinLength(2) @MaxLength(120) name!: string;
   @IsString() @MinLength(2) @MaxLength(255) domain!: string;

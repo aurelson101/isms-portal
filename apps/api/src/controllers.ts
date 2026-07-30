@@ -17,7 +17,7 @@ import { PrismaService } from './prisma.service';
 import { AuthorizationService, type Permission } from './authorization.service';
 import { ImportCertificateDto } from './certificate.dto';
 import {
-  AccessRuleDto, CategoryDto, DirectoryConnectionDto, LocalePreferenceDto, SpaceDto,
+  AccessRuleDto, CategoryDto, DirectoryConnectionDto, DirectoryGroupDto, LocalePreferenceDto, SpaceDto,
 } from './admin.dto';
 import { AuditService } from './audit.service';
 import { StorageService } from './storage.service';
@@ -331,6 +331,48 @@ export class AdminController {
       },
       orderBy: { name: 'asc' },
     });
+  }
+
+  @Post('groups')
+  async createGroup(@Req() req: IsmsRequest, @Body() body: DirectoryGroupDto) {
+    try {
+      const group = await this.prisma.directoryGroup.create({
+        data: {
+          name: body.name.trim(),
+          distinguishedName: body.distinguishedName.trim(),
+          description: body.description?.trim() || null,
+          active: true,
+        },
+      });
+      await this.audit.record(req, 'directory-group.create', `directory-group:${group.id}`, 'success', {
+        name: group.name, distinguishedName: group.distinguishedName, source: 'manual',
+      });
+      return group;
+    } catch {
+      throw new ConflictException('A group with this name or distinguished name already exists');
+    }
+  }
+
+  @Delete('groups/:id')
+  async deleteGroup(@Req() req: IsmsRequest, @Param('id') id: string) {
+    const group = await this.prisma.directoryGroup.findUnique({
+      where: { id }, include: { _count: { select: { accessRules: true } } },
+    });
+    if (!group) throw new NotFoundException();
+    await this.prisma.$transaction([
+      this.prisma.accessRule.deleteMany({ where: { groupId: id } }),
+      this.prisma.directoryGroup.delete({ where: { id } }),
+    ]);
+    await this.audit.record(req, 'directory-group.delete', `directory-group:${id}`, 'success', {
+      name: group.name,
+      synchronized: Boolean(group.lastSyncedAt),
+      deletedAccessRules: group._count.accessRules,
+    });
+    return {
+      deleted: true,
+      synchronized: Boolean(group.lastSyncedAt),
+      deletedAccessRules: group._count.accessRules,
+    };
   }
 
   @Get('access-rules')

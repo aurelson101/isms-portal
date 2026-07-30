@@ -102,3 +102,55 @@ docker compose logs -f
 
 Voir [l’architecture](docs/architecture.md), [l’installation](docs/installation.md)
 et [la sécurité](docs/security.md).
+
+## Configuration Active Directory
+
+Créer dans Active Directory un compte de service en lecture seule, sans droit
+administrateur ni ouverture de session interactive. Il doit pouvoir lire les
+utilisateurs, les groupes et leurs appartenances dans les OU configurées.
+
+Dans **Administration → Synchronisation LDAP**, renseigner au minimum :
+
+```text
+Domaine              corp.entreprise.local
+Contrôleur primaire  dc01.corp.entreprise.local
+Contrôleur secondaire dc02.corp.entreprise.local
+Base DN              DC=corp,DC=entreprise,DC=local
+User Base DN         OU=Users,DC=corp,DC=entreprise,DC=local
+Group Base DN        OU=Groups,DC=corp,DC=entreprise,DC=local
+Bind DN              CN=svc-isms,OU=Service Accounts,DC=corp,DC=entreprise,DC=local
+Filtre utilisateurs  (objectClass=user)
+Filtre groupes       (objectClass=group)
+Attribut utilisateur sAMAccountName
+Attribut groupe      cn
+Attribut email       mail
+```
+
+### LDAP
+
+Sélectionner `LDAP`, généralement sur TCP/389, laisser le certificat CA vide,
+puis enregistrer. LDAP transmet le bind sans protection TLS : il ne doit être
+utilisé que sur un réseau isolé et maîtrisé. Préférer LDAPS.
+
+### LDAPS
+
+1. Exporter uniquement le certificat public de la CA qui a signé le certificat
+   LDAPS des contrôleurs (`.pem`, `.crt` ou `.cer`). Ne jamais exporter la clé
+   privée.
+2. Dans **Administration → Certificats CA**, importer et tester cette CA.
+3. Dans **Synchronisation LDAP**, sélectionner `LDAPS`, TCP/636 et la CA
+   importée.
+4. Utiliser comme contrôleurs les noms DNS présents dans le SAN des
+   certificats ; les adresses IP ou contournements TLS sont refusés.
+5. Enregistrer, cliquer **Tester**, puis **Synchroniser**.
+
+Le test vérifie DNS, TCP, chaîne TLS, nom d’hôte, bind et recherches. Après une
+synchronisation réussie, les groupes sont proposés dans la recherche de
+**Groupes Active Directory** et dans la création des règles. Le secret de bind
+est chiffré en AES-256-GCM et n’est jamais renvoyé par l’API.
+
+Test LDAPS reproductible sans l’AD de production :
+
+```bash
+./scripts/test-ldaps-functional.sh
+```
