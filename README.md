@@ -21,8 +21,28 @@ Le mode démonstration ne fonctionne qu’avec `NODE_ENV` différent de
 
 ## Génération des secrets
 
-Générer chaque valeur séparément avec OpenSSL. Ne jamais réutiliser une valeur
-entre PostgreSQL, MinIO et l’application, ni la valider dans Git.
+La méthode recommandée génère automatiquement des valeurs indépendantes et
+fortes, puis crée `.env` et `credentials.txt` avec les permissions `600` :
+
+```bash
+./scripts/generate-secrets.sh
+```
+
+Le script refuse d’écraser un fichier existant. `--force` effectue une rotation
+volontaire ; ne pas l’utiliser sur une installation existante sans procédure de
+rotation PostgreSQL et MinIO. Pour recréer uniquement `credentials.txt` depuis
+le `.env` actuel :
+
+```bash
+./scripts/generate-secrets.sh --credentials-only
+```
+
+`credentials.txt` est exclu de Git mais reste un fichier sensible à déplacer
+vers un gestionnaire de secrets après installation.
+
+Pour une génération manuelle, générer chaque valeur séparément avec OpenSSL. Ne
+jamais réutiliser une valeur entre PostgreSQL, MinIO et l’application, ni la
+valider dans Git.
 
 ```bash
 # Mot de passe PostgreSQL : à reporter dans POSTGRES_PASSWORD et DATABASE_URL.
