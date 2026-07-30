@@ -2,19 +2,53 @@
   "name": "isms-portal",
   "private": true,
   "version": "1.0.0",
-  "workspaces": ["apps/*"],
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "build": "npm run build -w @isms/api && npm run build -w @isms/web",
-    "postinstall": "prisma generate --schema apps/api/prisma/schema.prisma",
+    "postinstall": "npm exec -w @isms/api -- prisma generate --schema prisma/schema.prisma",
     "lint": "npm run lint -w @isms/api && npm run lint -w @isms/web",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,yml,yaml,css}\"",
     "test": "npm run test -w @isms/api",
+    "test:e2e": "playwright test",
     "migrate": "npm run migrate -w @isms/api",
     "seed": "npm run seed -w @isms/api"
   },
-  "engines": {"node": ">=22"}
-  ,
+  "engines": {
+    "node": ">=22"
+  },
   "overrides": {
     "postcss": "8.5.18",
     "sharp": "0.35.0"
+  },
+  "knip": {
+    "workspaces": {
+      "apps/api": {
+        "entry": [
+          "src/main.ts",
+          "src/worker.ts",
+          "prisma/prepare-migrations.js"
+        ],
+        "ignoreDependencies": [
+          "@nestjs/schematics",
+          "@types/multer"
+        ]
+      },
+      "apps/web": {
+        "entry": [
+          "app/**/*.tsx"
+        ]
+      }
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "^1.55.1",
+    "eslint": "10.8.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "prettier": "3.6.2",
+    "prisma": "6.3.1",
+    "typescript-eslint": "8.65.0"
   }
 }

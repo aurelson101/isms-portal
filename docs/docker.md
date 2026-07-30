@@ -1,7 +1,23 @@
 # Docker
 
-Les images applicatives sont multi-stage et exécutées sans privilèges root.
-PostgreSQL, Redis, MinIO et ClamAV utilisent des volumes persistants et un réseau
-interne. Vérification : `docker compose ps` puis
-`curl -fsS http://localhost:8080/api/health/ready`.
+La pile contient Nginx, Next.js, NestJS, worker BullMQ, PostgreSQL, Redis, MinIO
+et ClamAV. Les images applicatives sont multi-stage, non-root, sans capacités
+Linux et avec système de fichiers en lecture seule. Les réseaux `app` et `data`
+sont internes ; seul Nginx publie TCP/8080.
 
+```bash
+./scripts/generate-secrets.sh
+docker compose config --quiet
+docker compose up -d --build --wait
+docker compose exec api npx prisma migrate deploy
+docker compose ps
+curl -fsS http://localhost:8080/api/health/ready
+```
+
+Les volumes `postgres-data`, `redis-data`, `minio-data` et `clamav-data`
+survivent aux redémarrages. Ne jamais lancer `docker compose down -v` sur une
+installation à conserver.
+
+Les limites Compose constituent une base : les ajuster après mesure CPU/RAM.
+Les secrets doivent venir du gestionnaire approuvé ; `.env` et
+`credentials.txt` sont locaux, protégés en `600` et exclus de Git.

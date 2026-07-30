@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --omit=dev
+      - run: npx knip
+
+  docker-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/generate-secrets.sh
+      - run: docker compose -f docker-compose.yml -f deploy/compose/verify.yml up -d --build --wait
+      - run: curl --fail --show-error http://127.0.0.1:18080/api/health/ready
+      - if: always()
+        run: docker compose -f docker-compose.yml -f deploy/compose/verify.yml logs --no-color
+      - if: always()
+        run: docker compose -f docker-compose.yml -f deploy/compose/verify.yml down -v

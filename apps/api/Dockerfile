@@ -19,6 +19,8 @@ COPY --from=build --chown=isms:isms /app/node_modules ./node_modules
 COPY --from=build --chown=isms:isms /app/apps/api/node_modules ./node_modules
 COPY --from=build --chown=isms:isms /app/apps/api/dist ./dist
 COPY --from=build --chown=isms:isms /app/apps/api/prisma ./prisma
+COPY --chown=isms:isms scripts/container-entrypoint.sh /usr/local/bin/isms-entrypoint
 USER isms
 EXPOSE 3001
+ENTRYPOINT ["/usr/local/bin/isms-entrypoint"]
 CMD ["sh", "-c", "node prisma/prepare-migrations.js && npx prisma migrate deploy --schema prisma/schema.prisma && if [ \"${DEMO_MODE:-false}\" = \"true\" ]; then node prisma/seed.js; fi && node dist/main.js"]

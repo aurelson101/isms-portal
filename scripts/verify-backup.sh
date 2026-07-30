@@ -1,5 +1,15 @@
 #!/bin/sh
 set -eu
-test -s "${1:?usage: verify-backup.sh BACKUP_DIRECTORY}/postgres.sql"
-printf 'Backup structure verified\n'
 
+backup=${1:?usage: verify-backup.sh BACKUP_DIRECTORY}
+test -d "$backup"
+test -s "$backup/postgres.dump"
+test -d "$backup/minio"
+test -s "$backup/configuration/.env.example"
+test -s "$backup/configuration/docker-compose.yml"
+test -s "$backup/SHA256SUMS"
+(
+  cd "$backup"
+  sha256sum --check --strict SHA256SUMS
+)
+printf 'Intégrité de la sauvegarde vérifiée : %s\n' "$backup"

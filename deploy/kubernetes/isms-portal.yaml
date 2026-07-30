@@ -4,6 +4,10 @@ metadata: {name: isms-portal}
 data:
   NODE_ENV: production
   ISMS_ADMIN_GROUPS: ISMS-ADMINS,ISMS-SUPER-ADMINS
+  MINIO_ENDPOINT: "<STOCKAGE_OBJET_PARTAGE>"
+  MINIO_PORT: "9000"
+  MINIO_BUCKET: isms-documents
+  TRUSTED_PROXY_CIDRS: "<CIDR_INGRESS_APPROUVE>"
 ---
 apiVersion: v1
 kind: Secret
@@ -12,6 +16,9 @@ type: Opaque
 stringData:
   DATABASE_URL: "<SECRET_DANS_GESTIONNAIRE_DE_SECRETS>"
   ENCRYPTION_KEY: "<SECRET_DANS_GESTIONNAIRE_DE_SECRETS>"
+  REDIS_URL: "<SECRET_DANS_GESTIONNAIRE_DE_SECRETS>"
+  MINIO_ACCESS_KEY: "<SECRET_DANS_GESTIONNAIRE_DE_SECRETS>"
+  MINIO_SECRET_KEY: "<SECRET_DANS_GESTIONNAIRE_DE_SECRETS>"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -48,6 +55,101 @@ spec:
   minAvailable: 1
   selector: {matchLabels: {app: isms-api}}
 ---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: {name: isms-api}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: isms-api}
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: isms-frontend}
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: isms-frontend}}
+  template:
+    metadata: {labels: {app: isms-frontend}}
+    spec:
+      containers:
+        - name: frontend
+          image: registry.example/isms-frontend:1.0.0
+          ports: [{containerPort: 3000}]
+          env:
+            - {name: NODE_ENV, value: production}
+            - {name: HOSTNAME, value: 0.0.0.0}
+            - {name: NEXT_PUBLIC_API_URL, value: /api}
+          livenessProbe: {httpGet: {path: /, port: 3000}}
+          readinessProbe: {httpGet: {path: /, port: 3000}}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: "1", memory: 768Mi}
+          securityContext:
+            {allowPrivilegeEscalation: false, runAsNonRoot: true, readOnlyRootFilesystem: true}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: isms-frontend}
+spec:
+  selector: {app: isms-frontend}
+  ports: [{port: 80, targetPort: 3000}]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: isms-frontend}
+spec:
+  minAvailable: 1
+  selector: {matchLabels: {app: isms-frontend}}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: {name: isms-frontend}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: isms-frontend}
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: isms-worker}
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: isms-worker}}
+  template:
+    metadata: {labels: {app: isms-worker}}
+    spec:
+      containers:
+        - name: worker
+          image: registry.example/isms-api:1.0.0
+          command: ["node", "dist/worker.js"]
+          envFrom:
+            - {configMapRef: {name: isms-portal}}
+            - {secretRef: {name: isms-portal-secrets}}
+          livenessProbe: {exec: {command: ["sh", "-c", "kill -0 1"]}}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          securityContext:
+            {allowPrivilegeEscalation: false, runAsNonRoot: true, readOnlyRootFilesystem: true}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: isms-worker}
+spec:
+  minAvailable: 1
+  selector: {matchLabels: {app: isms-worker}}
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -62,3 +164,6 @@ spec:
           - path: /api
             pathType: Prefix
             backend: {service: {name: isms-api, port: {number: 80}}}
+          - path: /
+            pathType: Prefix
+            backend: {service: {name: isms-frontend, port: {number: 80}}}

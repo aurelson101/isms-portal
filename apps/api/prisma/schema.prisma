@@ -47,8 +47,13 @@ model DirectoryConnection {
   caCertificateId String?
   caCertificate TrustedCaCertificate? @relation(fields: [caCertificateId], references: [id])
   syncJobs DirectorySyncJob[]
+  lastTestAt DateTime?
+  lastTestStatus String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([enabled])
+  @@index([caCertificateId])
 }
 
 model TrustedCaCertificate {
@@ -63,6 +68,9 @@ model TrustedCaCertificate {
   pem String
   connections DirectoryConnection[]
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([validTo])
 }
 
 model DirectoryGroup {
@@ -86,6 +94,9 @@ model DirectorySyncJob {
   details Json?
   startedAt DateTime @default(now())
   finishedAt DateTime?
+
+  @@index([connectionId, startedAt])
+  @@index([status])
 }
 
 model DocumentSpace {
@@ -109,7 +120,12 @@ model DocumentCategory {
   spaceId String
   space DocumentSpace @relation(fields: [spaceId], references: [id])
   documents Document[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
   @@unique([spaceId, slug])
+  @@index([spaceId])
 }
 
 model Document {
@@ -120,12 +136,18 @@ model Document {
   category DocumentCategory? @relation(fields: [categoryId], references: [id])
   status DocumentStatus @default(DRAFT)
   sensitive Boolean @default(false)
+  viewCount Int @default(0)
+  downloadCount Int @default(0)
   publishedAt DateTime?
   translations DocumentTranslation[]
   versions DocumentVersion[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
+
+  @@index([spaceId, status])
+  @@index([categoryId])
+  @@index([publishedAt])
 }
 
 model DocumentTranslation {
@@ -135,7 +157,9 @@ model DocumentTranslation {
   locale String
   title String
   description String?
+
   @@unique([documentId, locale])
+  @@index([title])
 }
 
 model DocumentVersion {
@@ -147,7 +171,9 @@ model DocumentVersion {
   storedFileId String
   storedFile StoredFile @relation(fields: [storedFileId], references: [id])
   createdAt DateTime @default(now())
+
   @@unique([documentId, locale, version])
+  @@index([storedFileId])
 }
 
 model StoredFile {
@@ -180,7 +206,9 @@ model AccessRule {
   administer Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
   @@unique([groupId, spaceId])
+  @@index([spaceId])
 }
 
 model AuditEvent {
@@ -194,6 +222,8 @@ model AuditEvent {
   correlationId String
   details Json?
   @@index([occurredAt])
+  @@index([action, occurredAt])
+  @@index([identity, occurredAt])
 }
 
 model ApplicationSetting {
@@ -215,4 +245,6 @@ model AntivirusScan {
   status ScanStatus @default(PENDING)
   signature String?
   scannedAt DateTime?
+
+  @@index([storedFileId, status])
 }

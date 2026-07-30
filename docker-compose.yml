@@ -20,6 +20,10 @@ services:
       interval: 10s
       timeout: 3s
       retries: 12
+    deploy:
+      resources:
+        limits: {cpus: "0.50", memory: 256M}
+        reservations: {memory: 64M}
 
   frontend:
     build: {context: ., dockerfile: apps/web/Dockerfile}
@@ -34,8 +38,14 @@ services:
       timeout: 3s
       retries: 12
     networks: [app]
+    read_only: true
+    tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
+    deploy:
+      resources:
+        limits: {cpus: "1.00", memory: 768M}
+        reservations: {memory: 128M}
 
   api:
     build: {context: ., dockerfile: apps/api/Dockerfile}
@@ -54,8 +64,14 @@ services:
       timeout: 3s
       retries: 12
     networks: [app, data]
+    read_only: true
+    tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
+    deploy:
+      resources:
+        limits: {cpus: "1.50", memory: 1G}
+        reservations: {memory: 256M}
 
   worker:
     build: {context: ., dockerfile: apps/api/Dockerfile}
@@ -74,8 +90,14 @@ services:
       timeout: 3s
       retries: 5
     networks: [data]
+    read_only: true
+    tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
+    deploy:
+      resources:
+        limits: {cpus: "1.50", memory: 1G}
+        reservations: {memory: 256M}
 
   postgres:
     image: postgres:17.2-alpine
@@ -91,6 +113,13 @@ services:
       timeout: 3s
       retries: 20
     networks: [data]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_READ_SEARCH, FOWNER, SETGID, SETUID]
+    deploy:
+      resources:
+        limits: {cpus: "2.00", memory: 2G}
+        reservations: {memory: 512M}
 
   redis:
     image: redis:7.4.2-alpine
@@ -103,6 +132,13 @@ services:
       timeout: 3s
       retries: 20
     networks: [data]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, DAC_READ_SEARCH, FOWNER, SETGID, SETUID]
+    deploy:
+      resources:
+        limits: {cpus: "1.00", memory: 512M}
+        reservations: {memory: 64M}
 
   minio:
     image: minio/minio:RELEASE.2025-01-20T14-49-07Z
@@ -111,6 +147,7 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-isms-minio}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY must be set}
+      MINIO_BUCKET: ${MINIO_BUCKET:-isms-documents}
     volumes: [minio-data:/data]
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
@@ -118,6 +155,12 @@ services:
       timeout: 3s
       retries: 20
     networks: [data]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    deploy:
+      resources:
+        limits: {cpus: "1.50", memory: 1G}
+        reservations: {memory: 256M}
 
   clamav:
     image: clamav/clamav:1.4.3
@@ -130,6 +173,13 @@ services:
       retries: 30
       start_period: 90s
     networks: [data]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, DAC_READ_SEARCH, FOWNER, SETGID, SETUID]
+    deploy:
+      resources:
+        limits: {cpus: "2.00", memory: 2G}
+        reservations: {memory: 768M}
 
 networks:
   edge:

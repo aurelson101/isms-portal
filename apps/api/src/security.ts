@@ -2,8 +2,12 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable, SetMetad
 import { Reflector } from '@nestjs/core';
 import type { IsmsRequest } from './types';
 
-export const ADMIN_KEY = 'admin';
+const ADMIN_KEY = 'admin';
 export const AdminOnly = () => SetMetadata(ADMIN_KEY, true);
+const configuredAdminGroups = () => (process.env.ISMS_ADMIN_GROUPS || 'ISMS-ADMINS,ISMS-SUPER-ADMINS')
+  .split(',').map((group) => group.trim()).filter(Boolean);
+export const isAdminIdentity = (groups: string[]) =>
+  groups.some((group) => configuredAdminGroups().includes(group));
 
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -12,9 +16,7 @@ export class AdminGuard implements CanActivate {
     const required = this.reflector.getAllAndOverride<boolean>(ADMIN_KEY, [context.getHandler(), context.getClass()]);
     if (!required) return true;
     const request = context.switchToHttp().getRequest<IsmsRequest>();
-    const adminGroups = (process.env.ISMS_ADMIN_GROUPS || 'ISMS-ADMINS,ISMS-SUPER-ADMINS')
-      .split(',').map((group) => group.trim()).filter(Boolean);
-    if (!request.identity.groups.some((group) => adminGroups.includes(group))) throw new ForbiddenException();
+    if (!isAdminIdentity(request.identity.groups)) throw new ForbiddenException();
     return true;
   }
 }

@@ -4,7 +4,7 @@
   "scripts": {
     "build": "next build",
     "start": "next start",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit && eslint app next.config.ts --max-warnings=0"
   },
   "dependencies": {
     "next": "16.2.12",

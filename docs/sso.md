@@ -1,7 +1,22 @@
 # SSO
 
-Production recommandée : Keycloak ou Entra ID en OIDC, ou Nginx/Apache avec
-Kerberos SPNEGO. Le proxy supprime tout en-tête entrant `X-Auth-*`, authentifie
-l’utilisateur, puis transmet identité et groupes à l’API depuis une plage CIDR
-approuvée. Aucun mot de passe utilisateur local n’existe.
+L’API expose une abstraction `IdentityProvider` avec deux implémentations :
 
+- démonstration, uniquement hors production ;
+- identité transmise par un proxy SSO de confiance.
+
+En production, placer oauth2-proxy/Keycloak/Entra ID ou un frontal
+Kerberos/SPNEGO devant Nginx. Le frontal :
+
+1. supprime les en-têtes `X-Auth-*` venant du client ;
+2. authentifie automatiquement l’utilisateur ;
+3. récupère ses groupes AD ;
+4. transmet `X-Auth-User`, `X-Auth-Name` et `X-Auth-Groups` ;
+5. utilise une adresse comprise dans `TRUSTED_PROXY_CIDRS`.
+
+La configuration Nginx fournie neutralise volontairement ces en-têtes tant
+qu’aucune passerelle SSO n’est raccordée. Adapter ce bloc lors du déploiement,
+sans jamais accepter directement les en-têtes Internet.
+
+Aucun mot de passe utilisateur local n’existe. En cas d’identité absente,
+proxy non approuvé ou groupes périmés, l’API refuse l’accès.

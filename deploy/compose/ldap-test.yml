@@ -1,0 +1,33 @@
+services:
+  ldap-test:
+    image: osixia/openldap:1.5.0
+    hostname: ldap-test
+    environment:
+      LDAP_ORGANISATION: ISMS Test
+      LDAP_DOMAIN: demo.local
+      LDAP_ADMIN_PASSWORD: AdminTestOnly-NotForProduction-2026
+      LDAP_TLS: "true"
+      LDAP_TLS_CRT_FILENAME: ldap.crt
+      LDAP_TLS_KEY_FILENAME: ldap.key
+      LDAP_TLS_CA_CRT_FILENAME: ca.crt
+      LDAP_TLS_VERIFY_CLIENT: never
+      LDAP_REMOVE_CONFIG_AFTER_SETUP: "false"
+    volumes:
+      - ${LDAP_TEST_CERT_DIR:?LDAP_TEST_CERT_DIR is required}:/container/service/slapd/assets/certs
+      - ${LDAP_TEST_LDIF_DIR:?LDAP_TEST_LDIF_DIR is required}:/container/service/slapd/assets/config/bootstrap/ldif/custom
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://127.0.0.1:389 -D cn=admin,dc=demo,dc=local -w AdminTestOnly-NotForProduction-2026 -b dc=demo,dc=local '(objectClass=*)' >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  api:
+    environment:
+      ENCRYPTION_KEY: ${LDAP_TEST_ENCRYPTION_KEY:?LDAP_TEST_ENCRYPTION_KEY is required}
+    depends_on:
+      ldap-test: {condition: service_healthy}
+
+  worker:
+    environment:
+      ENCRYPTION_KEY: ${LDAP_TEST_ENCRYPTION_KEY:?LDAP_TEST_ENCRYPTION_KEY is required}

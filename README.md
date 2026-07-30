@@ -92,6 +92,11 @@ jamais stockés dans MinIO.
 docker compose exec api npx prisma migrate deploy
 docker compose exec api npm run seed
 docker compose run --rm api npm test
+docker run --rm -v "$PWD:/app" -w /app node:22.13.1-alpine npm run lint
+docker run --rm --network host -v "$PWD:/work" -w /work \
+  mcr.microsoft.com/playwright:v1.55.1-noble npx playwright test
+./scripts/test-ldaps-functional.sh
+./scripts/backup.sh backups/$(date +%Y%m%d-%H%M%S)
 docker compose logs -f
 ```
 

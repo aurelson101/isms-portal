@@ -9,7 +9,12 @@ describe('IdentityMiddleware', () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
-    process.env = { ...originalEnv, NODE_ENV: 'production', DEMO_MODE: 'false' };
+    process.env = {
+      ...originalEnv,
+      NODE_ENV: 'production',
+      DEMO_MODE: 'false',
+      TRUSTED_PROXY_CIDRS: '172.16.0.0/12',
+    };
   });
 
   afterAll(() => { process.env = originalEnv; });
@@ -32,7 +37,7 @@ describe('IdentityMiddleware', () => {
       'x-auth-user': ' alice ',
       'x-auth-name': ' Alice Example ',
       'x-auth-groups': ' Domain Users ; ITAD ;',
-    } } as unknown as IsmsRequest;
+    }, socket: { remoteAddress: '172.20.0.5' } } as unknown as IsmsRequest;
     const next = jest.fn();
     middleware.use(req, response() as never, next);
     expect(req.identity).toEqual({
@@ -40,5 +45,14 @@ describe('IdentityMiddleware', () => {
       displayName: 'Alice Example',
       groups: ['Domain Users', 'ITAD'],
     });
+  });
+
+  it('rejects identity headers coming from an untrusted address', () => {
+    const req = {
+      path: '/documents',
+      headers: { 'x-auth-user': 'mallory', 'x-auth-groups': 'ISMS-ADMINS' },
+      socket: { remoteAddress: '203.0.113.10' },
+    } as unknown as IsmsRequest;
+    expect(() => middleware.use(req, response() as never, jest.fn())).toThrow(UnauthorizedException);
   });
 });

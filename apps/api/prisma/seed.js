@@ -1,6 +1,16 @@
 const { PrismaClient } = require('@prisma/client');
+const { Client } = require('minio');
+const { createHash } = require('crypto');
 
 const prisma = new PrismaClient();
+const bucket = process.env.MINIO_BUCKET || 'isms-documents';
+const minio = new Client({
+  endPoint: process.env.MINIO_ENDPOINT || 'minio',
+  port: Number(process.env.MINIO_PORT || 9000),
+  useSSL: process.env.MINIO_USE_SSL === 'true',
+  accessKey: process.env.MINIO_ACCESS_KEY || 'isms-minio',
+  secretKey: process.env.MINIO_SECRET_KEY || '',
+});
 
 const groups = [
   ['Domain Users', 'CN=Domain Users,DC=demo,DC=local'],
@@ -18,6 +28,71 @@ const spaces = [
   ['finance', 'Finance', 'Finance', 'FINANCEAD'],
   ['management', 'Direction', 'Management', 'MANAGEMENTAD'],
 ];
+
+function pdf(title, language) {
+  const safe = `${title} - ${language}`.replace(/[^\x20-\x7e]/g, '?').replace(/[()\\]/g, '\\$&');
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    `<< /Length ${safe.length + 42} >>\nstream\nBT /F1 18 Tf 72 700 Td (${safe}) Tj ET\nendstream`,
+  ];
+  let output = '%PDF-1.4\n';
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(output));
+    output += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xref = Buffer.byteLength(output);
+  output += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  output += offsets.slice(1).map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
+  output += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(output);
+}
+
+async function ensureDemoVersion(documentId, locale, title) {
+  if (!(await minio.bucketExists(bucket))) await minio.makeBucket(bucket);
+  const objectKey = `demo/${documentId}/${locale}/v1.pdf`;
+  const content = pdf(title, locale.toUpperCase());
+  const sha256 = createHash('sha256').update(content).digest('hex');
+  await minio.putObject(bucket, objectKey, content, content.length, {
+    'Content-Type': 'application/pdf',
+    'X-Amz-Meta-Sha256': sha256,
+  });
+  const storedFile = await prisma.storedFile.upsert({
+    where: { objectKey },
+    update: {
+      originalName: `${documentId}-${locale}.pdf`,
+      mimeType: 'application/pdf',
+      size: BigInt(content.length),
+      sha256,
+    },
+    create: {
+      objectKey,
+      originalName: `${documentId}-${locale}.pdf`,
+      mimeType: 'application/pdf',
+      size: BigInt(content.length),
+      sha256,
+    },
+  });
+  await prisma.documentVersion.upsert({
+    where: { documentId_locale_version: { documentId, locale, version: 1 } },
+    update: { storedFileId: storedFile.id },
+    create: { documentId, locale, version: 1, storedFileId: storedFile.id },
+  });
+  const scan = await prisma.antivirusScan.findFirst({ where: { storedFileId: storedFile.id } });
+  if (scan) {
+    await prisma.antivirusScan.update({
+      where: { id: scan.id },
+      data: { status: 'CLEAN', signature: null, scannedAt: new Date() },
+    });
+  } else {
+    await prisma.antivirusScan.create({
+      data: { storedFileId: storedFile.id, status: 'CLEAN', scannedAt: new Date() },
+    });
+  }
+}
 
 async function main() {
   const groupIds = {};
@@ -88,11 +163,13 @@ async function main() {
       where: { documentId_locale: { documentId: id, locale: 'fr' } },
       update: { title: titleFr }, create: { documentId: id, locale: 'fr', title: titleFr },
     });
+    await ensureDemoVersion(id, 'fr', titleFr);
     if (bilingual) {
       await prisma.documentTranslation.upsert({
         where: { documentId_locale: { documentId: id, locale: 'en' } },
         update: { title: titleEn }, create: { documentId: id, locale: 'en', title: titleEn },
       });
+      await ensureDemoVersion(id, 'en', titleEn);
     }
   }
 }
@@ -104,4 +181,3 @@ main()
     await prisma.$disconnect();
     process.exit(1);
   });
-

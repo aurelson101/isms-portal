@@ -1,0 +1,26 @@
+dn: ou=Users,dc=demo,dc=local
+objectClass: organizationalUnit
+ou: Users
+
+dn: ou=Groups,dc=demo,dc=local
+objectClass: organizationalUnit
+ou: Groups
+
+dn: uid=alice,ou=Users,dc=demo,dc=local
+objectClass: inetOrgPerson
+uid: alice
+sn: Example
+cn: Alice Example
+mail: alice@demo.local
+
+dn: cn=ITAD,ou=Groups,dc=demo,dc=local
+objectClass: groupOfNames
+cn: ITAD
+description: ISMS functional test group
+member: uid=alice,ou=Users,dc=demo,dc=local
+
+dn: cn=ISMS-ADMINS,ou=Groups,dc=demo,dc=local
+objectClass: groupOfNames
+cn: ISMS-ADMINS
+description: ISMS functional administrators
+member: uid=alice,ou=Users,dc=demo,dc=local
