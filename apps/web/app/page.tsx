@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Icon, type IconName } from './icons';
 
 type Locale = 'fr' | 'en';
 type Space = { id: string; slug: string; nameFr: string; nameEn: string };
@@ -100,8 +101,8 @@ function DocumentRows({
         </span>
         <button onClick={() => onOpen(document)}>{t.open}</button>
         {selected
-          ? <a className="download" href={`/api/documents/${document.id}/download?locale=${selected}`} aria-label={t.download}>⇩</a>
-          : <button className="download" disabled>⇩</button>}
+          ? <a className="download" href={`/api/documents/${document.id}/download?locale=${selected}`} aria-label={t.download}><Icon name="download"/></a>
+          : <button className="download" disabled><Icon name="download"/></button>}
         {!available.includes(locale) && <small>{t.unavailable}</small>}
       </div>;
     })}
@@ -225,15 +226,15 @@ export default function Home() {
 
   return <div className="shell">
     <aside>
-      <div className="brand"><div className="shield" aria-hidden="true">♙</div><div><strong>ISMS Portal</strong><small>Information Security<br/>Management System</small></div></div>
+      <div className="brand"><div className="shield"><Icon name="shield"/></div><div><strong>ISMS Portal</strong><small>Information Security<br/>Management System</small></div></div>
       <nav aria-label="Navigation principale">
-        <button type="button" className={!category && !space ? 'active' : ''} onClick={selectHome}>⌂ <span>{t.home}</span></button>
-        <button className={category === 'policies' ? 'active' : ''} onClick={() => selectCategory('policies')}>♢ <span>{t.policies}</span></button>
-        <button className={category === 'procedures' ? 'active' : ''} onClick={() => selectCategory('procedures')}>▤ <span>{t.procedures}</span></button>
-        <button className={category === 'guides' ? 'active' : ''} onClick={() => selectCategory('guides')}>▭ <span>{t.guides}</span></button>
+        <button type="button" className={!category && !space ? 'active' : ''} onClick={selectHome}><Icon name="home"/> <span>{t.home}</span></button>
+        <button className={category === 'policies' ? 'active' : ''} onClick={() => selectCategory('policies')}><Icon name="policy"/> <span>{t.policies}</span></button>
+        <button className={category === 'procedures' ? 'active' : ''} onClick={() => selectCategory('procedures')}><Icon name="procedure"/> <span>{t.procedures}</span></button>
+        <button className={category === 'guides' ? 'active' : ''} onClick={() => selectCategory('guides')}><Icon name="guide"/> <span>{t.guides}</span></button>
         {identity?.spaces.filter((item) => item.slug !== 'general').map((item) =>
           <button type="button" className={space === item.slug ? 'active' : ''} onClick={() => selectSpace(item.slug)} key={item.id}>
-            □ <span>{locale === 'fr' ? item.nameFr : item.nameEn}</span>
+            <Icon name="folder"/> <span>{locale === 'fr' ? item.nameFr : item.nameEn}</span>
           </button>)}
       </nav>
       <div className="secure">✓ <span>{t.secured}</span></div>
@@ -254,7 +255,7 @@ export default function Home() {
       <h1>{t.welcome} {identity?.displayName || '…'}</h1>
       <p className="lead">{t.subtitle}</p>
       <form className="search" onSubmit={(event) => { event.preventDefault(); void loadDocuments(); }}>
-        <span aria-hidden="true">⌕</span>
+        <span><Icon name="search"/></span>
         <input value={query} onChange={(event) => {
           const value = event.target.value;
           setQuery(value);
@@ -263,20 +264,20 @@ export default function Home() {
             setSpace('');
           }
         }} placeholder={t.search} aria-label={t.search}/>
-        <button aria-label={t.search} type="submit">⌕</button>
+        <button aria-label={t.search} type="submit"><Icon name="search"/></button>
       </form>
       <section className="cards" aria-label={t.spaces}>
         {([
-          ['♢', 'policies', t.policies],
-          ['☷', 'procedures', t.procedures],
-          ['▭', 'guides', t.guides],
+          ['policy', 'policies', t.policies],
+          ['procedure', 'procedures', t.procedures],
+          ['guide', 'guides', t.guides],
         ] as const).map(([icon, key, label]) =>
-          <article key={key}><div className="card-icon">{icon}</div><h2>{label}</h2>
+          <article key={key}><div className="card-icon"><Icon name={icon as IconName}/></div><h2>{label}</h2>
             <p>{locale === 'fr' ? 'Documents autorisés dans cette catégorie' : 'Authorized documents in this category'}</p>
             <button onClick={() => selectCategory(key)}>{t.consult}</button>
           </article>)}
         {identity?.spaces.filter((item) => item.slug !== 'general').map((item) =>
-          <article className="access" key={item.id}><div className="card-icon">▣</div><div>
+          <article className="access" key={item.id}><div className="card-icon"><Icon name="folder"/></div><div>
             <h2>{locale === 'fr' ? item.nameFr : item.nameEn}</h2>
             <p>{locale === 'fr' ? 'Accessible selon vos autorisations' : 'Available through your permissions'}</p>
             <button type="button" onClick={() => selectSpace(item.slug)}>{t.consult}</button>

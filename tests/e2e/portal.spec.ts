@@ -100,3 +100,19 @@ test('categories can be created, edited and deleted', async ({ request }) => {
   expect(deletedResponse.ok()).toBeTruthy();
   expect((await deletedResponse.json()).deleted).toBe(true);
 });
+
+test('portal and administration remain usable on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await expect(page.locator('aside nav')).toBeVisible();
+  await expect(page.locator('aside nav svg')).toHaveCount(8);
+  await page.locator('aside').getByText('Guides', { exact: true }).click();
+  await expect(page).toHaveURL(/category=guides/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+
+  await page.goto('/admin');
+  await expect(page.locator('.admin-shell > aside')).toBeVisible();
+  await page.locator('aside').getByText('Documents', { exact: true }).click();
+  await expect(page).toHaveURL(/#documents/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});

@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { Icon, type IconName } from '../icons';
 
 type Tab = 'dashboard' | 'groups' | 'rules' | 'spaces' | 'documents' | 'directory' | 'certificates' | 'audit' | 'health' | 'settings';
 type Group = { id: string; name: string; distinguishedName: string; description?: string; memberCount: number; active: boolean; lastSyncedAt?: string; accessRules: Array<{ space: Space }> };
@@ -28,17 +29,17 @@ type AdminDocument = {
 type Dashboard = { groups: number; rules: number; spaces: number; documents: number; syncErrors: number };
 type Audit = { id: string; occurredAt: string; identity: string; action: string; resource: string; result: string; correlationId: string };
 
-const tabs: Array<[Tab, string, string]> = [
-  ['dashboard', '⌂', 'Tableau de bord'],
-  ['groups', '♧', 'Groupes Active Directory'],
-  ['rules', '♢', 'Règles d’accès'],
-  ['spaces', '□', 'Espaces documentaires'],
-  ['documents', '▤', 'Documents'],
-  ['directory', '⟳', 'Synchronisation LDAP'],
-  ['certificates', '♙', 'Certificats CA'],
-  ['audit', '☷', 'Journal d’audit'],
-  ['health', '♡', 'Santé des services'],
-  ['settings', '⚙', 'Configuration'],
+const tabs: Array<[Tab, IconName, string]> = [
+  ['dashboard', 'home', 'Tableau de bord'],
+  ['groups', 'groups', 'Groupes Active Directory'],
+  ['rules', 'rules', 'Règles d’accès'],
+  ['spaces', 'folder', 'Espaces documentaires'],
+  ['documents', 'documents', 'Documents'],
+  ['directory', 'sync', 'Synchronisation LDAP'],
+  ['certificates', 'certificate', 'Certificats CA'],
+  ['audit', 'audit', 'Journal d’audit'],
+  ['health', 'health', 'Santé des services'],
+  ['settings', 'settings', 'Configuration'],
 ];
 const permissionKeys = ['showMenu', 'read', 'search', 'preview', 'download', 'upload', 'edit', 'publish', 'archive', 'administer'] as const;
 const permissionLabels: Record<(typeof permissionKeys)[number], string> = {
@@ -150,9 +151,9 @@ export default function Admin() {
 
   return <div className="admin-shell">
     <aside>
-      <div className="brand"><div className="shield">♙</div><div><strong>ISMS Portal</strong><small>Administration sécurisée</small></div></div>
+      <div className="brand"><div className="shield"><Icon name="shield"/></div><div><strong>ISMS Portal</strong><small>Administration sécurisée</small></div></div>
       <nav aria-label="Administration">{tabs.map(([key, icon, label]) =>
-        <button type="button" aria-current={tab === key ? 'page' : undefined} className={tab === key ? 'active' : ''} key={key} onClick={() => selectTab(key)}>{icon} <span>{label}</span></button>)}</nav>
+        <button type="button" aria-current={tab === key ? 'page' : undefined} className={tab === key ? 'active' : ''} key={key} onClick={() => selectTab(key)}><Icon name={icon}/> <span>{label}</span></button>)}</nav>
       <a className="back-link" href="/">← Retour au portail</a>
     </aside>
     <main>
