@@ -66,3 +66,37 @@ test('administration uses live APIs and every menu opens a section', async ({ pa
     await expect(page.getByRole('heading', { name: heading, exact: true }).first()).toBeVisible();
   }
 });
+
+test('categories can be created, edited and deleted', async ({ request }) => {
+  const spacesResponse = await request.get('/api/admin/spaces');
+  expect(spacesResponse.ok()).toBeTruthy();
+  const spaces = await spacesResponse.json() as Array<{ id: string }>;
+  expect(spaces.length).toBeGreaterThan(0);
+
+  const suffix = Date.now().toString(36);
+  const createdResponse = await request.post('/api/admin/categories', {
+    data: {
+      spaceId: spaces[0].id,
+      slug: `test-${suffix}`,
+      nameFr: `Catégorie test ${suffix}`,
+      nameEn: `Test category ${suffix}`,
+    },
+  });
+  expect(createdResponse.status()).toBe(201);
+  const created = await createdResponse.json() as { id: string };
+
+  const updatedResponse = await request.put(`/api/admin/categories/${created.id}`, {
+    data: {
+      spaceId: spaces[0].id,
+      slug: `test-modifie-${suffix}`,
+      nameFr: `Catégorie modifiée ${suffix}`,
+      nameEn: `Updated category ${suffix}`,
+    },
+  });
+  expect(updatedResponse.ok()).toBeTruthy();
+  expect((await updatedResponse.json()).nameFr).toBe(`Catégorie modifiée ${suffix}`);
+
+  const deletedResponse = await request.delete(`/api/admin/categories/${created.id}`);
+  expect(deletedResponse.ok()).toBeTruthy();
+  expect((await deletedResponse.json()).deleted).toBe(true);
+});

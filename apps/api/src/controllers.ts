@@ -415,13 +415,38 @@ export class AdminController {
     return category;
   }
 
+  @Put('categories/:id')
+  async updateCategory(
+    @Req() req: IsmsRequest,
+    @Param('id') id: string,
+    @Body() body: CategoryDto,
+  ) {
+    const existing = await this.prisma.documentCategory.findFirst({ where: { id, deletedAt: null } });
+    if (!existing) throw new NotFoundException();
+    const slug = body.slug.trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9-]{1,79}$/.test(slug)) throw new BadRequestException('Invalid slug');
+    const category = await this.prisma.documentCategory.update({
+      where: { id },
+      data: { ...body, slug },
+    });
+    await this.audit.record(req, 'category.update', `category:${id}`, 'success', {
+      before: { spaceId: existing.spaceId, slug: existing.slug, nameFr: existing.nameFr, nameEn: existing.nameEn },
+      after: { spaceId: body.spaceId, slug, nameFr: body.nameFr, nameEn: body.nameEn },
+    });
+    return category;
+  }
+
   @Delete('categories/:id')
   async deleteCategory(@Req() req: IsmsRequest, @Param('id') id: string) {
     const existing = await this.prisma.documentCategory.findFirst({ where: { id, deletedAt: null } });
     if (!existing) throw new NotFoundException();
-    await this.prisma.documentCategory.update({ where: { id }, data: { deletedAt: new Date() } });
-    await this.audit.record(req, 'category.archive', `category:${id}`, 'success');
-    return { deleted: true };
+    const affectedDocuments = await this.prisma.document.count({ where: { categoryId: id } });
+    await this.prisma.$transaction([
+      this.prisma.document.updateMany({ where: { categoryId: id }, data: { categoryId: null } }),
+      this.prisma.documentCategory.update({ where: { id }, data: { deletedAt: new Date() } }),
+    ]);
+    await this.audit.record(req, 'category.archive', `category:${id}`, 'success', { affectedDocuments });
+    return { deleted: true, affectedDocuments };
   }
 
   @Get('audit')
