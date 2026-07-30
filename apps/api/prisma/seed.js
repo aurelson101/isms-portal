@@ -1,16 +1,17 @@
 const { PrismaClient } = require('@prisma/client');
-const { Client } = require('minio');
 const { createHash } = require('crypto');
+const { mkdir, writeFile } = require('fs/promises');
+const { dirname, resolve, sep } = require('path');
 
 const prisma = new PrismaClient();
-const bucket = process.env.MINIO_BUCKET || 'isms-documents';
-const minio = new Client({
-  endPoint: process.env.MINIO_ENDPOINT || 'minio',
-  port: Number(process.env.MINIO_PORT || 9000),
-  useSSL: process.env.MINIO_USE_SSL === 'true',
-  accessKey: process.env.MINIO_ACCESS_KEY || 'isms-minio',
-  secretKey: process.env.MINIO_SECRET_KEY || '',
-});
+const storageRoot = resolve(process.env.DOCUMENT_STORAGE_PATH || '/data/documents');
+
+async function store(objectKey, content) {
+  const target = resolve(storageRoot, objectKey);
+  if (!target.startsWith(`${storageRoot}${sep}`)) throw new Error('Invalid demo document key');
+  await mkdir(dirname(target), { recursive: true, mode: 0o750 });
+  await writeFile(target, content, { mode: 0o640 });
+}
 
 const groups = [
   ['Domain Users', 'CN=Domain Users,DC=demo,DC=local'],
@@ -52,14 +53,10 @@ function pdf(title, language) {
 }
 
 async function ensureDemoVersion(documentId, locale, title) {
-  if (!(await minio.bucketExists(bucket))) await minio.makeBucket(bucket);
   const objectKey = `demo/${documentId}/${locale}/v1.pdf`;
   const content = pdf(title, locale.toUpperCase());
   const sha256 = createHash('sha256').update(content).digest('hex');
-  await minio.putObject(bucket, objectKey, content, content.length, {
-    'Content-Type': 'application/pdf',
-    'X-Amz-Meta-Sha256': sha256,
-  });
+  await store(objectKey, content);
   const storedFile = await prisma.storedFile.upsert({
     where: { objectKey },
     update: {

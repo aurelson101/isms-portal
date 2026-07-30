@@ -9,8 +9,6 @@ chacun en permissions `600` et sans retour à la ligne final :
 - `database_url`
 - `postgres_password`
 - `redis_url`
-- `minio_access_key`
-- `minio_secret_key`
 - `encryption_key`
 
 Utilisation :

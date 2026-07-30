@@ -15,7 +15,7 @@ if [ "$mode" = "--production" ]; then
     printf 'Une restauration de production exige un terminal interactif.\n' >&2
     exit 1
   fi
-  printf 'Cette opération remplace les données PostgreSQL et MinIO. Saisir RESTORE : '
+  printf 'Cette opération remplace les données PostgreSQL et les documents. Saisir RESTORE : '
   read -r confirmation
   [ "$confirmation" = RESTORE ] || { printf 'Restauration annulée.\n'; exit 1; }
 elif [ "$mode" != "test" ]; then
@@ -28,12 +28,11 @@ docker compose exec -T postgres \
   -U "${POSTGRES_USER:-isms}" -d "${POSTGRES_DB:-isms}" < "$backup/postgres.dump"
 
 docker compose run --rm --no-deps \
-  --user "$(id -u):$(id -g)" \
-  -e MINIO_BUCKET="${MINIO_BUCKET:-isms-documents}" \
-  -v "$backup/minio:/restore:ro" \
-  --entrypoint /bin/sh minio -ec '
-    mc alias set destination http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
-    mc mirror --overwrite /restore "destination/$MINIO_BUCKET"
+  -v "$backup:/restore:ro" storage-init sh -ec '
+    find /data/documents -mindepth 1 -delete
+    tar -xf /restore/documents.tar -C /data/documents
+    chown -R 100:101 /data/documents
+    chmod 750 /data/documents
   '
 
 printf 'Restauration terminée depuis %s. Redémarrez API et worker puis vérifiez la santé.\n' "$backup"

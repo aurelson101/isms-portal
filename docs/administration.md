@@ -20,3 +20,8 @@ Les dix sections sont actives :
 
 Chaque mutation durable est auditée avec identité, IP, résultat et identifiant de
 corrélation, sans mot de passe, fichier ou certificat privé.
+
+Les seuls formats documentaires acceptés sont PDF, DOCX et XLSX. Les
+utilisateurs consultent les PDF dans le navigateur et les documents Word/Excel
+dans un aperçu local en lecture seule. Le téléchargement n’est affiché que si
+la règle d’accès accorde explicitement la permission `download`.

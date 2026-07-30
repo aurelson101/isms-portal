@@ -4,7 +4,7 @@ Une sauvegarde contient :
 
 - PostgreSQL au format personnalisé `pg_dump` : métadonnées, règles, audit,
   configuration et CA publiques ;
-- tous les objets du bucket MinIO ;
+- une archive `documents.tar` du volume documentaire ;
 - `.env.example` et `docker-compose.yml` sans secret ;
 - un manifeste SHA-256.
 

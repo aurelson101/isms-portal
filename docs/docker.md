@@ -1,7 +1,7 @@
 # Docker
 
-La pile contient Nginx, Next.js, NestJS, worker BullMQ, PostgreSQL, Redis, MinIO
-et ClamAV. Les images applicatives sont multi-stage, non-root, sans capacités
+La pile contient Nginx, Next.js, NestJS, worker BullMQ, PostgreSQL, Redis, un
+volume documentaire persistant et ClamAV. Les images applicatives sont multi-stage, non-root, sans capacités
 Linux et avec système de fichiers en lecture seule. Les réseaux `app` et `data`
 sont internes ; seul Nginx publie TCP/8080.
 
@@ -14,7 +14,7 @@ docker compose ps
 curl -fsS http://localhost:8080/api/health/ready
 ```
 
-Les volumes `postgres-data`, `redis-data`, `minio-data` et `clamav-data`
+Les volumes `postgres-data`, `redis-data`, `document-storage` et `clamav-data`
 survivent aux redémarrages. Ne jamais lancer `docker compose down -v` sur une
 installation à conserver.
 

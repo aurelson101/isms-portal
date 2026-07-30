@@ -30,7 +30,7 @@ fortes, puis crée `.env` et `credentials.txt` avec les permissions `600` :
 
 Le script refuse d’écraser un fichier existant. `--force` effectue une rotation
 volontaire ; ne pas l’utiliser sur une installation existante sans procédure de
-rotation PostgreSQL et MinIO. Pour recréer uniquement `credentials.txt` depuis
+rotation PostgreSQL. Pour recréer uniquement `credentials.txt` depuis
 le `.env` actuel :
 
 ```bash
@@ -41,7 +41,7 @@ le `.env` actuel :
 vers un gestionnaire de secrets après installation.
 
 Pour une génération manuelle, générer chaque valeur séparément avec OpenSSL. Ne
-jamais réutiliser une valeur entre PostgreSQL, MinIO et l’application, ni la
+jamais réutiliser une valeur entre PostgreSQL et l’application, ni la
 valider dans Git.
 
 ```bash
@@ -49,14 +49,8 @@ valider dans Git.
 # Le format hexadécimal évite tout encodage supplémentaire dans l’URL.
 openssl rand -hex 32
 
-# Mot de passe MinIO : à reporter dans MINIO_SECRET_KEY.
-openssl rand -hex 32
-
 # Clé applicative de 32 octets encodée en base64 : ENCRYPTION_KEY.
 openssl rand -base64 32
-
-# Identifiant MinIO facultatif si la valeur par défaut doit être remplacée.
-openssl rand -hex 16
 ```
 
 Créer ensuite le fichier local protégé :
@@ -72,9 +66,8 @@ Reporter les valeurs générées dans `.env`. Le même mot de passe PostgreSQL d
 ```dotenv
 POSTGRES_PASSWORD=<MOT_DE_PASSE_POSTGRES_GENERE>
 DATABASE_URL=postgresql://isms:<MOT_DE_PASSE_POSTGRES_GENERE>@postgres:5432/isms
-MINIO_ACCESS_KEY=<IDENTIFIANT_MINIO_GENERE>
-MINIO_SECRET_KEY=<MOT_DE_PASSE_MINIO_GENERE>
 ENCRYPTION_KEY=<CLE_BASE64_32_OCTETS_GENEREE>
+DOCUMENT_STORAGE_PATH=/data/documents
 ```
 
 Comme les mots de passe proposés sont hexadécimaux, ils peuvent être insérés
@@ -83,8 +76,21 @@ les caractères réservés du mot de passe.
 
 En production, préférer des secrets Docker ou un gestionnaire de secrets au
 fichier `.env`. L’application n’a besoin d’aucune clé privée de CA : seuls les
-certificats CA publics sont importés depuis l’administration et ils ne sont
-jamais stockés dans MinIO.
+certificats CA publics sont importés depuis l’administration et restent dans
+PostgreSQL, séparément du volume documentaire.
+
+## Documents et lecture seule
+
+L’administration accepte uniquement les formats PDF, Word DOCX et Excel XLSX,
+avec une limite de 50 Mio et une analyse ClamAV avant publication. Les PDF sont
+affichés dans le lecteur intégré. Les DOCX sont convertis en texte et les XLSX
+en tableau directement dans le navigateur, sans service tiers et sans fonction
+d’édition.
+
+Les permissions `read`, `preview` et `download` sont distinctes. L’API renvoie
+les capacités autorisées et l’interface masque le téléchargement lorsqu’il
+n’est pas accordé. Les fichiers sont conservés dans le volume Docker
+`document-storage`, monté dans `/data/documents`.
 
 ## Commandes
 
@@ -100,8 +106,8 @@ docker run --rm --network host -v "$PWD:/work" -w /work \
 docker compose logs -f
 ```
 
-Voir [l’architecture](docs/architecture.md), [l’installation](docs/installation.md)
-et [la sécurité](docs/security.md).
+Voir [l’architecture](docs/architecture.md), [l’installation](docs/installation.md),
+[les routes](docs/routes.md) et [la sécurité](docs/security.md).
 
 ## Configuration Active Directory
 

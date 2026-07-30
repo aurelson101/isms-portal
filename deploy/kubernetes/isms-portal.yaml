@@ -4,9 +4,7 @@ metadata: {name: isms-portal}
 data:
   NODE_ENV: production
   ISMS_ADMIN_GROUPS: ISMS-ADMINS,ISMS-SUPER-ADMINS
-  MINIO_ENDPOINT: "<STOCKAGE_OBJET_PARTAGE>"
-  MINIO_PORT: "9000"
-  MINIO_BUCKET: isms-documents
+  DOCUMENT_STORAGE_PATH: /data/documents
   TRUSTED_PROXY_CIDRS: "<CIDR_INGRESS_APPROUVE>"
 ---
 apiVersion: v1
@@ -17,8 +15,14 @@ stringData:
   DATABASE_URL: "<SECRET_DANS_GESTIONNAIRE_DE_SECRETS>"
   ENCRYPTION_KEY: "<SECRET_DANS_GESTIONNAIRE_DE_SECRETS>"
   REDIS_URL: "<SECRET_DANS_GESTIONNAIRE_DE_SECRETS>"
-  MINIO_ACCESS_KEY: "<SECRET_DANS_GESTIONNAIRE_DE_SECRETS>"
-  MINIO_SECRET_KEY: "<SECRET_DANS_GESTIONNAIRE_DE_SECRETS>"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: isms-documents}
+spec:
+  accessModes: [ReadWriteMany]
+  resources:
+    requests: {storage: 20Gi}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -34,12 +38,14 @@ spec:
           image: registry.example/isms-api:1.0.0
           ports: [{containerPort: 3001}]
           envFrom: [{configMapRef: {name: isms-portal}}, {secretRef: {name: isms-portal-secrets}}]
+          volumeMounts: [{name: documents, mountPath: /data/documents}]
           livenessProbe: {httpGet: {path: /health/live, port: 3001}}
           readinessProbe: {httpGet: {path: /health/ready, port: 3001}}
           resources:
             requests: {cpu: 100m, memory: 256Mi}
             limits: {cpu: "1", memory: 1Gi}
           securityContext: {allowPrivilegeEscalation: false, runAsNonRoot: true}
+      volumes: [{name: documents, persistentVolumeClaim: {claimName: isms-documents}}]
 ---
 apiVersion: v1
 kind: Service
@@ -136,12 +142,14 @@ spec:
           envFrom:
             - {configMapRef: {name: isms-portal}}
             - {secretRef: {name: isms-portal-secrets}}
+          volumeMounts: [{name: documents, mountPath: /data/documents}]
           livenessProbe: {exec: {command: ["sh", "-c", "kill -0 1"]}}
           resources:
             requests: {cpu: 100m, memory: 256Mi}
             limits: {cpu: "1", memory: 1Gi}
           securityContext:
             {allowPrivilegeEscalation: false, runAsNonRoot: true, readOnlyRootFilesystem: true}
+      volumes: [{name: documents, persistentVolumeClaim: {claimName: isms-documents}}]
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget

@@ -7,6 +7,8 @@
     "lint": "tsc --noEmit && eslint app next.config.ts --max-warnings=0"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
+    "mammoth": "^1.12.0",
     "next": "16.2.12",
     "react": "19.2.8",
     "react-dom": "19.2.8"

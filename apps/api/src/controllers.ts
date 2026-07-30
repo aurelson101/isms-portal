@@ -50,7 +50,10 @@ const certificateSelection = {
 
 @Controller()
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   @Get('health/live')
   live() { return { status: 'ok' }; }
@@ -60,7 +63,7 @@ export class HealthController {
     const checks = {
       postgres: await tcpCheck('postgres', 5432),
       redis: await tcpCheck('redis', 6379),
-      minio: await tcpCheck('minio', Number(process.env.MINIO_PORT || 9000)),
+      documentStorage: await this.storage.healthCheck(),
       clamav: await tcpCheck('clamav', 3310),
     };
     if (Object.values(checks).some((healthy) => !healthy)) {
@@ -80,7 +83,7 @@ export class HealthController {
       services: {
         postgres: await tcpCheck('postgres', 5432),
         redis: await tcpCheck('redis', 6379),
-        minio: await tcpCheck('minio', Number(process.env.MINIO_PORT || 9000)),
+        documentStorage: await this.storage.healthCheck(),
         clamav: await tcpCheck('clamav', 3310),
       },
       lastDirectorySync: lastSync,
@@ -151,6 +154,12 @@ export class DocumentsController {
   ) {
     const q = query.trim().slice(0, 200);
     const spaces = await this.authorization.permittedSpaces(req.identity.groups, q ? 'search' : 'read');
+    const previewSpaceIds = new Set(
+      (await this.authorization.permittedSpaces(req.identity.groups, 'preview')).map((item) => item.id),
+    );
+    const downloadSpaceIds = new Set(
+      (await this.authorization.permittedSpaces(req.identity.groups, 'download')).map((item) => item.id),
+    );
     const spaceIds = spaces.filter((item) => !space || item.slug === space).map((item) => item.id);
     if (spaceIds.length === 0) return [];
     const fullTextMatches = q
@@ -188,6 +197,10 @@ export class DocumentsController {
     });
     return documents.map((document) => ({
       ...document,
+      permissions: {
+        preview: previewSpaceIds.has(document.space.id),
+        download: downloadSpaceIds.has(document.space.id),
+      },
       versions: document.versions.map((version) => ({
         ...version,
         storedFile: { ...version.storedFile, size: version.storedFile.size.toString() },
@@ -217,8 +230,13 @@ export class DocumentsController {
       throw new NotFoundException();
     }
     await this.prisma.document.update({ where: { id }, data: { viewCount: { increment: 1 } } });
+    const [preview, download] = await Promise.all([
+      this.authorization.can(req.identity.groups, document.spaceId, 'preview'),
+      this.authorization.can(req.identity.groups, document.spaceId, 'download'),
+    ]);
     return {
       ...document,
+      permissions: { preview, download },
       versions: document.versions.map((version) => ({
         ...version,
         storedFile: { ...version.storedFile, size: version.storedFile.size.toString() },
@@ -557,21 +575,11 @@ const allowedExtensions: Record<string, string[]> = {
   '.pdf': ['application/pdf'],
   '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
   '.xlsx': ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip'],
-  '.pptx': ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip'],
-  '.txt': ['text/plain'],
-  '.png': ['image/png'],
-  '.jpg': ['image/jpeg'],
-  '.jpeg': ['image/jpeg'],
-  '.gif': ['image/gif'],
 };
 
 const magicMatches = (content: Buffer, extension: string) => {
   if (extension === '.pdf') return content.subarray(0, 5).toString() === '%PDF-';
-  if (extension === '.png') return content.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-  if (extension === '.jpg' || extension === '.jpeg') return content[0] === 0xff && content[1] === 0xd8;
-  if (extension === '.gif') return ['GIF87a', 'GIF89a'].includes(content.subarray(0, 6).toString());
-  if (['.docx', '.xlsx', '.pptx'].includes(extension)) return content[0] === 0x50 && content[1] === 0x4b;
-  if (extension === '.txt') return !content.subarray(0, 4096).includes(0);
+  if (['.docx', '.xlsx'].includes(extension)) return content[0] === 0x50 && content[1] === 0x4b;
   return false;
 };
 

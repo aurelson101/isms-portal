@@ -21,6 +21,7 @@ type PortalDocument = {
   category: { slug: string; nameFr: string; nameEn: string } | null;
   translations: Translation[];
   versions: Version[];
+  permissions: { preview: boolean; download: boolean };
 };
 type Identity = {
   displayName: string;
@@ -45,6 +46,9 @@ const copy = {
     close: 'Fermer', administration: 'Administration', account: 'Préférences du compte',
     demo: 'Mode démonstration — aucune donnée de production', spaces: 'Espaces autorisés',
     fileUnavailable: 'Aucun fichier disponible dans cette langue.',
+    previewUnavailable: 'La prévisualisation de ce document n’est pas autorisée.',
+    readonly: 'Consultation en lecture seule', previewError: 'Impossible d’afficher ce fichier.',
+    previewLoading: 'Préparation de la prévisualisation…', truncated: 'Aperçu limité aux premières données du fichier.',
   },
   en: {
     welcome: 'Welcome', subtitle: 'Quickly find the documents relevant to you.',
@@ -59,8 +63,97 @@ const copy = {
     close: 'Close', administration: 'Administration', account: 'Account preferences',
     demo: 'Demo mode — no production data', spaces: 'Authorized spaces',
     fileUnavailable: 'No file is available in this language.',
+    previewUnavailable: 'You are not allowed to preview this document.',
+    readonly: 'Read-only view', previewError: 'This file cannot be displayed.',
+    previewLoading: 'Preparing preview…', truncated: 'Preview limited to the first file data.',
   },
 } as const;
+
+const wordMime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const excelMime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+function fileLabel(mimeType?: string) {
+  if (mimeType === 'application/pdf') return 'PDF';
+  if (mimeType === wordMime) return 'DOCX';
+  if (mimeType === excelMime) return 'XLSX';
+  if (mimeType?.startsWith('image/')) return 'IMG';
+  return 'FILE';
+}
+
+function OfficePreview({ url, mimeType, locale }: { url: string; mimeType: string; locale: Locale }) {
+  const t = copy[locale];
+  const [text, setText] = useState('');
+  const [rows, setRows] = useState<string[][]>([]);
+  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [truncated, setTruncated] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setState('loading');
+    setText('');
+    setRows([]);
+    setTruncated(false);
+    fetch(url, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('preview');
+        const arrayBuffer = await response.arrayBuffer();
+        if (mimeType === wordMime) {
+          const mammoth = await import('mammoth');
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          setTruncated(result.value.length > 200_000);
+          setText(result.value.slice(0, 200_000));
+        } else {
+          const { strFromU8, unzipSync } = await import('fflate');
+          const files = unzipSync(new Uint8Array(arrayBuffer), {
+            filter: (file) => {
+              const wanted = file.name === 'xl/sharedStrings.xml'
+                || /^xl\/worksheets\/sheet\d+\.xml$/.test(file.name);
+              return wanted && file.originalSize <= 8 * 1024 * 1024;
+            },
+          });
+          const parser = new DOMParser();
+          const sharedXml = files['xl/sharedStrings.xml'];
+          const shared = sharedXml
+            ? Array.from(parser.parseFromString(strFromU8(sharedXml), 'application/xml').getElementsByTagName('si'))
+              .map((item) => Array.from(item.getElementsByTagName('t')).map((node) => node.textContent || '').join(''))
+            : [];
+          const sheetName = Object.keys(files).filter((name) => /^xl\/worksheets\/sheet\d+\.xml$/.test(name)).sort()[0];
+          if (!sheetName) throw new Error('worksheet');
+          const sheet = parser.parseFromString(strFromU8(files[sheetName]), 'application/xml');
+          const allRows = Array.from(sheet.getElementsByTagName('row'));
+          setTruncated(allRows.length > 100);
+          setRows(allRows.slice(0, 100).map((row) => {
+            const values: string[] = [];
+            Array.from(row.getElementsByTagName('c')).slice(0, 30).forEach((cell) => {
+              const reference = cell.getAttribute('r') || '';
+              const letters = reference.match(/[A-Z]+/)?.[0] || 'A';
+              const column = letters.split('').reduce((value, letter) => value * 26 + letter.charCodeAt(0) - 64, 0) - 1;
+              const raw = cell.getElementsByTagName('v')[0]?.textContent || '';
+              const inline = Array.from(cell.getElementsByTagName('t')).map((node) => node.textContent || '').join('');
+              values[column] = cell.getAttribute('t') === 's' ? shared[Number(raw)] || '' : inline || raw;
+            });
+            return values;
+          }));
+        }
+        setState('ready');
+      })
+      .catch((error) => {
+        if ((error as Error).name !== 'AbortError') setState('error');
+      });
+    return () => controller.abort();
+  }, [mimeType, url]);
+
+  if (state === 'loading') return <p className="loading-state">{t.previewLoading}</p>;
+  if (state === 'error') return <p className="error-state">{t.previewError}</p>;
+  return <div className="office-preview" aria-label={t.readonly}>
+    <strong className="readonly-label">{t.readonly}</strong>
+    {mimeType === wordMime
+      ? <pre>{text}</pre>
+      : <div className="sheet-preview"><table><tbody>{rows.map((row, rowIndex) =>
+        <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)}</tbody></table></div>}
+    {truncated && <small>{t.truncated}</small>}
+  </div>;
+}
 
 const titleFor = (document: PortalDocument, locale: Locale) =>
   document.translations.find((translation) => translation.locale === locale)?.title
@@ -86,7 +179,7 @@ function DocumentRows({
         : available.includes(locale) ? locale : available[0];
       const translation = document.translations.find((item) => item.locale === selected);
       return <div className="document" key={document.id}>
-        <span className="file">{document.versions[0]?.storedFile.mimeType === 'application/pdf' ? 'PDF' : 'FILE'}</span>
+        <span className="file">{fileLabel(document.versions[0]?.storedFile.mimeType)}</span>
         <button className="document-title" onClick={() => onOpen(document)}>{translation?.title || titleFor(document, locale)}</button>
         <span className="category">{document.category ? (locale === 'fr' ? document.category.nameFr : document.category.nameEn) : '—'}</span>
         <span className="locales">
@@ -99,8 +192,8 @@ function DocumentRows({
               key={item}
             >{item.toUpperCase()}</button>)}
         </span>
-        <button onClick={() => onOpen(document)}>{t.open}</button>
-        {selected
+        <button onClick={() => onOpen(document)} disabled={!document.permissions.preview}>{t.open}</button>
+        {selected && document.permissions.download
           ? <a className="download" href={`/api/documents/${document.id}/download?locale=${selected}`} aria-label={t.download}><Icon name="download"/></a>
           : <button className="download" disabled><Icon name="download"/></button>}
         {!available.includes(locale) && <small>{t.unavailable}</small>}
@@ -313,12 +406,20 @@ export default function Home() {
           <button key={item} disabled={!opened.versions.some((version) => version.locale === item)}
             className={openedLocale === item ? 'selected' : ''}
             onClick={() => setSelectedLocales((current) => ({ ...current, [opened.id]: item }))}>{item.toUpperCase()}</button>)}</div>
-        {openedVersion ? <>
+        {openedVersion && opened.permissions.preview ? <>
           {openedVersion.storedFile.mimeType === 'application/pdf' || openedVersion.storedFile.mimeType.startsWith('image/')
             ? <iframe title={titleFor(opened, openedLocale || locale)} src={`/api/documents/${opened.id}/content?locale=${openedLocale}`}/>
-            : <p>{openedVersion.storedFile.originalName}</p>}
-          <a className="primary-link" href={`/api/documents/${opened.id}/download?locale=${openedLocale}`}>{t.download}</a>
-        </> : <p>{t.fileUnavailable}</p>}
+            : [wordMime, excelMime].includes(openedVersion.storedFile.mimeType)
+              ? <OfficePreview
+                  url={`/api/documents/${opened.id}/content?locale=${openedLocale}`}
+                  mimeType={openedVersion.storedFile.mimeType}
+                  locale={locale}
+                />
+              : <p>{t.previewError}</p>}
+          {opened.permissions.download
+            ? <a className="primary-link" href={`/api/documents/${opened.id}/download?locale=${openedLocale}`}>{t.download}</a>
+            : <strong className="readonly-label">{t.readonly}</strong>}
+        </> : openedVersion ? <p>{t.previewUnavailable}</p> : <p>{t.fileUnavailable}</p>}
       </section>
     </div>}
   </div>;

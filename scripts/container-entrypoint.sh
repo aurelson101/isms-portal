@@ -15,7 +15,7 @@ load_secret() {
   unset "${variable}_FILE"
 }
 
-for variable in DATABASE_URL REDIS_URL MINIO_ACCESS_KEY MINIO_SECRET_KEY ENCRYPTION_KEY; do
+for variable in DATABASE_URL REDIS_URL ENCRYPTION_KEY; do
   load_secret "$variable"
 done
 

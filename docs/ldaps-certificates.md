@@ -9,8 +9,8 @@ Pour chaque CA, l’écran affiche sujet, émetteur, empreinte SHA-256, validit�
 statut et connecteurs associés. Les actions disponibles sont tester, télécharger
 la partie publique et supprimer.
 
-Les certificats et métadonnées sont conservés dans PostgreSQL, jamais dans
-MinIO. Aucune clé privée n’est attendue ni acceptée.
+Les certificats et métadonnées sont conservés dans PostgreSQL, jamais dans le
+volume documentaire. Aucune clé privée n’est attendue ni acceptée.
 
 La suppression reste une décision administrateur. Si la CA est utilisée,
 l’interface avertit que les connecteurs concernés seront désactivés ; l’API les

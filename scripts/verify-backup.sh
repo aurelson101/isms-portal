@@ -4,7 +4,7 @@ set -eu
 backup=${1:?usage: verify-backup.sh BACKUP_DIRECTORY}
 test -d "$backup"
 test -s "$backup/postgres.dump"
-test -d "$backup/minio"
+test -s "$backup/documents.tar"
 test -s "$backup/configuration/.env.example"
 test -s "$backup/configuration/docker-compose.yml"
 test -s "$backup/SHA256SUMS"

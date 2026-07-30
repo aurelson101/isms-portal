@@ -59,8 +59,6 @@ write_credentials() {
     printf 'POSTGRES_USER=%s\n' "$(read_env_value POSTGRES_USER)"
     printf 'POSTGRES_PASSWORD=%s\n' "$(read_env_value POSTGRES_PASSWORD)"
     printf 'DATABASE_URL=%s\n' "$(read_env_value DATABASE_URL)"
-    printf 'MINIO_ACCESS_KEY=%s\n' "$(read_env_value MINIO_ACCESS_KEY)"
-    printf 'MINIO_SECRET_KEY=%s\n' "$(read_env_value MINIO_SECRET_KEY)"
     printf 'ENCRYPTION_KEY=%s\n' "$(read_env_value ENCRYPTION_KEY)"
     printf 'ADMIN_AUTH=%s\n' 'Groupes Active Directory (aucun mot de passe local)'
   } > "$target"
@@ -102,8 +100,6 @@ if [ "$force" != true ] && { [ -e "$env_file" ] || [ -e "$credentials_file" ]; }
 fi
 
 postgres_password=$(openssl rand -hex 32)
-minio_access_key="isms-$(openssl rand -hex 12)"
-minio_secret_key=$(openssl rand -hex 32)
 encryption_key=$(openssl rand -base64 32 | tr -d '\n')
 
 env_tmp=$(mktemp "$project_root/.env.tmp.XXXXXX")
@@ -112,8 +108,6 @@ trap 'rm -f "$env_tmp" "$credentials_tmp"' EXIT HUP INT TERM
 
 awk \
   -v postgres_password="$postgres_password" \
-  -v minio_access_key="$minio_access_key" \
-  -v minio_secret_key="$minio_secret_key" \
   -v encryption_key="$encryption_key" '
   /^POSTGRES_PASSWORD=/ {
     print "POSTGRES_PASSWORD=" postgres_password
@@ -121,14 +115,6 @@ awk \
   }
   /^DATABASE_URL=/ {
     print "DATABASE_URL=postgresql://isms:" postgres_password "@postgres:5432/isms"
-    next
-  }
-  /^MINIO_ACCESS_KEY=/ {
-    print "MINIO_ACCESS_KEY=" minio_access_key
-    next
-  }
-  /^MINIO_SECRET_KEY=/ {
-    print "MINIO_SECRET_KEY=" minio_secret_key
     next
   }
   /^ENCRYPTION_KEY=/ {

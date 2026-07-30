@@ -1,8 +1,9 @@
 # Déploiement cluster
 
-Frontend, API et workers sont sans état. Externaliser PostgreSQL, Redis et
-S3/MinIO en haute disponibilité ; utiliser la même clé de chiffrement et la même
-configuration d’identité sur chaque réplique.
+Le frontend est sans état. Externaliser PostgreSQL et Redis en haute
+disponibilité, et fournir à l’API et aux workers un volume POSIX partagé
+`ReadWriteMany`. Utiliser la même clé de chiffrement et la même configuration
+d’identité sur chaque réplique.
 
 Le manifeste `deploy/kubernetes/isms-portal.yaml` fournit :
 
