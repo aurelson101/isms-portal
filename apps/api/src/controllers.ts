@@ -1359,6 +1359,17 @@ export class DirectoryController {
         lastTestStatus: true,
         createdAt: true,
         updatedAt: true,
+        syncJobs: {
+          orderBy: { startedAt: "desc" as const },
+          take: 1,
+          select: {
+            id: true,
+            status: true,
+            details: true,
+            startedAt: true,
+            finishedAt: true,
+          },
+        },
       },
       orderBy: { name: "asc" },
     });
