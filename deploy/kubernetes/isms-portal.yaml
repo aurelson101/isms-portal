@@ -3,7 +3,6 @@ kind: ConfigMap
 metadata: { name: isms-portal }
 data:
   NODE_ENV: production
-  ISMS_ADMIN_GROUPS: ISMS-ADMINS,ISMS-SUPER-ADMINS
   DOCUMENT_STORAGE_PATH: /data/documents
   TRUSTED_PROXY_CIDRS: "<CIDR_INGRESS_APPROUVE>"
   SSO_LOGIN_URL: "<URL_CONNEXION_SSO>"

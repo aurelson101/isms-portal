@@ -282,7 +282,7 @@ export const adminEnglishCatalog = {
   "Groupe supprimé.": "Group deleted.",
   "Groupes Active Directory": "Active Directory groups",
   "Groupes AD synchronisés": "Synchronized AD groups",
-  "Groupes administrateur associés": "Mapped admin groups",
+  "Compte administrateur associé": "Linked administrator account",
   "Groupes imbriqués": "Nested groups",
   "Groupes reçus": "Received groups",
   Identité: "Identity",

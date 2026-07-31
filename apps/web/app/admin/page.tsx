@@ -24,7 +24,7 @@ type Authentication = {
     groupCount: number;
     mappedSpaceCount: number;
     administrator: boolean;
-    adminGroupMatchCount: number;
+    administratorAccount: boolean;
   };
 };
 const AdminLocaleContext = createContext<Locale>("fr");
@@ -2842,9 +2842,11 @@ function SettingsPanel({
           <dd>
             {identity?.authentication.diagnostics.mappedSpaceCount ?? "—"}
           </dd>
-          <dt>{t("Groupes administrateur associés")}</dt>
+          <dt>{t("Compte administrateur associé")}</dt>
           <dd>
-            {identity?.authentication.diagnostics.adminGroupMatchCount ?? "—"}
+            {identity?.authentication.diagnostics.administratorAccount
+              ? t("Oui")
+              : t("Non")}
           </dd>
           <dt>{t("Expiration de session")}</dt>
           <dd>

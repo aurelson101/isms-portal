@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AuthorizationService } from "./authorization.service";
 import type { PrismaService } from "./prisma.service";
 
@@ -11,20 +11,15 @@ describe("AuthorizationService", () => {
   } as unknown as PrismaService;
   const service = new AuthorizationService(prisma);
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    process.env.ISMS_ADMIN_GROUPS = "ISMS-ADMINS";
-  });
-
   it("grants every permission to an administrator without a per-space rule", async () => {
     findMany.mockResolvedValue([
       { id: "space-it", slug: "it", accessRules: [] },
     ]);
     await expect(
-      service.can(["ISMS-ADMINS"], "space-it", "archive"),
+      service.can(["ISMS-LOCAL-ADMINS"], "space-it", "archive"),
     ).resolves.toBe(true);
     await expect(
-      service.permittedSpaces(["ISMS-ADMINS"], "upload"),
+      service.permittedSpaces(["ISMS-LOCAL-ADMINS"], "upload"),
     ).resolves.toHaveLength(1);
     expect(count).not.toHaveBeenCalled();
   });
@@ -76,16 +71,6 @@ describe("AuthorizationService", () => {
         spaceId: "space-it",
         [permission]: true,
       }),
-    });
-  });
-
-  it("ignores the legacy administer column for directory groups", async () => {
-    count.mockResolvedValue(0);
-    await expect(
-      service.can(["SkillsRDP"], "space-it", "publish"),
-    ).resolves.toBe(false);
-    expect(count).toHaveBeenCalledWith({
-      where: expect.not.objectContaining({ administer: true }),
     });
   });
 });

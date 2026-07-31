@@ -10,14 +10,8 @@ import type { IsmsRequest } from "./types";
 
 const ADMIN_KEY = "admin";
 export const AdminOnly = () => SetMetadata(ADMIN_KEY, true);
-const configuredAdminGroups = () =>
-  (process.env.ISMS_ADMIN_GROUPS || "ISMS-ADMINS,ISMS-SUPER-ADMINS")
-    .split(",")
-    .map((group) => group.trim())
-    .filter(Boolean);
 export const isAdminIdentity = (groups: string[]) =>
-  groups.includes("ISMS-LOCAL-ADMINS") ||
-  groups.some((group) => configuredAdminGroups().includes(group));
+  groups.includes("ISMS-LOCAL-ADMINS");
 
 @Injectable()
 export class AdminGuard implements CanActivate {

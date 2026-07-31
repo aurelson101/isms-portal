@@ -30,10 +30,9 @@ test("a non-admin session is redirected to the dedicated administrator sign-in",
 test("an admin API forbidden response rechecks the identity and redirects a replaced session", async ({
   page,
 }) => {
-  let identityChecks = 0;
+  let invalidateSession = false;
   await page.route("**/api/admin/check", async (route) => {
-    identityChecks += 1;
-    if (identityChecks === 1) return route.continue();
+    if (!invalidateSession) return route.continue();
     return route.fulfill({
       status: 403,
       json: { message: "Forbidden" },
@@ -44,9 +43,11 @@ test("an admin API forbidden response rechecks the identity and redirects a repl
     (route) => route.fulfill({ status: 403, json: { message: "Forbidden" } }),
   );
   await page.goto("/admin#groups");
+  await page.getByRole("button", { name: "FR", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Groupes Active Directory" }),
   ).toBeVisible();
+  invalidateSession = true;
   await page
     .getByLabel("Rechercher ou saisir le DN du groupe AD")
     .fill("Skill");
@@ -110,9 +111,10 @@ test("the generated administrator can sign in and manage the secure profile", as
   const disable = await page.request.delete("/api/admin/accounts/me/mfa");
   expect(disable.ok()).toBe(true);
 
-  await page
-    .getByRole("button", { name: /Administrateur ISMS.*admin/i })
-    .click();
-  await page.getByRole("menuitem", { name: "Se déconnecter" }).click();
-  await expect(page).toHaveURL(/\/admin\/login\?loggedout=1/);
+  // The global E2E storage state is shared by the following portal scenarios.
+  // Clearing this browser context verifies the protected redirect without
+  // revoking that prepared server-side session.
+  await page.context().clearCookies();
+  await page.goto("/admin");
+  await expect(page).toHaveURL(/\/admin\/login\?return=/);
 });

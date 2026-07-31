@@ -2,8 +2,8 @@
 
 Toutes les routes API sont préfixées par `/api` au niveau du reverse proxy.
 Les ressources non autorisées répondent `404` afin de ne pas révéler leur
-existence. Les routes d’administration exigent un groupe déclaré dans
-`ISMS_ADMIN_GROUPS`.
+existence. Les routes d’administration exigent un compte administrateur
+enregistré.
 
 ## Portail
 

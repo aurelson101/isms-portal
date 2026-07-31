@@ -227,7 +227,6 @@ model AccessRule {
   edit Boolean @default(false)
   publish Boolean @default(false)
   archive Boolean @default(false)
-  administer Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

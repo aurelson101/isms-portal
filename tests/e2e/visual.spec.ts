@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  const response = await page.request.put("/api/me/preferences", {
+    data: { locale: "fr" },
+  });
+  expect(response.ok()).toBe(true);
+});
+
 const viewports = [
   { name: "desktop", width: 1440, height: 900 },
   { name: "tablet", width: 768, height: 1024 },

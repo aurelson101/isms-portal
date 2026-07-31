@@ -189,13 +189,7 @@ export class IdentityController {
           groupCount: req.identity.groups.length,
           mappedSpaceCount: spaces.length,
           administrator,
-          adminGroupMatchCount: req.identity.groups.filter((group) =>
-            (process.env.ISMS_ADMIN_GROUPS || "ISMS-ADMINS,ISMS-SUPER-ADMINS")
-              .split(",")
-              .map((value) => value.trim())
-              .filter(Boolean)
-              .includes(group),
-          ).length,
+          administratorAccount: administrator,
         },
       },
       spaces: spaces.map(({ accessRules, ...space }) => ({
@@ -821,13 +815,7 @@ export class AdminController {
           groupCount: req.identity.groups.length,
           mappedSpaceCount,
           administrator: true,
-          adminGroupMatchCount: req.identity.groups.filter((group) =>
-            (process.env.ISMS_ADMIN_GROUPS || "ISMS-ADMINS,ISMS-SUPER-ADMINS")
-              .split(",")
-              .map((value) => value.trim())
-              .filter(Boolean)
-              .includes(group),
-          ).length,
+          administratorAccount: isAdminIdentity(req.identity.groups),
         },
       },
     };
