@@ -24,4 +24,17 @@ documents=$(docker run --rm --network "$network" "$curl_image" \
 printf '%s' "$documents" |
   jq -e 'length > 0 and all(.space.slug == "general")' >/dev/null
 
-printf 'Autorisations validées : administration refusée et documents limités à l’espace général.\n'
+sso_identity=$(docker run --rm --network "$network" "$curl_image" \
+  -fsS \
+  -H 'X-Auth-User: standard-user' \
+  -H 'X-Auth-Name: Standard User' \
+  -H 'X-Auth-Groups: Domain Users' \
+  http://api:3001/me)
+printf '%s' "$sso_identity" |
+  jq -e '
+    .username == "standard-user" and
+    .authentication.source == "trusted-proxy" and
+    .authentication.ssoConnected == true
+  ' >/dev/null
+
+printf 'Autorisations et détection SSO validées : administration refusée, documents limités et identité proxy reconnue.\n'

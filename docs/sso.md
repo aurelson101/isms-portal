@@ -20,3 +20,23 @@ sans jamais accepter directement les en-têtes Internet.
 
 Aucun mot de passe utilisateur local n’existe. En cas d’identité absente,
 proxy non approuvé ou groupes périmés, l’API refuse l’accès.
+
+## Détection de la session
+
+`GET /api/me` retourne un objet non sensible :
+
+```json
+{
+  "authentication": {
+    "source": "trusted-proxy",
+    "ssoConnected": true
+  }
+}
+```
+
+`ssoConnected` vaut `true` uniquement lorsque l’identité a été acceptée par le
+fournisseur `trusted-proxy` depuis un CIDR approuvé. Le fournisseur local
+retourne `source: "demo"` et `ssoConnected: false`. Le portail et
+l’administration utilisent cet indicateur pour afficher respectivement
+`SSO connecté`/`SSO connected` ou `Session de démonstration`/`Demo session`.
+Les groupes et claims bruts ne sont pas ajoutés à cette réponse.

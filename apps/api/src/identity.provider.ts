@@ -44,6 +44,7 @@ export class DemoIdentityProvider implements IdentityProvider {
     return {
       username: process.env.DEMO_USER || "demo",
       displayName: process.env.DEMO_DISPLAY_NAME || "Demo User",
+      source: "demo" as const,
       groups: (process.env.DEMO_GROUPS || "Domain Users,ITAD,ISMS-ADMINS")
         .split(",")
         .map((value) => value.trim())
@@ -78,6 +79,7 @@ export class TrustedProxyIdentityProvider implements IdentityProvider {
     return {
       username: username.trim(),
       displayName: String(request.headers["x-auth-name"] || username).trim(),
+      source: "trusted-proxy" as const,
       groups: groups
         .split(";")
         .map((group) => group.trim())

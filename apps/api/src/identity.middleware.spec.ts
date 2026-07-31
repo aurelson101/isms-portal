@@ -53,6 +53,7 @@ describe("IdentityMiddleware", () => {
       username: "alice",
       displayName: "Alice Example",
       groups: ["Domain Users", "ITAD"],
+      source: "trusted-proxy",
     });
   });
 
@@ -83,6 +84,7 @@ describe("IdentityMiddleware", () => {
       username: "standard-user",
       displayName: "standard-user",
       groups: ["Domain Users"],
+      source: "trusted-proxy",
     });
   });
 });

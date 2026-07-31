@@ -22,6 +22,12 @@ a {
     border-color 0.15s,
     transform 0.15s;
 }
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
@@ -91,6 +97,15 @@ textarea:focus-visible {
 .shell nav button.active,
 .admin-shell nav button.active,
 .admin-shell nav a.active {
+  background: linear-gradient(90deg, #0879f9, #005be7);
+}
+.shell nav button:hover,
+.admin-shell nav button:hover,
+.admin-shell nav a:hover {
+  background: #ffffff18;
+}
+.shell nav button.active:hover,
+.admin-shell nav button.active:hover {
   background: linear-gradient(90deg, #0879f9, #005be7);
 }
 .secure {
@@ -164,6 +179,33 @@ textarea:focus-visible {
 .account-menu small {
   color: #66758f;
   margin: 5px 0 12px;
+}
+.auth-status {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  gap: 6px;
+  margin: 4px 0;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.auth-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.auth-status.connected {
+  color: #087448;
+  background: #dcf8e9;
+}
+.auth-status.demo {
+  color: #765400;
+  background: #fff1bf;
 }
 .account-menu a {
   color: #0665e8;
@@ -452,10 +494,51 @@ h1 {
   border-radius: 8px;
 }
 .admin-shell header button {
+  min-height: 42px;
   padding: 10px 14px;
   background: white;
   border: 1px solid #b9c8dc;
   border-radius: 7px;
+}
+.admin-shell header button:hover,
+.admin-card button:hover,
+.button-row button:hover,
+.section-actions a:hover,
+.button-row a:hover {
+  border-color: #0768ea;
+  background: #eef5ff;
+}
+.admin-language {
+  display: inline-flex;
+  border: 1px solid #b9c8dc;
+  border-radius: 7px;
+  overflow: hidden;
+}
+.admin-language button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 0;
+  padding: 8px 10px;
+}
+.admin-language button[aria-pressed="true"] {
+  background: #0768ea;
+  color: white;
+}
+.refresh-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.refresh-button svg,
+.matrix-heading button svg {
+  width: 18px;
+  height: 18px;
+}
+.admin-identity {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  min-width: max-content;
 }
 .admin-shell h1 {
   font-size: 32px;
@@ -515,6 +598,16 @@ h1 {
   border: 1px solid #0768ea !important;
   border-radius: 6px;
   padding: 10px 16px;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-weight: 650;
+}
+.primary:hover {
+  background: #0057c9 !important;
+  border-color: #0057c9 !important;
 }
 .danger {
   color: #a32222 !important;
@@ -703,6 +796,7 @@ h1 {
   background: white;
   padding: 8px 11px;
   border-radius: 6px;
+  min-height: 38px;
 }
 .button-row {
   display: flex;
@@ -827,7 +921,7 @@ h1 {
   .directory-form {
     grid-template-columns: 1fr;
   }
-  .admin-shell main header strong {
+  .admin-shell main header > strong {
     display: none;
   }
   .admin-shell header input {
@@ -1168,8 +1262,42 @@ svg {
     margin: 10px 0;
   }
   .admin-shell main header input {
-    order: 3;
+    order: 4;
     flex-basis: 100%;
+  }
+  .admin-shell main header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+  }
+  .admin-identity {
+    order: 1;
+    justify-items: start;
+    min-width: 0;
+  }
+  .admin-identity strong {
+    display: block;
+    max-width: 190px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .admin-language {
+    order: 2;
+    justify-self: end;
+  }
+  .refresh-button {
+    order: 3;
+    width: fit-content;
+  }
+  .admin-shell main header input {
+    width: 100%;
+    min-width: 0;
+  }
+  .admin-table-wrap td button {
+    min-height: 38px;
+    margin: 2px;
+    padding: 8px 10px;
   }
   .matrix-heading,
   .section-actions {

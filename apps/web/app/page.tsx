@@ -33,6 +33,10 @@ type Identity = {
   isAdmin: boolean;
   locale: Locale | null;
   demoMode: boolean;
+  authentication: {
+    source: string;
+    ssoConnected: boolean;
+  };
   spaces: Space[];
 };
 
@@ -62,7 +66,11 @@ const copy = {
     administration: "Administration",
     account: "Préférences du compte",
     demo: "Mode démonstration — aucune donnée de production",
+    ssoConnected: "SSO connecté",
+    demoSession: "Session de démonstration",
     spaces: "Espaces autorisés",
+    navigation: "Navigation principale",
+    systemName: "Système de management de la sécurité de l’information",
     fileUnavailable: "Aucun fichier disponible dans cette langue.",
     previewUnavailable:
       "La prévisualisation de ce document n’est pas autorisée.",
@@ -96,7 +104,11 @@ const copy = {
     administration: "Administration",
     account: "Account preferences",
     demo: "Demo mode — no production data",
+    ssoConnected: "SSO connected",
+    demoSession: "Demo session",
     spaces: "Authorized spaces",
+    navigation: "Main navigation",
+    systemName: "Information Security Management System",
     fileUnavailable: "No file is available in this language.",
     previewUnavailable: "You are not allowed to preview this document.",
     readonly: "Read-only view",
@@ -507,14 +519,10 @@ export default function Home() {
           </div>
           <div>
             <strong>ISMS Portal</strong>
-            <small>
-              Information Security
-              <br />
-              Management System
-            </small>
+            <small>{t.systemName}</small>
           </div>
         </div>
-        <nav aria-label="Navigation principale">
+        <nav aria-label={t.navigation}>
           <button
             type="button"
             className={!category && !space ? "active" : ""}
@@ -599,6 +607,17 @@ export default function Home() {
             <div className="account-menu">
               <strong>{identity?.displayName}</strong>
               <small>{identity?.username}</small>
+              <span
+                className={
+                  identity?.authentication.ssoConnected
+                    ? "auth-status connected"
+                    : "auth-status demo"
+                }
+              >
+                {identity?.authentication.ssoConnected
+                  ? t.ssoConnected
+                  : t.demoSession}
+              </span>
               {identity?.isAdmin && <a href="/admin">{t.administration}</a>}
             </div>
           )}

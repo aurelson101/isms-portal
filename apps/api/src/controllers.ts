@@ -160,6 +160,10 @@ export class IdentityController {
       demoMode:
         process.env.NODE_ENV !== "production" &&
         process.env.DEMO_MODE === "true",
+      authentication: {
+        source: req.identity.source,
+        ssoConnected: req.identity.source === "trusted-proxy",
+      },
       spaces: spaces.map(({ accessRules: _rules, ...space }) => space),
     };
   }

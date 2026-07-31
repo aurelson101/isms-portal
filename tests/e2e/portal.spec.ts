@@ -102,6 +102,38 @@ test("administration uses live APIs and every menu opens a section", async ({
   }
 });
 
+test("administration is fully switchable between French and English", async ({
+  page,
+}) => {
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByText("Demo session")).toBeVisible();
+
+  for (const [menu, heading] of [
+    ["Active Directory groups", "Active Directory groups"],
+    ["Access rules", "Access rights management"],
+    ["Document spaces", "Document spaces"],
+    ["Documents", "Documents"],
+    ["LDAP synchronization", "LDAP/LDAPS synchronization"],
+    ["CA certificates", "CA certificates"],
+    ["Audit log", "Audit log"],
+    ["Service health", "Service health"],
+    ["Settings", "Settings"],
+  ] as const) {
+    await page.getByRole("button", { name: menu, exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: heading, exact: true }).first(),
+    ).toBeVisible();
+  }
+
+  await page.getByRole("button", { name: "FR", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Configuration" }),
+  ).toBeVisible();
+  await expect(page.getByText("Session de démonstration")).toBeVisible();
+});
+
 test("categories can be created, edited and deleted", async ({ request }) => {
   const spacesResponse = await request.get("/api/admin/spaces");
   expect(spacesResponse.ok()).toBeTruthy();

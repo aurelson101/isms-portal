@@ -16,7 +16,8 @@ export type IconName =
   | "health"
   | "settings"
   | "download"
-  | "search";
+  | "search"
+  | "add";
 
 export function Icon({
   name,
@@ -112,6 +113,7 @@ export function Icon({
         <path d="m16 16 5 5" />
       </>
     ),
+    add: <path d="M12 5v14M5 12h14" />,
   };
   return (
     <svg
