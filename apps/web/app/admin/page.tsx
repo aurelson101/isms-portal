@@ -1915,7 +1915,7 @@ function DirectoryPanel({
           {t("Attribut utilisateur")}
           <input
             name="usernameAttribute"
-            defaultValue={editing?.usernameAttribute || "sAMAccountName"}
+            defaultValue={editing?.usernameAttribute || "mail"}
           />
         </label>
         <label>

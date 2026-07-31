@@ -11,7 +11,9 @@ Kerberos/SPNEGO devant Nginx. Le frontal :
 1. supprime les en-têtes `X-Auth-*` venant du client ;
 2. authentifie automatiquement l’utilisateur ;
 3. récupère ses groupes AD ;
-4. transmet `X-Auth-User`, `X-Auth-Name` et `X-Auth-Groups` ;
+4. transmet `X-Auth-Mail`, `X-Auth-Name` et `X-Auth-Groups` ; la valeur
+   `X-Auth-Mail`, issue de l’attribut AD `mail`, devient l’identité stable du
+   profil utilisateur normal ;
 5. utilise une adresse comprise dans `TRUSTED_PROXY_CIDRS`.
 
 La configuration Nginx fournie neutralise volontairement ces en-têtes tant

@@ -36,7 +36,7 @@ model DirectoryConnection {
   encryptedBindSecret String
   userFilter String @default("(objectClass=user)")
   groupFilter String @default("(objectClass=group)")
-  usernameAttribute String @default("sAMAccountName")
+  usernameAttribute String @default("mail")
   groupAttribute String @default("cn")
   emailAttribute String @default("mail")
   nestedGroups Boolean @default(true)
