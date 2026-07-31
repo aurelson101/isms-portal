@@ -472,6 +472,7 @@ test("categories can be created, edited and deleted", async ({ request }) => {
 test("an administrator can search and select a live AD group", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1048, height: 762 });
   const distinguishedName = "CN=SkillsRDP,OU=Groups,DC=example,DC=com";
   let importedBody: Record<string, string> | undefined;
   await page.route(
@@ -480,6 +481,15 @@ test("an administrator can search and select a live AD group", async ({
       route.fulfill({
         contentType: "application/json",
         body: JSON.stringify([
+          {
+            connectionId: "11111111-1111-4111-8111-111111111111",
+            connectionName: "DC04",
+            name: "HYBRID_NO_LICENCE_M365BusinessPremium",
+            distinguishedName:
+              "CN=HYBRID_NO_LICENCE_M365BusinessPremium,OU=Groupes de sécurité,OU=Groupes d'accès,DC=example,DC=com",
+            description: "Long group name used to validate responsive wrapping",
+            memberCount: 5,
+          },
           {
             connectionId: "11111111-1111-4111-8111-111111111111",
             connectionName: "DC04",
@@ -500,10 +510,35 @@ test("an administrator can search and select a live AD group", async ({
   });
 
   await page.goto("/admin#groups");
+  for (const language of ["FR", "EN"]) {
+    const bounds = await page
+      .locator(".admin-language")
+      .getByRole("button", { name: language, exact: true })
+      .boundingBox();
+    expect(bounds?.width).toBeGreaterThanOrEqual(40);
+  }
   const picker = page.getByRole("textbox", {
     name: "Rechercher ou saisir le DN du groupe AD",
   });
   await picker.fill("Skill");
+  const suggestions = page.getByRole("listbox", {
+    name: "Groupes trouvés dans Active Directory",
+  });
+  await expect(suggestions).toBeVisible();
+  expect(
+    await suggestions.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      return {
+        wideEnough: bounds.width >= 360,
+        insideViewport: bounds.left >= 0 && bounds.right <= window.innerWidth,
+        noHorizontalOverflow: element.scrollWidth <= element.clientWidth,
+      };
+    }),
+  ).toEqual({
+    wideEnough: true,
+    insideViewport: true,
+    noHorizontalOverflow: true,
+  });
   const suggestion = page.getByRole("option", { name: /SkillsRDP/ });
   await expect(suggestion).toBeVisible();
   await suggestion.click();

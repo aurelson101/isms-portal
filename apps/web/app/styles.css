@@ -1549,6 +1549,12 @@ h1 {
   grid-column: 1/-1;
   margin: 0;
 }
+.directory-group-form {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.directory-group-form .directory-group-picker {
+  grid-column: span 2;
+}
 .directory-group-picker {
   position: relative;
   display: grid;
@@ -1560,9 +1566,12 @@ h1 {
   z-index: 20;
   top: calc(100% + 4px);
   left: 0;
-  right: 0;
+  right: auto;
+  width: min(560px, calc(100vw - 32px));
+  min-width: 100%;
   max-height: 320px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 6px;
   border: 1px solid #aebed5;
   border-radius: 8px;
@@ -1585,8 +1594,12 @@ h1 {
   background: #eaf2ff;
 }
 .directory-group-suggestions span,
+.directory-group-suggestions strong,
 .directory-group-suggestions small,
 .success-text {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
   overflow-wrap: anywhere;
 }
 .success-text {
@@ -1733,6 +1746,23 @@ h1 {
   border-radius: 5px;
 }
 @media (max-width: 1250px) {
+  .admin-shell main header {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 12px 0;
+  }
+  .admin-search {
+    width: 100%;
+    flex: 1 0 100%;
+  }
+  .admin-language,
+  .refresh-button,
+  .admin-profile {
+    flex: 0 0 auto;
+  }
+  .admin-language button {
+    min-width: 42px;
+  }
   .admin-shell:has(.drawer) {
     grid-template-columns: 220px minmax(0, 1fr);
   }
@@ -1882,6 +1912,17 @@ svg {
   height: 22px;
 }
 @media (max-width: 900px) {
+  .directory-group-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .directory-group-form .directory-group-picker {
+    grid-column: auto;
+  }
+  .directory-group-suggestions {
+    right: 0;
+    left: auto;
+    width: min(560px, calc(100vw - 44px));
+  }
   .shell,
   .admin-shell,
   .admin-shell:has(.drawer) {
@@ -2025,6 +2066,14 @@ svg {
   cursor: not-allowed;
 }
 @media (max-width: 600px) {
+  .directory-group-form .directory-group-picker {
+    grid-column: auto;
+  }
+  .directory-group-suggestions {
+    position: static;
+    width: 100%;
+    max-height: 240px;
+  }
   .shell aside,
   .admin-shell > aside {
     padding: 14px 16px;
