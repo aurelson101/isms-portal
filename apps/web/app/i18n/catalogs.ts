@@ -131,6 +131,17 @@ export const adminEnglishCatalog = {
   "LDAP : adresse IP ou nom d’hôte.": "LDAP: IP address or hostname.",
   "LDAPS : nom d’hôte complet obligatoire, identique au certificat.":
     "LDAPS: a fully qualified hostname matching the certificate is required.",
+  "Rechercher ou saisir le DN du groupe AD":
+    "Search for or enter the AD group DN",
+  "Rechercher dans AD (ex. Skill) ou saisir un DN":
+    "Search AD (e.g. Skill) or enter a DN",
+  "Recherche dans Active Directory…": "Searching Active Directory…",
+  "Aucun groupe AD trouvé.": "No AD group found.",
+  "Groupes trouvés dans Active Directory": "Groups found in Active Directory",
+  "Groupe importé depuis Active Directory.":
+    "Group imported from Active Directory.",
+  "Sélection AD": "AD selection",
+  "membre(s)": "member(s)",
   "· utilisé": "· in use",
   "Accès refusé": "Access denied",
   Actif: "Active",

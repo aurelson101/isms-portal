@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { Client } from "ldapts";
+import { Client, escapeFilter } from "ldapts";
 import { lookup } from "dns/promises";
 import { connect as tlsConnect } from "tls";
 import { createConnection } from "net";
@@ -86,6 +86,135 @@ export class DirectoryService {
       }
     }
     throw new Error(errors.join("; "));
+  }
+
+  private groupFromEntry(
+    connection: ConnectionWithCa,
+    entry: Record<string, unknown> & { dn: string },
+  ) {
+    const rawName = entry[connection.groupAttribute];
+    const name = Array.isArray(rawName)
+      ? String(rawName[0])
+      : String(rawName || "");
+    const members = entry.member;
+    return {
+      name,
+      distinguishedName: entry.dn,
+      description: entry.description ? String(entry.description) : null,
+      memberCount: Array.isArray(members) ? members.length : members ? 1 : 0,
+    };
+  }
+
+  async searchGroups(query: string) {
+    const term = query.trim().slice(0, 120);
+    if (term.length < 2) return [];
+    const connections = await this.prisma.directoryConnection.findMany({
+      where: { enabled: true },
+      include: { caCertificate: true },
+      orderBy: { name: "asc" },
+    });
+    if (!connections.length)
+      throw new BadRequestException("No active LDAP/LDAPS connector");
+
+    const groups = new Map<
+      string,
+      {
+        connectionId: string;
+        connectionName: string;
+        name: string;
+        distinguishedName: string;
+        description: string | null;
+        memberCount: number;
+      }
+    >();
+    const errors: string[] = [];
+    let successfulConnections = 0;
+    for (const connection of connections) {
+      try {
+        validateFilter(connection.groupFilter);
+        if (!/^[a-z][a-z0-9-]{0,79}$/i.test(connection.groupAttribute))
+          throw new Error("Invalid group attribute");
+        const { client } = await this.bindWithFallback(connection);
+        try {
+          const nameFilter = escapeFilter`(${connection.groupAttribute}=*${term}*)`;
+          const result = await client.search(
+            connection.groupBaseDn || connection.baseDn,
+            {
+              scope: "sub",
+              filter: `(&${connection.groupFilter}${nameFilter})`,
+              sizeLimit: 20,
+              attributes: [connection.groupAttribute, "description", "member"],
+            },
+          );
+          successfulConnections += 1;
+          for (const entry of result.searchEntries) {
+            const group = this.groupFromEntry(connection, entry);
+            if (!group.name) continue;
+            groups.set(group.distinguishedName.toLowerCase(), {
+              connectionId: connection.id,
+              connectionName: connection.name,
+              ...group,
+            });
+          }
+        } finally {
+          await client.unbind().catch(() => undefined);
+        }
+      } catch (error) {
+        errors.push(
+          `${connection.name}: ${error instanceof Error ? error.message : "unknown error"}`,
+        );
+      }
+    }
+    if (!successfulConnections)
+      throw new Error(`Directory group search failed: ${errors.join("; ")}`);
+    return [...groups.values()]
+      .sort((left, right) => left.name.localeCompare(right.name))
+      .slice(0, 20);
+  }
+
+  async importGroup(connectionId: string, distinguishedName: string) {
+    const connection = await this.connection(connectionId);
+    if (!connection?.enabled)
+      throw new BadRequestException("LDAP/LDAPS connector is not active");
+    validateFilter(connection.groupFilter);
+    const groupBase = connection.groupBaseDn || connection.baseDn;
+    if (
+      !distinguishedName.trim().toLowerCase().endsWith(groupBase.toLowerCase())
+    )
+      throw new BadRequestException(
+        "AD group is outside the configured Group Base DN",
+      );
+    const { client } = await this.bindWithFallback(connection);
+    try {
+      const result = await client.search(distinguishedName.trim(), {
+        scope: "base",
+        filter: connection.groupFilter,
+        sizeLimit: 1,
+        attributes: [connection.groupAttribute, "description", "member"],
+      });
+      const entry = result.searchEntries[0];
+      if (!entry) throw new BadRequestException("AD group not found");
+      const group = this.groupFromEntry(connection, entry);
+      if (!group.name) throw new BadRequestException("AD group has no name");
+      const existing = await this.prisma.directoryGroup.findFirst({
+        where: {
+          OR: [
+            { distinguishedName: group.distinguishedName },
+            { name: group.name },
+          ],
+        },
+        select: { id: true },
+      });
+      const data = { ...group, active: true, lastSyncedAt: new Date() };
+      return existing
+        ? this.prisma.directoryGroup.update({
+            where: { id: existing.id },
+            data,
+          })
+        : this.prisma.directoryGroup.create({ data });
+    } finally {
+      await client.unbind().catch(() => undefined);
+    }
   }
 
   async test(id: string) {

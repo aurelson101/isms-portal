@@ -34,6 +34,7 @@ import {
   CategoryDto,
   DirectoryConnectionDto,
   DirectoryGroupDto,
+  ImportDirectoryGroupDto,
   LocalePreferenceDto,
   SpaceDto,
 } from "./admin.dto";
@@ -486,6 +487,7 @@ export class AdminController {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly crypto: CryptoService,
+    private readonly directory: DirectoryService,
   ) {}
 
   @Get("check")
@@ -580,6 +582,29 @@ export class AdminController {
         "A group with this name or distinguished name already exists",
       );
     }
+  }
+
+  @Post("groups/import")
+  async importGroup(
+    @Req() req: IsmsRequest,
+    @Body() body: ImportDirectoryGroupDto,
+  ) {
+    const group = await this.directory.importGroup(
+      body.connectionId,
+      body.distinguishedName,
+    );
+    await this.audit.record(
+      req,
+      "directory-group.import",
+      `directory-group:${group.id}`,
+      "success",
+      {
+        name: group.name,
+        distinguishedName: group.distinguishedName,
+        source: "directory",
+      },
+    );
+    return group;
   }
 
   @Delete("groups/:id")
@@ -1337,6 +1362,11 @@ export class DirectoryController {
       },
       orderBy: { name: "asc" },
     });
+  }
+
+  @Get("groups/search")
+  searchGroups(@Query("q") query = "") {
+    return this.directory.searchGroups(query);
   }
 
   @Post()

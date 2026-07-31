@@ -1180,6 +1180,49 @@ h1 {
   grid-column: 1/-1;
   margin: 0;
 }
+.directory-group-picker {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.directory-group-suggestions {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #aebed5;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 12px 32px rgb(11 37 74 / 18%);
+}
+.directory-group-suggestions button {
+  display: grid;
+  width: 100%;
+  gap: 3px;
+  padding: 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #10264a;
+  text-align: left;
+}
+.directory-group-suggestions button:hover,
+.directory-group-suggestions button:focus-visible {
+  background: #eaf2ff;
+}
+.directory-group-suggestions span,
+.directory-group-suggestions small,
+.success-text {
+  overflow-wrap: anywhere;
+}
+.success-text {
+  color: #08783e;
+}
 .upload-form,
 .directory-form {
   grid-template-columns: repeat(3, minmax(180px, 1fr));
