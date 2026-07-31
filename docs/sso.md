@@ -22,14 +22,21 @@ sans jamais accepter directement les en-têtes Internet.
 
 Les utilisateurs standards n’ont aucun mot de passe local. En cas d’identité
 absente, proxy non approuvé ou groupes périmés, l’accès documentaire est
-refusé et la page `/login` propose uniquement le compte administrateur de
-secours. Le mot de passe initial est généré hors Git avec
-`./scripts/generate-secrets.sh --admin-only`.
+refusé et la page `/login` propose la connexion AD directe ainsi que le compte
+administrateur de secours. Le mot de passe initial de ce dernier est généré
+hors Git avec `./scripts/generate-secrets.sh --admin-only`.
 
 Pour Microsoft 365, définir `SSO_LOGIN_URL` vers le point d’entrée du proxy
-OIDC/Entra. La page de connexion le tente automatiquement une seule fois par
-session navigateur ; si le SSO échoue, le formulaire administrateur reste
-accessible sans boucle de redirection.
+OIDC/Entra. La page de connexion affiche alors cette méthode sans imposer de
+redirection automatique.
+
+## Connexion AD directe sans UPN
+
+L’utilisateur saisit uniquement son login court. L’API le recherche avec
+l’attribut configurable `sAMAccountName`, effectue un bind utilisateur
+exclusivement en LDAPS, puis utilise `mail` comme identité du profil. Les
+groupes directs ou imbriqués sont chargés à la connexion et alimentent le même
+moteur d’autorisation que le SSO. Le mot de passe AD n’est jamais conservé.
 
 ## Détection de la session
 
@@ -46,6 +53,7 @@ accessible sans boucle de redirection.
 
 `ssoConnected` vaut `true` uniquement lorsque l’identité a été acceptée par le
 fournisseur `trusted-proxy` depuis un CIDR approuvé. Le compte de secours
-retourne `source: "local-admin"` et `ssoConnected: false`. Le portail et
-l’administration le distinguent clairement d’une session SSO. Les groupes et
-claims bruts ne sont pas ajoutés à cette réponse.
+retourne `source: "local-admin"` et une connexion directe AD retourne
+`source: "directory-session"`, avec `ssoConnected: false`. Le portail et
+l’administration distinguent clairement ces sessions. Les groupes et claims
+bruts ne sont pas ajoutés à cette réponse.

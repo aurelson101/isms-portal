@@ -24,6 +24,11 @@ export class LoginDto {
   @IsOptional() @IsString() @MaxLength(6) mfaCode?: string;
 }
 
+export class DirectoryLoginDto {
+  @IsString() @MinLength(1) @MaxLength(128) login!: string;
+  @IsString() @MinLength(1) @MaxLength(1024) password!: string;
+}
+
 export class ProfileDto {
   @IsString() @MinLength(2) @MaxLength(160) displayName!: string;
   @IsOptional() @IsString() @MaxLength(350000) profilePhoto?: string | null;
@@ -107,6 +112,7 @@ export class DirectoryConnectionDto {
   @IsOptional() @IsString() @MinLength(12) @MaxLength(1024) bindSecret?: string;
   @IsString() @MaxLength(1024) userFilter!: string;
   @IsString() @MaxLength(1024) groupFilter!: string;
+  @IsString() @MaxLength(80) loginAttribute!: string;
   @IsString() @MaxLength(80) usernameAttribute!: string;
   @IsString() @MaxLength(80) groupAttribute!: string;
   @IsString() @MaxLength(80) emailAttribute!: string;

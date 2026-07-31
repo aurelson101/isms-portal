@@ -290,6 +290,7 @@ test("administration uses accessible confirmations and edits an existing directo
     userFilter: "(objectClass=user)",
     groupFilter: "(objectClass=group)",
     usernameAttribute: "sAMAccountName",
+    loginAttribute: "sAMAccountName",
     groupAttribute: "cn",
     emailAttribute: "mail",
     nestedGroups: true,

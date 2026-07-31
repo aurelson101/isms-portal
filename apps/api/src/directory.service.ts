@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { Client, escapeFilter } from "ldapts";
 import { lookup } from "dns/promises";
 import { connect as tlsConnect } from "tls";
@@ -86,6 +90,111 @@ export class DirectoryService {
       }
     }
     throw new Error(errors.join("; "));
+  }
+
+  private async userBindWithFallback(
+    connection: ConnectionWithCa,
+    distinguishedName: string,
+    password: string,
+  ) {
+    const hosts = [connection.primaryHost, connection.secondaryHost].filter(
+      Boolean,
+    ) as string[];
+    for (const host of hosts) {
+      const client = this.client(connection, host);
+      try {
+        await client.bind(distinguishedName, password);
+        return;
+      } catch {
+        // Try the secondary controller with the same credentials.
+      } finally {
+        await client.unbind().catch(() => undefined);
+      }
+    }
+    throw new UnauthorizedException("Invalid directory credentials");
+  }
+
+  async authenticateUser(loginValue: string, password: string) {
+    const login = loginValue.trim();
+    if (
+      !login ||
+      login.includes("@") ||
+      login.includes("\\") ||
+      !/^[^()\0*]{1,128}$/u.test(login) ||
+      !password
+    )
+      throw new UnauthorizedException("Invalid directory credentials");
+    const connections = await this.prisma.directoryConnection.findMany({
+      where: { enabled: true, protocol: "LDAPS" },
+      include: { caCertificate: true },
+      orderBy: { name: "asc" },
+    });
+    for (const connection of connections) {
+      let client: Client | null = null;
+      try {
+        validateFilter(connection.userFilter);
+        for (const attribute of [
+          connection.loginAttribute,
+          connection.usernameAttribute,
+          connection.emailAttribute,
+          connection.groupAttribute,
+        ])
+          if (!/^[a-z][a-z0-9-]{0,79}$/iu.test(attribute))
+            throw new Error("Invalid directory attribute");
+        ({ client } = await this.bindWithFallback(connection));
+        const loginFilter = escapeFilter`(${connection.loginAttribute}=${login})`;
+        const result = await client.search(
+          connection.userBaseDn || connection.baseDn,
+          {
+            scope: "sub",
+            filter: `(&${connection.userFilter}${loginFilter})`,
+            sizeLimit: 2,
+            attributes: [
+              connection.usernameAttribute,
+              connection.emailAttribute,
+              "displayName",
+            ],
+          },
+        );
+        if (result.searchEntries.length !== 1) continue;
+        const user = result.searchEntries[0];
+        const mail = String(
+          user[connection.emailAttribute] ||
+            user[connection.usernameAttribute] ||
+            "",
+        )
+          .trim()
+          .toLowerCase();
+        if (!mail.includes("@")) continue;
+        await this.userBindWithFallback(connection, user.dn, password);
+        const membershipRule = connection.nestedGroups
+          ? escapeFilter`(member:1.2.840.113556.1.4.1941:=${user.dn})`
+          : escapeFilter`(member=${user.dn})`;
+        const groupResult = await client.search(
+          connection.groupBaseDn || connection.baseDn,
+          {
+            scope: "sub",
+            filter: `(&${connection.groupFilter}${membershipRule})`,
+            paged: { pageSize: 500 },
+            attributes: [connection.groupAttribute],
+          },
+        );
+        const groups = groupResult.searchEntries
+          .map((entry) => String(entry[connection.groupAttribute] || "").trim())
+          .filter(Boolean);
+        return {
+          username: mail,
+          displayName: String(user.displayName || mail).trim(),
+          groups: [...new Set(groups)],
+          connectionId: connection.id,
+        };
+      } catch (error) {
+        if (error instanceof UnauthorizedException) throw error;
+      } finally {
+        await client?.unbind().catch(() => undefined);
+      }
+    }
+    throw new UnauthorizedException("Invalid directory credentials");
   }
 
   private groupFromEntry(

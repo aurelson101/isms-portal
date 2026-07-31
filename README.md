@@ -154,6 +154,7 @@ Group Base DN        OU=Groups,DC=corp,DC=entreprise,DC=local
 Bind DN              CN=svc-isms,OU=Service Accounts,DC=corp,DC=entreprise,DC=local
 Filtre utilisateurs  (objectClass=user)
 Filtre groupes       (objectClass=group)
+Attribut de connexion sAMAccountName
 Attribut utilisateur mail
 Attribut groupe      cn
 Attribut email       mail
@@ -179,6 +180,24 @@ sur un réseau isolé et maîtrisé. Préférer LDAPS.
    exemple `dc04.example.com`, présent dans le SAN du certificat. Les adresses
    IP, noms courts ou contournements TLS sont refusés.
 5. Enregistrer, cliquer **Tester**, puis **Synchroniser**.
+
+### Connexion des utilisateurs Active Directory
+
+La connexion directe des utilisateurs standards est proposée dès qu’un
+connecteur **LDAPS actif** existe. L’utilisateur saisit uniquement son login
+court, par exemple `jdupont`, sans domaine, UPN ni suffixe `@entreprise.fr`.
+
+- `sAMAccountName` retrouve le compte et le mot de passe est validé directement
+  auprès d’un contrôleur AD ;
+- `mail` devient l’identité stable affichée dans le profil ;
+- les groupes AD sont relus à la connexion puis comparés aux groupes et règles
+  d’accès configurés dans l’application ;
+- le mot de passe AD n’est jamais écrit en base, dans les logs ou les cookies ;
+- une session HttpOnly de huit heures est créée et révoquée par
+  **Se déconnecter**.
+
+Cette fonction refuse LDAP en clair et exige LDAPS avec une CA valide. Le compte
+administrateur local reste disponible dans l’onglet dédié de `/login`.
 
 Le test vérifie DNS, TCP, chaîne TLS, nom d’hôte, bind et recherches. Après une
 synchronisation réussie, les groupes sont proposés dans la recherche de

@@ -21,6 +21,7 @@ import type { IsmsRequest } from "./types";
 import {
   ChangePasswordDto,
   CreateAdminDto,
+  DirectoryLoginDto,
   LoginDto,
   MfaConfirmDto,
   ProfileDto,
@@ -31,12 +32,21 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Get("config")
-  config() {
+  async config() {
     return {
       ssoEnabled: Boolean(process.env.SSO_LOGIN_URL),
       ssoLoginUrl: process.env.SSO_LOGIN_URL || null,
+      directoryLoginEnabled: await this.auth.directoryLoginEnabled(),
       localAdminEnabled: true,
     };
+  }
+
+  @Post("directory-login")
+  directoryLogin(
+    @Body() body: DirectoryLoginDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.auth.directoryLogin(body.login, body.password, response);
   }
 
   @Post("login")
