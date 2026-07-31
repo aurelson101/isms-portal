@@ -260,6 +260,26 @@ const emptyRule = (
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, options);
   if (!response.ok) {
+    if (
+      typeof window !== "undefined" &&
+      (response.status === 401 || response.status === 403) &&
+      (url.startsWith("/api/admin/") || url === "/api/health/details")
+    ) {
+      const identityResponse = await fetch("/api/me", {
+        cache: "no-store",
+      }).catch(() => null);
+      const identity = identityResponse?.ok
+        ? ((await identityResponse.json().catch(() => null)) as {
+            isAdmin?: boolean;
+          } | null)
+        : null;
+      if (!identity?.isAdmin) {
+        const requested = `${window.location.pathname}${window.location.hash}`;
+        window.location.replace(
+          `/admin/login?return=${encodeURIComponent(requested)}`,
+        );
+      }
+    }
     const payload = (await response
       .json()
       .catch(() => ({ message: response.statusText }))) as {
@@ -414,7 +434,17 @@ export default function Admin() {
         setSessionExpired(true);
         return;
       }
-      setIdentity(await response.json());
+      const currentIdentity = (await response.json()) as typeof identity & {
+        isAdmin: boolean;
+      };
+      if (!currentIdentity?.isAdmin) {
+        const requested = `${window.location.pathname}${window.location.hash}`;
+        window.location.replace(
+          `/admin/login?return=${encodeURIComponent(requested)}`,
+        );
+        return;
+      }
+      setIdentity(currentIdentity);
       setSessionExpired(false);
     };
     const timer = window.setInterval(() => void checkSession(), 60_000);
@@ -1067,8 +1097,8 @@ function GroupsPanel({
       <h1>{t("Groupes Active Directory")}</h1>
       <p className="lead">
         {t(
-          "Les groupes synchronisés reviennent lors de la prochaine synchronisation s’ils sont supprimés localement.",
-          "Synchronized groups return during the next synchronization if they are deleted locally.",
+          "Seuls les groupes recherchés puis ajoutés ici sont conservés et actualisés lors des synchronisations.",
+          "Only groups searched for and added here are retained and refreshed during synchronization.",
         )}
       </p>
       <form
