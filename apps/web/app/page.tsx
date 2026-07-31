@@ -660,36 +660,33 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
           </button>
           {identity?.spaces.map((item) => (
             <div className="navigation-space" key={item.id}>
-              {item.slug !== "general" && (
-                <button
-                  type="button"
-                  className={space === item.slug && !category ? "active" : ""}
-                  onClick={() => selectSpace(item.slug)}
-                >
-                  <Icon name="folder" />{" "}
-                  <span>{locale === "fr" ? item.nameFr : item.nameEn}</span>
-                </button>
+              <button
+                type="button"
+                className={`space-menu ${space === item.slug && !category ? "active" : ""}`}
+                onClick={() => selectSpace(item.slug)}
+              >
+                <Icon name="folder" />{" "}
+                <span>{locale === "fr" ? item.nameFr : item.nameEn}</span>
+              </button>
+              {item.categories.length > 0 && (
+                <div className="category-submenu">
+                  {item.categories.map((itemCategory) => (
+                    <button
+                      type="button"
+                      className={`category-menu ${category === itemCategory.id ? "active" : ""}`}
+                      onClick={() => selectCategory(item.slug, itemCategory.id)}
+                      key={itemCategory.id}
+                    >
+                      <Icon name="folder" />{" "}
+                      <span>
+                        {locale === "fr"
+                          ? itemCategory.nameFr
+                          : itemCategory.nameEn}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               )}
-              {item.slug === "general" && item.categories.length > 0 && (
-                <span className="navigation-space-title">
-                  {locale === "fr" ? item.nameFr : item.nameEn}
-                </span>
-              )}
-              {item.categories.map((itemCategory) => (
-                <button
-                  type="button"
-                  className={`category-menu ${category === itemCategory.id ? "active" : ""}`}
-                  onClick={() => selectCategory(item.slug, itemCategory.id)}
-                  key={itemCategory.id}
-                >
-                  <Icon name="folder" />{" "}
-                  <span>
-                    {locale === "fr"
-                      ? itemCategory.nameFr
-                      : itemCategory.nameEn}
-                  </span>
-                </button>
-              ))}
             </div>
           ))}
         </nav>

@@ -49,8 +49,9 @@ for (const viewport of viewports) {
       .getByRole("button", { name: "FR", exact: true })
       .click();
     await page
-      .locator("aside")
-      .getByText("Procédures", { exact: true })
+      .locator("aside .category-submenu")
+      .first()
+      .getByRole("button", { name: "Procédures", exact: true })
       .click();
     await expect(
       page.getByRole("heading", {
