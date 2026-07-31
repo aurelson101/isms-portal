@@ -72,7 +72,7 @@ describe("IdentityMiddleware", () => {
       path: "/documents",
       originalUrl: "/documents",
       headers: {
-        "x-auth-user": " alice ",
+        "x-auth-mail": " Alice@Example.com ",
         "x-auth-name": " Alice Example ",
         "x-auth-groups": " Domain Users ; ITAD ;",
       },
@@ -81,7 +81,7 @@ describe("IdentityMiddleware", () => {
     const next = vi.fn();
     await middleware.use(req, response() as never, next);
     expect(req.identity).toEqual({
-      username: "alice",
+      username: "alice@example.com",
       displayName: "Alice Example",
       groups: ["Domain Users", "ITAD"],
       source: "trusted-proxy",
@@ -93,7 +93,10 @@ describe("IdentityMiddleware", () => {
     const req = {
       path: "/documents",
       originalUrl: "/documents",
-      headers: { "x-auth-user": "mallory", "x-auth-groups": "ISMS-ADMINS" },
+      headers: {
+        "x-auth-mail": "mallory@example.com",
+        "x-auth-groups": "ISMS-ADMINS",
+      },
       socket: { remoteAddress: "203.0.113.10" },
     } as unknown as IsmsRequest;
     await expect(
@@ -106,15 +109,15 @@ describe("IdentityMiddleware", () => {
       path: "/documents",
       originalUrl: "/documents",
       headers: {
-        "x-auth-user": "standard-user",
+        "x-auth-mail": "standard-user@example.com",
         "x-auth-groups": "Domain Users",
       },
       socket: { remoteAddress: "172.20.0.8" },
     } as unknown as IsmsRequest;
     await middleware.use(req, response() as never, vi.fn());
     expect(req.identity).toEqual({
-      username: "standard-user",
-      displayName: "standard-user",
+      username: "standard-user@example.com",
+      displayName: "standard-user@example.com",
       groups: ["Domain Users"],
       source: "trusted-proxy",
       sessionExpiresAt: null,
@@ -127,7 +130,7 @@ describe("IdentityMiddleware", () => {
       path: "/documents",
       originalUrl: "/documents",
       headers: {
-        "x-auth-user": "alice",
+        "x-auth-mail": "alice@example.com",
         "x-auth-groups": "Domain Users",
         "x-auth-session-expires": expires,
       },
@@ -142,7 +145,7 @@ describe("IdentityMiddleware", () => {
       path: "/documents",
       originalUrl: "/documents",
       headers: {
-        "x-auth-user": "alice",
+        "x-auth-mail": "alice@example.com",
         "x-auth-groups": "Domain Users",
         "x-auth-session-expires": "2020-01-01T00:00:00.000Z",
       },

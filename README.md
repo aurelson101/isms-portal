@@ -154,7 +154,7 @@ Group Base DN        OU=Groups,DC=corp,DC=entreprise,DC=local
 Bind DN              CN=svc-isms,OU=Service Accounts,DC=corp,DC=entreprise,DC=local
 Filtre utilisateurs  (objectClass=user)
 Filtre groupes       (objectClass=group)
-Attribut utilisateur sAMAccountName
+Attribut utilisateur mail
 Attribut groupe      cn
 Attribut email       mail
 ```
