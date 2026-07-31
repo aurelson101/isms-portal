@@ -42,3 +42,7 @@ Attribut email       : mail
 
 Après saisie, exécuter dans l’ordre : **Tester**, vérifier DNS/TCP/TLS/Bind,
 puis **Synchroniser**.
+
+En LDAP, les contrôleurs acceptent une adresse IP ou un nom d’hôte. En LDAPS,
+utiliser obligatoirement les noms DNS complets présents dans les certificats,
+par exemple `dc04.deftagroup.com` et `dc05.deftagroup.com`.
