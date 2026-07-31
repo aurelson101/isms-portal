@@ -633,7 +633,9 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
               >
                 {identity?.authentication.ssoConnected
                   ? t.ssoConnected
-                  : t.localAdminSession}
+                  : identity?.authentication.source === "directory-session"
+                    ? t.directorySession
+                    : t.localAdminSession}
               </span>
               {identity?.isAdmin && <a href="/admin">{t.administration}</a>}
               {identity && (
@@ -657,6 +659,21 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
               {identity?.authentication.logoutUrl && (
                 <a href={identity.authentication.logoutUrl}>{t.signOut}</a>
               )}
+              {identity &&
+                ["directory-session", "local-admin"].includes(
+                  identity.authentication.source,
+                ) && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      fetch("/api/auth/logout", { method: "POST" }).then(() =>
+                        window.location.assign("/login?loggedout=1"),
+                      )
+                    }
+                  >
+                    {t.signOut}
+                  </button>
+                )}
             </div>
           )}
         </header>

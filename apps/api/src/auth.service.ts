@@ -13,10 +13,12 @@ import {
 import { promisify } from "util";
 import type { Response } from "express";
 import { PrismaService } from "./prisma.service";
+import { DirectoryService } from "./directory.service";
 import type { Identity, IsmsRequest } from "./types";
 
 const scrypt = promisify(scryptCallback);
-const cookieName = "isms_admin_session";
+const adminCookieName = "isms_admin_session";
+const directoryCookieName = "isms_directory_session";
 const base32Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 const hashToken = (token: string) =>
@@ -58,7 +60,10 @@ const totp = (secret: string, timestamp = Date.now()) => {
 
 @Injectable()
 export class AuthService implements OnModuleInit {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly directory: DirectoryService,
+  ) {}
 
   async onModuleInit() {
     const username = process.env.INITIAL_ADMIN_USERNAME?.trim();
@@ -103,39 +108,61 @@ export class AuthService implements OnModuleInit {
     );
   }
 
-  private cookie(request: IsmsRequest) {
+  private cookie(request: IsmsRequest, name: string) {
     const raw = request.headers.cookie || "";
     return raw
       .split(";")
       .map((part) => part.trim().split("="))
-      .find(([name]) => name === cookieName)?.[1];
+      .find(([cookieName]) => cookieName === name)?.[1];
   }
 
   async sessionIdentity(request: IsmsRequest): Promise<Identity | null> {
-    const token = this.cookie(request);
-    if (!token) return null;
-    const session = await this.prisma.adminSession.findUnique({
-      where: { tokenHash: hashToken(token) },
-      include: { adminAccount: true },
+    const adminToken = this.cookie(request, adminCookieName);
+    if (adminToken) {
+      const session = await this.prisma.adminSession.findUnique({
+        where: { tokenHash: hashToken(adminToken) },
+        include: { adminAccount: true },
+      });
+      if (
+        session &&
+        session.expiresAt > new Date() &&
+        session.adminAccount.active
+      ) {
+        await this.prisma.adminSession.update({
+          where: { id: session.id },
+          data: { lastUsedAt: new Date() },
+        });
+        return {
+          username: session.adminAccount.username,
+          displayName: session.adminAccount.displayName,
+          groups: ["ISMS-LOCAL-ADMINS"],
+          source: "local-admin",
+          sessionExpiresAt: session.expiresAt.toISOString(),
+          profilePhoto: session.adminAccount.profilePhoto,
+        };
+      }
+    }
+    const directoryToken = this.cookie(request, directoryCookieName);
+    if (!directoryToken) return null;
+    const session = await this.prisma.directoryUserSession.findUnique({
+      where: { tokenHash: hashToken(directoryToken) },
     });
-    if (
-      !session ||
-      session.expiresAt <= new Date() ||
-      !session.adminAccount.active
-    )
-      return null;
-    await this.prisma.adminSession.update({
+    if (!session || session.expiresAt <= new Date()) return null;
+    await this.prisma.directoryUserSession.update({
       where: { id: session.id },
       data: { lastUsedAt: new Date() },
     });
-    return {
-      username: session.adminAccount.username,
-      displayName: session.adminAccount.displayName,
-      groups: ["ISMS-LOCAL-ADMINS"],
-      source: "local-admin",
+    return this.enrichSsoIdentity({
+      username: session.username,
+      displayName: session.displayName,
+      groups: Array.isArray(session.groups)
+        ? session.groups.filter(
+            (group): group is string => typeof group === "string",
+          )
+        : [],
+      source: "directory-session",
       sessionExpiresAt: session.expiresAt.toISOString(),
-      profilePhoto: session.adminAccount.profilePhoto,
-    };
+    });
   }
 
   async enrichSsoIdentity(identity: Identity) {
@@ -207,7 +234,7 @@ export class AuthService implements OnModuleInit {
         expiresAt,
       },
     });
-    response.cookie(cookieName, token, {
+    response.cookie(adminCookieName, token, {
       httpOnly: true,
       sameSite: "strict",
       secure: process.env.COOKIE_SECURE === "true",
@@ -217,13 +244,52 @@ export class AuthService implements OnModuleInit {
     return { authenticated: true, mfaEnabled: account.mfaEnabled };
   }
 
+  async directoryLogin(login: string, password: string, response: Response) {
+    const identity = await this.directory.authenticateUser(login, password);
+    const token = randomBytes(32).toString("base64url");
+    const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    await this.prisma.directoryUserSession.create({
+      data: {
+        tokenHash: hashToken(token),
+        username: identity.username,
+        displayName: identity.displayName,
+        groups: identity.groups,
+        directoryConnectionId: identity.connectionId,
+        expiresAt,
+      },
+    });
+    response.cookie(directoryCookieName, token, {
+      httpOnly: true,
+      sameSite: "strict",
+      secure: process.env.COOKIE_SECURE === "true",
+      path: "/",
+      expires: expiresAt,
+    });
+    return { authenticated: true, destination: "/" };
+  }
+
+  async directoryLoginEnabled() {
+    return Boolean(
+      await this.prisma.directoryConnection.findFirst({
+        where: { enabled: true, protocol: "LDAPS" },
+        select: { id: true },
+      }),
+    );
+  }
+
   async logout(request: IsmsRequest, response: Response) {
-    const token = this.cookie(request);
-    if (token)
+    const adminToken = this.cookie(request, adminCookieName);
+    if (adminToken)
       await this.prisma.adminSession.deleteMany({
-        where: { tokenHash: hashToken(token) },
+        where: { tokenHash: hashToken(adminToken) },
       });
-    response.clearCookie(cookieName, { path: "/" });
+    const directoryToken = this.cookie(request, directoryCookieName);
+    if (directoryToken)
+      await this.prisma.directoryUserSession.deleteMany({
+        where: { tokenHash: hashToken(directoryToken) },
+      });
+    response.clearCookie(adminCookieName, { path: "/" });
+    response.clearCookie(directoryCookieName, { path: "/" });
     return { authenticated: false };
   }
 

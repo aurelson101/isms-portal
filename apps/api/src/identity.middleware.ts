@@ -54,7 +54,11 @@ export class IdentityMiddleware implements NestMiddleware {
       req.identity = sessionIdentity;
       return next();
     }
-    if (route === "/auth/login" || route === "/auth/config") {
+    if (
+      route === "/auth/login" ||
+      route === "/auth/directory-login" ||
+      route === "/auth/config"
+    ) {
       req.identity = {
         username: "anonymous",
         displayName: "Anonymous",

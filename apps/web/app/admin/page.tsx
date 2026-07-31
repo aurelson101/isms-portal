@@ -148,6 +148,7 @@ type DirectoryConnection = {
   bindDn: string;
   userFilter: string;
   groupFilter: string;
+  loginAttribute: string;
   usernameAttribute: string;
   groupAttribute: string;
   emailAttribute: string;
@@ -1751,6 +1752,7 @@ function DirectoryPanel({
       bindSecret: values.bindSecret,
       userFilter: values.userFilter,
       groupFilter: values.groupFilter,
+      loginAttribute: values.loginAttribute,
       usernameAttribute: values.usernameAttribute,
       groupAttribute: values.groupAttribute,
       emailAttribute: values.emailAttribute,
@@ -1909,6 +1911,16 @@ function DirectoryPanel({
           <input
             name="groupFilter"
             defaultValue={editing?.groupFilter || "(objectClass=group)"}
+          />
+        </label>
+        <label>
+          {t(
+            "Attribut de connexion (login court)",
+            "Sign-in attribute (short login)",
+          )}
+          <input
+            name="loginAttribute"
+            defaultValue={editing?.loginAttribute || "sAMAccountName"}
           />
         </label>
         <label>
@@ -2742,11 +2754,13 @@ function SettingsPanel({
             {t("Se déconnecter du SSO")}
           </a>
         )}
-        {identity?.authentication.source === "local-admin" && (
+        {["local-admin", "directory-session"].includes(
+          identity?.authentication.source || "",
+        ) && (
           <button
             onClick={() =>
               api("/api/auth/logout", { method: "POST" }).then(() =>
-                window.location.assign("/login?fallback=admin"),
+                window.location.assign("/login?loggedout=1"),
               )
             }
           >

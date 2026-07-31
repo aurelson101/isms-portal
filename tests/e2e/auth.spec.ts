@@ -11,6 +11,7 @@ test("the generated administrator can sign in and manage the secure profile", as
   );
 
   await page.goto("/login?fallback=admin");
+  await page.getByRole("button", { name: "FR", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Connexion" })).toBeVisible();
   await page.getByLabel("Identifiant").fill(username!);
   await page.getByLabel("Mot de passe").fill(password!);

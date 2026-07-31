@@ -36,6 +36,7 @@ model DirectoryConnection {
   encryptedBindSecret String
   userFilter String @default("(objectClass=user)")
   groupFilter String @default("(objectClass=group)")
+  loginAttribute String @default("sAMAccountName")
   usernameAttribute String @default("mail")
   groupAttribute String @default("cn")
   emailAttribute String @default("mail")
@@ -48,6 +49,7 @@ model DirectoryConnection {
   caCertificate TrustedCaCertificate? @relation(fields: [caCertificateId], references: [id])
   syncJobs DirectorySyncJob[]
   groups DirectoryGroup[]
+  userSessions DirectoryUserSession[]
   lastTestAt DateTime?
   lastTestStatus String?
   createdAt DateTime @default(now())
@@ -55,6 +57,23 @@ model DirectoryConnection {
 
   @@index([enabled])
   @@index([caCertificateId])
+}
+
+model DirectoryUserSession {
+  id                    String              @id @default(uuid())
+  tokenHash             String              @unique
+  username              String
+  displayName           String
+  groups                Json
+  directoryConnectionId String
+  directoryConnection   DirectoryConnection @relation(fields: [directoryConnectionId], references: [id], onDelete: Cascade)
+  expiresAt             DateTime
+  createdAt             DateTime            @default(now())
+  lastUsedAt            DateTime            @default(now())
+
+  @@index([username])
+  @@index([expiresAt])
+  @@index([directoryConnectionId])
 }
 
 model TrustedCaCertificate {
