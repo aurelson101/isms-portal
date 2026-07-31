@@ -21,6 +21,15 @@ test("navigation, filtering, search and languages are functional", async ({
   await expect(
     page.getByText("Politique de sécurité de l’information"),
   ).toHaveCount(0);
+  const homeCards = page.locator(".cards article");
+  expect(await homeCards.count()).toBeGreaterThan(0);
+  for (const card of await homeCards.all()) {
+    const iconBox = await card.locator(".card-icon").boundingBox();
+    const titleBox = await card.getByRole("heading", { level: 2 }).boundingBox();
+    expect(iconBox).not.toBeNull();
+    expect(titleBox).not.toBeNull();
+    expect(iconBox!.y + iconBox!.height).toBeLessThanOrEqual(titleBox!.y + 1);
+  }
 
   await page
     .locator("aside")
