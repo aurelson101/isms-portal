@@ -1369,6 +1369,19 @@ export class DirectoryController {
     return this.directory.searchGroups(query);
   }
 
+  @Post("purge")
+  async purge(@Req() req: IsmsRequest) {
+    const result = await this.directory.purgeSynchronizedGroups();
+    await this.audit.record(
+      req,
+      "directory.purge",
+      "directory-groups:synchronized",
+      "success",
+      result,
+    );
+    return result;
+  }
+
   @Post()
   async create(@Req() req: IsmsRequest, @Body() body: DirectoryConnectionDto) {
     if (!body.bindSecret)

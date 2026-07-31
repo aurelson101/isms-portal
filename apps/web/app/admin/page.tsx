@@ -1707,6 +1707,7 @@ function DirectoryPanel({
   onNotice: (message: string) => void;
 }) {
   const { locale, t } = useAdminI18n();
+  const confirmAction = useContext(ConfirmContext);
   const [editing, setEditing] = useState<DirectoryConnection | null>(null);
   const [selectedProtocol, setSelectedProtocol] = useState<"LDAP" | "LDAPS">(
     "LDAPS",
@@ -1976,6 +1977,47 @@ function DirectoryPanel({
           </button>
         )}
       </form>
+      <div className="admin-card directory-purge-card">
+        <div>
+          <h2>{t("Changer d’Active Directory")}</h2>
+          <p>
+            {t(
+              "Supprime tous les groupes synchronisés et leurs règles d’accès avant de configurer un autre annuaire. Les groupes ajoutés localement sont conservés.",
+            )}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="danger"
+          onClick={async () => {
+            if (
+              !(await confirmAction(
+                t(
+                  "Purger tous les groupes synchronisés et leurs règles d’accès ? Cette action ne modifie pas Active Directory.",
+                ),
+              ))
+            )
+              return;
+            await api<{ groups: number; rules: number }>(
+              "/api/admin/directory-connections/purge",
+              { method: "POST" },
+            )
+              .then(async (result) => {
+                onNotice(
+                  t(
+                    `Purge terminée : ${result.groups} groupe(s) et ${result.rules} règle(s) supprimé(s).`,
+                    `Purge complete: ${result.groups} group(s) and ${result.rules} rule(s) deleted.`,
+                  ),
+                );
+                await onChanged();
+              })
+              .catch((error) => onError(error.message));
+          }}
+        >
+          <Icon name="delete" />
+          {t("Purger les données AD")}
+        </button>
+      </div>
       <div className="card-grid">
         {connections.length === 0 && (
           <EmptyState

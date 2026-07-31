@@ -142,6 +142,12 @@ export const adminEnglishCatalog = {
     "Group imported from Active Directory.",
   "Sélection AD": "AD selection",
   "membre(s)": "member(s)",
+  "Changer d’Active Directory": "Change Active Directory",
+  "Supprime tous les groupes synchronisés et leurs règles d’accès avant de configurer un autre annuaire. Les groupes ajoutés localement sont conservés.":
+    "Deletes all synchronized groups and their access rules before configuring another directory. Locally added groups are preserved.",
+  "Purger tous les groupes synchronisés et leurs règles d’accès ? Cette action ne modifie pas Active Directory.":
+    "Purge all synchronized groups and their access rules? This action does not modify Active Directory.",
+  "Purger les données AD": "Purge AD data",
   "· utilisé": "· in use",
   "Accès refusé": "Access denied",
   Actif: "Active",
