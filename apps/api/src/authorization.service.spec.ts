@@ -36,17 +36,20 @@ describe("AuthorizationService", () => {
     ).resolves.toBe(false);
   });
 
-  it("queries only active matching groups for standard users", async () => {
+  it("matches standard user groups case-insensitively and honors administer", async () => {
     findMany.mockResolvedValue([]);
     await service.permittedSpaces(["ITAD"], "search");
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           accessRules: {
-            some: {
-              group: { name: { in: ["ITAD"] }, active: true },
-              search: true,
-            },
+            some: expect.objectContaining({
+              group: {
+                active: true,
+                OR: [{ name: { equals: "ITAD", mode: "insensitive" } }],
+              },
+              OR: [{ search: true }, { administer: true }],
+            }),
           },
         }),
       }),

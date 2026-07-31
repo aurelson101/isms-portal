@@ -34,14 +34,29 @@ export class AuthorizationService {
         deletedAt: null,
         accessRules: {
           some: {
-            group: { name: { in: groups }, active: true },
-            [permission]: true,
+            group: {
+              active: true,
+              OR: groups.map((name) => ({
+                name: { equals: name, mode: "insensitive" as const },
+              })),
+            },
+            OR:
+              permission === "administer"
+                ? [{ administer: true }]
+                : [{ [permission]: true }, { administer: true }],
           },
         },
       },
       include: {
         accessRules: {
-          where: { group: { name: { in: groups }, active: true } },
+          where: {
+            group: {
+              active: true,
+              OR: groups.map((name) => ({
+                name: { equals: name, mode: "insensitive" as const },
+              })),
+            },
+          },
         },
       },
       orderBy: { slug: "asc" },
@@ -54,8 +69,16 @@ export class AuthorizationService {
       (await this.prisma.accessRule.count({
         where: {
           spaceId,
-          group: { name: { in: groups }, active: true },
-          [permission]: true,
+          group: {
+            active: true,
+            OR: groups.map((name) => ({
+              name: { equals: name, mode: "insensitive" as const },
+            })),
+          },
+          OR:
+            permission === "administer"
+              ? [{ administer: true }]
+              : [{ [permission]: true }, { administer: true }],
         },
       })) > 0
     );

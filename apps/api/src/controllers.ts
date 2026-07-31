@@ -34,6 +34,7 @@ import {
   CategoryDto,
   DirectoryConnectionDto,
   DirectoryGroupDto,
+  DocumentMetadataDto,
   ImportDirectoryGroupDto,
   LocalePreferenceDto,
   SpaceDto,
@@ -230,23 +231,49 @@ export class DocumentsController {
       req.identity.groups,
       q ? "search" : "read",
     );
-    const previewSpaceIds = new Set(
-      (
-        await this.authorization.permittedSpaces(req.identity.groups, "preview")
-      ).map((item) => item.id),
+    const permissionNames: Permission[] = [
+      "preview",
+      "download",
+      "upload",
+      "edit",
+      "publish",
+      "archive",
+      "administer",
+    ];
+    const permissionEntries = await Promise.all(
+      permissionNames.map(
+        async (permission) =>
+          [
+            permission,
+            new Set(
+              (
+                await this.authorization.permittedSpaces(
+                  req.identity.groups,
+                  permission,
+                )
+              ).map((item) => item.id),
+            ),
+          ] as const,
+      ),
     );
-    const downloadSpaceIds = new Set(
-      (
-        await this.authorization.permittedSpaces(
-          req.identity.groups,
-          "download",
-        )
-      ).map((item) => item.id),
-    );
-    const spaceIds = spaces
+    const permissionSpaces = Object.fromEntries(permissionEntries) as Record<
+      (typeof permissionNames)[number],
+      Set<string>
+    >;
+    const readableSpaceIds = spaces
       .filter((item) => !space || item.slug === space)
       .map((item) => item.id);
-    if (spaceIds.length === 0) return emptyResult;
+    const managedSpaceIds = [
+      ...new Set(
+        ["edit", "publish", "archive", "administer"].flatMap((permission) => [
+          ...permissionSpaces[permission as keyof typeof permissionSpaces],
+        ]),
+      ),
+    ];
+    const visibleSpaceIds = [
+      ...new Set([...readableSpaceIds, ...managedSpaceIds]),
+    ];
+    if (visibleSpaceIds.length === 0) return emptyResult;
     const fullTextMatches = q
       ? await this.prisma.$queryRaw<Array<{ documentId: string }>>(Prisma.sql`
           SELECT DISTINCT "documentId"
@@ -259,8 +286,10 @@ export class DocumentsController {
     if (q && fullTextMatches.length === 0) return emptyResult;
     const where: Prisma.DocumentWhereInput = {
       deletedAt: null,
-      status: "PUBLISHED",
-      spaceId: { in: spaceIds },
+      OR: [
+        { status: "PUBLISHED", spaceId: { in: readableSpaceIds } },
+        { spaceId: { in: managedSpaceIds } },
+      ],
       ...(q
         ? { id: { in: fullTextMatches.map((match) => match.documentId) } }
         : {}),
@@ -312,8 +341,13 @@ export class DocumentsController {
     const items = documents.map((document) => ({
       ...document,
       permissions: {
-        preview: previewSpaceIds.has(document.space.id),
-        download: downloadSpaceIds.has(document.space.id),
+        preview: permissionSpaces.preview.has(document.space.id),
+        download: permissionSpaces.download.has(document.space.id),
+        upload: permissionSpaces.upload.has(document.space.id),
+        edit: permissionSpaces.edit.has(document.space.id),
+        publish: permissionSpaces.publish.has(document.space.id),
+        archive: permissionSpaces.archive.has(document.space.id),
+        administer: permissionSpaces.administer.has(document.space.id),
       },
       versions: document.versions.map((version) => ({
         ...version,
@@ -332,6 +366,113 @@ export class DocumentsController {
           totalPages,
         }
       : items;
+  }
+
+  @Put(":id/metadata")
+  async updateMetadata(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: DocumentMetadataDto,
+  ) {
+    const document = await this.prisma.document.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, spaceId: true },
+    });
+    if (
+      !document ||
+      !(await this.authorization.can(
+        req.identity.groups,
+        document.spaceId,
+        "edit",
+      ))
+    )
+      throw new NotFoundException();
+    const translation = await this.prisma.documentTranslation.upsert({
+      where: { documentId_locale: { documentId: id, locale: body.locale } },
+      update: {
+        title: body.title.trim(),
+        description: body.description?.trim() || null,
+      },
+      create: {
+        documentId: id,
+        locale: body.locale,
+        title: body.title.trim(),
+        description: body.description?.trim() || null,
+      },
+    });
+    await this.audit.record(
+      req,
+      "document.metadata.update",
+      `document:${id}`,
+      "success",
+      {
+        locale: body.locale,
+      },
+    );
+    return translation;
+  }
+
+  @Post(":id/publish")
+  async userPublish(@Req() req: IsmsRequest, @Param("id") id: string) {
+    return this.transition(req, id, "publish", "PUBLISHED");
+  }
+
+  @Post(":id/archive")
+  async userArchive(@Req() req: IsmsRequest, @Param("id") id: string) {
+    return this.transition(req, id, "archive", "ARCHIVED");
+  }
+
+  @Post(":id/restore")
+  async userRestore(@Req() req: IsmsRequest, @Param("id") id: string) {
+    return this.transition(req, id, "archive", "DRAFT");
+  }
+
+  private async transition(
+    req: IsmsRequest,
+    id: string,
+    permission: "publish" | "archive",
+    status: "PUBLISHED" | "ARCHIVED" | "DRAFT",
+  ) {
+    const document = await this.prisma.document.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        versions: { include: { storedFile: { include: { scans: true } } } },
+      },
+    });
+    if (
+      !document ||
+      !(await this.authorization.can(
+        req.identity.groups,
+        document.spaceId,
+        permission,
+      ))
+    )
+      throw new NotFoundException();
+    if (
+      status === "PUBLISHED" &&
+      (document.versions.length === 0 ||
+        document.versions.some(
+          (version) =>
+            !version.storedFile.scans.some((scan) => scan.status === "CLEAN"),
+        ))
+    )
+      throw new ConflictException(
+        "Every document version must pass antivirus scanning",
+      );
+    const updated = await this.prisma.document.update({
+      where: { id },
+      data: {
+        status,
+        ...(status === "PUBLISHED" ? { publishedAt: new Date() } : {}),
+      },
+    });
+    await this.audit.record(
+      req,
+      `document.${status.toLowerCase()}`,
+      `document:${id}`,
+      "success",
+    );
+    return updated;
   }
 
   @Get(":id")
