@@ -891,6 +891,71 @@ h1 {
   border-radius: 8px;
   margin: 12px 0;
 }
+.document-preview-frame {
+  position: relative;
+  display: flow-root;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.sensitive-watermark {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  max-width: calc(100% - 32px);
+  padding: 8px 16px;
+  border: 3px solid currentColor;
+  color: rgb(176 20 35 / 24%);
+  font-size: clamp(18px, 3vw, 38px);
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+.sensitive-watermark.header {
+  top: 26px;
+  transform: translateX(-50%);
+}
+.sensitive-watermark.center {
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-18deg);
+}
+.sensitive-watermark.footer {
+  bottom: 26px;
+  transform: translateX(-50%);
+}
+.watermark-config {
+  grid-column: 1/-1;
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(300px, 1.3fr);
+  gap: 16px;
+  align-items: start;
+  padding: 16px;
+  border: 1px solid #bfd0e6;
+  border-radius: 9px;
+  background: #f3f7fc;
+}
+.watermark-config > div {
+  display: grid;
+  gap: 8px;
+}
+.watermark-preview {
+  position: relative;
+  min-height: 190px;
+  overflow: hidden;
+  border: 1px solid #c5d2e3;
+  border-radius: 6px;
+  background:
+    linear-gradient(#dce4ef 1px, transparent 1px) 28px 44px / calc(100% - 56px)
+      25px repeat-y,
+    white;
+  box-shadow: 0 5px 16px rgb(15 43 79 / 10%);
+}
+.watermark-preview .sensitive-watermark {
+  font-size: clamp(14px, 2vw, 25px);
+}
 .primary-link {
   display: inline-block;
   background: #0768ea;
@@ -2066,6 +2131,12 @@ svg {
   cursor: not-allowed;
 }
 @media (max-width: 600px) {
+  .watermark-config {
+    grid-template-columns: 1fr;
+  }
+  .sensitive-watermark {
+    white-space: normal;
+  }
   .directory-group-form .directory-group-picker {
     grid-column: auto;
   }

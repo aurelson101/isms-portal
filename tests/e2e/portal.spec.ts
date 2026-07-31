@@ -797,6 +797,14 @@ test("Word and Excel documents open in a read-only viewer", async ({
   ).json()) as Array<{ id: string; slug: string }>;
   const spaceId = spaces.find((space) => space.slug === "general")?.id;
   expect(spaceId).toBeTruthy();
+  await page.goto("/admin#documents");
+  await page.getByRole("checkbox", { name: "Document sensible" }).check();
+  const watermarkPosition = page.getByLabel("Position du filigrane");
+  await expect(watermarkPosition).toBeVisible();
+  await watermarkPosition.selectOption("FOOTER");
+  await expect(
+    page.locator(".watermark-preview .sensitive-watermark.footer"),
+  ).toHaveText("SENSITIVE DOCUMENT");
   const suffix = Date.now().toString(36);
   const wordTitle = `Word lecture seule ${suffix}`;
   const excelTitle = `Excel lecture seule ${suffix}`;
@@ -843,6 +851,9 @@ test("Word and Excel documents open in a read-only viewer", async ({
           spaceId: spaceId || "",
           locale: "fr",
           title: item.title,
+          ...(item.title === wordTitle
+            ? { sensitive: "true", watermarkPosition: "FOOTER" }
+            : {}),
           file: {
             name: item.name,
             mimeType: item.mimeType,
@@ -851,8 +862,16 @@ test("Word and Excel documents open in a read-only viewer", async ({
         },
       });
       expect(response.status(), item.name).toBe(201);
-      const created = (await response.json()) as { id: string };
+      const created = (await response.json()) as {
+        id: string;
+        sensitive: boolean;
+        watermarkPosition: string;
+      };
       createdIds.push(created.id);
+      if (item.title === wordTitle) {
+        expect(created.sensitive).toBe(true);
+        expect(created.watermarkPosition).toBe("FOOTER");
+      }
       expect(
         (
           await request.post(`/api/admin/documents/${created.id}/publish`)
@@ -870,6 +889,9 @@ test("Word and Excel documents open in a read-only viewer", async ({
     await expect(
       page.getByText("Contenu Word sécurisé en lecture seule"),
     ).toBeVisible();
+    await expect(
+      page.locator(".document-preview-frame .sensitive-watermark.footer"),
+    ).toHaveText("SENSITIVE DOCUMENT");
     await page.getByRole("button", { name: "Fermer" }).click();
 
     await search.fill(excelTitle);
@@ -877,6 +899,9 @@ test("Word and Excel documents open in a read-only viewer", async ({
     await expect(page.getByText("Consultation en lecture seule")).toBeVisible();
     await expect(page.getByRole("cell", { name: "Contrôle" })).toBeVisible();
     await expect(page.getByRole("cell", { name: "Conforme" })).toBeVisible();
+    await expect(
+      page.locator(".document-preview-frame .sensitive-watermark"),
+    ).toHaveCount(0);
 
     await page.goto("/admin#documents");
     await page

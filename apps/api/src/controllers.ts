@@ -354,6 +354,7 @@ export class DocumentsController {
         id: true,
         status: true,
         sensitive: true,
+        watermarkPosition: true,
         publishedAt: true,
         viewCount: true,
         downloadCount: true,
@@ -434,6 +435,8 @@ export class DocumentsController {
       throw new BadRequestException("Locale must be fr or en");
     if (!body.spaceId || !body.title?.trim())
       throw new BadRequestException("spaceId and title are required");
+    const sensitive = body.sensitive === "true";
+    const watermarkPosition = parseWatermarkPosition(body.watermarkPosition);
     const existing = body.documentId
       ? await this.prisma.document.findFirst({
           where: { id: body.documentId, deletedAt: null },
@@ -493,7 +496,8 @@ export class DocumentsController {
             id: documentId,
             spaceId: body.spaceId,
             categoryId: body.categoryId || null,
-            sensitive: body.sensitive === "true",
+            sensitive,
+            watermarkPosition,
             status: scan.status === "CLEAN" ? "DRAFT" : "QUARANTINED",
           },
         });
@@ -1395,6 +1399,18 @@ const magicMatches = (content: Buffer, extension: string) => {
   return false;
 };
 
+const watermarkPositions = ["HEADER", "CENTER", "FOOTER"] as const;
+const parseWatermarkPosition = (value?: string) => {
+  const position = value || "CENTER";
+  if (
+    !watermarkPositions.includes(
+      position as (typeof watermarkPositions)[number],
+    )
+  )
+    throw new BadRequestException("Invalid watermark position");
+  return position as (typeof watermarkPositions)[number];
+};
+
 @ApiTags("document administration")
 @AdminOnly()
 @Controller("admin/documents")
@@ -1470,6 +1486,8 @@ export class DocumentAdminController {
       throw new BadRequestException("Locale must be fr or en");
     if (!body.spaceId || !body.title?.trim())
       throw new BadRequestException("spaceId and title are required");
+    const sensitive = body.sensitive === "true";
+    const watermarkPosition = parseWatermarkPosition(body.watermarkPosition);
     const extension = extname(file.originalname).toLowerCase();
     if (
       !allowedExtensions[extension]?.includes(file.mimetype) ||
@@ -1512,7 +1530,8 @@ export class DocumentAdminController {
               id: documentId,
               spaceId: body.spaceId,
               categoryId: body.categoryId || null,
-              sensitive: body.sensitive === "true",
+              sensitive,
+              watermarkPosition,
               status: scan.status === "CLEAN" ? "DRAFT" : "QUARANTINED",
             },
           });
