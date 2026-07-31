@@ -713,7 +713,11 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
       </aside>
       <main>
         <header>
-          <div className="language">
+          <div
+            className="language"
+            role="group"
+            aria-label={t.interfaceLanguage}
+          >
             <button
               onClick={() => void changeLocale("fr")}
               aria-pressed={locale === "fr"}
@@ -1268,13 +1272,30 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                 await loadDocuments();
               }}
             >
-              <label>
-                {t.language}
-                <select name="locale" defaultValue={locale}>
-                  <option value="fr">FR</option>
-                  <option value="en">EN</option>
-                </select>
-              </label>
+              <fieldset className="document-language-field">
+                <legend>{t.documentLanguage}</legend>
+                <div className="document-language-options">
+                  <label className="document-language-option">
+                    <input
+                      name="locale"
+                      type="radio"
+                      value="fr"
+                      defaultChecked={locale === "fr"}
+                    />
+                    <span>FR</span>
+                  </label>
+                  <label className="document-language-option">
+                    <input
+                      name="locale"
+                      type="radio"
+                      value="en"
+                      defaultChecked={locale === "en"}
+                    />
+                    <span>EN</span>
+                  </label>
+                </div>
+                <small>{t.documentLanguageHint}</small>
+              </fieldset>
               <label>
                 {t.title}
                 <input name="title" required maxLength={200} />

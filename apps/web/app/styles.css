@@ -1608,6 +1608,83 @@ h1 {
   min-height: 18px;
   flex: 0 0 18px;
 }
+.document-language-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  color: #40516d;
+}
+.document-language-field legend {
+  margin: 0 0 6px;
+  padding: 0;
+}
+.document-language-field small {
+  color: #687793;
+}
+.document-language-options {
+  display: inline-flex;
+  width: fit-content;
+  overflow: hidden;
+  border: 1px solid #b9c8dc;
+  border-radius: 7px;
+  background: white;
+}
+.admin-form .document-language-option,
+.document-language-option {
+  position: relative;
+  display: block;
+  color: #40516d;
+  cursor: pointer;
+}
+.admin-form .document-language-option input,
+.document-language-option input {
+  position: absolute;
+  width: 1px;
+  min-height: 1px;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+}
+.document-language-option span {
+  display: block;
+  min-width: 52px;
+  padding: 10px 14px;
+  text-align: center;
+  font-weight: 700;
+}
+.document-language-option + .document-language-option span {
+  border-left: 1px solid #b9c8dc;
+}
+.document-language-option input:checked + span {
+  background: #0768ea;
+  color: white;
+}
+.document-language-option input:focus-visible + span {
+  outline: 3px solid #7db1ff;
+  outline-offset: -3px;
+}
+.document-language-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.document-language-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 4px 7px;
+  border: 1px solid #b8cae2;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: #075fcf;
+  font-size: 12px;
+  font-weight: 750;
+}
 .inline-form {
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   align-items: end;

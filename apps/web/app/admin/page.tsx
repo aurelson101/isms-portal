@@ -594,7 +594,11 @@ export default function Admin() {
                   ))}
                 </datalist>
               )}
-              <div className="admin-language" aria-label={t("Langue")}>
+              <div
+                className="admin-language"
+                role="group"
+                aria-label={t("Langue de l’interface")}
+              >
                 <button
                   type="button"
                   aria-pressed={locale === "fr"}
@@ -1678,13 +1682,20 @@ function DocumentsPanel({
             ))}
           </select>
         </label>
-        <label>
-          {t("Langue")}
-          <select name="locale" defaultValue="fr">
-            <option value="fr">{t("Français")}</option>
-            <option value="en">English</option>
-          </select>
-        </label>
+        <fieldset className="document-language-field">
+          <legend>{t("Langue du document")}</legend>
+          <div className="document-language-options">
+            <label className="document-language-option">
+              <input name="locale" type="radio" value="fr" defaultChecked />
+              <span>FR</span>
+            </label>
+            <label className="document-language-option">
+              <input name="locale" type="radio" value="en" />
+              <span>EN</span>
+            </label>
+          </div>
+          <small>{t("Indique uniquement la langue du fichier.")}</small>
+        </fieldset>
         <label>
           {t("Titre")}
           <input name="title" required maxLength={255} />
@@ -1745,7 +1756,7 @@ function DocumentsPanel({
             <tr>
               <th>{t("Titre")}</th>
               <th>{t("Espace")}</th>
-              <th>{t("Langues")}</th>
+              <th>{t("Langue du document")}</th>
               <th>{t("État")}</th>
               <th>{t("Actions")}</th>
             </tr>
@@ -1773,11 +1784,23 @@ function DocumentsPanel({
                     : document.space.nameEn}
                 </td>
                 <td>
-                  {Array.from(
-                    new Set(document.versions.map((version) => version.locale)),
-                  )
-                    .join(", ")
-                    .toUpperCase()}
+                  <div
+                    className="document-language-badges"
+                    aria-label={t("Langue du document")}
+                  >
+                    {Array.from(
+                      new Set(
+                        document.versions.map((version) => version.locale),
+                      ),
+                    ).map((documentLocale) => (
+                      <span
+                        className="document-language-badge"
+                        key={documentLocale}
+                      >
+                        {documentLocale.toUpperCase()}
+                      </span>
+                    ))}
+                  </div>
                 </td>
                 <td>{localizedStatus(locale, document.status)}</td>
                 <td>
