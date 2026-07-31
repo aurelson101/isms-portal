@@ -167,6 +167,93 @@ test("administration is fully switchable between French and English", async ({
   await expect(page.getByText("Session de démonstration")).toBeVisible();
 });
 
+test("administration uses accessible confirmations and edits an existing directory connector", async ({
+  page,
+}) => {
+  await page.goto("/admin#rules");
+  await expect(
+    page.getByRole("heading", { name: "Gestion des droits d’accès" }),
+  ).toBeVisible();
+  await page.locator(".matrix tbody tr").first().click();
+  await page
+    .locator(".drawer")
+    .getByRole("button", { name: "Supprimer" })
+    .click();
+  const confirmation = page.getByRole("alertdialog");
+  await expect(confirmation).toBeVisible();
+  await expect(
+    confirmation.getByRole("button", { name: "Annuler" }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(confirmation).toBeHidden();
+
+  const connection = {
+    id: "11111111-1111-4111-8111-111111111111",
+    name: "Directory test",
+    domain: "corp.example.local",
+    primaryHost: "dc01.corp.example.local",
+    secondaryHost: "dc02.corp.example.local",
+    port: 389,
+    protocol: "LDAP",
+    baseDn: "DC=corp,DC=example,DC=local",
+    userBaseDn: "OU=Users,DC=corp,DC=example,DC=local",
+    groupBaseDn: "OU=Groups,DC=corp,DC=example,DC=local",
+    bindDn: "CN=Service,OU=Users,DC=corp,DC=example,DC=local",
+    userFilter: "(objectClass=user)",
+    groupFilter: "(objectClass=group)",
+    usernameAttribute: "sAMAccountName",
+    groupAttribute: "cn",
+    emailAttribute: "mail",
+    nestedGroups: true,
+    syncIntervalMinutes: 60,
+    timeoutMs: 5000,
+    retries: 2,
+    enabled: false,
+    caCertificateId: null,
+    lastTestStatus: null,
+  };
+  await page.route("**/api/admin/directory-connections", async (route) => {
+    await route.fulfill({ json: [connection] });
+  });
+  await page.route(
+    `**/api/admin/directory-connections/${connection.id}`,
+    async (route) => {
+      expect(route.request().method()).toBe("PUT");
+      const payload = route.request().postDataJSON() as {
+        name: string;
+        bindSecret?: string;
+      };
+      expect(payload.name).toBe(connection.name);
+      expect(payload.bindSecret).toBe("");
+      await route.fulfill({ json: connection });
+    },
+  );
+
+  await page.getByRole("button", { name: "Actualiser" }).click();
+  await page
+    .locator("aside")
+    .getByRole("button", { name: "Synchronisation LDAP" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Synchronisation LDAP/LDAPS" }),
+  ).toBeVisible();
+  await page
+    .locator(".admin-card")
+    .first()
+    .getByRole("button", { name: "Modifier" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Modifier le connecteur" }),
+  ).toBeVisible();
+  await expect(page.locator('input[name="bindSecret"]')).not.toHaveAttribute(
+    "required",
+  );
+  await page
+    .getByRole("button", { name: "Enregistrer les modifications" })
+    .click();
+  await expect(page.getByText("Connecteur modifié.")).toBeVisible();
+});
+
 test("categories can be created, edited and deleted", async ({ request }) => {
   const spacesResponse = await request.get("/api/admin/spaces");
   expect(spacesResponse.ok()).toBeTruthy();

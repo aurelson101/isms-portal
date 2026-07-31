@@ -7,12 +7,16 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Icon, type IconName } from "../icons";
 
 type Locale = "fr" | "en";
 const AdminLocaleContext = createContext<Locale>("fr");
+const ConfirmContext = createContext<(message: string) => Promise<boolean>>(
+  async () => false,
+);
 const useAdminI18n = () => {
   const locale = useContext(AdminLocaleContext);
   return {
@@ -111,6 +115,19 @@ type DirectoryConnection = {
   secondaryHost?: string;
   port: number;
   protocol: "LDAP" | "LDAPS";
+  baseDn: string;
+  userBaseDn?: string;
+  groupBaseDn?: string;
+  bindDn: string;
+  userFilter: string;
+  groupFilter: string;
+  usernameAttribute: string;
+  groupAttribute: string;
+  emailAttribute: string;
+  nestedGroups: boolean;
+  syncIntervalMinutes: number;
+  timeoutMs: number;
+  retries: number;
   enabled: boolean;
   lastTestStatus?: string;
   lastTestAt?: string;
@@ -241,7 +258,22 @@ export default function Admin() {
     demoMode: boolean;
     authentication: { source: string; ssoConnected: boolean };
   } | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    message: string;
+    resolve: (accepted: boolean) => void;
+  } | null>(null);
   const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const confirmAction = useCallback(
+    (message: string) =>
+      new Promise<boolean>((resolve) => {
+        setConfirmation({ message, resolve });
+      }),
+    [],
+  );
+  const closeConfirmation = (accepted: boolean) => {
+    confirmation?.resolve(accepted);
+    setConfirmation(null);
+  };
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -394,277 +426,392 @@ export default function Admin() {
 
   return (
     <AdminLocaleContext.Provider value={locale}>
-      <div className="admin-shell">
-        <aside>
-          <div className="brand">
-            <div className="shield">
-              <Icon name="shield" />
+      <ConfirmContext.Provider value={confirmAction}>
+        <div className="admin-shell">
+          <aside>
+            <div className="brand">
+              <div className="shield">
+                <Icon name="shield" />
+              </div>
+              <div>
+                <strong>ISMS Portal</strong>
+                <small>
+                  {t("Administration sécurisée", "Secure administration")}
+                </small>
+              </div>
             </div>
-            <div>
-              <strong>ISMS Portal</strong>
-              <small>
-                {t("Administration sécurisée", "Secure administration")}
-              </small>
-            </div>
-          </div>
-          <nav aria-label="Administration">
-            {tabs.map(([key, icon, labelFr, labelEn]) => (
-              <button
-                type="button"
-                aria-current={tab === key ? "page" : undefined}
-                className={tab === key ? "active" : ""}
-                key={key}
-                onClick={() => selectTab(key)}
-              >
-                <Icon name={icon} />{" "}
-                <span>{locale === "fr" ? labelFr : labelEn}</span>
-              </button>
-            ))}
-          </nav>
-          <a className="back-link" href="/">
-            ← {t("Retour au portail", "Back to portal")}
-          </a>
-        </aside>
-        <main>
-          <header>
-            <input
-              list={tab === "groups" ? "ad-group-suggestions" : undefined}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={
-                tab === "groups"
-                  ? t(
-                      "Rechercher ou sélectionner un groupe AD…",
-                      "Search or select an AD group…",
-                    )
-                  : t("Rechercher dans la section…", "Search this section…")
-              }
-            />
-            {tab === "groups" && (
-              <datalist id="ad-group-suggestions">
-                {groups.map((group) => (
-                  <option value={group.name} key={group.id}>
-                    {group.distinguishedName}
-                  </option>
-                ))}
-              </datalist>
-            )}
-            <div
-              className="admin-language"
-              aria-label={t("Langue", "Language")}
-            >
-              <button
-                type="button"
-                aria-pressed={locale === "fr"}
-                onClick={() => void changeLocale("fr")}
-              >
-                FR
-              </button>
-              <button
-                type="button"
-                aria-pressed={locale === "en"}
-                onClick={() => void changeLocale("en")}
-              >
-                EN
-              </button>
-            </div>
-            <button className="refresh-button" onClick={() => void refresh()}>
-              <Icon name="sync" /> <span>{t("Actualiser", "Refresh")}</span>
-            </button>
-            <div className="admin-identity">
-              <strong>
-                {identity?.displayName ||
-                  t("Administrateur ISMS", "ISMS Administrator")}
-              </strong>
-              <span
-                className={
-                  identity?.authentication.ssoConnected
-                    ? "auth-status connected"
-                    : "auth-status demo"
+            <nav aria-label="Administration">
+              {tabs.map(([key, icon, labelFr, labelEn]) => (
+                <button
+                  type="button"
+                  aria-current={tab === key ? "page" : undefined}
+                  className={tab === key ? "active" : ""}
+                  key={key}
+                  onClick={() => selectTab(key)}
+                >
+                  <Icon name={icon} />{" "}
+                  <span>{locale === "fr" ? labelFr : labelEn}</span>
+                </button>
+              ))}
+            </nav>
+            <a className="back-link" href="/">
+              ← {t("Retour au portail", "Back to portal")}
+            </a>
+          </aside>
+          <main>
+            <header>
+              <input
+                list={tab === "groups" ? "ad-group-suggestions" : undefined}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={
+                  tab === "groups"
+                    ? t(
+                        "Rechercher ou sélectionner un groupe AD…",
+                        "Search or select an AD group…",
+                      )
+                    : t("Rechercher dans la section…", "Search this section…")
                 }
-              >
-                {identity?.authentication.ssoConnected
-                  ? t("SSO connecté", "SSO connected")
-                  : t("Session de démonstration", "Demo session")}
-              </span>
-            </div>
-          </header>
-          {error && (
-            <div className="admin-alert error" role="alert">
-              {error}
-              <button onClick={() => setError("")}>×</button>
-            </div>
-          )}
-          {notice && (
-            <div className="admin-alert success" role="status">
-              {notice}
-              <button onClick={() => setNotice("")}>×</button>
-            </div>
-          )}
-          {loading ? (
-            <p className="loading-state">
-              {t("Chargement de l’administration…", "Loading administration…")}
-            </p>
-          ) : (
-            <>
-              {tab === "dashboard" && <DashboardPanel dashboard={dashboard} />}
+              />
               {tab === "groups" && (
-                <GroupsPanel
-                  groups={groups}
-                  search={search}
-                  onChanged={refresh}
-                  onError={setError}
-                  onNotice={setNotice}
-                />
+                <datalist id="ad-group-suggestions">
+                  {groups.map((group) => (
+                    <option value={group.name} key={group.id}>
+                      {group.distinguishedName}
+                    </option>
+                  ))}
+                </datalist>
               )}
-              {tab === "rules" && (
-                <RulesPanel
-                  rules={filteredRules}
-                  selected={selectedRule}
-                  onSelect={selectRule}
-                  onNew={() => {
+              <div
+                className="admin-language"
+                aria-label={t("Langue", "Language")}
+              >
+                <button
+                  type="button"
+                  aria-pressed={locale === "fr"}
+                  onClick={() => void changeLocale("fr")}
+                >
+                  FR
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={locale === "en"}
+                  onClick={() => void changeLocale("en")}
+                >
+                  EN
+                </button>
+              </div>
+              <button className="refresh-button" onClick={() => void refresh()}>
+                <Icon name="sync" /> <span>{t("Actualiser", "Refresh")}</span>
+              </button>
+              <div className="admin-identity">
+                <strong>
+                  {identity?.displayName ||
+                    t("Administrateur ISMS", "ISMS Administrator")}
+                </strong>
+                <span
+                  className={
+                    identity?.authentication.ssoConnected
+                      ? "auth-status connected"
+                      : "auth-status demo"
+                  }
+                >
+                  {identity?.authentication.ssoConnected
+                    ? t("SSO connecté", "SSO connected")
+                    : t("Session de démonstration", "Demo session")}
+                </span>
+              </div>
+            </header>
+            {error && (
+              <div className="admin-alert error" role="alert">
+                <span>{error}</span>
+                <div>
+                  <button onClick={() => void refresh()}>
+                    {t("Réessayer", "Retry")}
+                  </button>
+                  <button
+                    onClick={() => setError("")}
+                    aria-label={t("Fermer", "Close")}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
+            {notice && (
+              <div className="admin-alert success" role="status">
+                {notice}
+                <button onClick={() => setNotice("")}>×</button>
+              </div>
+            )}
+            {loading ? (
+              <AdminSkeleton
+                label={t(
+                  "Chargement de l’administration…",
+                  "Loading administration…",
+                )}
+              />
+            ) : (
+              <>
+                {tab === "dashboard" && (
+                  <DashboardPanel dashboard={dashboard} />
+                )}
+                {tab === "groups" && (
+                  <GroupsPanel
+                    groups={groups}
+                    search={search}
+                    onChanged={refresh}
+                    onError={setError}
+                    onNotice={setNotice}
+                  />
+                )}
+                {tab === "rules" && (
+                  <RulesPanel
+                    rules={filteredRules}
+                    selected={selectedRule}
+                    onSelect={selectRule}
+                    onNew={() => {
+                      setSelectedRule(null);
+                      setRuleDraft(emptyRule());
+                    }}
+                  />
+                )}
+                {tab === "spaces" && (
+                  <SpacesPanel
+                    spaces={spaces}
+                    onChanged={refresh}
+                    onError={setError}
+                  />
+                )}
+                {tab === "documents" && (
+                  <DocumentsPanel
+                    documents={documents}
+                    spaces={spaces}
+                    onChanged={refresh}
+                    onError={setError}
+                  />
+                )}
+                {tab === "directory" && (
+                  <DirectoryPanel
+                    connections={connections}
+                    certificates={certificates}
+                    onChanged={refresh}
+                    onError={setError}
+                    onNotice={setNotice}
+                  />
+                )}
+                {tab === "certificates" && (
+                  <CertificatesPanel
+                    certificates={certificates}
+                    onChanged={refresh}
+                    onError={setError}
+                    onNotice={setNotice}
+                  />
+                )}
+                {tab === "audit" && <AuditPanel events={audit} />}
+                {tab === "health" && <HealthPanel health={health} />}
+                {tab === "settings" && (
+                  <SettingsPanel onError={setError} onNotice={setNotice} />
+                )}
+              </>
+            )}
+          </main>
+          {tab === "rules" && (
+            <section className="drawer">
+              <h2>
+                {selectedRule
+                  ? `Règle ${selectedRule.group.name} → ${selectedRule.space.nameFr}`
+                  : t("Nouvelle règle", "New rule")}
+              </h2>
+              <label>
+                {t("Groupe AD", "AD group")}
+                <select
+                  value={ruleDraft.groupId}
+                  onChange={(event) =>
+                    setRuleDraft({ ...ruleDraft, groupId: event.target.value })
+                  }
+                >
+                  <option value="">{t("Sélectionner…", "Select…")}</option>
+                  {groups.map((group) => (
+                    <option value={group.id} key={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t("Espace", "Space")}
+                <select
+                  value={ruleDraft.spaceId}
+                  onChange={(event) =>
+                    setRuleDraft({ ...ruleDraft, spaceId: event.target.value })
+                  }
+                >
+                  <option value="">{t("Sélectionner…", "Select…")}</option>
+                  {spaces.map((spaceItem) => (
+                    <option value={spaceItem.id} key={spaceItem.id}>
+                      {locale === "fr" ? spaceItem.nameFr : spaceItem.nameEn}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <h3>{t("Permissions accordées", "Granted permissions")}</h3>
+              {permissionKeys.map((key) => (
+                <label className="toggle" key={key}>
+                  {permissionLabels[key][locale === "fr" ? 0 : 1]}
+                  <input
+                    type="checkbox"
+                    checked={ruleDraft[key]}
+                    onChange={(event) =>
+                      setRuleDraft({
+                        ...ruleDraft,
+                        [key]: event.target.checked,
+                      })
+                    }
+                  />
+                </label>
+              ))}
+              <div className="notice">
+                {t(
+                  "Les changements s’appliquent immédiatement aux membres du groupe.",
+                  "Changes apply immediately to group members.",
+                )}
+              </div>
+              <div className="actions">
+                {selectedRule && (
+                  <button
+                    className="danger"
+                    onClick={async () => {
+                      if (
+                        !(await confirmAction(
+                          t("Supprimer cette règle ?", "Delete this rule?"),
+                        ))
+                      )
+                        return;
+                      await api(`/api/admin/access-rules/${selectedRule.id}`, {
+                        method: "DELETE",
+                      })
+                        .then(refresh)
+                        .catch((currentError) =>
+                          setError((currentError as Error).message),
+                        );
+                    }}
+                  >
+                    {t("Supprimer", "Delete")}
+                  </button>
+                )}
+                <button
+                  onClick={() => {
                     setSelectedRule(null);
                     setRuleDraft(emptyRule());
                   }}
-                />
-              )}
-              {tab === "spaces" && (
-                <SpacesPanel
-                  spaces={spaces}
-                  onChanged={refresh}
-                  onError={setError}
-                />
-              )}
-              {tab === "documents" && (
-                <DocumentsPanel
-                  documents={documents}
-                  spaces={spaces}
-                  onChanged={refresh}
-                  onError={setError}
-                />
-              )}
-              {tab === "directory" && (
-                <DirectoryPanel
-                  connections={connections}
-                  certificates={certificates}
-                  onChanged={refresh}
-                  onError={setError}
-                  onNotice={setNotice}
-                />
-              )}
-              {tab === "certificates" && (
-                <CertificatesPanel
-                  certificates={certificates}
-                  onChanged={refresh}
-                  onError={setError}
-                  onNotice={setNotice}
-                />
-              )}
-              {tab === "audit" && <AuditPanel events={audit} />}
-              {tab === "health" && <HealthPanel health={health} />}
-              {tab === "settings" && (
-                <SettingsPanel onError={setError} onNotice={setNotice} />
-              )}
-            </>
-          )}
-        </main>
-        {tab === "rules" && (
-          <section className="drawer">
-            <h2>
-              {selectedRule
-                ? `Règle ${selectedRule.group.name} → ${selectedRule.space.nameFr}`
-                : t("Nouvelle règle", "New rule")}
-            </h2>
-            <label>
-              {t("Groupe AD", "AD group")}
-              <select
-                value={ruleDraft.groupId}
-                onChange={(event) =>
-                  setRuleDraft({ ...ruleDraft, groupId: event.target.value })
-                }
-              >
-                <option value="">{t("Sélectionner…", "Select…")}</option>
-                {groups.map((group) => (
-                  <option value={group.id} key={group.id}>
-                    {group.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              {t("Espace", "Space")}
-              <select
-                value={ruleDraft.spaceId}
-                onChange={(event) =>
-                  setRuleDraft({ ...ruleDraft, spaceId: event.target.value })
-                }
-              >
-                <option value="">{t("Sélectionner…", "Select…")}</option>
-                {spaces.map((spaceItem) => (
-                  <option value={spaceItem.id} key={spaceItem.id}>
-                    {locale === "fr" ? spaceItem.nameFr : spaceItem.nameEn}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <h3>{t("Permissions accordées", "Granted permissions")}</h3>
-            {permissionKeys.map((key) => (
-              <label className="toggle" key={key}>
-                {permissionLabels[key][locale === "fr" ? 0 : 1]}
-                <input
-                  type="checkbox"
-                  checked={ruleDraft[key]}
-                  onChange={(event) =>
-                    setRuleDraft({ ...ruleDraft, [key]: event.target.checked })
-                  }
-                />
-              </label>
-            ))}
-            <div className="notice">
-              {t(
-                "Les changements s’appliquent immédiatement aux membres du groupe.",
-                "Changes apply immediately to group members.",
-              )}
-            </div>
-            <div className="actions">
-              {selectedRule && (
-                <button
-                  className="danger"
-                  onClick={async () => {
-                    if (
-                      !window.confirm(
-                        t("Supprimer cette règle ?", "Delete this rule?"),
-                      )
-                    )
-                      return;
-                    await api(`/api/admin/access-rules/${selectedRule.id}`, {
-                      method: "DELETE",
-                    })
-                      .then(refresh)
-                      .catch((currentError) =>
-                        setError((currentError as Error).message),
-                      );
-                  }}
                 >
-                  {t("Supprimer", "Delete")}
+                  {t("Annuler", "Cancel")}
                 </button>
-              )}
-              <button
-                onClick={() => {
-                  setSelectedRule(null);
-                  setRuleDraft(emptyRule());
-                }}
-              >
-                {t("Annuler", "Cancel")}
-              </button>
-              <button className="primary" onClick={() => void saveRule()}>
-                {t("Enregistrer", "Save")}
-              </button>
-            </div>
-          </section>
+                <button className="primary" onClick={() => void saveRule()}>
+                  {t("Enregistrer", "Save")}
+                </button>
+              </div>
+            </section>
+          )}
+        </div>
+        {confirmation && (
+          <ConfirmationDialog
+            message={confirmation.message}
+            title={t("Confirmer l’action", "Confirm action")}
+            cancelLabel={t("Annuler", "Cancel")}
+            confirmLabel={t("Confirmer", "Confirm")}
+            onClose={closeConfirmation}
+          />
         )}
-      </div>
+      </ConfirmContext.Provider>
     </AdminLocaleContext.Provider>
+  );
+}
+
+function ConfirmationDialog({
+  message,
+  title,
+  cancelLabel,
+  confirmLabel,
+  onClose,
+}: {
+  message: string;
+  title: string;
+  cancelLabel: string;
+  confirmLabel: string;
+  onClose: (accepted: boolean) => void;
+}) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    cancelRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+  return (
+    <div
+      className="confirmation-backdrop"
+      role="presentation"
+      onMouseDown={() => onClose(false)}
+    >
+      <section
+        className="confirmation-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirmation-title"
+        aria-describedby="confirmation-message"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <h2 id="confirmation-title">{title}</h2>
+        <p id="confirmation-message">{message}</p>
+        <div className="confirmation-actions">
+          <button ref={cancelRef} type="button" onClick={() => onClose(false)}>
+            {cancelLabel}
+          </button>
+          <button
+            className="danger solid-danger"
+            type="button"
+            onClick={() => onClose(true)}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AdminSkeleton({ label }: { label: string }) {
+  return (
+    <div className="admin-skeleton" role="status" aria-label={label}>
+      <span>{label}</span>
+      <div className="skeleton-line wide" />
+      <div className="skeleton-grid">
+        <div />
+        <div />
+        <div />
+      </div>
+      <div className="skeleton-line" />
+      <div className="skeleton-line wide" />
+    </div>
+  );
+}
+
+function EmptyState({
+  fr,
+  en,
+  compact = false,
+}: {
+  fr: string;
+  en: string;
+  compact?: boolean;
+}) {
+  const { t } = useAdminI18n();
+  return (
+    <p className={`admin-empty ${compact ? "compact" : ""}`}>{t(fr, en)}</p>
   );
 }
 
@@ -715,6 +862,7 @@ function GroupsPanel({
   onNotice: (message: string) => void;
 }) {
   const { locale, t } = useAdminI18n();
+  const confirmAction = useContext(ConfirmContext);
   const [form, setForm] = useState({
     name: "",
     distinguishedName: "",
@@ -798,6 +946,17 @@ function GroupsPanel({
             </tr>
           </thead>
           <tbody>
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={8}>
+                  <EmptyState
+                    compact
+                    fr="Aucun groupe ne correspond à cette recherche."
+                    en="No group matches this search."
+                  />
+                </td>
+              </tr>
+            )}
             {filtered.map((group) => (
               <tr key={group.id}>
                 <td>
@@ -838,7 +997,7 @@ function GroupsPanel({
                         `${group.lastSyncedAt ? "Ce groupe synchronisé pourra revenir à la prochaine synchronisation. " : ""}${group.accessRules.length} règle(s) associée(s) seront supprimée(s). Continuer ?`,
                         `${group.lastSyncedAt ? "This synchronized group may return during the next synchronization. " : ""}${group.accessRules.length} associated rule(s) will be deleted. Continue?`,
                       );
-                      if (!window.confirm(warning)) return;
+                      if (!(await confirmAction(warning))) return;
                       await api(`/api/admin/groups/${group.id}`, {
                         method: "DELETE",
                       })
@@ -903,6 +1062,17 @@ function RulesPanel({
               </tr>
             </thead>
             <tbody>
+              {rules.length === 0 && (
+                <tr>
+                  <td colSpan={2 + permissionKeys.length}>
+                    <EmptyState
+                      compact
+                      fr="Aucune règle d’accès ne correspond à cette recherche."
+                      en="No access rule matches this search."
+                    />
+                  </td>
+                </tr>
+              )}
               {rules.map((rule) => (
                 <tr
                   className={selected?.id === rule.id ? "selected-row" : ""}
@@ -938,6 +1108,7 @@ function SpacesPanel({
   onError: (message: string) => void;
 }) {
   const { locale, t } = useAdminI18n();
+  const confirmAction = useContext(ConfirmContext);
   const [form, setForm] = useState({ slug: "", nameFr: "", nameEn: "" });
   const [category, setCategory] = useState({
     spaceId: "",
@@ -1066,6 +1237,12 @@ function SpacesPanel({
         )}
       </form>
       <div className="card-grid">
+        {spaces.length === 0 && (
+          <EmptyState
+            fr="Aucun espace documentaire n’est configuré."
+            en="No document space is configured."
+          />
+        )}
         {spaces.map((space) => (
           <article className="admin-card" key={space.id}>
             <h2>{locale === "fr" ? space.nameFr : space.nameEn}</h2>
@@ -1101,12 +1278,12 @@ function SpacesPanel({
                       className="danger"
                       onClick={async () => {
                         if (
-                          !window.confirm(
+                          !(await confirmAction(
                             t(
                               `Supprimer la catégorie ${item.nameFr} ? Les documents associés seront conservés sans catégorie.`,
                               `Delete category ${item.nameEn}? Associated documents will be kept without a category.`,
                             ),
-                          )
+                          ))
                         )
                           return;
                         await api(`/api/admin/categories/${item.id}`, {
@@ -1129,7 +1306,7 @@ function SpacesPanel({
               className="danger"
               onClick={async () => {
                 if (
-                  window.confirm(
+                  await confirmAction(
                     t(`Archiver ${space.nameFr} ?`, `Archive ${space.nameEn}?`),
                   )
                 )
@@ -1253,6 +1430,17 @@ function DocumentsPanel({
             </tr>
           </thead>
           <tbody>
+            {documents.length === 0 && (
+              <tr>
+                <td colSpan={5}>
+                  <EmptyState
+                    compact
+                    fr="Aucun document n’a encore été déposé."
+                    en="No document has been uploaded yet."
+                  />
+                </td>
+              </tr>
+            )}
             {documents.map((document) => (
               <tr key={document.id}>
                 <td>
@@ -1335,9 +1523,11 @@ function DirectoryPanel({
   onNotice: (message: string) => void;
 }) {
   const { locale, t } = useAdminI18n();
+  const [editing, setEditing] = useState<DirectoryConnection | null>(null);
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const values = Object.fromEntries(new FormData(event.currentTarget));
+    const formElement = event.currentTarget;
+    const values = Object.fromEntries(new FormData(formElement));
     const body = {
       name: values.name,
       domain: values.domain,
@@ -1362,14 +1552,24 @@ function DirectoryPanel({
       enabled: values.enabled === "on",
       caCertificateId: values.caCertificateId || null,
     };
-    await api("/api/admin/directory-connections", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
+    await api(
+      editing
+        ? `/api/admin/directory-connections/${editing.id}`
+        : "/api/admin/directory-connections",
+      {
+        method: editing ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    )
       .then(async () => {
-        event.currentTarget.reset();
-        onNotice(t("Connecteur enregistré.", "Connector saved."));
+        formElement.reset();
+        setEditing(null);
+        onNotice(
+          editing
+            ? t("Connecteur modifié.", "Connector updated.")
+            : t("Connecteur enregistré.", "Connector saved."),
+        );
         await onChanged();
       })
       .catch((error) => onError(error.message));
@@ -1377,88 +1577,140 @@ function DirectoryPanel({
   return (
     <>
       <h1>{t("Synchronisation LDAP/LDAPS", "LDAP/LDAPS synchronization")}</h1>
-      <form className="admin-form directory-form" onSubmit={submit}>
-        <h2>{t("Nouveau connecteur", "New connector")}</h2>
+      <form
+        key={editing?.id || "new"}
+        className="admin-form directory-form"
+        onSubmit={submit}
+      >
+        <h2>
+          {editing
+            ? t("Modifier le connecteur", "Edit connector")
+            : t("Nouveau connecteur", "New connector")}
+        </h2>
         <label>
           {t("Nom", "Name")}
-          <input name="name" required defaultValue="Active Directory" />
+          <input
+            name="name"
+            required
+            defaultValue={editing?.name || "Active Directory"}
+          />
         </label>
         <label>
           {t("Domaine", "Domain")}
-          <input name="domain" required placeholder="corp.example.local" />
+          <input
+            name="domain"
+            required
+            defaultValue={editing?.domain}
+            placeholder="corp.example.local"
+          />
         </label>
         <label>
           {t("Contrôleur primaire", "Primary controller")}
-          <input name="primaryHost" required />
+          <input
+            name="primaryHost"
+            required
+            defaultValue={editing?.primaryHost}
+          />
         </label>
         <label>
           {t("Contrôleur secondaire", "Secondary controller")}
-          <input name="secondaryHost" />
+          <input name="secondaryHost" defaultValue={editing?.secondaryHost} />
         </label>
         <label>
           {t("Protocole", "Protocol")}
-          <select name="protocol" defaultValue="LDAPS">
+          <select name="protocol" defaultValue={editing?.protocol || "LDAPS"}>
             <option>LDAPS</option>
             <option>LDAP</option>
           </select>
         </label>
         <label>
           Port
-          <input name="port" type="number" defaultValue="636" />
+          <input
+            name="port"
+            type="number"
+            defaultValue={editing?.port || 636}
+          />
         </label>
         <label>
           Base DN
           <input
             name="baseDn"
             required
+            defaultValue={editing?.baseDn}
             placeholder="DC=corp,DC=example,DC=local"
           />
         </label>
         <label>
           User Base DN
-          <input name="userBaseDn" />
+          <input name="userBaseDn" defaultValue={editing?.userBaseDn} />
         </label>
         <label>
           Group Base DN
-          <input name="groupBaseDn" />
+          <input name="groupBaseDn" defaultValue={editing?.groupBaseDn} />
         </label>
         <label>
           Bind DN
-          <input name="bindDn" required />
+          <input name="bindDn" required defaultValue={editing?.bindDn} />
         </label>
         <label>
           {t("Secret du compte de service", "Service account secret")}
           <input
             name="bindSecret"
             type="password"
-            required
+            required={!editing}
             minLength={12}
             autoComplete="new-password"
+            placeholder={
+              editing
+                ? t(
+                    "Laisser vide pour conserver le secret",
+                    "Leave blank to keep the current secret",
+                  )
+                : undefined
+            }
           />
         </label>
         <label>
           {t("Filtre utilisateurs", "User filter")}
-          <input name="userFilter" defaultValue="(objectClass=user)" />
+          <input
+            name="userFilter"
+            defaultValue={editing?.userFilter || "(objectClass=user)"}
+          />
         </label>
         <label>
           {t("Filtre groupes", "Group filter")}
-          <input name="groupFilter" defaultValue="(objectClass=group)" />
+          <input
+            name="groupFilter"
+            defaultValue={editing?.groupFilter || "(objectClass=group)"}
+          />
         </label>
         <label>
           {t("Attribut utilisateur", "Username attribute")}
-          <input name="usernameAttribute" defaultValue="sAMAccountName" />
+          <input
+            name="usernameAttribute"
+            defaultValue={editing?.usernameAttribute || "sAMAccountName"}
+          />
         </label>
         <label>
           {t("Attribut groupe", "Group attribute")}
-          <input name="groupAttribute" defaultValue="cn" />
+          <input
+            name="groupAttribute"
+            defaultValue={editing?.groupAttribute || "cn"}
+          />
         </label>
         <label>
           {t("Attribut email", "Email attribute")}
-          <input name="emailAttribute" defaultValue="mail" />
+          <input
+            name="emailAttribute"
+            defaultValue={editing?.emailAttribute || "mail"}
+          />
         </label>
         <label>
           {t("Certificat CA", "CA certificate")}
-          <select name="caCertificateId">
+          <select
+            name="caCertificateId"
+            defaultValue={editing?.caCertificateId || ""}
+          >
             <option value="">
               {t("Aucun (LDAP uniquement)", "None (LDAP only)")}
             </option>
@@ -1471,27 +1723,62 @@ function DirectoryPanel({
         </label>
         <label>
           {t("Intervalle (minutes)", "Interval (minutes)")}
-          <input name="syncIntervalMinutes" type="number" defaultValue="60" />
+          <input
+            name="syncIntervalMinutes"
+            type="number"
+            defaultValue={editing?.syncIntervalMinutes || 60}
+          />
         </label>
         <label>
           Timeout (ms)
-          <input name="timeoutMs" type="number" defaultValue="5000" />
+          <input
+            name="timeoutMs"
+            type="number"
+            defaultValue={editing?.timeoutMs || 5000}
+          />
         </label>
         <label>
           {t("Tentatives", "Retries")}
-          <input name="retries" type="number" defaultValue="2" />
+          <input
+            name="retries"
+            type="number"
+            defaultValue={editing?.retries ?? 2}
+          />
         </label>
         <label className="check">
-          <input name="nestedGroups" type="checkbox" defaultChecked />{" "}
+          <input
+            name="nestedGroups"
+            type="checkbox"
+            defaultChecked={editing?.nestedGroups ?? true}
+          />{" "}
           {t("Groupes imbriqués", "Nested groups")}
         </label>
         <label className="check">
-          <input name="enabled" type="checkbox" />{" "}
+          <input
+            name="enabled"
+            type="checkbox"
+            defaultChecked={editing?.enabled ?? false}
+          />{" "}
           {t("Activer après validation", "Enable after validation")}
         </label>
-        <button className="primary">{t("Enregistrer", "Save")}</button>
+        <button className="primary">
+          {editing
+            ? t("Enregistrer les modifications", "Save changes")
+            : t("Enregistrer", "Save")}
+        </button>
+        {editing && (
+          <button type="button" onClick={() => setEditing(null)}>
+            {t("Annuler", "Cancel")}
+          </button>
+        )}
       </form>
       <div className="card-grid">
+        {connections.length === 0 && (
+          <EmptyState
+            fr="Aucun connecteur LDAP/LDAPS n’est configuré. Utilisez le formulaire ci-dessus pour en créer un."
+            en="No LDAP/LDAPS connector is configured. Use the form above to create one."
+          />
+        )}
         {connections.map((connection) => (
           <article className="admin-card" key={connection.id}>
             <h2>{connection.name}</h2>
@@ -1509,6 +1796,15 @@ function DirectoryPanel({
                 : t("Inactif", "Inactive")}
             </p>
             <div className="button-row">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(connection);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+              >
+                {t("Modifier", "Edit")}
+              </button>
               <button
                 onClick={() =>
                   api<{ status: string }>(
@@ -1573,6 +1869,7 @@ function CertificatesPanel({
   onNotice: (message: string) => void;
 }) {
   const { locale, t } = useAdminI18n();
+  const confirmAction = useContext(ConfirmContext);
   const [pem, setPem] = useState("");
   const [name, setName] = useState("");
   return (
@@ -1623,6 +1920,12 @@ function CertificatesPanel({
         </button>
       </form>
       <div className="card-grid">
+        {certificates.length === 0 && (
+          <EmptyState
+            fr="Aucun certificat CA public n’est importé."
+            en="No public CA certificate has been imported."
+          />
+        )}
         {certificates.map((certificate) => (
           <article className="admin-card" key={certificate.id}>
             <h2>{certificate.name}</h2>
@@ -1669,7 +1972,7 @@ function CertificatesPanel({
                         "Supprimer ce certificat ?",
                         "Delete this certificate?",
                       );
-                  if (window.confirm(warning))
+                  if (await confirmAction(warning))
                     await api(`/api/admin/certificates/${certificate.id}`, {
                       method: "DELETE",
                     })
@@ -1718,6 +2021,17 @@ function AuditPanel({ events }: { events: Audit[] }) {
             </tr>
           </thead>
           <tbody>
+            {events.length === 0 && (
+              <tr>
+                <td colSpan={6}>
+                  <EmptyState
+                    compact
+                    fr="Aucun événement d’audit n’est disponible."
+                    en="No audit event is available."
+                  />
+                </td>
+              </tr>
+            )}
             {events.map((event) => (
               <tr key={event.id}>
                 <td>{new Date(event.occurredAt).toISOString()}</td>
