@@ -19,6 +19,7 @@ type Version = {
 };
 type PortalDocument = {
   id: string;
+  status: "DRAFT" | "PUBLISHED" | "ARCHIVED" | "QUARANTINED";
   sensitive: boolean;
   publishedAt: string;
   viewCount: number;
@@ -27,7 +28,15 @@ type PortalDocument = {
   category: { slug: string; nameFr: string; nameEn: string } | null;
   translations: Translation[];
   versions: Version[];
-  permissions: { preview: boolean; download: boolean };
+  permissions: {
+    preview: boolean;
+    download: boolean;
+    upload: boolean;
+    edit: boolean;
+    publish: boolean;
+    archive: boolean;
+    administer: boolean;
+  };
 };
 type PaginatedDocuments = {
   items: PortalDocument[];
@@ -211,6 +220,8 @@ function DocumentRows({
   selectedLocales,
   onLocale,
   onOpen,
+  onEdit,
+  onTransition,
   viewMode = "list",
 }: {
   documents: PortalDocument[];
@@ -218,6 +229,11 @@ function DocumentRows({
   selectedLocales: Record<string, Locale>;
   onLocale: (id: string, locale: Locale) => void;
   onOpen: (document: PortalDocument) => void;
+  onEdit: (document: PortalDocument) => void;
+  onTransition: (
+    document: PortalDocument,
+    action: "publish" | "archive" | "restore",
+  ) => void;
   viewMode?: ViewMode;
 }) {
   const t = copy[locale];
@@ -285,6 +301,47 @@ function DocumentRows({
                 <Icon name="download" />
               </button>
             )}
+            {(document.permissions.edit ||
+              document.permissions.publish ||
+              document.permissions.archive) && (
+              <span
+                className="document-manage-actions"
+                aria-label={t.permissionsGranted}
+              >
+                {document.permissions.edit && (
+                  <button type="button" onClick={() => onEdit(document)}>
+                    {t.edit}
+                  </button>
+                )}
+                {document.permissions.publish &&
+                  document.status !== "PUBLISHED" && (
+                    <button
+                      type="button"
+                      onClick={() => onTransition(document, "publish")}
+                    >
+                      {t.publish}
+                    </button>
+                  )}
+                {document.permissions.archive &&
+                  document.status !== "ARCHIVED" && (
+                    <button
+                      type="button"
+                      onClick={() => onTransition(document, "archive")}
+                    >
+                      {t.archive}
+                    </button>
+                  )}
+                {document.permissions.archive &&
+                  document.status === "ARCHIVED" && (
+                    <button
+                      type="button"
+                      onClick={() => onTransition(document, "restore")}
+                    >
+                      {t.restore}
+                    </button>
+                  )}
+              </span>
+            )}
             {!available.includes(locale) && <small>{t.unavailable}</small>}
           </div>
         );
@@ -309,6 +366,8 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     Record<string, Locale>
   >({});
   const [opened, setOpened] = useState<PortalDocument | null>(null);
+  const [editing, setEditing] = useState<PortalDocument | null>(null);
+  const [actionError, setActionError] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -473,6 +532,21 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   const changeViewMode = (next: ViewMode) => {
     setViewMode(next);
     localStorage.setItem("isms-document-view", next);
+  };
+  const transitionDocument = async (
+    document: PortalDocument,
+    action: "publish" | "archive" | "restore",
+  ) => {
+    setActionError("");
+    const response = await fetch(`/api/documents/${document.id}/${action}`, {
+      method: "POST",
+    });
+    if (!response.ok) {
+      setActionError(t.error);
+      return;
+    }
+    setOpened(null);
+    await loadDocuments();
   };
   const selectSpace = (next: string) => {
     if (!explorerMode) {
@@ -843,8 +917,17 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                     }))
                   }
                   onOpen={setOpened}
+                  onEdit={setEditing}
+                  onTransition={(document, action) =>
+                    void transitionDocument(document, action)
+                  }
                   viewMode={category ? viewMode : "list"}
                 />
+                {actionError && (
+                  <p className="error-state" role="alert">
+                    {actionError}
+                  </p>
+                )}
                 <nav className="document-pagination" aria-label={t.pagination}>
                   <button
                     type="button"
@@ -1011,6 +1094,74 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
             ) : (
               <p>{t.fileUnavailable}</p>
             )}
+          </section>
+        </div>
+      )}
+      {editing && (
+        <div className="modal-backdrop" role="presentation">
+          <section
+            className="modal small-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-document-title"
+          >
+            <h2 id="edit-document-title">{t.edit}</h2>
+            <form
+              className="admin-form"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const values = Object.fromEntries(
+                  new FormData(event.currentTarget),
+                );
+                const response = await fetch(
+                  `/api/documents/${editing.id}/metadata`,
+                  {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(values),
+                  },
+                );
+                if (!response.ok) {
+                  setActionError(t.error);
+                  return;
+                }
+                setEditing(null);
+                await loadDocuments();
+              }}
+            >
+              <label>
+                {locale === "fr" ? "Langue" : "Language"}
+                <select name="locale" defaultValue={locale}>
+                  <option value="fr">FR</option>
+                  <option value="en">EN</option>
+                </select>
+              </label>
+              <label>
+                {locale === "fr" ? "Titre" : "Title"}
+                <input
+                  name="title"
+                  required
+                  defaultValue={titleFor(editing, locale)}
+                />
+              </label>
+              <label>
+                {locale === "fr" ? "Description" : "Description"}
+                <textarea
+                  name="description"
+                  defaultValue={
+                    editing.translations.find(
+                      (translation) => translation.locale === locale,
+                    )?.description || ""
+                  }
+                />
+              </label>
+              <div className="button-row">
+                <button className="primary">{t.save}</button>
+                <button type="button" onClick={() => setEditing(null)}>
+                  {t.cancel}
+                </button>
+              </div>
+            </form>
           </section>
         </div>
       )}
