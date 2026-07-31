@@ -76,6 +76,12 @@ export const portalCatalog = {
     file: "Fichier",
     acceptedFiles:
       "Formats acceptés : PDF, Word (.docx) et Excel (.xlsx), 50 Mo maximum.",
+    administerSpace: "Administrer l’espace",
+    delete: "Supprimer",
+    deleteDocument: "Supprimer le document",
+    deleteDocumentWarning:
+      "Cette suppression est définitive et retire aussi toutes les versions du fichier.",
+    confirmDelete: "Supprimer définitivement",
   },
   en: {
     welcome: "Welcome",
@@ -150,6 +156,12 @@ export const portalCatalog = {
     file: "File",
     acceptedFiles:
       "Accepted formats: PDF, Word (.docx), and Excel (.xlsx), up to 50 MB.",
+    administerSpace: "Administer space",
+    delete: "Delete",
+    deleteDocument: "Delete document",
+    deleteDocumentWarning:
+      "This permanently deletes the document and every stored file version.",
+    confirmDelete: "Delete permanently",
   },
 } as const;
 

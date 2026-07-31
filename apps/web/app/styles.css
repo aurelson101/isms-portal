@@ -525,6 +525,24 @@ h1 {
 .explorer-title-row .section-title {
   margin: 0;
 }
+.explorer-space-actions,
+.permission-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.permission-badge {
+  color: #075e3b;
+  background: #e2f8ed;
+  border: 1px solid #a8dfc3;
+  border-radius: 7px;
+  padding: 9px 12px;
+  font-weight: 650;
+}
+.permission-badge svg {
+  width: 18px;
+  height: 18px;
+}
 .explorer-heading {
   margin-top: 30px;
   padding: 22px 24px;
