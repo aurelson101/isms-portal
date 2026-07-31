@@ -192,8 +192,12 @@ export class IdentityController {
           administratorAccount: administrator,
         },
       },
-      spaces: spaces.map(({ accessRules, ...space }) => ({
+      spaces: spaces.map(({ accessRules, categories, ...space }) => ({
         ...space,
+        categories: categories.map(({ _count, ...category }) => ({
+          ...category,
+          documentCount: _count.documents,
+        })),
         permissions: Object.fromEntries(
           permissionNames.map((permission) => [
             permission,

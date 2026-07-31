@@ -9,7 +9,11 @@ import { isAdminIdentity } from "./security";
 
 type SpaceWithRule = DocumentSpace & {
   accessRules: AccessRule[];
-  categories: DocumentCategory[];
+  categories: Array<
+    DocumentCategory & {
+      _count: { documents: number };
+    }
+  >;
 };
 export type Permission =
   | "showMenu"
@@ -33,7 +37,19 @@ export class AuthorizationService {
         where: { deletedAt: null },
         include: {
           accessRules: true,
-          categories: { where: { deletedAt: null }, orderBy: { slug: "asc" } },
+          categories: {
+            where: { deletedAt: null },
+            orderBy: { slug: "asc" },
+            include: {
+              _count: {
+                select: {
+                  documents: {
+                    where: { deletedAt: null, status: "PUBLISHED" },
+                  },
+                },
+              },
+            },
+          },
         },
         orderBy: { slug: "asc" },
       }) as Promise<SpaceWithRule[]>;
@@ -64,7 +80,19 @@ export class AuthorizationService {
             },
           },
         },
-        categories: { where: { deletedAt: null }, orderBy: { slug: "asc" } },
+        categories: {
+          where: { deletedAt: null },
+          orderBy: { slug: "asc" },
+          include: {
+            _count: {
+              select: {
+                documents: {
+                  where: { deletedAt: null, status: "PUBLISHED" },
+                },
+              },
+            },
+          },
+        },
       },
       orderBy: { slug: "asc" },
     }) as Promise<SpaceWithRule[]>;
