@@ -281,6 +281,7 @@ export const adminEnglishCatalog = {
   Protocole: "Protocol",
   Publier: "Publish",
   "Rechercher dans la section…": "Search this section…",
+  "Effacer la recherche": "Clear search",
   Réessayer: "Retry",
   règles: "rules",
   "Règles actives": "Active rules",

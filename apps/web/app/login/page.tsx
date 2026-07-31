@@ -230,7 +230,9 @@ export default function LoginPage() {
             </a>
           </>
         )}
-        <Link href="/">{t.back}</Link>
+        <Link className="login-back" href="/">
+          ← {t.back}
+        </Link>
       </section>
     </main>
   );
