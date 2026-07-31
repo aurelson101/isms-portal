@@ -525,10 +525,11 @@ test("portal and administration remain usable on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await expect(page.locator("aside nav")).toBeVisible();
-  await expect(page.locator("aside nav svg")).toHaveCount(9);
+  await expect(page.locator("aside nav svg")).toHaveCount(10);
   await page
-    .locator("aside")
-    .getByText("Guides", { exact: true })
+    .locator("aside .category-submenu")
+    .first()
+    .getByRole("button", { name: "Guides", exact: true })
     .first()
     .click();
   await expect(page).toHaveURL(/\/explorer\?.*categoryId=/);

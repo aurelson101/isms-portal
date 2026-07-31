@@ -258,19 +258,22 @@ textarea:focus-visible {
 }
 .navigation-space {
   display: grid;
-  gap: 3px;
+  gap: 6px;
 }
-.navigation-space-title {
-  color: #a9c6f4;
-  font-size: 12px;
+.shell nav .space-menu {
   font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: 6px 24px 0;
-  text-transform: uppercase;
+}
+.category-submenu {
+  border-left: 1px solid #ffffff2b;
+  display: grid;
+  gap: 2px;
+  margin-left: 35px;
+  padding-left: 8px;
 }
 .shell nav .category-menu {
-  font-size: 16px;
-  padding-left: 46px;
+  color: #d7e5fb;
+  font-size: 15px;
+  padding: 11px 14px;
 }
 .shell nav button,
 .admin-shell nav button,
@@ -1775,8 +1778,11 @@ h1 {
     padding: 12px;
     justify-content: center;
   }
-  .navigation-space-title {
-    display: none;
+  .category-submenu {
+    border-left: 0;
+    grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
+    margin-left: 0;
+    padding-left: 0;
   }
   .shell nav span {
     display: none;
