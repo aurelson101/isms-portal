@@ -1100,7 +1100,7 @@ function GroupsPanel({
         )}
       </p>
       <form
-        className="admin-form inline-form"
+        className="admin-form inline-form directory-group-form"
         onSubmit={async (event) => {
           event.preventDefault();
           const endpoint = selectedDirectoryGroup
