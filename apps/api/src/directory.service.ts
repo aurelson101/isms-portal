@@ -344,62 +344,49 @@ export class DirectoryService {
     try {
       const { client, host } = await this.bindWithFallback(connection);
       try {
-        const result = await client.search(
+        const pages = client.searchPaginated(
           connection.groupBaseDn || connection.baseDn,
           {
             scope: "sub",
             filter: connection.groupFilter,
+            paged: { pageSize: 500 },
             attributes: [connection.groupAttribute, "description", "member"],
           },
         );
-        for (const entry of result.searchEntries) {
-          const rawName = entry[connection.groupAttribute];
-          const name = Array.isArray(rawName)
-            ? String(rawName[0])
-            : String(rawName || "");
-          if (!name) continue;
-          const members = entry.member;
-          const data = {
-            name,
-            distinguishedName: entry.dn,
-            description: entry.description ? String(entry.description) : null,
-            memberCount: Array.isArray(members)
-              ? members.length
-              : members
-                ? 1
-                : 0,
-            active: true,
-            lastSyncedAt: new Date(),
-          };
-          const existing = await this.prisma.directoryGroup.findFirst({
-            where: { OR: [{ distinguishedName: entry.dn }, { name }] },
-            select: { id: true },
-          });
-          if (existing) {
-            await this.prisma.directoryGroup.update({
-              where: { id: existing.id },
-              data,
-            });
-          } else {
-            await this.prisma.directoryGroup.create({
-              data: {
-                name,
-                distinguishedName: entry.dn,
-                description: entry.description
-                  ? String(entry.description)
-                  : null,
-                memberCount: Array.isArray(members)
-                  ? members.length
-                  : members
-                    ? 1
-                    : 0,
-                active: true,
-                lastSyncedAt: new Date(),
+        let groupCount = 0;
+        let pageCount = 0;
+        const synchronizedAt = new Date();
+        for await (const page of pages) {
+          pageCount += 1;
+          for (const entry of page.searchEntries) {
+            const group = this.groupFromEntry(connection, entry);
+            if (!group.name) continue;
+            const data = {
+              ...group,
+              active: true,
+              lastSyncedAt: synchronizedAt,
+            };
+            const existing = await this.prisma.directoryGroup.findFirst({
+              where: {
+                OR: [
+                  { distinguishedName: group.distinguishedName },
+                  { name: group.name },
+                ],
               },
+              select: { id: true },
             });
+            if (existing) {
+              await this.prisma.directoryGroup.update({
+                where: { id: existing.id },
+                data,
+              });
+            } else {
+              await this.prisma.directoryGroup.create({ data });
+            }
+            groupCount += 1;
           }
         }
-        const details = { host, groups: result.searchEntries.length };
+        const details = { host, groups: groupCount, pages: pageCount };
         await this.prisma.directorySyncJob.update({
           where: { id: job.id },
           data: { status: "SUCCESS", details, finishedAt: new Date() },
