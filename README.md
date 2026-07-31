@@ -92,6 +92,17 @@ les capacités autorisées et l’interface masque le téléchargement lorsqu’
 n’est pas accordé. Les fichiers sont conservés dans le volume Docker
 `document-storage`, monté dans `/data/documents`.
 
+## Explorateur documentaire
+
+L’accueil reste volontairement synthétique. Les cartes et menus **Politiques**,
+**Procédures**, **Guides** et les espaces autorisés ouvrent l’environnement
+dédié `/explorer` avec le filtre correspondant. La recherche de l’accueil y
+redirige également.
+
+L’explorateur possède sa propre URL partageable, la navigation entre catégories
+et espaces, les modes mémorisés fenêtres/liste et le lecteur sécurisé
+extensible. Les documents ne sont donc plus rendus sous les cartes de l’accueil.
+
 ## Commandes
 
 ```bash

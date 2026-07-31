@@ -287,11 +287,11 @@ function DocumentRows({
   );
 }
 
-export default function Home() {
+export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   const [locale, setLocale] = useState<Locale>("fr");
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(explorerMode ? "policies" : "");
   const [space, setSpace] = useState("");
   const [documents, setDocuments] = useState<PortalDocument[]>([]);
   const [popular, setPopular] = useState<PortalDocument[]>([]);
@@ -336,8 +336,20 @@ export default function Home() {
     const parameters = new URLSearchParams(window.location.search);
     const requestedCategory = parameters.get("category");
     const requestedSpace = parameters.get("space");
-    if (requestedCategory) setCategory(requestedCategory);
-    if (requestedSpace) setSpace(requestedSpace);
+    const requestedQuery = parameters.get("q");
+    if (requestedCategory) {
+      setCategory(requestedCategory);
+      setSpace("");
+    }
+    if (requestedSpace) {
+      setSpace(requestedSpace);
+      setCategory("");
+    }
+    if (requestedQuery) {
+      setQuery(requestedQuery);
+      setCategory("");
+      setSpace("");
+    }
     const savedView = localStorage.getItem("isms-document-view");
     if (savedView === "grid" || savedView === "list") setViewMode(savedView);
   }, []);
@@ -386,6 +398,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (!explorerMode) return;
     const controller = new AbortController();
     const timer = window.setTimeout(
       () => void loadDocuments(controller.signal),
@@ -395,7 +408,7 @@ export default function Home() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [loadDocuments, query]);
+  }, [explorerMode, loadDocuments, query]);
 
   useEffect(() => {
     if (!category && !space && !query) return;
@@ -421,13 +434,17 @@ export default function Home() {
   };
 
   const selectCategory = (next: string) => {
+    if (!explorerMode) {
+      window.location.assign(`/explorer?category=${encodeURIComponent(next)}`);
+      return;
+    }
     setQuery("");
     setCategory(next);
     setSpace("");
     window.history.replaceState(
       null,
       "",
-      `/?category=${encodeURIComponent(next)}`,
+      `/explorer?category=${encodeURIComponent(next)}`,
     );
   };
   const changeViewMode = (next: ViewMode) => {
@@ -435,21 +452,21 @@ export default function Home() {
     localStorage.setItem("isms-document-view", next);
   };
   const selectSpace = (next: string) => {
+    if (!explorerMode) {
+      window.location.assign(`/explorer?space=${encodeURIComponent(next)}`);
+      return;
+    }
     setQuery("");
     setSpace(next);
     setCategory("");
     window.history.replaceState(
       null,
       "",
-      `/?space=${encodeURIComponent(next)}`,
+      `/explorer?space=${encodeURIComponent(next)}`,
     );
   };
   const selectHome = () => {
-    setQuery("");
-    setCategory("");
-    setSpace("");
-    window.history.replaceState(null, "", "/");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.location.assign("/");
   };
   const t = copy[locale];
   const categoryLabel =
@@ -495,7 +512,7 @@ export default function Home() {
         <nav aria-label={t.navigation}>
           <button
             type="button"
-            className={!category && !space ? "active" : ""}
+            className={!explorerMode ? "active" : ""}
             onClick={selectHome}
           >
             <Icon name="home" /> <span>{t.home}</span>
@@ -614,14 +631,28 @@ export default function Home() {
           )}
         </header>
         <h1>
-          {t.welcome} {identity?.displayName || "…"}
+          {explorerMode
+            ? t.explorer
+            : `${t.welcome} ${identity?.displayName || "…"}`}
         </h1>
-        <p className="lead">{t.subtitle}</p>
+        <p className="lead">
+          {explorerMode
+            ? locale === "fr"
+              ? "Choisissez une catégorie ou un espace, puis ouvrez vos documents dans le lecteur sécurisé."
+              : "Choose a category or space, then open your documents in the secure viewer."
+            : t.subtitle}
+        </p>
         <form
           className="search"
           onSubmit={(event) => {
             event.preventDefault();
-            void loadDocuments();
+            if (explorerMode) {
+              void loadDocuments();
+            } else {
+              window.location.assign(
+                `/explorer?q=${encodeURIComponent(query.trim())}`,
+              );
+            }
           }}
         >
           <span>
@@ -644,132 +675,145 @@ export default function Home() {
             <Icon name="search" />
           </button>
         </form>
-        <section className="cards" aria-label={t.spaces}>
-          {(
-            [
-              ["policy", "policies", t.policies],
-              ["procedure", "procedures", t.procedures],
-              ["guide", "guides", t.guides],
-            ] as const
-          ).map(([icon, key, label]) => (
-            <article key={key}>
-              <div className="card-icon">
-                <Icon name={icon as IconName} />
-              </div>
-              <h2>{label}</h2>
-              <p>
-                {locale === "fr"
-                  ? "Documents autorisés dans cette catégorie"
-                  : "Authorized documents in this category"}
-              </p>
-              <button onClick={() => selectCategory(key)}>{t.consult}</button>
-            </article>
-          ))}
-          {identity?.spaces
-            .filter((item) => item.slug !== "general")
-            .map((item) => (
-              <article className="access" key={item.id}>
+        {!explorerMode && (
+          <section className="cards" aria-label={t.spaces}>
+            {(
+              [
+                ["policy", "policies", t.policies],
+                ["procedure", "procedures", t.procedures],
+                ["guide", "guides", t.guides],
+              ] as const
+            ).map(([icon, key, label]) => (
+              <article key={key}>
                 <div className="card-icon">
-                  <Icon name="folder" />
+                  <Icon name={icon as IconName} />
                 </div>
-                <div>
-                  <h2>{locale === "fr" ? item.nameFr : item.nameEn}</h2>
-                  <p>
-                    {locale === "fr"
-                      ? "Accessible selon vos autorisations"
-                      : "Available through your permissions"}
-                  </p>
-                  <button type="button" onClick={() => selectSpace(item.slug)}>
-                    {t.consult}
-                  </button>
-                </div>
+                <h2>{label}</h2>
+                <p>
+                  {locale === "fr"
+                    ? "Documents autorisés dans cette catégorie"
+                    : "Authorized documents in this category"}
+                </p>
+                <button onClick={() => selectCategory(key)}>{t.consult}</button>
               </article>
             ))}
-        </section>
-        <div ref={resultsRef} className="results-anchor" tabIndex={-1}>
-          {loadError && (
-            <p role="alert" className="error-state">
-              {t.error}
-            </p>
-          )}
-          {loading ? (
-            <p className="loading-state">{t.loading}</p>
-          ) : (
-            <>
-              {category ? (
-                <section
-                  className="explorer-heading"
-                  aria-labelledby="explorer-title"
-                >
+            {identity?.spaces
+              .filter((item) => item.slug !== "general")
+              .map((item) => (
+                <article className="access" key={item.id}>
+                  <div className="card-icon">
+                    <Icon name="folder" />
+                  </div>
                   <div>
-                    <span>{t.explorer}</span>
-                    <h2 id="explorer-title">{categoryLabel}</h2>
+                    <h2>{locale === "fr" ? item.nameFr : item.nameEn}</h2>
                     <p>
-                      {documents.length}{" "}
-                      {documents.length === 1
-                        ? t.documentCountOne
-                        : t.documentCount}
+                      {locale === "fr"
+                        ? "Accessible selon vos autorisations"
+                        : "Available through your permissions"}
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => selectSpace(item.slug)}
+                    >
+                      {t.consult}
+                    </button>
                   </div>
-                  <div
-                    className="view-switcher"
-                    role="group"
-                    aria-label={t.explorer}
+                </article>
+              ))}
+          </section>
+        )}
+        {explorerMode && (
+          <div ref={resultsRef} className="results-anchor" tabIndex={-1}>
+            {loadError && (
+              <p role="alert" className="error-state">
+                {t.error}
+              </p>
+            )}
+            {loading ? (
+              <p className="loading-state">{t.loading}</p>
+            ) : (
+              <>
+                {category ? (
+                  <section
+                    className="explorer-heading"
+                    aria-labelledby="explorer-title"
                   >
-                    <button
-                      type="button"
-                      aria-pressed={viewMode === "grid"}
-                      aria-label={t.gridView}
-                      title={t.gridView}
-                      onClick={() => changeViewMode("grid")}
+                    <div>
+                      <span>{t.explorer}</span>
+                      <h2 id="explorer-title">{categoryLabel}</h2>
+                      <p>
+                        {documents.length}{" "}
+                        {documents.length === 1
+                          ? t.documentCountOne
+                          : t.documentCount}
+                      </p>
+                    </div>
+                    <div
+                      className="view-switcher"
+                      role="group"
+                      aria-label={t.explorer}
                     >
-                      <Icon name="grid" />
-                      <span>{locale === "fr" ? "Fenêtres" : "Windows"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      aria-pressed={viewMode === "list"}
-                      aria-label={t.listView}
-                      title={t.listView}
-                      onClick={() => changeViewMode("list")}
-                    >
-                      <Icon name="list" />
-                      <span>{locale === "fr" ? "Liste" : "List"}</span>
-                    </button>
-                  </div>
-                </section>
-              ) : (
-                <h2 className="section-title">
-                  {query || space ? t.search : t.recent}
-                </h2>
-              )}
-              <DocumentRows
-                documents={documents}
-                locale={locale}
-                selectedLocales={selectedLocales}
-                onLocale={(id, next) =>
-                  setSelectedLocales((current) => ({ ...current, [id]: next }))
-                }
-                onOpen={setOpened}
-                viewMode={category ? viewMode : "list"}
-              />
-            </>
-          )}
-          {!query && !category && !space && popular.length > 0 && (
-            <>
-              <h2 className="section-title">{t.popular}</h2>
-              <DocumentRows
-                documents={popular}
-                locale={locale}
-                selectedLocales={selectedLocales}
-                onLocale={(id, next) =>
-                  setSelectedLocales((current) => ({ ...current, [id]: next }))
-                }
-                onOpen={setOpened}
-              />
-            </>
-          )}
-        </div>
+                      <button
+                        type="button"
+                        aria-pressed={viewMode === "grid"}
+                        aria-label={t.gridView}
+                        title={t.gridView}
+                        onClick={() => changeViewMode("grid")}
+                      >
+                        <Icon name="grid" />
+                        <span>{locale === "fr" ? "Fenêtres" : "Windows"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={viewMode === "list"}
+                        aria-label={t.listView}
+                        title={t.listView}
+                        onClick={() => changeViewMode("list")}
+                      >
+                        <Icon name="list" />
+                        <span>{locale === "fr" ? "Liste" : "List"}</span>
+                      </button>
+                    </div>
+                  </section>
+                ) : (
+                  <h2 className="section-title">
+                    {query || space ? t.search : t.recent}
+                  </h2>
+                )}
+                <DocumentRows
+                  documents={documents}
+                  locale={locale}
+                  selectedLocales={selectedLocales}
+                  onLocale={(id, next) =>
+                    setSelectedLocales((current) => ({
+                      ...current,
+                      [id]: next,
+                    }))
+                  }
+                  onOpen={setOpened}
+                  viewMode={category ? viewMode : "list"}
+                />
+              </>
+            )}
+            {!query && !category && !space && popular.length > 0 && (
+              <>
+                <h2 className="section-title">{t.popular}</h2>
+                <DocumentRows
+                  documents={popular}
+                  locale={locale}
+                  selectedLocales={selectedLocales}
+                  onLocale={(id, next) =>
+                    setSelectedLocales((current) => ({
+                      ...current,
+                      [id]: next,
+                    }))
+                  }
+                  onOpen={setOpened}
+                />
+              </>
+            )}
+          </div>
+        )}
       </main>
       {helpOpen && (
         <div
@@ -918,4 +962,8 @@ export default function Home() {
       )}
     </div>
   );
+}
+
+export default function Home() {
+  return <Portal />;
 }

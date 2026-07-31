@@ -23,4 +23,26 @@ for (const viewport of viewports) {
       maxDiffPixelRatio: 0.01,
     });
   });
+
+  test(`document explorer visual regression - ${viewport.name}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.addInitScript(() => {
+      localStorage.setItem("isms-locale", "fr");
+      localStorage.setItem("isms-document-view", "list");
+    });
+    await page.goto("/explorer?category=procedures");
+    await expect(
+      page.getByRole("heading", {
+        name: "Explorateur documentaire",
+        level: 1,
+      }),
+    ).toBeVisible();
+    await expect(page).toHaveScreenshot(`explorer-${viewport.name}.png`, {
+      animations: "disabled",
+      fullPage: true,
+      maxDiffPixelRatio: 0.01,
+    });
+  });
 }

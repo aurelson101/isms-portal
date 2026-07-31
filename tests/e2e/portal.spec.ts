@@ -13,11 +13,14 @@ test("navigation, filtering, search and languages are functional", async ({
   await expect(page.getByText(/Mode démonstration/)).toBeVisible();
   await expect(page.getByRole("heading", { name: /Bienvenue/ })).toBeVisible();
   await expect(
-    page.getByText("Politique de sécurité de l’information").first(),
-  ).toBeVisible();
+    page.getByText("Politique de sécurité de l’information"),
+  ).toHaveCount(0);
 
   await page.locator("aside").getByText("Politiques", { exact: true }).click();
-  await expect(page).toHaveURL(/category=policies/);
+  await expect(page).toHaveURL(/\/explorer\?category=policies/);
+  await expect(
+    page.getByRole("heading", { name: "Explorateur documentaire", level: 1 }),
+  ).toBeVisible();
   await expect(
     page.getByText("Politique de sécurité de l’information").first(),
   ).toBeVisible();
@@ -42,14 +45,16 @@ test("navigation, filtering, search and languages are functional", async ({
     .locator("header")
     .getByRole("button", { name: "EN", exact: true })
     .click();
-  await expect(page.getByRole("heading", { name: /Welcome/ })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Document explorer" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("textbox", { name: /Search for a policy/ }),
   ).toBeVisible();
 });
 
 test("document preview and binary download work", async ({ page, request }) => {
-  await page.goto("/");
+  await page.goto("/explorer?category=policies");
   await page
     .locator("header")
     .getByRole("button", { name: "FR", exact: true })
@@ -80,7 +85,9 @@ test("category explorer supports window and list views with an expandable reader
   await expect(
     page.getByRole("heading", { name: "Procédures", exact: true }).last(),
   ).toBeVisible();
-  await expect(page.getByText("Explorateur documentaire")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Explorateur documentaire", level: 1 }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Affichage en fenêtres" }).click();
   await expect(page.locator(".documents")).toHaveClass(/document-grid/);
@@ -301,7 +308,7 @@ test("portal and administration remain usable on mobile", async ({ page }) => {
   await expect(page.locator("aside nav")).toBeVisible();
   await expect(page.locator("aside nav svg")).toHaveCount(8);
   await page.locator("aside").getByText("Guides", { exact: true }).click();
-  await expect(page).toHaveURL(/category=guides/);
+  await expect(page).toHaveURL(/\/explorer\?category=guides/);
   expect(
     await page.evaluate(
       () =>
@@ -561,7 +568,7 @@ test("Word and Excel documents open in a read-only viewer", async ({
       ).toBe(201);
     }
 
-    await page.goto("/");
+    await page.goto(`/explorer?q=${encodeURIComponent(wordTitle)}`);
     const search = page.getByPlaceholder(
       "Rechercher une politique, une procédure ou un guide…",
     );
