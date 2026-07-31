@@ -233,6 +233,9 @@ test("administration is fully switchable between French and English", async ({
 }) => {
   await page.goto("/admin");
   await page.getByRole("button", { name: "EN", exact: true }).click();
+  await expect(
+    page.getByRole("group", { name: "Interface language" }),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
   for (const [menu, heading] of [
@@ -250,6 +253,18 @@ test("administration is fully switchable between French and English", async ({
     await expect(
       page.getByRole("heading", { name: heading, exact: true }).first(),
     ).toBeVisible();
+    if (menu === "Documents") {
+      const documentLanguage = page.getByRole("group", {
+        name: "Document language",
+      });
+      await expect(documentLanguage).toBeVisible();
+      await expect(
+        documentLanguage.getByRole("radio", { name: "FR" }),
+      ).toBeChecked();
+      await expect(
+        page.getByText("Only identifies the language of the file."),
+      ).toBeVisible();
+    }
   }
 
   await page.getByRole("button", { name: "FR", exact: true }).click();
