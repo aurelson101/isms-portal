@@ -41,7 +41,6 @@ type Identity = {
   username: string;
   isAdmin: boolean;
   locale: Locale | null;
-  demoMode: boolean;
   authentication: {
     source: string;
     ssoConnected: boolean;
@@ -590,11 +589,6 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
         </div>
       </aside>
       <main>
-        {identity?.demoMode && (
-          <div className="demo-banner" role="status">
-            {t.demo}
-          </div>
-        )}
         <header>
           <div className="language">
             <button
@@ -634,14 +628,12 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                 className={
                   identity?.authentication.ssoConnected
                     ? "auth-status connected"
-                    : "auth-status demo"
+                    : "auth-status local"
                 }
               >
                 {identity?.authentication.ssoConnected
                   ? t.ssoConnected
-                  : identity?.authentication.source === "local-admin"
-                    ? t.localAdminSession
-                    : t.demoSession}
+                  : t.localAdminSession}
               </span>
               {identity?.isAdmin && <a href="/admin">{t.administration}</a>}
               {identity && (

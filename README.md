@@ -16,8 +16,8 @@ docker compose ps
 Portail : <http://localhost:8080> — Administration :
 <http://localhost:8080/admin> — OpenAPI : <http://localhost:8080/api/docs>.
 
-Le mode démonstration ne fonctionne qu’avec `NODE_ENV` différent de
-`production`. Il est bloqué au démarrage en production.
+Les conteneurs exécutent exclusivement le mode production. Aucun fournisseur
+d’identité ni amorçage automatique de démonstration n’est présent au démarrage.
 
 ## Génération des secrets
 

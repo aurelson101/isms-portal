@@ -33,27 +33,6 @@ const cidrContains = (cidr: string, address: string) => {
   return (networkNumber & mask) === (addressNumber & mask);
 };
 
-export class DemoIdentityProvider implements IdentityProvider {
-  supports(_request: IsmsRequest) {
-    return (
-      process.env.NODE_ENV !== "production" && process.env.DEMO_MODE === "true"
-    );
-  }
-
-  resolve() {
-    return {
-      username: process.env.DEMO_USER || "demo",
-      displayName: process.env.DEMO_DISPLAY_NAME || "Demo User",
-      source: "demo" as const,
-      sessionExpiresAt: null,
-      groups: (process.env.DEMO_GROUPS || "Domain Users,ITAD,ISMS-ADMINS")
-        .split(",")
-        .map((value) => value.trim())
-        .filter(Boolean),
-    };
-  }
-}
-
 export class TrustedProxyIdentityProvider implements IdentityProvider {
   supports(request: IsmsRequest) {
     return (

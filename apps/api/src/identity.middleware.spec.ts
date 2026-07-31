@@ -17,7 +17,6 @@ describe("IdentityMiddleware", () => {
     process.env = {
       ...originalEnv,
       NODE_ENV: "production",
-      DEMO_MODE: "false",
       TRUSTED_PROXY_CIDRS: "172.16.0.0/12",
     };
   });
@@ -102,9 +101,7 @@ describe("IdentityMiddleware", () => {
     ).rejects.toThrow(UnauthorizedException);
   });
 
-  it("uses a trusted proxy identity instead of demo groups in development", async () => {
-    process.env.NODE_ENV = "development";
-    process.env.DEMO_MODE = "true";
+  it("accepts a trusted proxy identity independently of the environment", async () => {
     const req = {
       path: "/documents",
       originalUrl: "/documents",

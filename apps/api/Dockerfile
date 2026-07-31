@@ -23,4 +23,4 @@ COPY --chown=isms:isms scripts/container-entrypoint.sh /usr/local/bin/isms-entry
 USER isms
 EXPOSE 3001
 ENTRYPOINT ["/usr/local/bin/isms-entrypoint"]
-CMD ["sh", "-c", "node prisma/prepare-migrations.js && npx prisma migrate deploy --schema prisma/schema.prisma && if [ \"${DEMO_MODE:-false}\" = \"true\" ]; then node prisma/seed.js; fi && node dist/main.js"]
+CMD ["sh", "-c", "node prisma/prepare-migrations.js && npx prisma migrate deploy --schema prisma/schema.prisma && node dist/main.js"]

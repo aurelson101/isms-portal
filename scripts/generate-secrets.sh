@@ -89,17 +89,16 @@ if [ "$mode" = admin-only ]; then
   credentials_tmp=$(mktemp "$project_root/.credentials.txt.tmp.XXXXXX")
   trap 'rm -f "$env_tmp" "$credentials_tmp"' EXIT HUP INT TERM
   awk -v admin_password="$admin_password" '
-    BEGIN { found_user=0; found_name=0; found_password=0; found_demo=0 }
+    BEGIN { found_user=0; found_name=0; found_password=0 }
     /^INITIAL_ADMIN_USERNAME=/ { print "INITIAL_ADMIN_USERNAME=admin"; found_user=1; next }
     /^INITIAL_ADMIN_DISPLAY_NAME=/ { print "INITIAL_ADMIN_DISPLAY_NAME=Administrateur ISMS"; found_name=1; next }
     /^INITIAL_ADMIN_PASSWORD=/ { print "INITIAL_ADMIN_PASSWORD=" admin_password; found_password=1; next }
-    /^DEMO_MODE=/ { print "DEMO_MODE=false"; found_demo=1; next }
+    /^DEMO_(MODE|USER|GROUPS|DISPLAY_NAME)=/ { next }
     { print }
     END {
       if (!found_user) print "INITIAL_ADMIN_USERNAME=admin"
       if (!found_name) print "INITIAL_ADMIN_DISPLAY_NAME=Administrateur ISMS"
       if (!found_password) print "INITIAL_ADMIN_PASSWORD=" admin_password
-      if (!found_demo) print "DEMO_MODE=false"
     }
   ' "$env_file" > "$env_tmp"
   chmod 600 "$env_tmp"
@@ -107,7 +106,7 @@ if [ "$mode" = admin-only ]; then
   write_credentials "$credentials_tmp"
   mv -f "$credentials_tmp" "$credentials_file"
   trap - EXIT HUP INT TERM
-  printf 'Compte administrateur initial généré et mode démonstration désactivé.\n'
+  printf 'Compte administrateur initial généré pour le mode production.\n'
   exit 0
 fi
 
