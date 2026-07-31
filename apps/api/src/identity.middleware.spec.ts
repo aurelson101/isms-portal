@@ -8,6 +8,7 @@ const response = () => ({ setHeader: vi.fn() });
 describe("IdentityMiddleware", () => {
   const auth = {
     enrichSsoIdentity: vi.fn(async (identity) => identity),
+    adminSessionIdentity: vi.fn(async () => null),
     sessionIdentity: vi.fn(async () => null),
   };
   const middleware = new IdentityMiddleware(auth as never);
@@ -64,6 +65,30 @@ describe("IdentityMiddleware", () => {
     const next = vi.fn();
     await middleware.use(req, response() as never, next);
     expect(req.identity.source).toBe("local-admin");
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it("prioritizes a local administrator cookie over SSO on admin routes", async () => {
+    auth.adminSessionIdentity.mockResolvedValueOnce({
+      username: "admin",
+      displayName: "Administrator",
+      groups: ["ISMS-LOCAL-ADMINS"],
+      source: "local-admin",
+      sessionExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const req = {
+      path: "/admin/access-rules",
+      originalUrl: "/admin/access-rules",
+      headers: {
+        "x-auth-mail": "user@example.com",
+        "x-auth-groups": "Domain Users",
+      },
+      socket: { remoteAddress: "172.20.0.5" },
+    } as unknown as IsmsRequest;
+    const next = vi.fn();
+    await middleware.use(req, response() as never, next);
+    expect(req.identity.source).toBe("local-admin");
+    expect(req.identity.username).toBe("admin");
     expect(next).toHaveBeenCalledOnce();
   });
 
