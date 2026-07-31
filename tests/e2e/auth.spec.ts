@@ -36,11 +36,18 @@ test("the generated administrator can sign in and manage the secure profile", as
     .click();
   await expect(page).toHaveURL(/\/admin/);
 
+  await page.goto("/");
+  await page.getByRole("button", { name: /Administrateur ISMS/ }).click();
+  await expect(page.getByText("Groupes détectés")).toHaveCount(0);
+  await page.goto("/admin");
+
   await page.getByRole("button", { name: "FR", exact: true }).click();
   await page
     .getByRole("button", { name: /Administrateur ISMS.*admin/i })
     .click();
-  await expect(page.getByRole("menuitem", { name: "Mon profil" })).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Mon profil" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("menuitem", { name: "Se déconnecter" }),
   ).toBeVisible();
