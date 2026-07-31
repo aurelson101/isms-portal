@@ -1636,10 +1636,11 @@ function DocumentsPanel({
         className="admin-form upload-form"
         onSubmit={async (event: FormEvent<HTMLFormElement>) => {
           event.preventDefault();
-          const data = new FormData(event.currentTarget);
+          const formElement = event.currentTarget;
+          const data = new FormData(formElement);
           await api("/api/admin/documents", { method: "POST", body: data })
             .then(async () => {
-              event.currentTarget.reset();
+              formElement.reset();
               setSpaceId("");
               setSensitive(false);
               setWatermarkPosition("CENTER");
@@ -2423,13 +2424,14 @@ function CertificatesPanel({
           type="file"
           required
           accept=".pem,.crt,.cer,.p7b,.p7c,application/x-x509-ca-cert,application/pkix-cert,application/pkcs7-mime"
-          onChange={(event) =>
-            void readCertificate(event.target.files?.[0]).catch((error) => {
+          onChange={(event) => {
+            const inputElement = event.currentTarget;
+            void readCertificate(inputElement.files?.[0]).catch((error) => {
               setContentBase64("");
-              event.currentTarget.value = "";
+              inputElement.value = "";
               onError((error as Error).message);
-            })
-          }
+            });
+          }}
         />
         <small className="field-hint">
           {t(
@@ -2708,9 +2710,8 @@ function SettingsPanel({
             className="admin-form"
             onSubmit={async (event) => {
               event.preventDefault();
-              const values = Object.fromEntries(
-                new FormData(event.currentTarget),
-              );
+              const formElement = event.currentTarget;
+              const values = Object.fromEntries(new FormData(formElement));
               await api("/api/admin/accounts/me/password", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -2826,16 +2827,15 @@ function SettingsPanel({
             className="admin-form"
             onSubmit={async (event) => {
               event.preventDefault();
-              const values = Object.fromEntries(
-                new FormData(event.currentTarget),
-              );
+              const formElement = event.currentTarget;
+              const values = Object.fromEntries(new FormData(formElement));
               await api("/api/admin/accounts", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ ...values, source: "LOCAL" }),
               })
                 .then(async () => {
-                  event.currentTarget.reset();
+                  formElement.reset();
                   await loadAccounts();
                 })
                 .catch((error) => onError(error.message));
