@@ -298,7 +298,6 @@ export default function Admin() {
     profilePhoto: string | null;
     primaryAdmin: boolean;
     locale: Locale | null;
-    demoMode: boolean;
     authentication: Authentication;
   } | null>(null);
   const [confirmation, setConfirmation] = useState<{
@@ -345,7 +344,6 @@ export default function Admin() {
           profilePhoto: string | null;
           primaryAdmin: boolean;
           locale: Locale | null;
-          demoMode: boolean;
           authentication: Authentication;
         }>("/api/me"),
         api<Dashboard>("/api/admin/dashboard"),
@@ -572,14 +570,12 @@ export default function Admin() {
                   className={
                     identity?.authentication.ssoConnected
                       ? "auth-status connected"
-                      : "auth-status demo"
+                      : "auth-status local"
                   }
                 >
                   {identity?.authentication.ssoConnected
                     ? t("SSO connecté")
-                    : identity?.authentication.source === "local-admin"
-                      ? t("Administrateur local")
-                      : t("Session de démonstration")}
+                    : t("Administrateur local")}
                 </span>
               </div>
             </header>

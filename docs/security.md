@@ -1,7 +1,7 @@
 # Sécurité
 
 - refus par défaut et contrôle backend de chaque ressource ;
-- identité de démonstration interdite avec `NODE_ENV=production` ;
+- aucun fournisseur d’identité de démonstration dans le runtime ;
 - en-têtes `X-Auth-*` acceptés uniquement depuis `TRUSTED_PROXY_CIDRS` ;
 - compte de service LDAP chiffré en AES-256-GCM ;
 - TLS 1.2 minimum, CA et nom d’hôte obligatoires pour LDAPS ;

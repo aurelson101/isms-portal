@@ -166,9 +166,6 @@ export class IdentityController {
       isAdmin: isAdminIdentity(req.identity.groups),
       primaryAdmin: adminAccount?.primary || false,
       locale: preference?.locale || null,
-      demoMode:
-        process.env.NODE_ENV !== "production" &&
-        process.env.DEMO_MODE === "true",
       authentication: {
         source: req.identity.source,
         ssoConnected: req.identity.source === "trusted-proxy",

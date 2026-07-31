@@ -1,10 +1,9 @@
 # SSO
 
-L’API expose une abstraction `IdentityProvider` avec trois modes :
+L’API expose une abstraction `IdentityProvider` avec deux modes :
 
 - identité transmise par un proxy SSO de confiance.
 - session d’un administrateur local de secours ;
-- démonstration, uniquement hors production et désactivée par défaut.
 
 En production, placer oauth2-proxy/Keycloak/Entra ID ou un frontal
 Kerberos/SPNEGO devant Nginx. Le frontal :
@@ -46,5 +45,5 @@ accessible sans boucle de redirection.
 `ssoConnected` vaut `true` uniquement lorsque l’identité a été acceptée par le
 fournisseur `trusted-proxy` depuis un CIDR approuvé. Le compte de secours
 retourne `source: "local-admin"` et `ssoConnected: false`. Le portail et
-l’administration le distinguent clairement d’une session SSO ou de
-démonstration. Les groupes et claims bruts ne sont pas ajoutés à cette réponse.
+l’administration le distinguent clairement d’une session SSO. Les groupes et
+claims bruts ne sont pas ajoutés à cette réponse.

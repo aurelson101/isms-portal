@@ -6,20 +6,14 @@ import {
 import type { NextFunction, Response } from "express";
 import { randomUUID } from "crypto";
 import type { IsmsRequest } from "./types";
-import {
-  DemoIdentityProvider,
-  TrustedProxyIdentityProvider,
-} from "./identity.provider";
+import { TrustedProxyIdentityProvider } from "./identity.provider";
 import { AuthService } from "./auth.service";
 
 @Injectable()
 export class IdentityMiddleware implements NestMiddleware {
   constructor(private readonly auth: AuthService) {}
 
-  private readonly providers = [
-    new TrustedProxyIdentityProvider(),
-    new DemoIdentityProvider(),
-  ];
+  private readonly providers = [new TrustedProxyIdentityProvider()];
 
   async use(req: IsmsRequest, res: Response, next: NextFunction) {
     const route = req.originalUrl.split("?")[0];

@@ -9,12 +9,6 @@ import { AppModule } from "./app.module";
 import { collectDefaultMetrics } from "prom-client";
 
 async function bootstrap() {
-  if (
-    process.env.NODE_ENV === "production" &&
-    process.env.DEMO_MODE === "true"
-  ) {
-    throw new Error("DEMO_MODE must never be enabled when NODE_ENV=production");
-  }
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
   });

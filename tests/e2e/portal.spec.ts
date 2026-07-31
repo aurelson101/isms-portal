@@ -10,7 +10,6 @@ test("navigation, filtering, search and languages are functional", async ({
     .locator("header")
     .getByRole("button", { name: "FR", exact: true })
     .click();
-  await expect(page.getByText(/Mode démonstration/)).toHaveCount(0);
   await expect(page.getByRole("heading", { name: /Bienvenue/ })).toBeVisible();
   await expect(
     page.getByText("Politique de sécurité de l’information"),
