@@ -306,6 +306,7 @@ export default function Admin() {
     resolve: (accepted: boolean) => void;
   } | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const t = (fr: string, en?: string) =>
     locale === "fr"
       ? fr
@@ -577,21 +578,75 @@ export default function Admin() {
               <button className="refresh-button" onClick={() => void refresh()}>
                 <Icon name="sync" /> <span>{t("Actualiser")}</span>
               </button>
-              <div className="admin-identity">
-                <strong>
-                  {identity?.displayName || t("Administrateur ISMS")}
-                </strong>
-                <span
-                  className={
-                    identity?.authentication.ssoConnected
-                      ? "auth-status connected"
-                      : "auth-status local"
-                  }
+              <div className="admin-profile">
+                <button
+                  type="button"
+                  className="admin-profile-button"
+                  aria-haspopup="menu"
+                  aria-expanded={profileOpen}
+                  onClick={() => setProfileOpen((current) => !current)}
                 >
-                  {identity?.authentication.ssoConnected
-                    ? t("SSO connecté")
-                    : t("Administrateur local")}
-                </span>
+                  {identity?.profilePhoto ? (
+                    <img src={identity.profilePhoto} alt="" />
+                  ) : (
+                    <span className="admin-avatar" aria-hidden="true">
+                      {(identity?.displayName || "Admin")
+                        .split(/\s+/u)
+                        .map((part) => part[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </span>
+                  )}
+                  <span className="admin-identity">
+                    <strong>
+                      {identity?.displayName || t("Administrateur ISMS")}
+                    </strong>
+                    <small>{identity?.username || "…"}</small>
+                  </span>
+                  <span aria-hidden="true">⌄</span>
+                </button>
+                {profileOpen && (
+                  <div className="account-menu admin-profile-menu" role="menu">
+                    <strong>
+                      {identity?.displayName || t("Administrateur ISMS")}
+                    </strong>
+                    <small>{identity?.username}</small>
+                    <span
+                      className={
+                        identity?.authentication.ssoConnected
+                          ? "auth-status connected"
+                          : "auth-status local"
+                      }
+                    >
+                      {identity?.authentication.ssoConnected
+                        ? t("SSO connecté")
+                        : t("Administrateur local")}
+                    </span>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        selectTab("settings");
+                      }}
+                    >
+                      {t("Mon profil")}
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="danger"
+                      onClick={() =>
+                        api("/api/auth/logout", { method: "POST" }).then(() =>
+                          window.location.assign("/admin/login?loggedout=1"),
+                        )
+                      }
+                    >
+                      {t("Se déconnecter")}
+                    </button>
+                  </div>
+                )}
               </div>
             </header>
             {error && (

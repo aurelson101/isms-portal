@@ -37,7 +37,14 @@ test("the generated administrator can sign in and manage the secure profile", as
   await expect(page).toHaveURL(/\/admin/);
 
   await page.getByRole("button", { name: "FR", exact: true }).click();
-  await page.getByRole("button", { name: /Configuration$/ }).click();
+  await page
+    .getByRole("button", { name: /Administrateur ISMS.*admin/i })
+    .click();
+  await expect(page.getByRole("menuitem", { name: "Mon profil" })).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Se déconnecter" }),
+  ).toBeVisible();
+  await page.getByRole("menuitem", { name: "Mon profil" }).click();
   await expect(
     page.getByRole("heading", { name: "Profil administrateur" }),
   ).toBeVisible();
@@ -56,4 +63,10 @@ test("the generated administrator can sign in and manage the secure profile", as
   expect(payload.otpauthUrl).toContain("otpauth://totp/");
   const disable = await page.request.delete("/api/admin/accounts/me/mfa");
   expect(disable.ok()).toBe(true);
+
+  await page
+    .getByRole("button", { name: /Administrateur ISMS.*admin/i })
+    .click();
+  await page.getByRole("menuitem", { name: "Se déconnecter" }).click();
+  await expect(page).toHaveURL(/\/admin\/login\?loggedout=1/);
 });
