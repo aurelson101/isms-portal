@@ -44,6 +44,35 @@ test("a non-admin session is redirected to the dedicated administrator sign-in",
   await expect(page).toHaveURL(/\/admin\/login\?return=/);
 });
 
+test("an admin API forbidden response rechecks the identity and redirects a replaced session", async ({
+  page,
+}) => {
+  let identityChecks = 0;
+  await page.route("**/api/me", async (route) => {
+    identityChecks += 1;
+    if (identityChecks === 1) return route.continue();
+    return route.fulfill({
+      json: {
+        username: "user@example.com",
+        displayName: "Standard User",
+        isAdmin: false,
+      },
+    });
+  });
+  await page.route(
+    "**/api/admin/directory-connections/groups/search*",
+    (route) => route.fulfill({ status: 403, json: { message: "Forbidden" } }),
+  );
+  await page.goto("/admin#groups");
+  await expect(
+    page.getByRole("heading", { name: "Groupes Active Directory" }),
+  ).toBeVisible();
+  await page
+    .getByLabel("Rechercher ou saisir le DN du groupe AD")
+    .fill("Skill");
+  await expect(page).toHaveURL(/\/admin\/login\?return=/);
+});
+
 test("the generated administrator can sign in and manage the secure profile", async ({
   page,
 }) => {
