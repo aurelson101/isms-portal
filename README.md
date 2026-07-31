@@ -183,6 +183,10 @@ synchronisation réussie, les groupes sont proposés dans la recherche de
 **Groupes Active Directory** et dans la création des règles. Le secret de bind
 est chiffré en AES-256-GCM et n’est jamais renvoyé par l’API.
 
+La fiche de configuration préremplie pour DeftaGroup est disponible dans
+[README-LDAP-LOCAL.md](README-LDAP-LOCAL.md). Elle ne contient aucun mot de
+passe ; les contrôleurs et le Group Base DN restent à compléter.
+
 Test LDAPS reproductible sans l’AD de production :
 
 ```bash
