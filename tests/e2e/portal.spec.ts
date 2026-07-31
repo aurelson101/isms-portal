@@ -22,8 +22,12 @@ test("navigation, filtering, search and languages are functional", async ({
     page.getByText("Politique de sécurité de l’information"),
   ).toHaveCount(0);
 
-  await page.locator("aside").getByText("Politiques", { exact: true }).click();
-  await expect(page).toHaveURL(/\/explorer\?category=policies/);
+  await page
+    .locator("aside")
+    .getByText("Politiques", { exact: true })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/explorer\?space=general&categoryId=/);
   await expect(
     page.getByRole("heading", { name: "Explorateur documentaire", level: 1 }),
   ).toBeVisible();
@@ -31,12 +35,13 @@ test("navigation, filtering, search and languages are functional", async ({
     page.getByText("Politique de sécurité de l’information").first(),
   ).toBeVisible();
 
-  for (const [label, value] of [
-    ["Procédures", "procedures"],
-    ["Guides", "guides"],
-  ] as const) {
-    await page.locator("aside").getByText(label, { exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`category=${value}`));
+  for (const label of ["Procédures", "Guides"] as const) {
+    await page
+      .locator("aside")
+      .getByText(label, { exact: true })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/categoryId=/);
   }
   await page.locator("aside").getByText("IT", { exact: true }).click();
   await expect(page).toHaveURL(/space=it/);
@@ -86,7 +91,11 @@ test("category explorer supports window and list views with an expandable reader
     .locator("header")
     .getByRole("button", { name: "FR", exact: true })
     .click();
-  await page.locator("aside").getByText("Procédures", { exact: true }).click();
+  await page
+    .locator("aside")
+    .getByText("Procédures", { exact: true })
+    .first()
+    .click();
 
   await expect(
     page.getByRole("heading", { name: "Procédures", exact: true }).last(),
@@ -516,9 +525,13 @@ test("portal and administration remain usable on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await expect(page.locator("aside nav")).toBeVisible();
-  await expect(page.locator("aside nav svg")).toHaveCount(8);
-  await page.locator("aside").getByText("Guides", { exact: true }).click();
-  await expect(page).toHaveURL(/\/explorer\?category=guides/);
+  await expect(page.locator("aside nav svg")).toHaveCount(9);
+  await page
+    .locator("aside")
+    .getByText("Guides", { exact: true })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/explorer\?.*categoryId=/);
   expect(
     await page.evaluate(
       () =>

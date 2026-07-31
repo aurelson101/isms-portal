@@ -256,6 +256,22 @@ textarea:focus-visible {
   display: grid;
   gap: 13px;
 }
+.navigation-space {
+  display: grid;
+  gap: 3px;
+}
+.navigation-space-title {
+  color: #a9c6f4;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 6px 24px 0;
+  text-transform: uppercase;
+}
+.shell nav .category-menu {
+  font-size: 16px;
+  padding-left: 46px;
+}
 .shell nav button,
 .admin-shell nav button,
 .admin-shell nav a {
@@ -1758,6 +1774,9 @@ h1 {
   .shell nav button {
     padding: 12px;
     justify-content: center;
+  }
+  .navigation-space-title {
+    display: none;
   }
   .shell nav span {
     display: none;

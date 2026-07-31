@@ -231,6 +231,7 @@ export class DocumentsController {
     @Req() req: IsmsRequest,
     @Query("q") query = "",
     @Query("category") category?: string,
+    @Query("categoryId") categoryId?: string,
     @Query("space") space?: string,
     @Query("sort") sort: "recent" | "popular" = "recent",
     @Query("page") pageValue?: string,
@@ -289,6 +290,36 @@ export class DocumentsController {
       ...new Set([...readableSpaceIds, ...managedSpaceIds]),
     ];
     if (visibleSpaceIds.length === 0) return emptyResult;
+    let categoryWhere: Prisma.DocumentCategoryWhereInput | undefined;
+    const categoryIdIsUuid = Boolean(
+      categoryId &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          categoryId,
+        ),
+    );
+    if (categoryIdIsUuid) {
+      categoryWhere = { id: categoryId, deletedAt: null };
+    } else if (category || categoryId) {
+      // Legacy links used a slug alone. A slug is only unique within a space,
+      // therefore reject ambiguous requests instead of mixing categories.
+      const slug = category || categoryId!;
+      const matches = await this.prisma.documentCategory.findMany({
+        where: {
+          slug,
+          deletedAt: null,
+          spaceId: { in: visibleSpaceIds },
+        },
+        select: { id: true },
+        take: 2,
+      });
+      if (matches.length > 1)
+        throw new BadRequestException(
+          "Category slug is ambiguous; use categoryId",
+        );
+      categoryWhere = matches.length
+        ? { id: matches[0].id, deletedAt: null }
+        : { id: "__missing_category__", deletedAt: null };
+    }
     const fullTextMatches = q
       ? await this.prisma.$queryRaw<Array<{ documentId: string }>>(Prisma.sql`
           SELECT DISTINCT "documentId"
@@ -308,7 +339,7 @@ export class DocumentsController {
       ...(q
         ? { id: { in: fullTextMatches.map((match) => match.documentId) } }
         : {}),
-      ...(category ? { category: { slug: category, deletedAt: null } } : {}),
+      ...(categoryWhere ? { category: categoryWhere } : {}),
     };
     const total = await this.prisma.document.count({ where });
     const totalPages = Math.ceil(total / limit);
@@ -1126,6 +1157,11 @@ export class AdminController {
     const slug = body.slug.trim().toLowerCase();
     if (!/^[a-z0-9][a-z0-9-]{1,79}$/.test(slug))
       throw new BadRequestException("Invalid slug");
+    const space = await this.prisma.documentSpace.findFirst({
+      where: { id: body.spaceId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!space) throw new BadRequestException("Invalid active document space");
     const category = await this.prisma.documentCategory.create({
       data: { ...body, slug },
     });
@@ -1152,6 +1188,20 @@ export class AdminController {
     const slug = body.slug.trim().toLowerCase();
     if (!/^[a-z0-9][a-z0-9-]{1,79}$/.test(slug))
       throw new BadRequestException("Invalid slug");
+    const space = await this.prisma.documentSpace.findFirst({
+      where: { id: body.spaceId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!space) throw new BadRequestException("Invalid active document space");
+    if (existing.spaceId !== body.spaceId) {
+      const documentCount = await this.prisma.document.count({
+        where: { categoryId: id, deletedAt: null },
+      });
+      if (documentCount > 0)
+        throw new ConflictException(
+          "A category with documents cannot be moved between spaces",
+        );
+    }
     const category = await this.prisma.documentCategory.update({
       where: { id },
       data: { ...body, slug },

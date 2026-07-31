@@ -1,9 +1,16 @@
 import { Injectable } from "@nestjs/common";
-import type { AccessRule, DocumentSpace } from "@prisma/client";
+import type {
+  AccessRule,
+  DocumentCategory,
+  DocumentSpace,
+} from "@prisma/client";
 import { PrismaService } from "./prisma.service";
 import { isAdminIdentity } from "./security";
 
-type SpaceWithRule = DocumentSpace & { accessRules: AccessRule[] };
+type SpaceWithRule = DocumentSpace & {
+  accessRules: AccessRule[];
+  categories: DocumentCategory[];
+};
 export type Permission =
   | "showMenu"
   | "read"
@@ -24,7 +31,10 @@ export class AuthorizationService {
     if (isAdminIdentity(groups)) {
       return this.prisma.documentSpace.findMany({
         where: { deletedAt: null },
-        include: { accessRules: true },
+        include: {
+          accessRules: true,
+          categories: { where: { deletedAt: null }, orderBy: { slug: "asc" } },
+        },
         orderBy: { slug: "asc" },
       }) as Promise<SpaceWithRule[]>;
     }
@@ -54,6 +64,7 @@ export class AuthorizationService {
             },
           },
         },
+        categories: { where: { deletedAt: null }, orderBy: { slug: "asc" } },
       },
       orderBy: { slug: "asc" },
     }) as Promise<SpaceWithRule[]>;

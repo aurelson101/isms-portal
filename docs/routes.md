@@ -39,3 +39,8 @@ Les préfixes suivants couvrent les opérations réellement implémentées :
 La recette Playwright parcourt les routes GET publiques et administratives,
 teste un identifiant de document inexistant, puis vérifie les routes de contenu
 et de téléchargement d’un document autorisé.
+
+Le filtre de catégorie du portail utilise `categoryId` avec `space`. Les anciens
+liens avec `category=<slug>` restent acceptés seulement lorsqu'ils désignent une
+catégorie unique parmi les espaces accessibles ; un slug ambigu est refusé afin
+de ne jamais mélanger deux espaces.
