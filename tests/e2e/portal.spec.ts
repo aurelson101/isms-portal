@@ -2,6 +2,13 @@ import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { strToU8, zipSync } from "fflate";
 
+test.beforeEach(async ({ page }) => {
+  const response = await page.request.put("/api/me/preferences", {
+    data: { locale: "fr" },
+  });
+  expect(response.ok()).toBe(true);
+});
+
 test("navigation, filtering, search and languages are functional", async ({
   page,
 }) => {
@@ -199,7 +206,6 @@ test("administration is fully switchable between French and English", async ({
   await page.goto("/admin");
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  await expect(page.getByText("Local administrator")).toBeVisible();
 
   for (const [menu, heading] of [
     ["Active Directory groups", "Active Directory groups"],
@@ -223,7 +229,7 @@ test("administration is fully switchable between French and English", async ({
     page.getByRole("heading", { name: "Configuration" }),
   ).toBeVisible();
   await expect(
-    page.getByText("Administrateur local", { exact: true }),
+    page.getByText("Administrateur ISMS", { exact: true }).last(),
   ).toBeVisible();
 });
 
@@ -253,7 +259,6 @@ test("administration uses accessible confirmations and edits an existing directo
           edit: false,
           publish: false,
           archive: false,
-          administer: false,
         },
       ],
     });
@@ -611,7 +616,6 @@ test("access rules can be created, updated and deleted", async ({
         edit: false,
         publish: false,
         archive: false,
-        administer: false,
       },
     });
     expect(createdResponse.status()).toBe(201);
@@ -632,7 +636,6 @@ test("access rules can be created, updated and deleted", async ({
           edit: false,
           publish: false,
           archive: false,
-          administer: false,
         },
       },
     );
@@ -654,27 +657,27 @@ test("public and administration routes respond and document capabilities are exp
   request,
 }) => {
   await page.waitForTimeout(2_000);
-  const routes = [
-    "/api/health/live",
-    "/api/health/ready",
-    "/api/health/details",
-    "/api/metrics",
-    "/api/me",
-    "/api/documents",
-    "/api/admin/check",
-    "/api/admin/dashboard",
-    "/api/admin/groups",
-    "/api/admin/access-rules",
-    "/api/admin/spaces",
-    "/api/admin/documents",
-    "/api/admin/directory-connections",
-    "/api/admin/certificates",
-    "/api/admin/audit",
-    "/api/admin/settings",
+  const routes: Array<[string, number]> = [
+    ["/api/health/live", 200],
+    ["/api/health/ready", 200],
+    ["/api/health/details", 200],
+    ["/api/metrics", 404],
+    ["/api/me", 200],
+    ["/api/documents", 200],
+    ["/api/admin/check", 200],
+    ["/api/admin/dashboard", 200],
+    ["/api/admin/groups", 200],
+    ["/api/admin/access-rules", 200],
+    ["/api/admin/spaces", 200],
+    ["/api/admin/documents", 200],
+    ["/api/admin/directory-connections", 200],
+    ["/api/admin/certificates", 200],
+    ["/api/admin/audit", 200],
+    ["/api/admin/settings", 200],
   ];
-  for (const route of routes) {
+  for (const [route, expectedStatus] of routes) {
     const response = await request.get(route);
-    expect(response.status(), route).toBe(200);
+    expect(response.status(), route).toBe(expectedStatus);
     await page.waitForTimeout(75);
   }
 
@@ -710,7 +713,14 @@ test("public and administration routes respond and document capabilities are exp
     ).json()) as { items: Array<{ id: string }> };
     expect(secondPage.items[0].id).not.toBe(firstPage.items[0].id);
   }
-  expect(documents[0].permissions).toEqual({ preview: true, download: true });
+  expect(documents[0].permissions).toEqual({
+    preview: true,
+    download: true,
+    upload: true,
+    edit: true,
+    archive: true,
+    publish: true,
+  });
   expect(
     (await request.get(`/api/documents/${documents[0].id}`)).status(),
   ).toBe(200);

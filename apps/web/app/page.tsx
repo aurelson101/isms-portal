@@ -76,7 +76,7 @@ type Identity = {
       groupCount: number;
       mappedSpaceCount: number;
       administrator: boolean;
-      adminGroupMatchCount: number;
+      administratorAccount: boolean;
     };
   };
   spaces: Space[];

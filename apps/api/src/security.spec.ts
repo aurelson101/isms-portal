@@ -1,7 +1,7 @@
 import { ForbiddenException } from "@nestjs/common";
 import type { ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AdminGuard } from "./security";
 
 const context = (groups: string[]) =>
@@ -15,17 +15,21 @@ describe("AdminGuard", () => {
   const reflector = { getAllAndOverride: vi.fn() } as unknown as Reflector;
   const guard = new AdminGuard(reflector);
 
-  beforeEach(() => vi.clearAllMocks());
-
   it("allows public handlers", () => {
     vi.spyOn(reflector, "getAllAndOverride").mockReturnValue(false);
     expect(guard.canActivate(context([]))).toBe(true);
   });
 
-  it("allows configured administrators after trimming group configuration", () => {
-    process.env.ISMS_ADMIN_GROUPS = " ISMS-ADMINS, ISMS-SUPER-ADMINS ";
+  it("allows identities created from a registered administrator account", () => {
     vi.spyOn(reflector, "getAllAndOverride").mockReturnValue(true);
-    expect(guard.canActivate(context(["ISMS-ADMINS"]))).toBe(true);
+    expect(guard.canActivate(context(["ISMS-LOCAL-ADMINS"]))).toBe(true);
+  });
+
+  it("does not grant administration from an Active Directory group", () => {
+    vi.spyOn(reflector, "getAllAndOverride").mockReturnValue(true);
+    expect(() => guard.canActivate(context(["ISMS-ADMINS"]))).toThrow(
+      ForbiddenException,
+    );
   });
 
   it("denies standard users from admin handlers", () => {

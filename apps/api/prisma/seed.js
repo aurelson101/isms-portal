@@ -167,7 +167,6 @@ async function main() {
         edit: true,
         publish: true,
         archive: true,
-        administer: true,
       },
       create: {
         groupId: groupIds["ISMS-ADMINS"],
@@ -181,7 +180,6 @@ async function main() {
         edit: true,
         publish: true,
         archive: true,
-        administer: true,
       },
     });
   }

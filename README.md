@@ -126,6 +126,8 @@ docker compose run --rm api npm test
 docker run --rm -v "$PWD:/app" -w /app node:22.13.1-alpine npm run lint
 docker run --rm --network host -v "$PWD:/work" -w /work \
   mcr.microsoft.com/playwright:v1.55.1-noble npx playwright test
+# Recette E2E isolée : crée puis détruit une pile et des volumes dédiés sur 18080.
+./scripts/test-e2e-isolated.sh
 ./scripts/test-ldaps-functional.sh
 ./scripts/test-authorization-functional.sh
 ./scripts/test-restore-functional.sh

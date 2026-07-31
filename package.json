@@ -13,6 +13,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,yml,yaml,css}\"",
     "test": "npm run test -w @isms/api",
     "test:e2e": "playwright test",
+    "test:e2e:isolated": "./scripts/test-e2e-isolated.sh",
     "migrate": "npm run migrate -w @isms/api",
     "seed": "npm run seed -w @isms/api"
   },
