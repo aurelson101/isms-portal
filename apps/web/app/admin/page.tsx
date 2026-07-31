@@ -522,19 +522,33 @@ export default function Admin() {
           </aside>
           <main>
             <header>
-              <input
-                list={tab === "groups" ? "ad-group-suggestions" : undefined}
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder={
-                  tab === "groups"
-                    ? t(
-                        "Rechercher ou sélectionner un groupe AD…",
-                        "Search or select an AD group…",
-                      )
-                    : t("Rechercher dans la section…")
-                }
-              />
+              <div className="admin-search">
+                <Icon name="search" />
+                <input
+                  aria-label={t("Rechercher dans la section…")}
+                  list={tab === "groups" ? "ad-group-suggestions" : undefined}
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder={
+                    tab === "groups"
+                      ? t(
+                          "Rechercher ou sélectionner un groupe AD…",
+                          "Search or select an AD group…",
+                        )
+                      : t("Rechercher dans la section…")
+                  }
+                />
+                {search && (
+                  <button
+                    type="button"
+                    className="admin-search-clear"
+                    aria-label={t("Effacer la recherche")}
+                    onClick={() => setSearch("")}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
               {tab === "groups" && (
                 <datalist id="ad-group-suggestions">
                   {groups.map((group) => (
@@ -1113,7 +1127,7 @@ function GroupsPanel({
         <button className="primary">{t("Ajouter")}</button>
       </form>
       <div className="admin-table-wrap">
-        <table>
+        <table className="admin-actions-table">
           <thead>
             <tr>
               <th>{t("Nom")}</th>
@@ -1592,7 +1606,7 @@ function DocumentsPanel({
         <button className="primary">{t("Déposer et analyser")}</button>
       </form>
       <div className="admin-table-wrap">
-        <table>
+        <table className="admin-actions-table">
           <thead>
             <tr>
               <th>{t("Titre")}</th>
