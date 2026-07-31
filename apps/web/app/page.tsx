@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "./icons";
 
 type Locale = "fr" | "en";
+type ViewMode = "list" | "grid";
 type Space = { id: string; slug: string; nameFr: string; nameEn: string };
 type Translation = {
   locale: string;
@@ -78,6 +79,13 @@ const copy = {
     previewError: "Impossible d’afficher ce fichier.",
     previewLoading: "Préparation de la prévisualisation…",
     truncated: "Aperçu limité aux premières données du fichier.",
+    explorer: "Explorateur documentaire",
+    listView: "Affichage en liste",
+    gridView: "Affichage en fenêtres",
+    expand: "Agrandir le lecteur",
+    collapse: "Réduire le lecteur",
+    documentCount: "documents autorisés",
+    documentCountOne: "document autorisé",
   },
   en: {
     welcome: "Welcome",
@@ -115,6 +123,13 @@ const copy = {
     previewError: "This file cannot be displayed.",
     previewLoading: "Preparing preview…",
     truncated: "Preview limited to the first file data.",
+    explorer: "Document explorer",
+    listView: "List view",
+    gridView: "Window view",
+    expand: "Expand viewer",
+    collapse: "Restore viewer",
+    documentCount: "authorized documents",
+    documentCountOne: "authorized document",
   },
 } as const;
 
@@ -272,17 +287,21 @@ function DocumentRows({
   selectedLocales,
   onLocale,
   onOpen,
+  viewMode = "list",
 }: {
   documents: PortalDocument[];
   locale: Locale;
   selectedLocales: Record<string, Locale>;
   onLocale: (id: string, locale: Locale) => void;
   onOpen: (document: PortalDocument) => void;
+  viewMode?: ViewMode;
 }) {
   const t = copy[locale];
   if (documents.length === 0) return <p className="empty-state">{t.empty}</p>;
   return (
-    <section className="documents">
+    <section
+      className={`documents ${viewMode === "grid" ? "document-grid" : "document-list"}`}
+    >
       {documents.map((document) => {
         const available = Array.from(
           new Set(document.versions.map((version) => version.locale)),
@@ -366,6 +385,8 @@ export default function Home() {
   const [opened, setOpened] = useState<PortalDocument | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewerExpanded, setViewerExpanded] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const loadDocuments = useCallback(
@@ -398,6 +419,8 @@ export default function Home() {
     const requestedSpace = parameters.get("space");
     if (requestedCategory) setCategory(requestedCategory);
     if (requestedSpace) setSpace(requestedSpace);
+    const savedView = localStorage.getItem("isms-document-view");
+    if (savedView === "grid" || savedView === "list") setViewMode(savedView);
   }, []);
 
   useEffect(() => {
@@ -472,6 +495,10 @@ export default function Home() {
       `/?category=${encodeURIComponent(next)}`,
     );
   };
+  const changeViewMode = (next: ViewMode) => {
+    setViewMode(next);
+    localStorage.setItem("isms-document-view", next);
+  };
   const selectSpace = (next: string) => {
     setQuery("");
     setSpace(next);
@@ -490,6 +517,14 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const t = copy[locale];
+  const categoryLabel =
+    category === "policies"
+      ? t.policies
+      : category === "procedures"
+        ? t.procedures
+        : category === "guides"
+          ? t.guides
+          : "";
   const initials = useMemo(
     () =>
       (identity?.displayName || "ISMS")
@@ -705,9 +740,53 @@ export default function Home() {
             <p className="loading-state">{t.loading}</p>
           ) : (
             <>
-              <h2 className="section-title">
-                {query || category || space ? t.search : t.recent}
-              </h2>
+              {category ? (
+                <section
+                  className="explorer-heading"
+                  aria-labelledby="explorer-title"
+                >
+                  <div>
+                    <span>{t.explorer}</span>
+                    <h2 id="explorer-title">{categoryLabel}</h2>
+                    <p>
+                      {documents.length}{" "}
+                      {documents.length === 1
+                        ? t.documentCountOne
+                        : t.documentCount}
+                    </p>
+                  </div>
+                  <div
+                    className="view-switcher"
+                    role="group"
+                    aria-label={t.explorer}
+                  >
+                    <button
+                      type="button"
+                      aria-pressed={viewMode === "grid"}
+                      aria-label={t.gridView}
+                      title={t.gridView}
+                      onClick={() => changeViewMode("grid")}
+                    >
+                      <Icon name="grid" />
+                      <span>{locale === "fr" ? "Fenêtres" : "Windows"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={viewMode === "list"}
+                      aria-label={t.listView}
+                      title={t.listView}
+                      onClick={() => changeViewMode("list")}
+                    >
+                      <Icon name="list" />
+                      <span>{locale === "fr" ? "Liste" : "List"}</span>
+                    </button>
+                  </div>
+                </section>
+              ) : (
+                <h2 className="section-title">
+                  {query || space ? t.search : t.recent}
+                </h2>
+              )}
               <DocumentRows
                 documents={documents}
                 locale={locale}
@@ -716,6 +795,7 @@ export default function Home() {
                   setSelectedLocales((current) => ({ ...current, [id]: next }))
                 }
                 onOpen={setOpened}
+                viewMode={category ? viewMode : "list"}
               />
             </>
           )}
@@ -764,25 +844,43 @@ export default function Home() {
         <div
           className="modal-backdrop"
           role="presentation"
-          onMouseDown={() => setOpened(null)}
+          onMouseDown={() => {
+            setViewerExpanded(false);
+            setOpened(null);
+          }}
         >
           <section
-            className="modal document-modal"
+            className={`modal document-modal ${viewerExpanded ? "expanded" : ""}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="document-title"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <button
-              className="modal-close"
-              onClick={() => setOpened(null)}
-              aria-label={t.close}
-            >
-              ×
-            </button>
-            <h2 id="document-title">
-              {titleFor(opened, openedLocale || locale)}
-            </h2>
+            <div className="viewer-header">
+              <h2 id="document-title">
+                {titleFor(opened, openedLocale || locale)}
+              </h2>
+              <div className="viewer-actions">
+                <button
+                  type="button"
+                  onClick={() => setViewerExpanded((current) => !current)}
+                  aria-label={viewerExpanded ? t.collapse : t.expand}
+                  title={viewerExpanded ? t.collapse : t.expand}
+                >
+                  <Icon name={viewerExpanded ? "collapse" : "expand"} />
+                </button>
+                <button
+                  className="modal-close"
+                  onClick={() => {
+                    setViewerExpanded(false);
+                    setOpened(null);
+                  }}
+                  aria-label={t.close}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
             <div className="modal-locales">
               {(["fr", "en"] as Locale[]).map((item) => (
                 <button

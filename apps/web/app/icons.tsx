@@ -17,7 +17,11 @@ export type IconName =
   | "settings"
   | "download"
   | "search"
-  | "add";
+  | "add"
+  | "grid"
+  | "list"
+  | "expand"
+  | "collapse";
 
 export function Icon({
   name,
@@ -114,6 +118,34 @@ export function Icon({
       </>
     ),
     add: <path d="M12 5v14M5 12h14" />,
+    grid: (
+      <>
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+      </>
+    ),
+    list: (
+      <>
+        <path d="M9 6h12M9 12h12M9 18h12" />
+        <circle cx="4" cy="6" r="1" />
+        <circle cx="4" cy="12" r="1" />
+        <circle cx="4" cy="18" r="1" />
+      </>
+    ),
+    expand: (
+      <>
+        <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />
+        <path d="m3 3 6 6M21 3l-6 6M3 21l6-6M21 21l-6-6" />
+      </>
+    ),
+    collapse: (
+      <>
+        <path d="M9 3v6H3M15 3v6h6M9 21v-6H3M15 21v-6h6" />
+        <path d="m3 9 6-6M21 9l-6-6M3 15l6 6M21 15l-6 6" />
+      </>
+    ),
   };
   return (
     <svg

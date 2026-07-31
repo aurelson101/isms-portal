@@ -67,6 +67,39 @@ test("document preview and binary download work", async ({ page, request }) => {
   expect((await response.body()).subarray(0, 5).toString()).toBe("%PDF-");
 });
 
+test("category explorer supports window and list views with an expandable reader", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page
+    .locator("header")
+    .getByRole("button", { name: "FR", exact: true })
+    .click();
+  await page.locator("aside").getByText("Procédures", { exact: true }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Procédures", exact: true }).last(),
+  ).toBeVisible();
+  await expect(page.getByText("Explorateur documentaire")).toBeVisible();
+
+  await page.getByRole("button", { name: "Affichage en fenêtres" }).click();
+  await expect(page.locator(".documents")).toHaveClass(/document-grid/);
+  await page.getByRole("button", { name: "Affichage en liste" }).click();
+  await expect(page.locator(".documents")).toHaveClass(/document-list/);
+
+  await page
+    .locator(".documents")
+    .getByRole("button", { name: "Ouvrir" })
+    .first()
+    .click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Agrandir le lecteur" }).click();
+  await expect(dialog).toHaveClass(/expanded/);
+  await dialog.getByRole("button", { name: "Réduire le lecteur" }).click();
+  await expect(dialog).not.toHaveClass(/expanded/);
+});
+
 test("administration uses live APIs and every menu opens a section", async ({
   page,
 }) => {
