@@ -885,20 +885,18 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                   <div className="card-icon">
                     <Icon name="folder" />
                   </div>
-                  <div>
-                    <h2>{locale === "fr" ? item.nameFr : item.nameEn}</h2>
-                    <p>
-                      {locale === "fr"
-                        ? "Accessible selon vos autorisations"
-                        : "Available through your permissions"}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => selectSpace(item.slug)}
-                    >
-                      {t.consult}
-                    </button>
-                  </div>
+                  <h2>{locale === "fr" ? item.nameFr : item.nameEn}</h2>
+                  <p>
+                    {locale === "fr"
+                      ? "Accessible selon vos autorisations"
+                      : "Available through your permissions"}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => selectSpace(item.slug)}
+                  >
+                    {t.consult}
+                  </button>
                 </article>
               ))}
           </section>

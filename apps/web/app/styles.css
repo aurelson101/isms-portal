@@ -489,8 +489,15 @@ h1 {
   padding: 25px 30px;
   text-align: center;
   box-shadow: 0 5px 18px #1736640b;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 .card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
   font-size: 54px;
   color: #0768ea;
 }
@@ -501,6 +508,7 @@ h1 {
   color: #596887;
   line-height: 1.5;
   min-height: 48px;
+  flex: 1;
 }
 .cards button,
 .documents button,
@@ -513,15 +521,9 @@ h1 {
   text-decoration: none;
   text-align: center;
 }
-.cards article:not(.access) button {
+.cards article button {
   width: 100%;
-}
-.cards .access {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  text-align: left;
+  margin-top: auto;
 }
 .cards mark,
 .matrix mark {
@@ -2221,10 +2223,6 @@ svg {
   }
   .cards p {
     min-height: 0;
-  }
-  .cards .access {
-    text-align: left;
-    justify-content: flex-start;
   }
   .section-title {
     font-size: 22px;
