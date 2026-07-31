@@ -162,8 +162,9 @@ Attribut email       mail
 ### LDAP
 
 Sélectionner `LDAP`, généralement sur TCP/389, laisser le certificat CA vide,
-puis enregistrer. LDAP transmet le bind sans protection TLS : il ne doit être
-utilisé que sur un réseau isolé et maîtrisé. Préférer LDAPS.
+puis saisir chaque contrôleur sous forme d’adresse IP (`10.1.1.4`) ou de nom
+d’hôte. LDAP transmet le bind sans protection TLS : il ne doit être utilisé que
+sur un réseau isolé et maîtrisé. Préférer LDAPS.
 
 ### LDAPS
 
@@ -174,8 +175,9 @@ utilisé que sur un réseau isolé et maîtrisé. Préférer LDAPS.
 2. Dans **Administration → Certificats CA**, importer et tester cette CA.
 3. Dans **Synchronisation LDAP**, sélectionner `LDAPS`, TCP/636 et la CA
    importée.
-4. Utiliser comme contrôleurs les noms DNS présents dans le SAN des
-   certificats ; les adresses IP ou contournements TLS sont refusés.
+4. Utiliser obligatoirement pour chaque contrôleur son nom DNS complet, par
+   exemple `dc04.example.com`, présent dans le SAN du certificat. Les adresses
+   IP, noms courts ou contournements TLS sont refusés.
 5. Enregistrer, cliquer **Tester**, puis **Synchroniser**.
 
 Le test vérifie DNS, TCP, chaîne TLS, nom d’hôte, bind et recherches. Après une

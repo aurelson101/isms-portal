@@ -128,6 +128,9 @@ export const adminEnglishCatalog = {
     "Accepted formats: ADCS certificate or chain in X.509 PEM, DER or PKCS#7 format (.pem, .crt, .cer, .p7b, .p7c), without a private key.",
   "Le certificat dépasse la taille maximale de 48 Kio.":
     "The certificate exceeds the 48 KiB size limit.",
+  "LDAP : adresse IP ou nom d’hôte.": "LDAP: IP address or hostname.",
+  "LDAPS : nom d’hôte complet obligatoire, identique au certificat.":
+    "LDAPS: a fully qualified hostname matching the certificate is required.",
   "· utilisé": "· in use",
   "Accès refusé": "Access denied",
   Actif: "Active",

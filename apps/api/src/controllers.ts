@@ -43,6 +43,7 @@ import { AntivirusService } from "./antivirus.service";
 import { CryptoService } from "./crypto.service";
 import { DirectoryService } from "./directory.service";
 import { parseCaCertificates } from "./certificate.parser";
+import { validateDirectoryHosts } from "./directory-host";
 
 const tcpCheck = (host: string, port: number, timeout = 1200) =>
   new Promise<boolean>((resolve) => {
@@ -1342,6 +1343,15 @@ export class DirectoryController {
   async create(@Req() req: IsmsRequest, @Body() body: DirectoryConnectionDto) {
     if (!body.bindSecret)
       throw new BadRequestException("bindSecret is required");
+    try {
+      validateDirectoryHosts(
+        body.protocol,
+        body.primaryHost,
+        body.secondaryHost,
+      );
+    } catch (error) {
+      throw new BadRequestException((error as Error).message);
+    }
     if (body.protocol === "LDAPS" && !body.caCertificateId)
       throw new BadRequestException("LDAPS requires a CA certificate");
     const connection = await this.prisma.directoryConnection.create({
@@ -1397,6 +1407,15 @@ export class DirectoryController {
       where: { id },
     });
     if (!existing) throw new NotFoundException();
+    try {
+      validateDirectoryHosts(
+        body.protocol,
+        body.primaryHost,
+        body.secondaryHost,
+      );
+    } catch (error) {
+      throw new BadRequestException((error as Error).message);
+    }
     if (body.protocol === "LDAPS" && !body.caCertificateId)
       throw new BadRequestException("LDAPS requires a CA certificate");
     const connection = await this.prisma.directoryConnection.update({

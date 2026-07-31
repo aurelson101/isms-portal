@@ -1594,6 +1594,12 @@ function DirectoryPanel({
 }) {
   const { locale, t } = useAdminI18n();
   const [editing, setEditing] = useState<DirectoryConnection | null>(null);
+  const [selectedProtocol, setSelectedProtocol] = useState<"LDAP" | "LDAPS">(
+    "LDAPS",
+  );
+  useEffect(() => {
+    setSelectedProtocol(editing?.protocol || "LDAPS");
+  }, [editing]);
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formElement = event.currentTarget;
@@ -1676,15 +1682,37 @@ function DirectoryPanel({
             name="primaryHost"
             required
             defaultValue={editing?.primaryHost}
+            placeholder={
+              selectedProtocol === "LDAP" ? "10.1.1.4" : "dc04.example.com"
+            }
           />
+          <small className="field-hint">
+            {selectedProtocol === "LDAP"
+              ? t("LDAP : adresse IP ou nom d’hôte.")
+              : t(
+                  "LDAPS : nom d’hôte complet obligatoire, identique au certificat.",
+                )}
+          </small>
         </label>
         <label>
           {t("Contrôleur secondaire")}
-          <input name="secondaryHost" defaultValue={editing?.secondaryHost} />
+          <input
+            name="secondaryHost"
+            defaultValue={editing?.secondaryHost}
+            placeholder={
+              selectedProtocol === "LDAP" ? "10.1.1.5" : "dc05.example.com"
+            }
+          />
         </label>
         <label>
           {t("Protocole")}
-          <select name="protocol" defaultValue={editing?.protocol || "LDAPS"}>
+          <select
+            name="protocol"
+            value={selectedProtocol}
+            onChange={(event) =>
+              setSelectedProtocol(event.target.value as "LDAP" | "LDAPS")
+            }
+          >
             <option>LDAPS</option>
             <option>LDAP</option>
           </select>
