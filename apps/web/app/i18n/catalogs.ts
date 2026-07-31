@@ -110,6 +110,10 @@ export const portalCatalog = {
 } as const;
 
 export const adminEnglishCatalog = {
+  "Conservation automatique des 20 événements les plus récents.":
+    "Automatic retention of the 20 most recent events.",
+  "Supprimer définitivement ce document et tous ses fichiers ?":
+    "Permanently delete this document and all its files?",
   "Formats acceptés : PEM ou X.509 DER (.pem, .crt, .cer), sans clé privée.":
     "Accepted formats: PEM or X.509 DER (.pem, .crt, .cer), without a private key.",
   "Le certificat dépasse la taille maximale de 48 Kio.":

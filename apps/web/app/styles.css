@@ -840,6 +840,66 @@ h1 {
   color: #687793;
   margin-top: 4px;
 }
+.document-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-width: 250px;
+}
+.document-action {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid #b7c6da;
+  border-radius: 7px;
+  background: #fff;
+  color: #263d60;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 650;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    transform 0.16s ease;
+}
+.document-action svg {
+  width: 17px;
+  height: 17px;
+}
+.document-action:hover {
+  transform: translateY(-1px);
+}
+.document-action.publish {
+  color: #fff;
+  background: #0768ea;
+  border-color: #0768ea;
+}
+.document-action.publish:hover {
+  background: #0057c9;
+}
+.document-action.restore {
+  color: #12613d;
+  background: #e8f8ef;
+  border-color: #8ed0ad;
+}
+.document-action.restore:hover {
+  background: #d5f1e2;
+  border-color: #56b382;
+}
+.document-action.archive:hover {
+  background: #edf3fb;
+  border-color: #7892b8;
+}
+.document-action.delete {
+  color: #a32222;
+  background: #fff7f7;
+  border-color: #e3a4a4;
+}
+.document-action.delete:hover {
+  background: #fee8e8;
+  border-color: #cf6767;
+}
 .selected-row {
   background: #f2f7ff;
 }

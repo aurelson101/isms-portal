@@ -7,7 +7,7 @@ import type { IsmsRequest } from "./types";
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
-  record(
+  async record(
     req: IsmsRequest,
     action: string,
     resource: string,
@@ -18,16 +18,32 @@ export class AuditService {
       details === undefined
         ? undefined
         : (JSON.parse(JSON.stringify(details)) as Prisma.InputJsonValue);
-    return this.prisma.auditEvent.create({
-      data: {
-        identity: req.identity.username,
-        ipAddress: req.ip || "unknown",
-        action,
-        resource,
-        result,
-        correlationId: req.correlationId,
-        ...(safeDetails === undefined ? {} : { details: safeDetails }),
-      },
+    return this.prisma.$transaction(async (transaction) => {
+      await transaction.$executeRaw`
+        SELECT pg_advisory_xact_lock(hashtext('isms-audit-retention'))
+      `;
+      const event = await transaction.auditEvent.create({
+        data: {
+          identity: req.identity.username,
+          ipAddress: req.ip || "unknown",
+          action,
+          resource,
+          result,
+          correlationId: req.correlationId,
+          ...(safeDetails === undefined ? {} : { details: safeDetails }),
+        },
+      });
+      const obsolete = await transaction.auditEvent.findMany({
+        orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+        skip: 20,
+        select: { id: true },
+      });
+      if (obsolete.length > 0) {
+        await transaction.auditEvent.deleteMany({
+          where: { id: { in: obsolete.map((item) => item.id) } },
+        });
+      }
+      return event;
     });
   }
 }

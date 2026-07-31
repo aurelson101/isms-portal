@@ -1209,6 +1209,62 @@ export class DocumentAdminController {
     );
     return updated;
   }
+
+  @Delete(":id")
+  async remove(@Req() req: IsmsRequest, @Param("id") id: string) {
+    const document = await this.prisma.document.findUnique({
+      where: { id },
+      include: {
+        translations: { select: { title: true, locale: true } },
+        versions: {
+          include: { storedFile: { select: { id: true, objectKey: true } } },
+        },
+      },
+    });
+    if (!document) throw new NotFoundException();
+    const storedFiles = Array.from(
+      new Map(
+        document.versions.map((version) => [
+          version.storedFile.id,
+          version.storedFile,
+        ]),
+      ).values(),
+    );
+    const storedFileIds = storedFiles.map((file) => file.id);
+    await this.prisma.$transaction([
+      this.prisma.antivirusScan.deleteMany({
+        where: { storedFileId: { in: storedFileIds } },
+      }),
+      this.prisma.documentVersion.deleteMany({ where: { documentId: id } }),
+      this.prisma.documentTranslation.deleteMany({ where: { documentId: id } }),
+      this.prisma.document.delete({ where: { id } }),
+      this.prisma.storedFile.deleteMany({
+        where: { id: { in: storedFileIds }, versions: { none: {} } },
+      }),
+    ]);
+    const cleanupResults = await Promise.allSettled(
+      storedFiles.map((file) => this.storage.removeObject(file.objectKey)),
+    );
+    const storageCleanupFailures = cleanupResults.filter(
+      (result) => result.status === "rejected",
+    ).length;
+    await this.audit.record(
+      req,
+      "document.delete",
+      `document:${id}`,
+      storageCleanupFailures === 0 ? "success" : "failure",
+      {
+        translations: document.translations,
+        deletedVersions: document.versions.length,
+        storageCleanupFailures,
+      },
+    );
+    return {
+      deleted: true,
+      deletedVersions: document.versions.length,
+      storageCleanupFailures,
+    };
+  }
 }
 
 @ApiTags("directory administration")

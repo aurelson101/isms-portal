@@ -103,6 +103,17 @@ L’explorateur possède sa propre URL partageable, la navigation entre catégor
 et espaces, les modes mémorisés fenêtres/liste et le lecteur sécurisé
 extensible. Les documents ne sont donc plus rendus sous les cartes de l’accueil.
 
+Dans **Administration → Documents**, les actions permettent de publier,
+archiver, restaurer ou supprimer définitivement un document. La suppression,
+réservée aux administrateurs, demande une confirmation puis retire les
+traductions, versions, analyses antivirus, métadonnées et fichiers du volume
+POSIX.
+
+Le journal d’audit conserve automatiquement les 20 événements les plus récents.
+Chaque nouvel événement déclenche, dans la même transaction PostgreSQL, la
+suppression des événements plus anciens. Les exports CSV/JSON suivent cette
+même rétention.
+
 ## Commandes
 
 ```bash

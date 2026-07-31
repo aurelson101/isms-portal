@@ -619,13 +619,47 @@ test("Word and Excel documents open in a read-only viewer", async ({
     await expect(page.getByText("Consultation en lecture seule")).toBeVisible();
     await expect(page.getByRole("cell", { name: "Contrôle" })).toBeVisible();
     await expect(page.getByRole("cell", { name: "Conforme" })).toBeVisible();
-  } finally {
-    await Promise.all(
-      createdIds.map((id) =>
-        request.post(`/api/admin/documents/${id}/archive`),
-      ),
+
+    await page.goto("/admin#documents");
+    await page
+      .locator("header")
+      .getByRole("button", { name: "FR", exact: true })
+      .click();
+    let row = page.getByRole("row").filter({ hasText: wordTitle });
+    await row.getByRole("button", { name: "Archiver" }).click();
+    row = page.getByRole("row").filter({ hasText: wordTitle });
+    await expect(row.getByRole("button", { name: "Restaurer" })).toHaveClass(
+      /restore/,
     );
+    await row.getByRole("button", { name: "Restaurer" }).click();
+    row = page.getByRole("row").filter({ hasText: wordTitle });
+    await expect(row.getByRole("button", { name: "Publier" })).toHaveClass(
+      /publish/,
+    );
+    await row.getByRole("button", { name: "Supprimer" }).click();
+    await page.getByRole("button", { name: "Confirmer" }).click();
+    await expect(row).toHaveCount(0);
+    createdIds.shift();
+  } finally {
+    for (const id of createdIds) {
+      expect(
+        (await request.delete(`/api/admin/documents/${id}`)).status(),
+      ).toBe(200);
+    }
   }
+});
+
+test("the audit journal automatically retains at most 20 events", async ({
+  request,
+}) => {
+  const response = await request.get("/api/admin/audit?limit=200");
+  expect(response.status()).toBe(200);
+  const audit = (await response.json()) as {
+    items: unknown[];
+    total: number;
+  };
+  expect(audit.total).toBeLessThanOrEqual(20);
+  expect(audit.items).toHaveLength(audit.total);
 });
 
 test("portal and administration have no serious accessibility violations", async ({

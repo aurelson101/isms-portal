@@ -1380,6 +1380,7 @@ function DocumentsPanel({
   onError: (message: string) => void;
 }) {
   const { locale, t } = useAdminI18n();
+  const confirmAction = useContext(ConfirmContext);
   const [spaceId, setSpaceId] = useState("");
   const selectedSpace = spaces.find((space) => space.id === spaceId);
   return (
@@ -1500,45 +1501,74 @@ function DocumentsPanel({
                 </td>
                 <td>{localizedStatus(locale, document.status)}</td>
                 <td>
-                  {document.status !== "PUBLISHED" && (
+                  <div className="document-actions">
+                    {document.status !== "PUBLISHED" && (
+                      <button
+                        className="document-action publish"
+                        onClick={() =>
+                          api(`/api/admin/documents/${document.id}/publish`, {
+                            method: "POST",
+                          })
+                            .then(onChanged)
+                            .catch((error) => onError(error.message))
+                        }
+                      >
+                        <Icon name="publish" />
+                        {t("Publier")}
+                      </button>
+                    )}
+                    {document.status !== "ARCHIVED" && (
+                      <button
+                        className="document-action archive"
+                        onClick={() =>
+                          api(`/api/admin/documents/${document.id}/archive`, {
+                            method: "POST",
+                          })
+                            .then(onChanged)
+                            .catch((error) => onError(error.message))
+                        }
+                      >
+                        <Icon name="archive" />
+                        {t("Archiver")}
+                      </button>
+                    )}
+                    {document.status === "ARCHIVED" && (
+                      <button
+                        className="document-action restore"
+                        onClick={() =>
+                          api(`/api/admin/documents/${document.id}/restore`, {
+                            method: "POST",
+                          })
+                            .then(onChanged)
+                            .catch((error) => onError(error.message))
+                        }
+                      >
+                        <Icon name="restore" />
+                        {t("Restaurer")}
+                      </button>
+                    )}
                     <button
-                      onClick={() =>
-                        api(`/api/admin/documents/${document.id}/publish`, {
-                          method: "POST",
+                      className="document-action delete"
+                      onClick={async () => {
+                        if (
+                          !(await confirmAction(
+                            t(
+                              "Supprimer définitivement ce document et tous ses fichiers ?",
+                            ),
+                          ))
+                        )
+                          return;
+                        await api(`/api/admin/documents/${document.id}`, {
+                          method: "DELETE",
                         })
                           .then(onChanged)
-                          .catch((error) => onError(error.message))
-                      }
+                          .catch((error) => onError(error.message));
+                      }}
                     >
-                      {t("Publier")}
+                      <Icon name="delete" />
+                      {t("Supprimer")}
                     </button>
-                  )}{" "}
-                  {document.status !== "ARCHIVED" && (
-                    <button
-                      onClick={() =>
-                        api(`/api/admin/documents/${document.id}/archive`, {
-                          method: "POST",
-                        })
-                          .then(onChanged)
-                          .catch((error) => onError(error.message))
-                      }
-                    >
-                      {t("Archiver")}
-                    </button>
-                  )}{" "}
-                  {document.status === "ARCHIVED" && (
-                    <button
-                      onClick={() =>
-                        api(`/api/admin/documents/${document.id}/restore`, {
-                          method: "POST",
-                        })
-                          .then(onChanged)
-                          .catch((error) => onError(error.message))
-                      }
-                    >
-                      {t("Restaurer")}
-                    </button>
-                  )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -2052,6 +2082,9 @@ function AuditPanel({ events }: { events: Audit[] }) {
         <div>
           <h1>{t("Journal d’audit")}</h1>
           <p className="lead">{t("Événements UTC sans secrets.")}</p>
+          <small className="retention-note">
+            {t("Conservation automatique des 20 événements les plus récents.")}
+          </small>
         </div>
         <a href="/api/admin/audit/export?format=csv">{t("Exporter CSV")}</a>
         <a href="/api/admin/audit/export?format=json">{t("Exporter JSON")}</a>

@@ -21,7 +21,11 @@ export type IconName =
   | "grid"
   | "list"
   | "expand"
-  | "collapse";
+  | "collapse"
+  | "publish"
+  | "archive"
+  | "restore"
+  | "delete";
 
 export function Icon({
   name,
@@ -144,6 +148,30 @@ export function Icon({
       <>
         <path d="M9 3v6H3M15 3v6h6M9 21v-6H3M15 21v-6h6" />
         <path d="m3 9 6-6M21 9l-6-6M3 15l6 6M21 15l-6 6" />
+      </>
+    ),
+    publish: (
+      <>
+        <path d="M12 21V7m0 0-5 5m5-5 5 5" />
+        <path d="M5 4h14" />
+      </>
+    ),
+    archive: (
+      <>
+        <rect x="4" y="5" width="16" height="16" rx="2" />
+        <path d="M3 3h18v4H3zM9 12h6" />
+      </>
+    ),
+    restore: (
+      <>
+        <path d="M4 10a8 8 0 1 1 2 8" />
+        <path d="M4 4v6h6" />
+      </>
+    ),
+    delete: (
+      <>
+        <path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14" />
+        <path d="M10 11v6M14 11v6" />
       </>
     ),
   };
