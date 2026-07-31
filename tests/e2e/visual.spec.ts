@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 
 test.beforeEach(async ({ page }) => {
   const response = await page.request.put("/api/me/preferences", {

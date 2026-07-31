@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 import AxeBuilder from "@axe-core/playwright";
 import { strToU8, zipSync } from "fflate";
 

@@ -21,3 +21,20 @@ installation à conserver.
 Les limites Compose constituent une base : les ajuster après mesure CPU/RAM.
 Les secrets doivent venir du gestionnaire approuvé ; `.env` et
 `credentials.txt` sont locaux, protégés en `600` et exclus de Git.
+
+## Pré-requis Redis sur un hôte Linux
+
+Redis peut signaler `Memory overcommit must be enabled` dans ses logs. Vérifier
+d'abord la valeur actuelle, puis faire valider le changement par
+l'administrateur du serveur :
+
+```bash
+sysctl vm.overcommit_memory
+sudo sysctl -w vm.overcommit_memory=1
+```
+
+La deuxième commande ne persiste pas après redémarrage. Pour une configuration
+durable, ajouter `vm.overcommit_memory = 1` dans le fichier `sysctl` géré par
+l'exploitation (par exemple `/etc/sysctl.d/99-isms-portal.conf`), appliquer la
+politique du serveur puis contrôler de nouveau la valeur. Cette configuration
+concerne l'hôte Docker et ne doit pas être simulée dans le conteneur Redis.

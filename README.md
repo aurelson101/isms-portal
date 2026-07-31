@@ -120,6 +120,9 @@ même rétention.
 ## Commandes
 
 ```bash
+docker run --rm -v "$PWD:/workspace" -w /workspace \
+  mcr.microsoft.com/playwright:v1.55.1-noble npm run verify
+./scripts/diagnose.sh
 docker compose exec api npx prisma migrate deploy
 docker compose exec api npm run seed
 docker compose run --rm api npm test
@@ -134,6 +137,14 @@ docker run --rm --network host -v "$PWD:/work" -w /work \
 ./scripts/backup.sh backups/$(date +%Y%m%d-%H%M%S)
 docker compose logs -f
 ```
+
+`npm run verify` regroupe les traductions, TypeScript, ESLint, Prettier, les
+tests unitaires, la détection de code mort et l'audit des dépendances. La
+recette Playwright isolée fait également échouer chaque parcours sur une erreur
+JavaScript non interceptée ou une réponse HTTP 5xx observée par le navigateur.
+`./scripts/diagnose.sh` contrôle sans modifier les données la configuration
+Compose, la santé des sept services, les routes publiques attendues et les
+principaux en-têtes de sécurité.
 
 Voir [l’architecture](docs/architecture.md), [l’installation](docs/installation.md),
 [les routes](docs/routes.md) et [la sécurité](docs/security.md).

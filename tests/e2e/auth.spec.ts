@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 
 test("the main sign-in page only exposes the user credentials form", async ({
   page,
