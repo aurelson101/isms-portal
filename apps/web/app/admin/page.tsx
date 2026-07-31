@@ -1899,6 +1899,26 @@ function CertificatesPanel({
   const confirmAction = useContext(ConfirmContext);
   const [pem, setPem] = useState("");
   const [name, setName] = useState("");
+  const readCertificate = async (file?: File) => {
+    if (!file) {
+      setPem("");
+      return;
+    }
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (bytes.length > 48 * 1024) {
+      throw new Error(t("Le certificat dépasse la taille maximale de 48 Kio."));
+    }
+    const decoded = new TextDecoder().decode(bytes).trim();
+    if (decoded.includes("-----BEGIN CERTIFICATE-----")) {
+      setPem(decoded);
+      return;
+    }
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    const base64 = window.btoa(binary);
+    const lines = base64.match(/.{1,64}/g)?.join("\n") || "";
+    setPem(`-----BEGIN CERTIFICATE-----\n${lines}\n-----END CERTIFICATE-----`);
+  };
   return (
     <>
       <h1>{t("Certificats CA")}</h1>
@@ -1935,13 +1955,20 @@ function CertificatesPanel({
         <input
           type="file"
           required
-          accept=".pem,.crt,.cer"
-          onChange={async (event) =>
-            setPem(
-              event.target.files?.[0] ? await event.target.files[0].text() : "",
-            )
+          accept=".pem,.crt,.cer,application/x-x509-ca-cert,application/pkix-cert"
+          onChange={(event) =>
+            void readCertificate(event.target.files?.[0]).catch((error) => {
+              setPem("");
+              event.currentTarget.value = "";
+              onError((error as Error).message);
+            })
           }
         />
+        <small className="field-hint">
+          {t(
+            "Formats acceptés : PEM ou X.509 DER (.pem, .crt, .cer), sans clé privée.",
+          )}
+        </small>
         <button className="primary" disabled={certificates.length >= 2}>
           {t("Importer")}
         </button>

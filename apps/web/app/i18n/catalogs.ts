@@ -110,6 +110,10 @@ export const portalCatalog = {
 } as const;
 
 export const adminEnglishCatalog = {
+  "Formats acceptés : PEM ou X.509 DER (.pem, .crt, .cer), sans clé privée.":
+    "Accepted formats: PEM or X.509 DER (.pem, .crt, .cer), without a private key.",
+  "Le certificat dépasse la taille maximale de 48 Kio.":
+    "The certificate exceeds the 48 KiB size limit.",
   "· utilisé": "· in use",
   "Accès refusé": "Access denied",
   Actif: "Active",

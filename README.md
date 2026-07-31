@@ -154,8 +154,8 @@ utilisé que sur un réseau isolé et maîtrisé. Préférer LDAPS.
 ### LDAPS
 
 1. Exporter uniquement le certificat public de la CA qui a signé le certificat
-   LDAPS des contrôleurs (`.pem`, `.crt` ou `.cer`). Ne jamais exporter la clé
-   privée.
+   LDAPS des contrôleurs (`.pem`, `.crt` ou `.cer`). Les encodages PEM textuel
+   et X.509 DER binaire sont acceptés. Ne jamais exporter la clé privée.
 2. Dans **Administration → Certificats CA**, importer et tester cette CA.
 3. Dans **Synchronisation LDAP**, sélectionner `LDAPS`, TCP/636 et la CA
    importée.

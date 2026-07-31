@@ -14,6 +14,10 @@ for (const viewport of viewports) {
       localStorage.setItem("isms-document-view", "list");
     });
     await page.goto("/");
+    await page
+      .locator("header")
+      .getByRole("button", { name: "FR", exact: true })
+      .click();
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
       "Bienvenue",
     );
@@ -33,6 +37,10 @@ for (const viewport of viewports) {
       localStorage.setItem("isms-document-view", "list");
     });
     await page.goto("/explorer?category=procedures");
+    await page
+      .locator("header")
+      .getByRole("button", { name: "FR", exact: true })
+      .click();
     await expect(
       page.getByRole("heading", {
         name: "Explorateur documentaire",

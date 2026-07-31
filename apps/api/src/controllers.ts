@@ -1451,6 +1451,12 @@ export class CertificatesController {
   async create(@Req() req: IsmsRequest, @Body() body: ImportCertificateDto) {
     if (/PRIVATE KEY/i.test(body.pem))
       throw new BadRequestException("Private keys are forbidden");
+    const certificateBlocks =
+      body.pem.match(/-----BEGIN CERTIFICATE-----/g)?.length || 0;
+    if (certificateBlocks > 1)
+      throw new BadRequestException(
+        "Import each CA certificate separately (maximum two)",
+      );
     if ((await this.prisma.trustedCaCertificate.count()) >= 2) {
       throw new ConflictException(
         "At most two CA certificates can be configured",
@@ -1460,7 +1466,9 @@ export class CertificatesController {
     try {
       certificate = new X509Certificate(body.pem);
     } catch {
-      throw new BadRequestException("Invalid X.509 certificate");
+      throw new BadRequestException(
+        "Invalid X.509 certificate: use PEM or DER encoded as a .pem, .crt or .cer file",
+      );
     }
     if (!certificate.ca)
       throw new BadRequestException("The certificate is not a CA certificate");
@@ -1481,7 +1489,7 @@ export class CertificatesController {
         fingerprintSha256,
         validFrom: new Date(certificate.validFrom),
         validTo: new Date(certificate.validTo),
-        pem: body.pem,
+        pem: certificate.toString(),
       },
       select: certificateSelection,
     });

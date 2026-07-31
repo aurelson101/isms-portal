@@ -261,6 +261,37 @@ test("administration uses accessible confirmations and edits an existing directo
   await expect(page.getByText("Connecteur modifié.")).toBeVisible();
 });
 
+test("a DER encoded X.509 CA certificate can be imported from the administration", async ({
+  page,
+  request,
+}) => {
+  const name = `CA DER test ${Date.now()}`;
+  let certificateId = "";
+  try {
+    await page.goto("/admin#certificates");
+    await expect(
+      page.getByRole("heading", { name: "Certificats CA" }),
+    ).toBeVisible();
+    await page.getByPlaceholder("Nom convivial").fill(name);
+    await page
+      .locator('input[type="file"]')
+      .setInputFiles("tests/fixtures/test-ca.der.cer");
+    await page.getByRole("button", { name: "Importer" }).click();
+    await expect(page.getByRole("heading", { name })).toBeVisible();
+    await expect(page.getByText(/ISMS DER Test CA/).first()).toBeVisible();
+
+    const certificates = (await (
+      await request.get("/api/admin/certificates")
+    ).json()) as Array<{ id: string; name: string }>;
+    certificateId =
+      certificates.find((certificate) => certificate.name === name)?.id || "";
+    expect(certificateId).toBeTruthy();
+  } finally {
+    if (certificateId)
+      await request.delete(`/api/admin/certificates/${certificateId}`);
+  }
+});
+
 test("categories can be created, edited and deleted", async ({ request }) => {
   const spacesResponse = await request.get("/api/admin/spaces");
   expect(spacesResponse.ok()).toBeTruthy();
@@ -445,8 +476,10 @@ test("access rules can be created, updated and deleted", async ({
 });
 
 test("public and administration routes respond and document capabilities are explicit", async ({
+  page,
   request,
 }) => {
+  await page.waitForTimeout(2_000);
   const routes = [
     "/api/health/live",
     "/api/health/ready",
@@ -468,6 +501,7 @@ test("public and administration routes respond and document capabilities are exp
   for (const route of routes) {
     const response = await request.get(route);
     expect(response.status(), route).toBe(200);
+    await page.waitForTimeout(75);
   }
 
   const documents = (await (
