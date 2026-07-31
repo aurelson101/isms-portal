@@ -6,7 +6,11 @@ import type { IsmsRequest } from "./types";
 const response = () => ({ setHeader: vi.fn() });
 
 describe("IdentityMiddleware", () => {
-  const middleware = new IdentityMiddleware();
+  const auth = {
+    enrichSsoIdentity: vi.fn(async (identity) => identity),
+    sessionIdentity: vi.fn(async () => null),
+  };
+  const middleware = new IdentityMiddleware(auth as never);
   const originalEnv = process.env;
 
   beforeEach(() => {
@@ -22,24 +26,52 @@ describe("IdentityMiddleware", () => {
     process.env = originalEnv;
   });
 
-  it("keeps liveness probes public in production", () => {
-    const req = { path: "/health/live", headers: {} } as IsmsRequest;
+  it("keeps liveness probes public in production", async () => {
+    const req = {
+      path: "/health/live",
+      originalUrl: "/health/live",
+      headers: {},
+    } as IsmsRequest;
     const next = vi.fn();
-    middleware.use(req, response() as never, next);
+    await middleware.use(req, response() as never, next);
     expect(next).toHaveBeenCalledTimes(1);
     expect(req.identity.username).toBe("system");
   });
 
-  it("rejects missing production identity", () => {
-    const req = { path: "/documents", headers: {} } as IsmsRequest;
-    expect(() => middleware.use(req, response() as never, vi.fn())).toThrow(
-      UnauthorizedException,
-    );
-  });
-
-  it("normalizes trusted proxy identity values", () => {
+  it("rejects missing production identity", async () => {
     const req = {
       path: "/documents",
+      originalUrl: "/documents",
+      headers: {},
+    } as IsmsRequest;
+    await expect(
+      middleware.use(req, response() as never, vi.fn()),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it("accepts a valid local administrator session", async () => {
+    auth.sessionIdentity.mockResolvedValueOnce({
+      username: "admin",
+      displayName: "Administrator",
+      groups: ["ISMS-LOCAL-ADMINS"],
+      source: "local-admin",
+      sessionExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const req = {
+      path: "/me",
+      originalUrl: "/me",
+      headers: {},
+    } as IsmsRequest;
+    const next = vi.fn();
+    await middleware.use(req, response() as never, next);
+    expect(req.identity.source).toBe("local-admin");
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it("normalizes trusted proxy identity values", async () => {
+    const req = {
+      path: "/documents",
+      originalUrl: "/documents",
       headers: {
         "x-auth-user": " alice ",
         "x-auth-name": " Alice Example ",
@@ -48,7 +80,7 @@ describe("IdentityMiddleware", () => {
       socket: { remoteAddress: "172.20.0.5" },
     } as unknown as IsmsRequest;
     const next = vi.fn();
-    middleware.use(req, response() as never, next);
+    await middleware.use(req, response() as never, next);
     expect(req.identity).toEqual({
       username: "alice",
       displayName: "Alice Example",
@@ -58,29 +90,31 @@ describe("IdentityMiddleware", () => {
     });
   });
 
-  it("rejects identity headers coming from an untrusted address", () => {
+  it("rejects identity headers coming from an untrusted address", async () => {
     const req = {
       path: "/documents",
+      originalUrl: "/documents",
       headers: { "x-auth-user": "mallory", "x-auth-groups": "ISMS-ADMINS" },
       socket: { remoteAddress: "203.0.113.10" },
     } as unknown as IsmsRequest;
-    expect(() => middleware.use(req, response() as never, vi.fn())).toThrow(
-      UnauthorizedException,
-    );
+    await expect(
+      middleware.use(req, response() as never, vi.fn()),
+    ).rejects.toThrow(UnauthorizedException);
   });
 
-  it("uses a trusted proxy identity instead of demo groups in development", () => {
+  it("uses a trusted proxy identity instead of demo groups in development", async () => {
     process.env.NODE_ENV = "development";
     process.env.DEMO_MODE = "true";
     const req = {
       path: "/documents",
+      originalUrl: "/documents",
       headers: {
         "x-auth-user": "standard-user",
         "x-auth-groups": "Domain Users",
       },
       socket: { remoteAddress: "172.20.0.8" },
     } as unknown as IsmsRequest;
-    middleware.use(req, response() as never, vi.fn());
+    await middleware.use(req, response() as never, vi.fn());
     expect(req.identity).toEqual({
       username: "standard-user",
       displayName: "standard-user",
@@ -90,10 +124,11 @@ describe("IdentityMiddleware", () => {
     });
   });
 
-  it("accepts a future proxy session expiry", () => {
+  it("accepts a future proxy session expiry", async () => {
     const expires = new Date(Date.now() + 60_000).toISOString();
     const req = {
       path: "/documents",
+      originalUrl: "/documents",
       headers: {
         "x-auth-user": "alice",
         "x-auth-groups": "Domain Users",
@@ -101,13 +136,14 @@ describe("IdentityMiddleware", () => {
       },
       socket: { remoteAddress: "172.20.0.9" },
     } as unknown as IsmsRequest;
-    middleware.use(req, response() as never, vi.fn());
+    await middleware.use(req, response() as never, vi.fn());
     expect(req.identity.sessionExpiresAt).toBe(expires);
   });
 
-  it("rejects an expired proxy session", () => {
+  it("rejects an expired proxy session", async () => {
     const req = {
       path: "/documents",
+      originalUrl: "/documents",
       headers: {
         "x-auth-user": "alice",
         "x-auth-groups": "Domain Users",
@@ -115,8 +151,8 @@ describe("IdentityMiddleware", () => {
       },
       socket: { remoteAddress: "172.20.0.9" },
     } as unknown as IsmsRequest;
-    expect(() => middleware.use(req, response() as never, vi.fn())).toThrow(
-      UnauthorizedException,
-    );
+    await expect(
+      middleware.use(req, response() as never, vi.fn()),
+    ).rejects.toThrow(UnauthorizedException);
   });
 });

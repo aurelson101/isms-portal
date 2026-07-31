@@ -18,6 +18,33 @@ export class LocalePreferenceDto {
   locale!: "fr" | "en";
 }
 
+export class LoginDto {
+  @IsString() @MinLength(1) @MaxLength(160) username!: string;
+  @IsString() @MinLength(1) @MaxLength(1024) password!: string;
+  @IsOptional() @IsString() @MaxLength(6) mfaCode?: string;
+}
+
+export class ProfileDto {
+  @IsString() @MinLength(2) @MaxLength(160) displayName!: string;
+  @IsOptional() @IsString() @MaxLength(350000) profilePhoto?: string | null;
+}
+
+export class ChangePasswordDto {
+  @IsString() @MinLength(1) @MaxLength(1024) currentPassword!: string;
+  @IsString() @MinLength(14) @MaxLength(1024) newPassword!: string;
+}
+
+export class MfaConfirmDto {
+  @IsString() @MinLength(6) @MaxLength(6) code!: string;
+}
+
+export class CreateAdminDto {
+  @IsString() @MinLength(2) @MaxLength(160) username!: string;
+  @IsString() @MinLength(2) @MaxLength(160) displayName!: string;
+  @IsIn(["LOCAL", "DIRECTORY"]) source!: "LOCAL" | "DIRECTORY";
+  @IsOptional() @IsString() @MinLength(14) @MaxLength(1024) password?: string;
+}
+
 export class SpaceDto {
   @IsString()
   @MinLength(2)

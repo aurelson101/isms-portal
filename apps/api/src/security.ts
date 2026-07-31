@@ -16,6 +16,7 @@ const configuredAdminGroups = () =>
     .map((group) => group.trim())
     .filter(Boolean);
 export const isAdminIdentity = (groups: string[]) =>
+  groups.includes("ISMS-LOCAL-ADMINS") ||
   groups.some((group) => configuredAdminGroups().includes(group));
 
 @Injectable()

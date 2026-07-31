@@ -149,16 +149,22 @@ export class IdentityController {
 
   @Get()
   async get(@Req() req: IsmsRequest) {
-    const [spaces, preference] = await Promise.all([
+    const [spaces, preference, adminAccount] = await Promise.all([
       this.authorization.permittedSpaces(req.identity.groups, "showMenu"),
       this.prisma.userPreference.findUnique({
         where: { identity: req.identity.username },
+      }),
+      this.prisma.adminAccount.findUnique({
+        where: { username: req.identity.username },
+        select: { primary: true },
       }),
     ]);
     return {
       username: req.identity.username,
       displayName: req.identity.displayName,
+      profilePhoto: req.identity.profilePhoto || null,
       isAdmin: isAdminIdentity(req.identity.groups),
+      primaryAdmin: adminAccount?.primary || false,
       locale: preference?.locale || null,
       demoMode:
         process.env.NODE_ENV !== "production" &&

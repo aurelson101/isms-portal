@@ -29,6 +29,7 @@ export const portalCatalog = {
     demo: "Mode démonstration — aucune donnée de production",
     ssoConnected: "SSO connecté",
     demoSession: "Session de démonstration",
+    localAdminSession: "Administrateur local",
     spaces: "Espaces autorisés",
     navigation: "Navigation principale",
     systemName: "Système de management de la sécurité de l’information",
@@ -87,6 +88,7 @@ export const portalCatalog = {
     demo: "Demo mode — no production data",
     ssoConnected: "SSO connected",
     demoSession: "Demo session",
+    localAdminSession: "Local administrator",
     spaces: "Authorized spaces",
     navigation: "Main navigation",
     systemName: "Information Security Management System",
@@ -120,6 +122,30 @@ export const portalCatalog = {
 } as const;
 
 export const adminEnglishCatalog = {
+  "Administrateur local": "Local administrator",
+  "Profil administrateur": "Administrator profile",
+  "Profil enregistré.": "Profile saved.",
+  "Nom affiché": "Display name",
+  "Photo de profil": "Profile photo",
+  "La photo doit faire moins de 256 Kio.":
+    "The photo must be smaller than 256 KiB.",
+  "Changer le mot de passe": "Change password",
+  "Mot de passe actuel": "Current password",
+  "Nouveau mot de passe (14 caractères minimum)":
+    "New password (14 characters minimum)",
+  "Authentification MFA": "MFA authentication",
+  "Configurer le MFA": "Set up MFA",
+  "Ajoutez cette clé dans Microsoft Authenticator, Google Authenticator ou une application TOTP :":
+    "Add this key to Microsoft Authenticator, Google Authenticator, or another TOTP app:",
+  "MFA activé.": "MFA enabled.",
+  "Confirmer le MFA": "Confirm MFA",
+  "Comptes administrateurs": "Administrator accounts",
+  "Ajouter un administrateur local": "Add a local administrator",
+  Identifiant: "Username",
+  "Mot de passe fort": "Strong password",
+  "Rechercher un utilisateur Active Directory":
+    "Search for an Active Directory user",
+  "Nom, identifiant ou e-mail": "Name, username or email",
   "Conservation automatique des 20 événements les plus récents.":
     "Automatic retention of the 20 most recent events.",
   "Supprimer définitivement ce document et tous ses fichiers ?":
@@ -267,6 +293,7 @@ export const adminEnglishCatalog = {
   "Sans catégorie": "No category",
   "Santé des services": "Service health",
   "Se déconnecter du SSO": "Sign out from SSO",
+  "Se déconnecter": "Sign out",
   "Se reconnecter": "Sign in again",
   "Secret du compte de service": "Service account secret",
   "Sélectionner…": "Select…",

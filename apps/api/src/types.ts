@@ -4,8 +4,9 @@ export type Identity = {
   username: string;
   displayName: string;
   groups: string[];
-  source: "demo" | "trusted-proxy" | "system";
+  source: "demo" | "trusted-proxy" | "local-admin" | "anonymous" | "system";
   sessionExpiresAt?: string | null;
+  profilePhoto?: string | null;
 };
 export type IsmsRequest = Request & {
   identity: Identity;

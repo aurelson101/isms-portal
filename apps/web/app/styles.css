@@ -9,6 +9,63 @@
 body {
   margin: 0;
 }
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(145deg, #001b45, #0768ea);
+}
+.login-card {
+  width: min(460px, 100%);
+  padding: 32px;
+  border-radius: 14px;
+  background: white;
+  box-shadow: 0 24px 70px #00112666;
+}
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #075ad4;
+}
+.login-brand > span {
+  font-size: 42px;
+}
+.login-brand strong,
+.login-brand small {
+  display: block;
+}
+.login-form {
+  display: grid;
+  gap: 14px;
+}
+.login-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 650;
+}
+.login-form input {
+  min-height: 44px;
+  border: 1px solid #9aabc3;
+  border-radius: 7px;
+  padding: 9px 11px;
+}
+.login-divider {
+  margin: 24px 0 16px;
+  border-top: 1px solid #d5deeb;
+  text-align: center;
+}
+.login-divider span {
+  position: relative;
+  top: -11px;
+  padding: 0 10px;
+  background: white;
+  color: #52617b;
+}
+.error-message {
+  color: #a51f1f;
+}
 button,
 input,
 select,
@@ -1298,6 +1355,46 @@ h1 {
   border-left-color: #c03535;
   background: #fff1f1;
   color: #8b2020;
+}
+.profile-settings {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+.profile-photo {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #d8e8ff;
+}
+.mfa-settings code {
+  display: block;
+  max-width: 100%;
+  margin: 10px 0;
+  padding: 10px;
+  border-radius: 6px;
+  background: #edf4ff;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.admin-account-list,
+.directory-user-results {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+.admin-account-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid #d5deeb;
+  border-radius: 7px;
+}
+.directory-user-results button {
+  text-align: left;
 }
 .health-output {
   background: #061a38;
