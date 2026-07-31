@@ -32,3 +32,11 @@ explicite de `RESTORE` :
 
 Après restauration, redémarrer API/worker, contrôler `/api/health/ready`, ouvrir
 un document et vérifier règles, audit et synchronisation.
+
+La recette automatisée crée une sauvegarde, démarre une pile Docker isolée sur
+TCP/18080, restaure PostgreSQL et les documents, vérifie santé, métadonnées et
+contenu, puis supprime ses conteneurs, réseaux et volumes :
+
+```bash
+./scripts/test-restore-functional.sh
+```

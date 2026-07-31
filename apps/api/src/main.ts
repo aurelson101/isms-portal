@@ -1,45 +1,61 @@
-import 'reflect-metadata';
-import helmet from 'helmet';
-import { ValidationPipe } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import type { NestExpressApplication } from '@nestjs/platform-express';
-import type { NextFunction, Request, Response } from 'express';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { AppModule } from './app.module';
-import { collectDefaultMetrics } from 'prom-client';
+import "reflect-metadata";
+import helmet from "helmet";
+import { ValidationPipe } from "@nestjs/common";
+import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
+import type { NextFunction, Request, Response } from "express";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { AppModule } from "./app.module";
+import { collectDefaultMetrics } from "prom-client";
 
 async function bootstrap() {
-  if (process.env.NODE_ENV === 'production' && process.env.DEMO_MODE === 'true') {
-    throw new Error('DEMO_MODE must never be enabled when NODE_ENV=production');
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.DEMO_MODE === "true"
+  ) {
+    throw new Error("DEMO_MODE must never be enabled when NODE_ENV=production");
   }
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+  });
   const express = app.getHttpAdapter().getInstance();
-  express.disable('x-powered-by');
-  express.set('trust proxy', false);
-  collectDefaultMetrics({ prefix: 'isms_' });
+  express.disable("x-powered-by");
+  express.set("trust proxy", false);
+  collectDefaultMetrics({ prefix: "isms_" });
   app.use((request: Request, response: Response, next: NextFunction) => {
     const startedAt = Date.now();
-    response.on('finish', () => {
-      process.stdout.write(`${JSON.stringify({
-        level: 'info',
-        service: 'api',
-        event: 'http.request',
-        time: new Date().toISOString(),
-        correlationId: response.getHeader('x-request-id') || null,
-        method: request.method,
-        path: request.path,
-        statusCode: response.statusCode,
-        durationMs: Date.now() - startedAt,
-      })}\n`);
+    response.on("finish", () => {
+      process.stdout.write(
+        `${JSON.stringify({
+          level: "info",
+          service: "api",
+          event: "http.request",
+          time: new Date().toISOString(),
+          correlationId: response.getHeader("x-request-id") || null,
+          method: request.method,
+          path: request.path,
+          statusCode: response.statusCode,
+          durationMs: Date.now() - startedAt,
+        })}\n`,
+      );
     });
     next();
   });
   app.use(helmet());
-  app.useBodyParser('json', { limit: '256kb' });
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+  app.useBodyParser("json", { limit: "256kb" });
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
   app.enableShutdownHooks();
-  const config = new DocumentBuilder().setTitle('ISMS Portal API').setVersion('1.0').build();
-  SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, config));
-  await app.listen(3001, '0.0.0.0');
+  const config = new DocumentBuilder()
+    .setTitle("ISMS Portal API")
+    .setVersion("1.0")
+    .build();
+  SwaggerModule.setup("docs", app, SwaggerModule.createDocument(app, config));
+  await app.listen(3001, "0.0.0.0");
 }
 void bootstrap();

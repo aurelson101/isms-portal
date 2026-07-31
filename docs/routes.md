@@ -7,16 +7,16 @@ existence. Les routes d’administration exigent un groupe déclaré dans
 
 ## Portail
 
-| Méthode | Route | Fonction |
-| --- | --- | --- |
-| GET | `/` | Portail utilisateur |
-| GET | `/admin` | Administration, protégée par `auth_request` |
-| GET | `/api/me` | Identité et espaces autorisés |
-| PUT | `/api/me/preferences` | Langue préférée |
-| GET | `/api/documents` | Liste, recherche, filtre et capacités |
-| GET | `/api/documents/:id` | Métadonnées autorisées |
-| GET | `/api/documents/:id/content` | Aperçu avec permission `preview` |
-| GET | `/api/documents/:id/download` | Fichier avec permission `download` |
+| Méthode | Route                         | Fonction                                    |
+| ------- | ----------------------------- | ------------------------------------------- |
+| GET     | `/`                           | Portail utilisateur                         |
+| GET     | `/admin`                      | Administration, protégée par `auth_request` |
+| GET     | `/api/me`                     | Identité et espaces autorisés               |
+| PUT     | `/api/me/preferences`         | Langue préférée                             |
+| GET     | `/api/documents`              | Liste, recherche, filtre et capacités       |
+| GET     | `/api/documents/:id`          | Métadonnées autorisées                      |
+| GET     | `/api/documents/:id/content`  | Aperçu avec permission `preview`            |
+| GET     | `/api/documents/:id/download` | Fichier avec permission `download`          |
 
 ## Administration
 

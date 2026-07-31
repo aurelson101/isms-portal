@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
-import { PrismaService } from './prisma.service';
-import type { IsmsRequest } from './types';
+import { Injectable } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
+import { PrismaService } from "./prisma.service";
+import type { IsmsRequest } from "./types";
 
 @Injectable()
 export class AuditService {
@@ -11,16 +11,17 @@ export class AuditService {
     req: IsmsRequest,
     action: string,
     resource: string,
-    result: 'success' | 'failure' | 'denied',
+    result: "success" | "failure" | "denied",
     details?: unknown,
   ) {
-    const safeDetails = details === undefined
-      ? undefined
-      : JSON.parse(JSON.stringify(details)) as Prisma.InputJsonValue;
+    const safeDetails =
+      details === undefined
+        ? undefined
+        : (JSON.parse(JSON.stringify(details)) as Prisma.InputJsonValue);
     return this.prisma.auditEvent.create({
       data: {
         identity: req.identity.username,
-        ipAddress: req.ip || 'unknown',
+        ipAddress: req.ip || "unknown",
         action,
         resource,
         result,

@@ -1,14 +1,20 @@
-import { Injectable, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
-import { constants } from 'fs';
-import { access, mkdir, open, rename, rm, stat } from 'fs/promises';
-import { createReadStream } from 'fs';
-import { dirname, resolve, sep } from 'path';
-import { randomUUID } from 'crypto';
-import type { Readable } from 'stream';
+import {
+  Injectable,
+  OnModuleInit,
+  ServiceUnavailableException,
+} from "@nestjs/common";
+import { constants } from "fs";
+import { access, mkdir, open, rename, rm, stat } from "fs/promises";
+import { createReadStream } from "fs";
+import { dirname, resolve, sep } from "path";
+import { randomUUID } from "crypto";
+import type { Readable } from "stream";
 
 @Injectable()
 export class StorageService implements OnModuleInit {
-  private readonly root = resolve(process.env.DOCUMENT_STORAGE_PATH || '/data/documents');
+  private readonly root = resolve(
+    process.env.DOCUMENT_STORAGE_PATH || "/data/documents",
+  );
 
   async onModuleInit() {
     try {
@@ -16,7 +22,7 @@ export class StorageService implements OnModuleInit {
       await access(this.root, constants.R_OK | constants.W_OK);
     } catch (error) {
       throw new ServiceUnavailableException(
-        `Document storage initialization failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+        `Document storage initialization failed: ${error instanceof Error ? error.message : "unknown error"}`,
       );
     }
   }
@@ -24,7 +30,7 @@ export class StorageService implements OnModuleInit {
   private pathFor(objectKey: string) {
     const target = resolve(this.root, objectKey);
     if (target !== this.root && !target.startsWith(`${this.root}${sep}`)) {
-      throw new Error('Invalid document storage key');
+      throw new Error("Invalid document storage key");
     }
     return target;
   }
@@ -38,11 +44,15 @@ export class StorageService implements OnModuleInit {
     }
   }
 
-  async putObject(objectKey: string, content: Buffer, _metadata: Record<string, string>) {
+  async putObject(
+    objectKey: string,
+    content: Buffer,
+    _metadata: Record<string, string>,
+  ) {
     const target = this.pathFor(objectKey);
     await mkdir(dirname(target), { recursive: true, mode: 0o750 });
     const temporary = `${target}.${randomUUID()}.tmp`;
-    const file = await open(temporary, 'wx', 0o640);
+    const file = await open(temporary, "wx", 0o640);
     try {
       await file.writeFile(content);
       await file.sync();

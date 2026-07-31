@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength } from "class-validator";
 
 export class ImportCertificateDto {
   @IsString()
@@ -11,4 +11,3 @@ export class ImportCertificateDto {
   @MaxLength(65536)
   pem!: string;
 }
-

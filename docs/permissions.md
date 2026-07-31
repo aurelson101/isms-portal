@@ -16,3 +16,11 @@ proxy et par le garde NestJS.
 
 Toute création, modification ou suppression de règle prend effet
 immédiatement et produit un événement d’audit.
+
+Le test fonctionnel suivant injecte une identité standard depuis le réseau
+interne de proxy, vérifie le refus HTTP 403 de l’administration et confirme que
+seuls les documents de l’espace général sont retournés :
+
+```bash
+./scripts/test-authorization-functional.sh
+```

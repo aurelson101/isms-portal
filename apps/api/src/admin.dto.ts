@@ -1,21 +1,37 @@
 import {
-  IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Max,
-  MaxLength, Min, MinLength, ValidateIf,
-} from 'class-validator';
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+  ValidateIf,
+} from "class-validator";
 
 export class LocalePreferenceDto {
-  @IsIn(['fr', 'en'])
-  locale!: 'fr' | 'en';
+  @IsIn(["fr", "en"])
+  locale!: "fr" | "en";
 }
 
 export class SpaceDto {
-  @IsString() @MinLength(2) @MaxLength(80)
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
   slug!: string;
 
-  @IsString() @MinLength(2) @MaxLength(160)
+  @IsString()
+  @MinLength(2)
+  @MaxLength(160)
   nameFr!: string;
 
-  @IsString() @MinLength(2) @MaxLength(160)
+  @IsString()
+  @MinLength(2)
+  @MaxLength(160)
   nameEn!: string;
 }
 
@@ -51,7 +67,7 @@ export class DirectoryConnectionDto {
   @IsString() @MinLength(1) @MaxLength(255) primaryHost!: string;
   @IsOptional() @IsString() @MaxLength(255) secondaryHost?: string;
   @IsInt() @Min(1) @Max(65535) port!: number;
-  @IsIn(['LDAP', 'LDAPS']) protocol!: 'LDAP' | 'LDAPS';
+  @IsIn(["LDAP", "LDAPS"]) protocol!: "LDAP" | "LDAPS";
   @IsString() @IsNotEmpty() @MaxLength(1024) baseDn!: string;
   @IsOptional() @IsString() @MaxLength(1024) userBaseDn?: string;
   @IsOptional() @IsString() @MaxLength(1024) groupBaseDn?: string;
@@ -67,6 +83,8 @@ export class DirectoryConnectionDto {
   @IsInt() @Min(500) @Max(60000) timeoutMs!: number;
   @IsInt() @Min(0) @Max(10) retries!: number;
   @IsBoolean() enabled!: boolean;
-  @IsOptional() @ValidateIf((value) => value.caCertificateId !== null) @IsUUID()
+  @IsOptional()
+  @ValidateIf((value) => value.caCertificateId !== null)
+  @IsUUID()
   caCertificateId?: string | null;
 }

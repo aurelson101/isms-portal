@@ -1,7 +1,7 @@
 # ISMS Portal
 
 Portail documentaire ISMS/ISO 27001 bilingue, protégé par les groupes Active
-Directory. L’API applique un modèle *deny by default* : espaces, recherche,
+Directory. L’API applique un modèle _deny by default_ : espaces, recherche,
 consultation, téléchargement et administration sont filtrés côté serveur.
 
 ## Démarrage
@@ -102,6 +102,8 @@ docker run --rm -v "$PWD:/app" -w /app node:22.13.1-alpine npm run lint
 docker run --rm --network host -v "$PWD:/work" -w /work \
   mcr.microsoft.com/playwright:v1.55.1-noble npx playwright test
 ./scripts/test-ldaps-functional.sh
+./scripts/test-authorization-functional.sh
+./scripts/test-restore-functional.sh
 ./scripts/backup.sh backups/$(date +%Y%m%d-%H%M%S)
 docker compose logs -f
 ```

@@ -17,7 +17,11 @@ services:
       - ${LDAP_TEST_LDIF_DIR:?LDAP_TEST_LDIF_DIR is required}:/container/service/slapd/assets/config/bootstrap/ldif/custom
     networks: [data]
     healthcheck:
-      test: ["CMD-SHELL", "ldapsearch -x -H ldap://127.0.0.1:389 -D cn=admin,dc=demo,dc=local -w AdminTestOnly-NotForProduction-2026 -b dc=demo,dc=local '(objectClass=*)' >/dev/null"]
+      test:
+        [
+          "CMD-SHELL",
+          "ldapsearch -x -H ldap://127.0.0.1:389 -D cn=admin,dc=demo,dc=local -w AdminTestOnly-NotForProduction-2026 -b dc=demo,dc=local '(objectClass=*)' >/dev/null",
+        ]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -26,7 +30,7 @@ services:
     environment:
       ENCRYPTION_KEY: ${LDAP_TEST_ENCRYPTION_KEY:?LDAP_TEST_ENCRYPTION_KEY is required}
     depends_on:
-      ldap-test: {condition: service_healthy}
+      ldap-test: { condition: service_healthy }
 
   worker:
     environment:

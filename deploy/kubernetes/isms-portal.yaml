@@ -1,6 +1,6 @@
 apiVersion: v1
 kind: ConfigMap
-metadata: {name: isms-portal}
+metadata: { name: isms-portal }
 data:
   NODE_ENV: production
   ISMS_ADMIN_GROUPS: ISMS-ADMINS,ISMS-SUPER-ADMINS
@@ -9,7 +9,7 @@ data:
 ---
 apiVersion: v1
 kind: Secret
-metadata: {name: isms-portal-secrets}
+metadata: { name: isms-portal-secrets }
 type: Opaque
 stringData:
   DATABASE_URL: "<SECRET_DANS_GESTIONNAIRE_DE_SECRETS>"
@@ -18,151 +18,176 @@ stringData:
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
-metadata: {name: isms-documents}
+metadata: { name: isms-documents }
 spec:
   accessModes: [ReadWriteMany]
   resources:
-    requests: {storage: 20Gi}
+    requests: { storage: 20Gi }
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: isms-api}
+metadata: { name: isms-api }
 spec:
   replicas: 2
-  selector: {matchLabels: {app: isms-api}}
+  selector: { matchLabels: { app: isms-api } }
   template:
-    metadata: {labels: {app: isms-api}}
+    metadata: { labels: { app: isms-api } }
     spec:
       containers:
         - name: api
           image: registry.example/isms-api:1.0.0
-          ports: [{containerPort: 3001}]
-          envFrom: [{configMapRef: {name: isms-portal}}, {secretRef: {name: isms-portal-secrets}}]
-          volumeMounts: [{name: documents, mountPath: /data/documents}]
-          livenessProbe: {httpGet: {path: /health/live, port: 3001}}
-          readinessProbe: {httpGet: {path: /health/ready, port: 3001}}
+          ports: [{ containerPort: 3001 }]
+          envFrom:
+            [
+              { configMapRef: { name: isms-portal } },
+              { secretRef: { name: isms-portal-secrets } },
+            ]
+          volumeMounts: [{ name: documents, mountPath: /data/documents }]
+          livenessProbe: { httpGet: { path: /health/live, port: 3001 } }
+          readinessProbe: { httpGet: { path: /health/ready, port: 3001 } }
           resources:
-            requests: {cpu: 100m, memory: 256Mi}
-            limits: {cpu: "1", memory: 1Gi}
-          securityContext: {allowPrivilegeEscalation: false, runAsNonRoot: true}
-      volumes: [{name: documents, persistentVolumeClaim: {claimName: isms-documents}}]
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          securityContext:
+            { allowPrivilegeEscalation: false, runAsNonRoot: true }
+      volumes:
+        [
+          {
+            name: documents,
+            persistentVolumeClaim: { claimName: isms-documents },
+          },
+        ]
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: isms-api}
+metadata: { name: isms-api }
 spec:
-  selector: {app: isms-api}
-  ports: [{port: 80, targetPort: 3001}]
+  selector: { app: isms-api }
+  ports: [{ port: 80, targetPort: 3001 }]
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
-metadata: {name: isms-api}
+metadata: { name: isms-api }
 spec:
   minAvailable: 1
-  selector: {matchLabels: {app: isms-api}}
+  selector: { matchLabels: { app: isms-api } }
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
-metadata: {name: isms-api}
+metadata: { name: isms-api }
 spec:
-  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: isms-api}
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: isms-api }
   minReplicas: 2
   maxReplicas: 8
   metrics:
     - type: Resource
       resource:
         name: cpu
-        target: {type: Utilization, averageUtilization: 70}
+        target: { type: Utilization, averageUtilization: 70 }
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: isms-frontend}
+metadata: { name: isms-frontend }
 spec:
   replicas: 2
-  selector: {matchLabels: {app: isms-frontend}}
+  selector: { matchLabels: { app: isms-frontend } }
   template:
-    metadata: {labels: {app: isms-frontend}}
+    metadata: { labels: { app: isms-frontend } }
     spec:
       containers:
         - name: frontend
           image: registry.example/isms-frontend:1.0.0
-          ports: [{containerPort: 3000}]
+          ports: [{ containerPort: 3000 }]
           env:
-            - {name: NODE_ENV, value: production}
-            - {name: HOSTNAME, value: 0.0.0.0}
-            - {name: NEXT_PUBLIC_API_URL, value: /api}
-          livenessProbe: {httpGet: {path: /, port: 3000}}
-          readinessProbe: {httpGet: {path: /, port: 3000}}
+            - { name: NODE_ENV, value: production }
+            - { name: HOSTNAME, value: 0.0.0.0 }
+            - { name: NEXT_PUBLIC_API_URL, value: /api }
+          livenessProbe: { httpGet: { path: /, port: 3000 } }
+          readinessProbe: { httpGet: { path: /, port: 3000 } }
           resources:
-            requests: {cpu: 50m, memory: 128Mi}
-            limits: {cpu: "1", memory: 768Mi}
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: "1", memory: 768Mi }
           securityContext:
-            {allowPrivilegeEscalation: false, runAsNonRoot: true, readOnlyRootFilesystem: true}
+            {
+              allowPrivilegeEscalation: false,
+              runAsNonRoot: true,
+              readOnlyRootFilesystem: true,
+            }
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: isms-frontend}
+metadata: { name: isms-frontend }
 spec:
-  selector: {app: isms-frontend}
-  ports: [{port: 80, targetPort: 3000}]
+  selector: { app: isms-frontend }
+  ports: [{ port: 80, targetPort: 3000 }]
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
-metadata: {name: isms-frontend}
+metadata: { name: isms-frontend }
 spec:
   minAvailable: 1
-  selector: {matchLabels: {app: isms-frontend}}
+  selector: { matchLabels: { app: isms-frontend } }
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
-metadata: {name: isms-frontend}
+metadata: { name: isms-frontend }
 spec:
-  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: isms-frontend}
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: isms-frontend }
   minReplicas: 2
   maxReplicas: 6
   metrics:
     - type: Resource
       resource:
         name: cpu
-        target: {type: Utilization, averageUtilization: 70}
+        target: { type: Utilization, averageUtilization: 70 }
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: isms-worker}
+metadata: { name: isms-worker }
 spec:
   replicas: 2
-  selector: {matchLabels: {app: isms-worker}}
+  selector: { matchLabels: { app: isms-worker } }
   template:
-    metadata: {labels: {app: isms-worker}}
+    metadata: { labels: { app: isms-worker } }
     spec:
       containers:
         - name: worker
           image: registry.example/isms-api:1.0.0
           command: ["node", "dist/worker.js"]
           envFrom:
-            - {configMapRef: {name: isms-portal}}
-            - {secretRef: {name: isms-portal-secrets}}
-          volumeMounts: [{name: documents, mountPath: /data/documents}]
-          livenessProbe: {exec: {command: ["sh", "-c", "kill -0 1"]}}
+            - { configMapRef: { name: isms-portal } }
+            - { secretRef: { name: isms-portal-secrets } }
+          volumeMounts: [{ name: documents, mountPath: /data/documents }]
+          livenessProbe: { exec: { command: ["sh", "-c", "kill -0 1"] } }
           resources:
-            requests: {cpu: 100m, memory: 256Mi}
-            limits: {cpu: "1", memory: 1Gi}
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: "1", memory: 1Gi }
           securityContext:
-            {allowPrivilegeEscalation: false, runAsNonRoot: true, readOnlyRootFilesystem: true}
-      volumes: [{name: documents, persistentVolumeClaim: {claimName: isms-documents}}]
+            {
+              allowPrivilegeEscalation: false,
+              runAsNonRoot: true,
+              readOnlyRootFilesystem: true,
+            }
+      volumes:
+        [
+          {
+            name: documents,
+            persistentVolumeClaim: { claimName: isms-documents },
+          },
+        ]
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
-metadata: {name: isms-worker}
+metadata: { name: isms-worker }
 spec:
   minAvailable: 1
-  selector: {matchLabels: {app: isms-worker}}
+  selector: { matchLabels: { app: isms-worker } }
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: isms-portal
-  annotations: {nginx.ingress.kubernetes.io/force-ssl-redirect: "true"}
+  annotations: { nginx.ingress.kubernetes.io/force-ssl-redirect: "true" }
 spec:
   ingressClassName: nginx
   rules:
@@ -171,7 +196,7 @@ spec:
         paths:
           - path: /api
             pathType: Prefix
-            backend: {service: {name: isms-api, port: {number: 80}}}
+            backend: { service: { name: isms-api, port: { number: 80 } } }
           - path: /
             pathType: Prefix
-            backend: {service: {name: isms-frontend, port: {number: 80}}}
+            backend: { service: { name: isms-frontend, port: { number: 80 } } }

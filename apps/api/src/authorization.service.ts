@@ -1,11 +1,20 @@
-import { Injectable } from '@nestjs/common';
-import type { AccessRule, DocumentSpace } from '@prisma/client';
-import { PrismaService } from './prisma.service';
-import { isAdminIdentity } from './security';
+import { Injectable } from "@nestjs/common";
+import type { AccessRule, DocumentSpace } from "@prisma/client";
+import { PrismaService } from "./prisma.service";
+import { isAdminIdentity } from "./security";
 
 type SpaceWithRule = DocumentSpace & { accessRules: AccessRule[] };
-export type Permission = 'showMenu' | 'read' | 'search' | 'preview' | 'download'
-  | 'upload' | 'edit' | 'publish' | 'archive' | 'administer';
+export type Permission =
+  | "showMenu"
+  | "read"
+  | "search"
+  | "preview"
+  | "download"
+  | "upload"
+  | "edit"
+  | "publish"
+  | "archive"
+  | "administer";
 
 @Injectable()
 export class AuthorizationService {
@@ -17,27 +26,38 @@ export class AuthorizationService {
       return this.prisma.documentSpace.findMany({
         where: { deletedAt: null },
         include: { accessRules: true },
-        orderBy: { slug: 'asc' },
+        orderBy: { slug: "asc" },
       }) as Promise<SpaceWithRule[]>;
     }
     return this.prisma.documentSpace.findMany({
       where: {
         deletedAt: null,
-        accessRules: { some: { group: { name: { in: groups }, active: true }, [permission]: true } },
+        accessRules: {
+          some: {
+            group: { name: { in: groups }, active: true },
+            [permission]: true,
+          },
+        },
       },
       include: {
         accessRules: {
           where: { group: { name: { in: groups }, active: true } },
         },
       },
-      orderBy: { slug: 'asc' },
+      orderBy: { slug: "asc" },
     }) as Promise<SpaceWithRule[]>;
   }
 
   async can(groups: string[], spaceId: string, permission: Permission) {
     if (isAdminIdentity(groups)) return true;
-    return (await this.prisma.accessRule.count({
-      where: { spaceId, group: { name: { in: groups }, active: true }, [permission]: true },
-    })) > 0;
+    return (
+      (await this.prisma.accessRule.count({
+        where: {
+          spaceId,
+          group: { name: { in: groups }, active: true },
+          [permission]: true,
+        },
+      })) > 0
+    );
   }
 }
