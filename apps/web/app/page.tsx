@@ -31,7 +31,11 @@ type Category = {
   nameFr: string;
   nameEn: string;
   spaceId: string;
+  documentCount?: number;
 };
+
+const populatedCategories = (space: Space) =>
+  space.categories.filter((category) => category.documentCount !== 0);
 type Translation = {
   locale: string;
   title: string;
@@ -668,9 +672,9 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                 <Icon name="folder" />{" "}
                 <span>{locale === "fr" ? item.nameFr : item.nameEn}</span>
               </button>
-              {item.categories.length > 0 && (
+              {populatedCategories(item).length > 0 && (
                 <div className="category-submenu">
-                  {item.categories.map((itemCategory) => (
+                  {populatedCategories(item).map((itemCategory) => (
                     <button
                       type="button"
                       className={`category-menu ${category === itemCategory.id ? "active" : ""}`}
@@ -838,7 +842,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
         {!explorerMode && (
           <section className="cards" aria-label={t.spaces}>
             {identity?.spaces.flatMap((item) =>
-              item.categories.map((itemCategory) => (
+              populatedCategories(item).map((itemCategory) => (
                 <article key={itemCategory.id}>
                   <div className="card-icon">
                     <Icon name="folder" />

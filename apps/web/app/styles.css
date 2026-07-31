@@ -219,7 +219,7 @@ textarea:focus-visible {
 .admin-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 290px 1fr;
+  grid-template-columns: 290px minmax(0, 1fr);
 }
 .shell aside,
 .admin-shell > aside {
@@ -555,8 +555,8 @@ h1 {
   .shell main,
   .admin-shell main {
     max-width: 1680px;
-    width: 100%;
-    margin-inline: auto;
+    width: auto;
+    margin-inline: 0;
   }
   .document-grid {
     grid-template-columns: repeat(4, minmax(240px, 1fr));
@@ -1621,11 +1621,12 @@ h1 {
 }
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   gap: 14px;
   margin: 18px 0;
 }
 .admin-card {
+  min-width: 0;
   border: 1px solid #d5deeb;
   border-radius: 9px;
   padding: 18px;
