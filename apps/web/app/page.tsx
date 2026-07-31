@@ -640,8 +640,12 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
               {identity?.isAdmin && <a href="/admin">{t.administration}</a>}
               {identity && (
                 <dl className="session-diagnostics">
-                  <dt>{t.groupsDetected}</dt>
-                  <dd>{identity.authentication.diagnostics.groupCount}</dd>
+                  {!identity.isAdmin && (
+                    <>
+                      <dt>{t.groupsDetected}</dt>
+                      <dd>{identity.authentication.diagnostics.groupCount}</dd>
+                    </>
+                  )}
                   <dt>{t.spacesMapped}</dt>
                   <dd>
                     {identity.authentication.diagnostics.mappedSpaceCount}
