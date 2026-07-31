@@ -206,12 +206,16 @@ export class DirectoryService {
         select: { id: true },
       });
       const data = { ...group, active: true, lastSyncedAt: new Date() };
+      const synchronizedData = {
+        ...data,
+        directoryConnectionId: connection.id,
+      };
       return existing
         ? this.prisma.directoryGroup.update({
             where: { id: existing.id },
-            data,
+            data: synchronizedData,
           })
-        : this.prisma.directoryGroup.create({ data });
+        : this.prisma.directoryGroup.create({ data: synchronizedData });
     } finally {
       await client.unbind().catch(() => undefined);
     }
@@ -356,6 +360,7 @@ export class DirectoryService {
         let groupCount = 0;
         let pageCount = 0;
         const synchronizedAt = new Date();
+        const synchronizedDns: string[] = [];
         for await (const page of pages) {
           pageCount += 1;
           for (const entry of page.searchEntries) {
@@ -365,6 +370,7 @@ export class DirectoryService {
               ...group,
               active: true,
               lastSyncedAt: synchronizedAt,
+              directoryConnectionId: connection.id,
             };
             const existing = await this.prisma.directoryGroup.findFirst({
               where: {
@@ -383,10 +389,39 @@ export class DirectoryService {
             } else {
               await this.prisma.directoryGroup.create({ data });
             }
+            synchronizedDns.push(group.distinguishedName);
             groupCount += 1;
           }
         }
-        const details = { host, groups: groupCount, pages: pageCount };
+        const staleGroups = groupCount
+          ? await this.prisma.directoryGroup.findMany({
+              where: {
+                directoryConnectionId: connection.id,
+                distinguishedName: { notIn: synchronizedDns },
+              },
+              select: { id: true },
+            })
+          : [];
+        const staleGroupIds = staleGroups.map((group) => group.id);
+        const removed = staleGroupIds.length
+          ? await this.prisma.$transaction(async (transaction) => {
+              const rules = await transaction.accessRule.deleteMany({
+                where: { groupId: { in: staleGroupIds } },
+              });
+              const groups = await transaction.directoryGroup.deleteMany({
+                where: { id: { in: staleGroupIds } },
+              });
+              return { groups: groups.count, rules: rules.count };
+            })
+          : { groups: 0, rules: 0 };
+        const details = {
+          host,
+          groups: groupCount,
+          pages: pageCount,
+          removedGroups: removed.groups,
+          removedRules: removed.rules,
+          reconciliationSkipped: groupCount === 0,
+        };
         await this.prisma.directorySyncJob.update({
           where: { id: job.id },
           data: { status: "SUCCESS", details, finishedAt: new Date() },
@@ -406,5 +441,23 @@ export class DirectoryService {
       });
       return { id: job.id, status: "ERROR", ...details };
     }
+  }
+
+  async purgeSynchronizedGroups() {
+    return this.prisma.$transaction(async (transaction) => {
+      const synchronizedGroups = await transaction.directoryGroup.findMany({
+        where: { lastSyncedAt: { not: null } },
+        select: { id: true },
+      });
+      const groupIds = synchronizedGroups.map((group) => group.id);
+      if (!groupIds.length) return { groups: 0, rules: 0 };
+      const rules = await transaction.accessRule.deleteMany({
+        where: { groupId: { in: groupIds } },
+      });
+      const groups = await transaction.directoryGroup.deleteMany({
+        where: { id: { in: groupIds } },
+      });
+      return { groups: groups.count, rules: rules.count };
+    });
   }
 }

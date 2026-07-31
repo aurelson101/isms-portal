@@ -47,6 +47,7 @@ model DirectoryConnection {
   caCertificateId String?
   caCertificate TrustedCaCertificate? @relation(fields: [caCertificateId], references: [id])
   syncJobs DirectorySyncJob[]
+  groups DirectoryGroup[]
   lastTestAt DateTime?
   lastTestStatus String?
   createdAt DateTime @default(now())
@@ -81,9 +82,13 @@ model DirectoryGroup {
   memberCount Int @default(0)
   active Boolean @default(true)
   lastSyncedAt DateTime?
+  directoryConnectionId String?
+  directoryConnection DirectoryConnection? @relation(fields: [directoryConnectionId], references: [id])
   accessRules AccessRule[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([directoryConnectionId])
 }
 
 model DirectorySyncJob {

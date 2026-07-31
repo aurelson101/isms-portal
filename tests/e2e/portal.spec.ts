@@ -229,6 +229,34 @@ test("administration is fully switchable between French and English", async ({
 test("administration uses accessible confirmations and edits an existing directory connector", async ({
   page,
 }) => {
+  await page.route("**/api/admin/access-rules", async (route) => {
+    await route.fulfill({
+      json: [
+        {
+          id: "rule-confirmation-test",
+          groupId: "group-confirmation-test",
+          spaceId: "space-confirmation-test",
+          group: { id: "group-confirmation-test", name: "Confirmation test" },
+          space: {
+            id: "space-confirmation-test",
+            slug: "confirmation-test",
+            nameFr: "Test de confirmation",
+            nameEn: "Confirmation test",
+          },
+          showMenu: true,
+          read: true,
+          search: true,
+          preview: true,
+          download: false,
+          upload: false,
+          edit: false,
+          publish: false,
+          archive: false,
+          administer: false,
+        },
+      ],
+    });
+  });
   await page.goto("/admin#rules");
   await expect(
     page.getByRole("heading", { name: "Gestion des droits d’accès" }),
@@ -297,8 +325,8 @@ test("administration uses accessible confirmations and edits an existing directo
     page.getByRole("heading", { name: "Synchronisation LDAP/LDAPS" }),
   ).toBeVisible();
   await page
-    .locator(".admin-card")
-    .first()
+    .getByRole("heading", { name: connection.name })
+    .locator("..")
     .getByRole("button", { name: "Modifier" })
     .click();
   await expect(
@@ -311,6 +339,31 @@ test("administration uses accessible confirmations and edits an existing directo
     .getByRole("button", { name: "Enregistrer les modifications" })
     .click();
   await expect(page.getByText("Connecteur modifié.")).toBeVisible();
+});
+
+test("an administrator can confirm purging synchronized AD data", async ({
+  page,
+}) => {
+  let purgeCalled = false;
+  await page.route(
+    "**/api/admin/directory-connections/purge",
+    async (route) => {
+      purgeCalled = true;
+      expect(route.request().method()).toBe("POST");
+      await route.fulfill({ json: { groups: 12, rules: 3 } });
+    },
+  );
+  await page.goto("/admin#directory");
+  await page.getByRole("button", { name: "Purger les données AD" }).click();
+  const confirmation = page.getByRole("alertdialog");
+  await expect(confirmation).toContainText(
+    "Cette action ne modifie pas Active Directory",
+  );
+  await confirmation.getByRole("button", { name: "Confirmer" }).click();
+  await expect(
+    page.getByText("Purge terminée : 12 groupe(s) et 3 règle(s) supprimé(s)."),
+  ).toBeVisible();
+  expect(purgeCalled).toBe(true);
 });
 
 for (const [format, fixture] of [

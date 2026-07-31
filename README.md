@@ -190,6 +190,18 @@ de 500 groupes. Elle respecte ainsi la limite serveur Active Directory
 (`sizeLimitExceeded`, code `0x4`) et enregistre dans le résultat du job le
 nombre de pages et de groupes effectivement traités.
 
+Après réception réussie de toutes les pages, les groupes précédemment fournis
+par ce connecteur mais désormais absents d’AD sont supprimés de l’application,
+ainsi que leurs règles d’accès. Aucune suppression n’est effectuée si la
+synchronisation LDAP échoue, reste incomplète ou retourne soudainement zéro
+groupe. Dans ce dernier cas, la purge explicite reste disponible après
+vérification de la configuration.
+
+Le bouton **Purger les données AD** permet de préparer un changement d’annuaire.
+Après confirmation, il supprime tous les groupes synchronisés et leurs règles
+d’accès, mais conserve les groupes ajoutés localement et ne modifie jamais
+Active Directory.
+
 Dans **Groupes Active Directory**, le deuxième champ interroge directement les
 connecteurs actifs à partir de deux caractères. Par exemple, `Skill` propose
 les groupes correspondants avec leur DN. Cliquer sur un résultat remplit le
