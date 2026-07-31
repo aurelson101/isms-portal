@@ -262,6 +262,7 @@ export const adminEnglishCatalog = {
   "Matrice des autorisations": "Authorization matrix",
   Membres: "Members",
   "Métriques Prometheus": "Prometheus metrics",
+  "Mon profil": "My profile",
   Modifier: "Edit",
   "Modifier la catégorie": "Edit category",
   "Modifier le connecteur": "Edit connector",
