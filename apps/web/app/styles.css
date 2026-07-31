@@ -173,6 +173,40 @@ button {
 button:disabled {
   cursor: not-allowed;
 }
+.button-link,
+.admin-form button,
+.admin-table-wrap button,
+.account-menu button {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #7892b8;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: #24436f;
+  background: white;
+  font-weight: 650;
+  line-height: 1.2;
+  text-decoration: none;
+}
+.button-link:hover,
+.admin-form button:hover,
+.admin-table-wrap button:hover,
+.account-menu button:hover {
+  border-color: #0768ea;
+  color: #075ad4;
+  background: #eef5ff;
+}
+.button-link:disabled,
+.admin-form button:disabled,
+.admin-table-wrap button:disabled,
+.account-menu button:disabled {
+  border-color: #cbd5e3;
+  color: #8995a8;
+  background: #f2f5f9;
+}
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
@@ -355,6 +389,9 @@ textarea:focus-visible {
 .account-menu a {
   color: #0665e8;
   padding: 8px 0;
+}
+.account-menu button {
+  width: 100%;
 }
 .session-diagnostics,
 .sso-diagnostic dl {

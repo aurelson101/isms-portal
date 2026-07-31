@@ -2417,7 +2417,9 @@ function HealthPanel({ health }: { health: Record<string, unknown> | null }) {
       <h1>{t("Santé des services")}</h1>
       <pre className="health-output">{JSON.stringify(health, null, 2)}</pre>
       <p>
-        <a href="/api/metrics">{t("Métriques Prometheus")}</a>
+        <a className="button-link" href="/api/metrics">
+          {t("Métriques Prometheus")}
+        </a>
       </p>
     </>
   );
@@ -2559,7 +2561,7 @@ function SettingsPanel({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(values),
               })
-                .then(() => window.location.assign("/login?fallback=admin"))
+                .then(() => window.location.assign("/admin/login"))
                 .catch((error) => onError(error.message));
             }}
           >
@@ -2774,7 +2776,7 @@ function SettingsPanel({
           <button
             onClick={() =>
               api("/api/auth/logout", { method: "POST" }).then(() =>
-                window.location.assign("/login?loggedout=1"),
+                window.location.assign("/admin/login?loggedout=1"),
               )
             }
           >

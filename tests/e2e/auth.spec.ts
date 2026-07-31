@@ -1,5 +1,19 @@
 import { expect, test } from "@playwright/test";
 
+test("the main sign-in page only exposes the user credentials form", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "FR", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Connexion", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Identifiant", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Mot de passe", { exact: true })).toBeVisible();
+  await expect(page.getByText("Compte administrateur")).toHaveCount(0);
+  await expect(page.getByText("Compte Active Directory")).toHaveCount(0);
+});
+
 test("the generated administrator can sign in and manage the secure profile", async ({
   page,
 }) => {
@@ -10,12 +24,16 @@ test("the generated administrator can sign in and manage the secure profile", as
     "Generated administrator credentials required",
   );
 
-  await page.goto("/login?fallback=admin");
+  await page.goto("/admin/login");
   await page.getByRole("button", { name: "FR", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Connexion" })).toBeVisible();
-  await page.getByLabel("Identifiant").fill(username!);
+  await expect(
+    page.getByRole("heading", { name: "Connexion administrateur" }),
+  ).toBeVisible();
+  await page.getByLabel("Identifiant administrateur").fill(username!);
   await page.getByLabel("Mot de passe").fill(password!);
-  await page.getByRole("button", { name: "Se connecter" }).click();
+  await page
+    .getByRole("button", { name: "Se connecter à l’administration" })
+    .click();
   await expect(page).toHaveURL(/\/admin/);
 
   await page.getByRole("button", { name: "FR", exact: true }).click();
