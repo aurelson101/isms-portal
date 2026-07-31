@@ -22,9 +22,9 @@ sans jamais accepter directement les en-têtes Internet.
 
 Les utilisateurs standards n’ont aucun mot de passe local. En cas d’identité
 absente, proxy non approuvé ou groupes périmés, l’accès documentaire est
-refusé et la page `/login` propose la connexion AD directe ainsi que le compte
-administrateur de secours. Le mot de passe initial de ce dernier est généré
-hors Git avec `./scripts/generate-secrets.sh --admin-only`.
+refusé et la page `/login` propose uniquement la connexion utilisateur. Le
+compte administrateur de secours est isolé sur `/admin/login`. Son mot de passe
+initial est généré hors Git avec `./scripts/generate-secrets.sh --admin-only`.
 
 Pour Microsoft 365, définir `SSO_LOGIN_URL` vers le point d’entrée du proxy
 OIDC/Entra. La page de connexion affiche alors cette méthode sans imposer de

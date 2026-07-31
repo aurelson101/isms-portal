@@ -3,53 +3,44 @@
 import { FormEvent, useEffect, useState } from "react";
 
 type Locale = "fr" | "en";
-type AuthConfig = { directoryLoginEnabled: boolean };
-
 const copy = {
   fr: {
-    title: "Connexion",
-    subtitle: "Saisissez vos identifiants pour accéder à vos documents.",
-    identifier: "Identifiant",
+    title: "Connexion administrateur",
+    subtitle: "Accès réservé à l’administration du portail.",
+    identifier: "Identifiant administrateur",
     password: "Mot de passe",
-    submit: "Se connecter",
+    mfa: "Code MFA",
+    submit: "Se connecter à l’administration",
     busy: "Connexion…",
-    invalid: "Identifiant ou mot de passe incorrect.",
-    unavailable:
-      "La connexion utilisateur est temporairement indisponible. Contactez votre administrateur.",
-    loggedOut: "Vous êtes maintenant déconnecté.",
+    invalid: "Identifiants ou code MFA incorrects.",
+    loggedOut: "La session administrateur est fermée.",
   },
   en: {
-    title: "Sign in",
-    subtitle: "Enter your credentials to access your documents.",
-    identifier: "Username",
+    title: "Administrator sign in",
+    subtitle: "Restricted access to portal administration.",
+    identifier: "Administrator username",
     password: "Password",
-    submit: "Sign in",
+    mfa: "MFA code",
+    submit: "Sign in to administration",
     busy: "Signing in…",
-    invalid: "Incorrect username or password.",
-    unavailable:
-      "User sign-in is temporarily unavailable. Contact your administrator.",
-    loggedOut: "You are now signed out.",
+    invalid: "Incorrect credentials or MFA code.",
+    loggedOut: "The administrator session is closed.",
   },
 } as const;
 
-export default function LoginPage() {
+export default function AdminLoginPage() {
   const [locale, setLocale] = useState<Locale>("fr");
-  const [available, setAvailable] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [needsMfa, setNeedsMfa] = useState(false);
   const [loggedOut, setLoggedOut] = useState(false);
   const t = copy[locale];
 
   useEffect(() => {
-    const preferred: Locale = navigator.language.startsWith("en") ? "en" : "fr";
-    setLocale(preferred);
+    setLocale(navigator.language.startsWith("en") ? "en" : "fr");
     setLoggedOut(
       new URLSearchParams(window.location.search).get("loggedout") === "1",
     );
-    fetch("/api/auth/config")
-      .then((response) => response.json())
-      .then((config: AuthConfig) => setAvailable(config.directoryLoginEnabled))
-      .catch(() => setAvailable(false));
   }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -57,29 +48,32 @@ export default function LoginPage() {
     setBusy(true);
     setError("");
     const values = Object.fromEntries(new FormData(event.currentTarget));
-    const response = await fetch("/api/auth/directory-login", {
+    const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(values),
     }).catch(() => null);
     setBusy(false);
     if (!response?.ok) {
+      setNeedsMfa(true);
       setError(t.invalid);
       return;
     }
     const requested = new URLSearchParams(window.location.search).get("return");
-    window.location.assign(requested?.startsWith("/") ? requested : "/");
+    window.location.assign(
+      requested?.startsWith("/admin") ? requested : "/admin",
+    );
   };
 
   return (
-    <main className="login-shell">
+    <main className="login-shell admin-login-shell">
       <section className="login-card">
         <div className="login-toolbar">
           <div className="login-brand">
             <span aria-hidden="true">◇</span>
             <div>
               <strong>ISMS Portal</strong>
-              <small>Portail documentaire</small>
+              <small>Administration sécurisée</small>
             </div>
           </div>
           <div className="login-language" aria-label="Language">
@@ -102,15 +96,14 @@ export default function LoginPage() {
         <h1>{t.title}</h1>
         <p>{t.subtitle}</p>
         {loggedOut && <p className="login-success">{t.loggedOut}</p>}
-        {!available && <p className="login-warning">{t.unavailable}</p>}
         <form onSubmit={submit} className="login-form">
           <label>
             {t.identifier}
             <input
-              name="login"
+              name="username"
               required
               autoComplete="username"
-              maxLength={128}
+              maxLength={160}
             />
           </label>
           <label>
@@ -122,12 +115,24 @@ export default function LoginPage() {
               autoComplete="current-password"
             />
           </label>
+          {needsMfa && (
+            <label>
+              {t.mfa}
+              <input
+                name="mfaCode"
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                autoComplete="one-time-code"
+              />
+            </label>
+          )}
           {error && (
             <p className="error-message" role="alert">
               {error}
             </p>
           )}
-          <button className="primary" disabled={busy || !available}>
+          <button className="primary" disabled={busy}>
             {busy ? t.busy : t.submit}
           </button>
         </form>

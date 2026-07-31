@@ -196,8 +196,9 @@ court, par exemple `jdupont`, sans domaine, UPN ni suffixe `@entreprise.fr`.
 - une session HttpOnly de huit heures est créée et révoquée par
   **Se déconnecter**.
 
-Cette fonction refuse LDAP en clair et exige LDAPS avec une CA valide. Le compte
-administrateur local reste disponible dans l’onglet dédié de `/login`.
+Cette fonction refuse LDAP en clair et exige LDAPS avec une CA valide. La page
+`/login` est exclusivement réservée aux utilisateurs. Le compte administrateur
+local est uniquement accessible sur `/admin/login`.
 
 Le test vérifie DNS, TCP, chaîne TLS, nom d’hôte, bind et recherches. Après une
 synchronisation réussie, les groupes sont proposés dans la recherche de
@@ -242,7 +243,7 @@ Test LDAPS reproductible sans l’AD de production :
 
 Le portail tente d’abord la connexion SSO configurée (Microsoft 365/Entra ID,
 Keycloak ou un proxy OIDC). Si aucune session professionnelle n’est reconnue,
-`/login` propose le compte administrateur local de secours.
+`/admin/login` propose le compte administrateur local de secours.
 
 Le compte principal n’utilise jamais un mot de passe fixe versionné. Le script
 génère un mot de passe fort dans `.env` et `credentials.txt`, tous deux exclus
