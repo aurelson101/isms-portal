@@ -211,6 +211,32 @@ textarea:focus-visible {
   color: #0665e8;
   padding: 8px 0;
 }
+.session-diagnostics,
+.sso-diagnostic dl {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1fr) auto;
+  gap: 0.35rem 1rem;
+  margin: 0.65rem 0;
+  font-size: 0.82rem;
+}
+.session-diagnostics dt,
+.sso-diagnostic dt {
+  color: var(--muted);
+}
+.session-diagnostics dd,
+.sso-diagnostic dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.sso-diagnostic {
+  max-width: 52rem;
+  margin: 1rem 0 1.5rem;
+  padding: 1rem 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--panel);
+}
 .demo-banner {
   background: #fff4cf;
   border: 1px solid #e3b836;
@@ -804,6 +830,10 @@ h1 {
   border: 1px solid #d5deeb;
   border-radius: 9px;
   background: white;
+}
+.admin-table-wrap tbody tr {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 52px;
 }
 .admin-table-wrap td small {
   display: block;

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "./icons";
+import { portalCatalog as copy } from "./i18n/catalogs";
 
 type Locale = "fr" | "en";
 type ViewMode = "list" | "grid";
@@ -37,101 +38,18 @@ type Identity = {
   authentication: {
     source: string;
     ssoConnected: boolean;
+    sessionExpiresAt: string | null;
+    loginUrl: string | null;
+    logoutUrl: string | null;
+    diagnostics: {
+      groupCount: number;
+      mappedSpaceCount: number;
+      administrator: boolean;
+      adminGroupMatchCount: number;
+    };
   };
   spaces: Space[];
 };
-
-const copy = {
-  fr: {
-    welcome: "Bienvenue",
-    subtitle: "Retrouvez rapidement les documents qui vous concernent.",
-    search: "Rechercher une politique, une procédure ou un guide…",
-    home: "Accueil",
-    policies: "Politiques",
-    procedures: "Procédures",
-    guides: "Guides",
-    consult: "Consulter",
-    popular: "Documents les plus consultés",
-    recent: "Documents récemment publiés",
-    secured: "Accès sécurisé par Active Directory",
-    open: "Ouvrir",
-    download: "Télécharger",
-    unavailable: "Disponible uniquement dans une autre langue",
-    loading: "Chargement…",
-    empty: "Aucun document autorisé ne correspond à votre recherche.",
-    error: "Les documents sont temporairement indisponibles.",
-    help: "Aide",
-    helpText:
-      "Recherchez, ouvrez ou téléchargez uniquement les documents autorisés par vos groupes Active Directory.",
-    close: "Fermer",
-    administration: "Administration",
-    account: "Préférences du compte",
-    demo: "Mode démonstration — aucune donnée de production",
-    ssoConnected: "SSO connecté",
-    demoSession: "Session de démonstration",
-    spaces: "Espaces autorisés",
-    navigation: "Navigation principale",
-    systemName: "Système de management de la sécurité de l’information",
-    fileUnavailable: "Aucun fichier disponible dans cette langue.",
-    previewUnavailable:
-      "La prévisualisation de ce document n’est pas autorisée.",
-    readonly: "Consultation en lecture seule",
-    previewError: "Impossible d’afficher ce fichier.",
-    previewLoading: "Préparation de la prévisualisation…",
-    truncated: "Aperçu limité aux premières données du fichier.",
-    explorer: "Explorateur documentaire",
-    listView: "Affichage en liste",
-    gridView: "Affichage en fenêtres",
-    expand: "Agrandir le lecteur",
-    collapse: "Réduire le lecteur",
-    documentCount: "documents autorisés",
-    documentCountOne: "document autorisé",
-  },
-  en: {
-    welcome: "Welcome",
-    subtitle: "Quickly find the documents relevant to you.",
-    search: "Search for a policy, procedure or guide…",
-    home: "Home",
-    policies: "Policies",
-    procedures: "Procedures",
-    guides: "Guides",
-    consult: "Browse",
-    popular: "Most viewed documents",
-    recent: "Recently published documents",
-    secured: "Secured by Active Directory",
-    open: "Open",
-    download: "Download",
-    unavailable: "Available in another language only",
-    loading: "Loading…",
-    empty: "No authorized document matches your search.",
-    error: "Documents are temporarily unavailable.",
-    help: "Help",
-    helpText:
-      "Search, open or download only documents authorized by your Active Directory groups.",
-    close: "Close",
-    administration: "Administration",
-    account: "Account preferences",
-    demo: "Demo mode — no production data",
-    ssoConnected: "SSO connected",
-    demoSession: "Demo session",
-    spaces: "Authorized spaces",
-    navigation: "Main navigation",
-    systemName: "Information Security Management System",
-    fileUnavailable: "No file is available in this language.",
-    previewUnavailable: "You are not allowed to preview this document.",
-    readonly: "Read-only view",
-    previewError: "This file cannot be displayed.",
-    previewLoading: "Preparing preview…",
-    truncated: "Preview limited to the first file data.",
-    explorer: "Document explorer",
-    listView: "List view",
-    gridView: "Window view",
-    expand: "Expand viewer",
-    collapse: "Restore viewer",
-    documentCount: "authorized documents",
-    documentCountOne: "authorized document",
-  },
-} as const;
 
 const wordMime =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -387,6 +305,7 @@ export default function Home() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [viewerExpanded, setViewerExpanded] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const loadDocuments = useCallback(
@@ -421,6 +340,22 @@ export default function Home() {
     if (requestedSpace) setSpace(requestedSpace);
     const savedView = localStorage.getItem("isms-document-view");
     if (savedView === "grid" || savedView === "list") setViewMode(savedView);
+  }, []);
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const response = await fetch("/api/me", { cache: "no-store" }).catch(
+        () => null,
+      );
+      if (!response?.ok) {
+        setSessionExpired(true);
+        return;
+      }
+      setIdentity((await response.json()) as Identity);
+      setSessionExpired(false);
+    };
+    const timer = window.setInterval(() => void checkSession(), 60_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -654,6 +589,27 @@ export default function Home() {
                   : t.demoSession}
               </span>
               {identity?.isAdmin && <a href="/admin">{t.administration}</a>}
+              {identity && (
+                <dl className="session-diagnostics">
+                  <dt>{t.groupsDetected}</dt>
+                  <dd>{identity.authentication.diagnostics.groupCount}</dd>
+                  <dt>{t.spacesMapped}</dt>
+                  <dd>
+                    {identity.authentication.diagnostics.mappedSpaceCount}
+                  </dd>
+                  <dt>{t.sessionExpiry}</dt>
+                  <dd>
+                    {identity.authentication.sessionExpiresAt
+                      ? new Date(
+                          identity.authentication.sessionExpiresAt,
+                        ).toLocaleString(locale)
+                      : t.noExpiry}
+                  </dd>
+                </dl>
+              )}
+              {identity?.authentication.logoutUrl && (
+                <a href={identity.authentication.logoutUrl}>{t.signOut}</a>
+              )}
             </div>
           )}
         </header>
@@ -837,6 +793,28 @@ export default function Home() {
             </button>
             <h2 id="help-title">{t.help}</h2>
             <p>{t.helpText}</p>
+          </section>
+        </div>
+      )}
+      {sessionExpired && (
+        <div className="modal-backdrop">
+          <section
+            className="modal small-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="session-expired-title"
+          >
+            <h2 id="session-expired-title">{t.sessionExpired}</h2>
+            <button
+              className="primary"
+              onClick={() =>
+                window.location.assign(
+                  identity?.authentication.loginUrl || window.location.href,
+                )
+              }
+            >
+              {t.reconnect}
+            </button>
           </section>
         </div>
       )}

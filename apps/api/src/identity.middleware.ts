@@ -36,6 +36,7 @@ export class IdentityMiddleware implements NestMiddleware {
         displayName: "System probe",
         groups: [],
         source: "system",
+        sessionExpiresAt: null,
       };
       return next();
     }

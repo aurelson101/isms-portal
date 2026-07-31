@@ -54,6 +54,7 @@ describe("IdentityMiddleware", () => {
       displayName: "Alice Example",
       groups: ["Domain Users", "ITAD"],
       source: "trusted-proxy",
+      sessionExpiresAt: null,
     });
   });
 
@@ -85,6 +86,37 @@ describe("IdentityMiddleware", () => {
       displayName: "standard-user",
       groups: ["Domain Users"],
       source: "trusted-proxy",
+      sessionExpiresAt: null,
     });
+  });
+
+  it("accepts a future proxy session expiry", () => {
+    const expires = new Date(Date.now() + 60_000).toISOString();
+    const req = {
+      path: "/documents",
+      headers: {
+        "x-auth-user": "alice",
+        "x-auth-groups": "Domain Users",
+        "x-auth-session-expires": expires,
+      },
+      socket: { remoteAddress: "172.20.0.9" },
+    } as unknown as IsmsRequest;
+    middleware.use(req, response() as never, vi.fn());
+    expect(req.identity.sessionExpiresAt).toBe(expires);
+  });
+
+  it("rejects an expired proxy session", () => {
+    const req = {
+      path: "/documents",
+      headers: {
+        "x-auth-user": "alice",
+        "x-auth-groups": "Domain Users",
+        "x-auth-session-expires": "2020-01-01T00:00:00.000Z",
+      },
+      socket: { remoteAddress: "172.20.0.9" },
+    } as unknown as IsmsRequest;
+    expect(() => middleware.use(req, response() as never, vi.fn())).toThrow(
+      UnauthorizedException,
+    );
   });
 });

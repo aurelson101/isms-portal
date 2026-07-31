@@ -28,9 +28,16 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - run: ./scripts/generate-secrets.sh
       - run: docker compose -f docker-compose.yml -f deploy/compose/verify.yml up -d --build --wait
       - run: curl --fail --show-error http://127.0.0.1:18080/api/health/ready
+      - run: PLAYWRIGHT_BASE_URL=http://127.0.0.1:18080 npm run test:e2e -- --grep "visual regression"
       - if: always()
         run: docker compose -f docker-compose.yml -f deploy/compose/verify.yml logs --no-color
       - if: always()

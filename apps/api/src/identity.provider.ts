@@ -45,6 +45,7 @@ export class DemoIdentityProvider implements IdentityProvider {
       username: process.env.DEMO_USER || "demo",
       displayName: process.env.DEMO_DISPLAY_NAME || "Demo User",
       source: "demo" as const,
+      sessionExpiresAt: null,
       groups: (process.env.DEMO_GROUPS || "Domain Users,ITAD,ISMS-ADMINS")
         .split(",")
         .map((value) => value.trim())
@@ -72,14 +73,24 @@ export class TrustedProxyIdentityProvider implements IdentityProvider {
     }
     const username = request.headers["x-auth-user"];
     const groups = request.headers["x-auth-groups"];
+    const expiresHeader = request.headers["x-auth-session-expires"];
     if (typeof username !== "string" || typeof groups !== "string")
       throw new UnauthorizedException();
     if (!username.trim() || username.length > 255 || groups.length > 8192)
       throw new UnauthorizedException();
+    const sessionExpiresAt =
+      typeof expiresHeader === "string" && expiresHeader
+        ? new Date(expiresHeader)
+        : null;
+    if (sessionExpiresAt && Number.isNaN(sessionExpiresAt.getTime()))
+      throw new UnauthorizedException("Invalid SSO session expiry");
+    if (sessionExpiresAt && sessionExpiresAt.getTime() <= Date.now())
+      throw new UnauthorizedException("SSO session expired");
     return {
       username: username.trim(),
       displayName: String(request.headers["x-auth-name"] || username).trim(),
       source: "trusted-proxy" as const,
+      sessionExpiresAt: sessionExpiresAt?.toISOString() || null,
       groups: groups
         .split(";")
         .map((group) => group.trim())

@@ -11,8 +11,22 @@ import {
   useState,
 } from "react";
 import { Icon, type IconName } from "../icons";
+import { adminEnglishCatalog } from "../i18n/catalogs";
 
 type Locale = "fr" | "en";
+type Authentication = {
+  source: string;
+  ssoConnected: boolean;
+  sessionExpiresAt: string | null;
+  loginUrl: string | null;
+  logoutUrl: string | null;
+  diagnostics: {
+    groupCount: number;
+    mappedSpaceCount: number;
+    administrator: boolean;
+    adminGroupMatchCount: number;
+  };
+};
 const AdminLocaleContext = createContext<Locale>("fr");
 const ConfirmContext = createContext<(message: string) => Promise<boolean>>(
   async () => false,
@@ -21,7 +35,12 @@ const useAdminI18n = () => {
   const locale = useContext(AdminLocaleContext);
   return {
     locale,
-    t: (fr: string, en: string) => (locale === "fr" ? fr : en),
+    t: (fr: string, en?: string) =>
+      locale === "fr"
+        ? fr
+        : en ||
+          adminEnglishCatalog[fr as keyof typeof adminEnglishCatalog] ||
+          fr,
   };
 };
 const localizedStatus = (locale: Locale, value: string) => {
@@ -256,13 +275,17 @@ export default function Admin() {
     displayName: string;
     locale: Locale | null;
     demoMode: boolean;
-    authentication: { source: string; ssoConnected: boolean };
+    authentication: Authentication;
   } | null>(null);
   const [confirmation, setConfirmation] = useState<{
     message: string;
     resolve: (accepted: boolean) => void;
   } | null>(null);
-  const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const t = (fr: string, en?: string) =>
+    locale === "fr"
+      ? fr
+      : en || adminEnglishCatalog[fr as keyof typeof adminEnglishCatalog] || fr;
   const confirmAction = useCallback(
     (message: string) =>
       new Promise<boolean>((resolve) => {
@@ -296,7 +319,7 @@ export default function Admin() {
           displayName: string;
           locale: Locale | null;
           demoMode: boolean;
-          authentication: { source: string; ssoConnected: boolean };
+          authentication: Authentication;
         }>("/api/me"),
         api<Dashboard>("/api/admin/dashboard"),
         api<Group[]>("/api/admin/groups"),
@@ -348,6 +371,21 @@ export default function Admin() {
     if (tabs.some(([key]) => key === requested)) setTab(requested);
     void refresh();
   }, [refresh]);
+  useEffect(() => {
+    const checkSession = async () => {
+      const response = await fetch("/api/me", { cache: "no-store" }).catch(
+        () => null,
+      );
+      if (!response?.ok) {
+        setSessionExpired(true);
+        return;
+      }
+      setIdentity(await response.json());
+      setSessionExpired(false);
+    };
+    const timer = window.setInterval(() => void checkSession(), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const selectTab = (next: Tab) => {
     setTab(next);
     setError("");
@@ -413,14 +451,14 @@ export default function Admin() {
   if (isAdmin === false)
     return (
       <main className="access-denied">
-        <h1>{t("Accès refusé", "Access denied")}</h1>
+        <h1>{t("Accès refusé")}</h1>
         <p>
           {t(
             "Votre identité ne possède pas le rôle administrateur.",
             "Your identity does not have the administrator role.",
           )}
         </p>
-        <a href="/">{t("Retour au portail", "Back to portal")}</a>
+        <a href="/">{t("Retour au portail")}</a>
       </main>
     );
 
@@ -435,9 +473,7 @@ export default function Admin() {
               </div>
               <div>
                 <strong>ISMS Portal</strong>
-                <small>
-                  {t("Administration sécurisée", "Secure administration")}
-                </small>
+                <small>{t("Administration sécurisée")}</small>
               </div>
             </div>
             <nav aria-label="Administration">
@@ -455,7 +491,7 @@ export default function Admin() {
               ))}
             </nav>
             <a className="back-link" href="/">
-              ← {t("Retour au portail", "Back to portal")}
+              ← {t("Retour au portail")}
             </a>
           </aside>
           <main>
@@ -470,7 +506,7 @@ export default function Admin() {
                         "Rechercher ou sélectionner un groupe AD…",
                         "Search or select an AD group…",
                       )
-                    : t("Rechercher dans la section…", "Search this section…")
+                    : t("Rechercher dans la section…")
                 }
               />
               {tab === "groups" && (
@@ -482,10 +518,7 @@ export default function Admin() {
                   ))}
                 </datalist>
               )}
-              <div
-                className="admin-language"
-                aria-label={t("Langue", "Language")}
-              >
+              <div className="admin-language" aria-label={t("Langue")}>
                 <button
                   type="button"
                   aria-pressed={locale === "fr"}
@@ -502,12 +535,11 @@ export default function Admin() {
                 </button>
               </div>
               <button className="refresh-button" onClick={() => void refresh()}>
-                <Icon name="sync" /> <span>{t("Actualiser", "Refresh")}</span>
+                <Icon name="sync" /> <span>{t("Actualiser")}</span>
               </button>
               <div className="admin-identity">
                 <strong>
-                  {identity?.displayName ||
-                    t("Administrateur ISMS", "ISMS Administrator")}
+                  {identity?.displayName || t("Administrateur ISMS")}
                 </strong>
                 <span
                   className={
@@ -517,8 +549,8 @@ export default function Admin() {
                   }
                 >
                   {identity?.authentication.ssoConnected
-                    ? t("SSO connecté", "SSO connected")
-                    : t("Session de démonstration", "Demo session")}
+                    ? t("SSO connecté")
+                    : t("Session de démonstration")}
                 </span>
               </div>
             </header>
@@ -527,12 +559,9 @@ export default function Admin() {
                 <span>{error}</span>
                 <div>
                   <button onClick={() => void refresh()}>
-                    {t("Réessayer", "Retry")}
+                    {t("Réessayer")}
                   </button>
-                  <button
-                    onClick={() => setError("")}
-                    aria-label={t("Fermer", "Close")}
-                  >
+                  <button onClick={() => setError("")} aria-label={t("Fermer")}>
                     ×
                   </button>
                 </div>
@@ -611,7 +640,11 @@ export default function Admin() {
                 {tab === "audit" && <AuditPanel events={audit} />}
                 {tab === "health" && <HealthPanel health={health} />}
                 {tab === "settings" && (
-                  <SettingsPanel onError={setError} onNotice={setNotice} />
+                  <SettingsPanel
+                    identity={identity}
+                    onError={setError}
+                    onNotice={setNotice}
+                  />
                 )}
               </>
             )}
@@ -621,17 +654,17 @@ export default function Admin() {
               <h2>
                 {selectedRule
                   ? `Règle ${selectedRule.group.name} → ${selectedRule.space.nameFr}`
-                  : t("Nouvelle règle", "New rule")}
+                  : t("Nouvelle règle")}
               </h2>
               <label>
-                {t("Groupe AD", "AD group")}
+                {t("Groupe AD")}
                 <select
                   value={ruleDraft.groupId}
                   onChange={(event) =>
                     setRuleDraft({ ...ruleDraft, groupId: event.target.value })
                   }
                 >
-                  <option value="">{t("Sélectionner…", "Select…")}</option>
+                  <option value="">{t("Sélectionner…")}</option>
                   {groups.map((group) => (
                     <option value={group.id} key={group.id}>
                       {group.name}
@@ -640,14 +673,14 @@ export default function Admin() {
                 </select>
               </label>
               <label>
-                {t("Espace", "Space")}
+                {t("Espace")}
                 <select
                   value={ruleDraft.spaceId}
                   onChange={(event) =>
                     setRuleDraft({ ...ruleDraft, spaceId: event.target.value })
                   }
                 >
-                  <option value="">{t("Sélectionner…", "Select…")}</option>
+                  <option value="">{t("Sélectionner…")}</option>
                   {spaces.map((spaceItem) => (
                     <option value={spaceItem.id} key={spaceItem.id}>
                       {locale === "fr" ? spaceItem.nameFr : spaceItem.nameEn}
@@ -655,7 +688,7 @@ export default function Admin() {
                   ))}
                 </select>
               </label>
-              <h3>{t("Permissions accordées", "Granted permissions")}</h3>
+              <h3>{t("Permissions accordées")}</h3>
               {permissionKeys.map((key) => (
                 <label className="toggle" key={key}>
                   {permissionLabels[key][locale === "fr" ? 0 : 1]}
@@ -682,11 +715,7 @@ export default function Admin() {
                   <button
                     className="danger"
                     onClick={async () => {
-                      if (
-                        !(await confirmAction(
-                          t("Supprimer cette règle ?", "Delete this rule?"),
-                        ))
-                      )
+                      if (!(await confirmAction(t("Supprimer cette règle ?"))))
                         return;
                       await api(`/api/admin/access-rules/${selectedRule.id}`, {
                         method: "DELETE",
@@ -697,7 +726,7 @@ export default function Admin() {
                         );
                     }}
                   >
-                    {t("Supprimer", "Delete")}
+                    {t("Supprimer")}
                   </button>
                 )}
                 <button
@@ -706,21 +735,49 @@ export default function Admin() {
                     setRuleDraft(emptyRule());
                   }}
                 >
-                  {t("Annuler", "Cancel")}
+                  {t("Annuler")}
                 </button>
                 <button className="primary" onClick={() => void saveRule()}>
-                  {t("Enregistrer", "Save")}
+                  {t("Enregistrer")}
                 </button>
               </div>
             </section>
+          )}
+          {sessionExpired && (
+            <div className="confirmation-backdrop">
+              <section
+                className="confirmation-dialog"
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="admin-session-expired"
+              >
+                <h2 id="admin-session-expired">{t("Session expirée")}</h2>
+                <p>
+                  {t(
+                    "Reconnectez-vous pour poursuivre l’administration.",
+                    "Sign in again to continue administration.",
+                  )}
+                </p>
+                <button
+                  className="primary"
+                  onClick={() =>
+                    window.location.assign(
+                      identity?.authentication.loginUrl || window.location.href,
+                    )
+                  }
+                >
+                  {t("Se reconnecter")}
+                </button>
+              </section>
+            </div>
           )}
         </div>
         {confirmation && (
           <ConfirmationDialog
             message={confirmation.message}
-            title={t("Confirmer l’action", "Confirm action")}
-            cancelLabel={t("Annuler", "Cancel")}
-            confirmLabel={t("Confirmer", "Confirm")}
+            title={t("Confirmer l’action")}
+            cancelLabel={t("Annuler")}
+            confirmLabel={t("Confirmer")}
             onClose={closeConfirmation}
           />
         )}
@@ -818,24 +875,16 @@ function EmptyState({
 function DashboardPanel({ dashboard }: { dashboard: Dashboard | null }) {
   const { t } = useAdminI18n();
   const stats = [
-    [
-      t("Groupes AD synchronisés", "Synchronized AD groups"),
-      dashboard?.groups ?? 0,
-    ],
-    [t("Règles actives", "Active rules"), dashboard?.rules ?? 0],
-    [t("Espaces protégés", "Protected spaces"), dashboard?.spaces ?? 0],
-    [t("Documents", "Documents"), dashboard?.documents ?? 0],
-    [
-      t("Erreurs de synchronisation", "Synchronization errors"),
-      dashboard?.syncErrors ?? 0,
-    ],
+    [t("Groupes AD synchronisés"), dashboard?.groups ?? 0],
+    [t("Règles actives"), dashboard?.rules ?? 0],
+    [t("Espaces protégés"), dashboard?.spaces ?? 0],
+    [t("Documents"), dashboard?.documents ?? 0],
+    [t("Erreurs de synchronisation"), dashboard?.syncErrors ?? 0],
   ];
   return (
     <>
-      <h1>{t("Tableau de bord", "Dashboard")}</h1>
-      <p className="lead">
-        {t("État réel de la plateforme ISMS.", "Live ISMS platform status.")}
-      </p>
+      <h1>{t("Tableau de bord")}</h1>
+      <p className="lead">{t("État réel de la plateforme ISMS.")}</p>
       <div className="stats">
         {stats.map(([label, value]) => (
           <article key={label}>
@@ -875,7 +924,7 @@ function GroupsPanel({
   );
   return (
     <>
-      <h1>{t("Groupes Active Directory", "Active Directory groups")}</h1>
+      <h1>{t("Groupes Active Directory")}</h1>
       <p className="lead">
         {t(
           "Les groupes synchronisés reviennent lors de la prochaine synchronisation s’ils sont supprimés localement.",
@@ -904,16 +953,16 @@ function GroupsPanel({
             .catch((error) => onError(error.message));
         }}
       >
-        <h2>{t("Ajouter un groupe AD", "Add an AD group")}</h2>
+        <h2>{t("Ajouter un groupe AD")}</h2>
         <input
-          aria-label={t("Nom du groupe AD", "AD group name")}
+          aria-label={t("Nom du groupe AD")}
           required
-          placeholder={t("Nom du groupe", "Group name")}
+          placeholder={t("Nom du groupe")}
           value={form.name}
           onChange={(event) => setForm({ ...form, name: event.target.value })}
         />
         <input
-          aria-label={t("DN du groupe AD", "AD group DN")}
+          aria-label={t("DN du groupe AD")}
           required
           placeholder="CN=Groupe,OU=Groups,DC=entreprise,DC=local"
           value={form.distinguishedName}
@@ -922,27 +971,27 @@ function GroupsPanel({
           }
         />
         <input
-          aria-label={t("Description du groupe AD", "AD group description")}
-          placeholder={t("Description", "Description")}
+          aria-label={t("Description du groupe AD")}
+          placeholder={t("Description")}
           value={form.description}
           onChange={(event) =>
             setForm({ ...form, description: event.target.value })
           }
         />
-        <button className="primary">{t("Ajouter", "Add")}</button>
+        <button className="primary">{t("Ajouter")}</button>
       </form>
       <div className="admin-table-wrap">
         <table>
           <thead>
             <tr>
-              <th>{t("Nom", "Name")}</th>
+              <th>{t("Nom")}</th>
               <th>DN</th>
-              <th>{t("Source", "Source")}</th>
-              <th>{t("Membres", "Members")}</th>
-              <th>{t("Dernière synchro", "Last sync")}</th>
-              <th>{t("Espaces", "Spaces")}</th>
-              <th>{t("État", "Status")}</th>
-              <th>{t("Actions", "Actions")}</th>
+              <th>{t("Source")}</th>
+              <th>{t("Membres")}</th>
+              <th>{t("Dernière synchro")}</th>
+              <th>{t("Espaces")}</th>
+              <th>{t("État")}</th>
+              <th>{t("Actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -965,15 +1014,13 @@ function GroupsPanel({
                 </td>
                 <td>{group.distinguishedName}</td>
                 <td>
-                  {group.lastSyncedAt
-                    ? t("Synchronisé AD", "AD synchronized")
-                    : t("Ajout local", "Local entry")}
+                  {group.lastSyncedAt ? t("Synchronisé AD") : t("Ajout local")}
                 </td>
                 <td>{group.memberCount}</td>
                 <td>
                   {group.lastSyncedAt
                     ? new Date(group.lastSyncedAt).toLocaleString(locale)
-                    : t("Jamais", "Never")}
+                    : t("Jamais")}
                 </td>
                 <td>
                   {group.accessRules
@@ -983,11 +1030,7 @@ function GroupsPanel({
                     .join(", ") || "—"}
                 </td>
                 <td>
-                  <mark>
-                    {group.active
-                      ? t("Actif", "Active")
-                      : t("Inactif", "Inactive")}
-                  </mark>
+                  <mark>{group.active ? t("Actif") : t("Inactif")}</mark>
                 </td>
                 <td>
                   <button
@@ -1002,13 +1045,13 @@ function GroupsPanel({
                         method: "DELETE",
                       })
                         .then(async () => {
-                          onNotice(t("Groupe supprimé.", "Group deleted."));
+                          onNotice(t("Groupe supprimé."));
                           await onChanged();
                         })
                         .catch((error) => onError(error.message));
                     }}
                   >
-                    {t("Supprimer", "Delete")}
+                    {t("Supprimer")}
                   </button>
                 </td>
               </tr>
@@ -1034,7 +1077,7 @@ function RulesPanel({
   const { locale, t } = useAdminI18n();
   return (
     <>
-      <h1>{t("Gestion des droits d’accès", "Access rights management")}</h1>
+      <h1>{t("Gestion des droits d’accès")}</h1>
       <p className="lead">
         {t(
           "L’administrateur conserve tous les droits ; cette matrice s’applique aux utilisateurs standards.",
@@ -1043,17 +1086,17 @@ function RulesPanel({
       </p>
       <section className="matrix">
         <div className="matrix-heading">
-          <h2>{t("Matrice des autorisations", "Authorization matrix")}</h2>
+          <h2>{t("Matrice des autorisations")}</h2>
           <button className="primary" onClick={onNew}>
-            <Icon name="add" /> {t("Ajouter une règle", "Add a rule")}
+            <Icon name="add" /> {t("Ajouter une règle")}
           </button>
         </div>
         <div className="admin-table-wrap">
           <table>
             <thead>
               <tr>
-                <th>{t("Groupe", "Group")}</th>
-                <th>{t("Espace", "Space")}</th>
+                <th>{t("Groupe")}</th>
+                <th>{t("Espace")}</th>
                 {permissionKeys.map((key) => (
                   <th key={key}>
                     {permissionLabels[key][locale === "fr" ? 0 : 1]}
@@ -1123,7 +1166,7 @@ function SpacesPanel({
   };
   return (
     <>
-      <h1>{t("Espaces documentaires", "Document spaces")}</h1>
+      <h1>{t("Espaces documentaires")}</h1>
       <form
         className="admin-form inline-form"
         onSubmit={async (event) => {
@@ -1140,7 +1183,7 @@ function SpacesPanel({
             .catch((error) => onError(error.message));
         }}
       >
-        <h2>{t("Créer un espace", "Create a space")}</h2>
+        <h2>{t("Créer un espace")}</h2>
         <input
           required
           placeholder="slug"
@@ -1149,17 +1192,17 @@ function SpacesPanel({
         />
         <input
           required
-          placeholder={t("Nom français", "French name")}
+          placeholder={t("Nom français")}
           value={form.nameFr}
           onChange={(event) => setForm({ ...form, nameFr: event.target.value })}
         />
         <input
           required
-          placeholder={t("Nom anglais", "English name")}
+          placeholder={t("Nom anglais")}
           value={form.nameEn}
           onChange={(event) => setForm({ ...form, nameEn: event.target.value })}
         />
-        <button className="primary">{t("Créer", "Create")}</button>
+        <button className="primary">{t("Créer")}</button>
       </form>
       <form
         className="admin-form inline-form"
@@ -1182,18 +1225,18 @@ function SpacesPanel({
       >
         <h2>
           {editedCategoryId
-            ? t("Modifier la catégorie", "Edit category")
-            : t("Créer une catégorie", "Create category")}
+            ? t("Modifier la catégorie")
+            : t("Créer une catégorie")}
         </h2>
         <select
-          aria-label={t("Espace de la catégorie", "Category space")}
+          aria-label={t("Espace de la catégorie")}
           required
           value={category.spaceId}
           onChange={(event) =>
             setCategory({ ...category, spaceId: event.target.value })
           }
         >
-          <option value="">{t("Espace…", "Space…")}</option>
+          <option value="">{t("Espace…")}</option>
           {spaces.map((space) => (
             <option key={space.id} value={space.id}>
               {locale === "fr" ? space.nameFr : space.nameEn}
@@ -1201,7 +1244,7 @@ function SpacesPanel({
           ))}
         </select>
         <input
-          aria-label={t("Slug de la catégorie", "Category slug")}
+          aria-label={t("Slug de la catégorie")}
           required
           placeholder="slug"
           value={category.slug}
@@ -1210,29 +1253,29 @@ function SpacesPanel({
           }
         />
         <input
-          aria-label={t("Nom français de la catégorie", "Category French name")}
+          aria-label={t("Nom français de la catégorie")}
           required
-          placeholder={t("Nom français", "French name")}
+          placeholder={t("Nom français")}
           value={category.nameFr}
           onChange={(event) =>
             setCategory({ ...category, nameFr: event.target.value })
           }
         />
         <input
-          aria-label={t("Nom anglais de la catégorie", "Category English name")}
+          aria-label={t("Nom anglais de la catégorie")}
           required
-          placeholder={t("Nom anglais", "English name")}
+          placeholder={t("Nom anglais")}
           value={category.nameEn}
           onChange={(event) =>
             setCategory({ ...category, nameEn: event.target.value })
           }
         />
         <button className="primary">
-          {editedCategoryId ? t("Enregistrer", "Save") : t("Créer", "Create")}
+          {editedCategoryId ? t("Enregistrer") : t("Créer")}
         </button>
         {editedCategoryId && (
           <button type="button" onClick={resetCategory}>
-            {t("Annuler", "Cancel")}
+            {t("Annuler")}
           </button>
         )}
       </form>
@@ -1247,9 +1290,8 @@ function SpacesPanel({
           <article className="admin-card" key={space.id}>
             <h2>{locale === "fr" ? space.nameFr : space.nameEn}</h2>
             <small>
-              {space.slug} · {space._count?.documents || 0}{" "}
-              {t("documents", "documents")} · {space._count?.accessRules || 0}{" "}
-              {t("règles", "rules")}
+              {space.slug} · {space._count?.documents || 0} {t("documents")} ·{" "}
+              {space._count?.accessRules || 0} {t("règles")}
             </small>
             <ul>
               {space.categories?.map((item) => (
@@ -1271,7 +1313,7 @@ function SpacesPanel({
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
                     >
-                      {t("Modifier", "Edit")}
+                      {t("Modifier")}
                     </button>
                     <button
                       type="button"
@@ -1296,7 +1338,7 @@ function SpacesPanel({
                           .catch((error) => onError(error.message));
                       }}
                     >
-                      {t("Supprimer", "Delete")}
+                      {t("Supprimer")}
                     </button>
                   </span>
                 </li>
@@ -1317,7 +1359,7 @@ function SpacesPanel({
                     .catch((error) => onError(error.message));
               }}
             >
-              {t("Archiver", "Archive")}
+              {t("Archiver")}
             </button>
           </article>
         ))}
@@ -1342,7 +1384,7 @@ function DocumentsPanel({
   const selectedSpace = spaces.find((space) => space.id === spaceId);
   return (
     <>
-      <h1>{t("Documents", "Documents")}</h1>
+      <h1>{t("Documents")}</h1>
       <form
         className="admin-form upload-form"
         onSubmit={async (event: FormEvent<HTMLFormElement>) => {
@@ -1357,7 +1399,7 @@ function DocumentsPanel({
             .catch((error) => onError(error.message));
         }}
       >
-        <h2>{t("Déposer une version", "Upload a version")}</h2>
+        <h2>{t("Déposer une version")}</h2>
         <p>
           {t(
             "Formats acceptés : PDF, Word DOCX et Excel XLSX. Les utilisateurs les consultent en lecture seule.",
@@ -1365,14 +1407,14 @@ function DocumentsPanel({
           )}
         </p>
         <label>
-          {t("Espace", "Space")}
+          {t("Espace")}
           <select
             name="spaceId"
             required
             value={spaceId}
             onChange={(event) => setSpaceId(event.target.value)}
           >
-            <option value="">{t("Sélectionner…", "Select…")}</option>
+            <option value="">{t("Sélectionner…")}</option>
             {spaces.map((space) => (
               <option value={space.id} key={space.id}>
                 {locale === "fr" ? space.nameFr : space.nameEn}
@@ -1381,9 +1423,9 @@ function DocumentsPanel({
           </select>
         </label>
         <label>
-          {t("Catégorie", "Category")}
+          {t("Catégorie")}
           <select name="categoryId">
-            <option value="">{t("Sans catégorie", "No category")}</option>
+            <option value="">{t("Sans catégorie")}</option>
             {selectedSpace?.categories?.map((item) => (
               <option value={item.id} key={item.id}>
                 {locale === "fr" ? item.nameFr : item.nameEn}
@@ -1392,41 +1434,39 @@ function DocumentsPanel({
           </select>
         </label>
         <label>
-          {t("Langue", "Language")}
+          {t("Langue")}
           <select name="locale" defaultValue="fr">
-            <option value="fr">{t("Français", "French")}</option>
+            <option value="fr">{t("Français")}</option>
             <option value="en">English</option>
           </select>
         </label>
         <label>
-          {t("Titre", "Title")}
+          {t("Titre")}
           <input name="title" required maxLength={255} />
         </label>
         <label>
-          {t("Description", "Description")}
+          {t("Description")}
           <textarea name="description" maxLength={2000} />
         </label>
         <label>
-          {t("Fichier", "File")}
+          {t("Fichier")}
           <input name="file" type="file" required accept=".pdf,.docx,.xlsx" />
         </label>
         <label className="check">
           <input name="sensitive" value="true" type="checkbox" />{" "}
-          {t("Document sensible", "Sensitive document")}
+          {t("Document sensible")}
         </label>
-        <button className="primary">
-          {t("Déposer et analyser", "Upload and scan")}
-        </button>
+        <button className="primary">{t("Déposer et analyser")}</button>
       </form>
       <div className="admin-table-wrap">
         <table>
           <thead>
             <tr>
-              <th>{t("Titre", "Title")}</th>
-              <th>{t("Espace", "Space")}</th>
-              <th>{t("Langues", "Languages")}</th>
-              <th>{t("État", "Status")}</th>
-              <th>{t("Actions", "Actions")}</th>
+              <th>{t("Titre")}</th>
+              <th>{t("Espace")}</th>
+              <th>{t("Langues")}</th>
+              <th>{t("État")}</th>
+              <th>{t("Actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -1470,7 +1510,7 @@ function DocumentsPanel({
                           .catch((error) => onError(error.message))
                       }
                     >
-                      {t("Publier", "Publish")}
+                      {t("Publier")}
                     </button>
                   )}{" "}
                   {document.status !== "ARCHIVED" && (
@@ -1483,7 +1523,7 @@ function DocumentsPanel({
                           .catch((error) => onError(error.message))
                       }
                     >
-                      {t("Archiver", "Archive")}
+                      {t("Archiver")}
                     </button>
                   )}{" "}
                   {document.status === "ARCHIVED" && (
@@ -1496,7 +1536,7 @@ function DocumentsPanel({
                           .catch((error) => onError(error.message))
                       }
                     >
-                      {t("Restaurer", "Restore")}
+                      {t("Restaurer")}
                     </button>
                   )}
                 </td>
@@ -1566,9 +1606,7 @@ function DirectoryPanel({
         formElement.reset();
         setEditing(null);
         onNotice(
-          editing
-            ? t("Connecteur modifié.", "Connector updated.")
-            : t("Connecteur enregistré.", "Connector saved."),
+          editing ? t("Connecteur modifié.") : t("Connecteur enregistré."),
         );
         await onChanged();
       })
@@ -1576,19 +1614,17 @@ function DirectoryPanel({
   };
   return (
     <>
-      <h1>{t("Synchronisation LDAP/LDAPS", "LDAP/LDAPS synchronization")}</h1>
+      <h1>{t("Synchronisation LDAP/LDAPS")}</h1>
       <form
         key={editing?.id || "new"}
         className="admin-form directory-form"
         onSubmit={submit}
       >
         <h2>
-          {editing
-            ? t("Modifier le connecteur", "Edit connector")
-            : t("Nouveau connecteur", "New connector")}
+          {editing ? t("Modifier le connecteur") : t("Nouveau connecteur")}
         </h2>
         <label>
-          {t("Nom", "Name")}
+          {t("Nom")}
           <input
             name="name"
             required
@@ -1596,7 +1632,7 @@ function DirectoryPanel({
           />
         </label>
         <label>
-          {t("Domaine", "Domain")}
+          {t("Domaine")}
           <input
             name="domain"
             required
@@ -1605,7 +1641,7 @@ function DirectoryPanel({
           />
         </label>
         <label>
-          {t("Contrôleur primaire", "Primary controller")}
+          {t("Contrôleur primaire")}
           <input
             name="primaryHost"
             required
@@ -1613,11 +1649,11 @@ function DirectoryPanel({
           />
         </label>
         <label>
-          {t("Contrôleur secondaire", "Secondary controller")}
+          {t("Contrôleur secondaire")}
           <input name="secondaryHost" defaultValue={editing?.secondaryHost} />
         </label>
         <label>
-          {t("Protocole", "Protocol")}
+          {t("Protocole")}
           <select name="protocol" defaultValue={editing?.protocol || "LDAPS"}>
             <option>LDAPS</option>
             <option>LDAP</option>
@@ -1653,7 +1689,7 @@ function DirectoryPanel({
           <input name="bindDn" required defaultValue={editing?.bindDn} />
         </label>
         <label>
-          {t("Secret du compte de service", "Service account secret")}
+          {t("Secret du compte de service")}
           <input
             name="bindSecret"
             type="password"
@@ -1671,49 +1707,47 @@ function DirectoryPanel({
           />
         </label>
         <label>
-          {t("Filtre utilisateurs", "User filter")}
+          {t("Filtre utilisateurs")}
           <input
             name="userFilter"
             defaultValue={editing?.userFilter || "(objectClass=user)"}
           />
         </label>
         <label>
-          {t("Filtre groupes", "Group filter")}
+          {t("Filtre groupes")}
           <input
             name="groupFilter"
             defaultValue={editing?.groupFilter || "(objectClass=group)"}
           />
         </label>
         <label>
-          {t("Attribut utilisateur", "Username attribute")}
+          {t("Attribut utilisateur")}
           <input
             name="usernameAttribute"
             defaultValue={editing?.usernameAttribute || "sAMAccountName"}
           />
         </label>
         <label>
-          {t("Attribut groupe", "Group attribute")}
+          {t("Attribut groupe")}
           <input
             name="groupAttribute"
             defaultValue={editing?.groupAttribute || "cn"}
           />
         </label>
         <label>
-          {t("Attribut email", "Email attribute")}
+          {t("Attribut email")}
           <input
             name="emailAttribute"
             defaultValue={editing?.emailAttribute || "mail"}
           />
         </label>
         <label>
-          {t("Certificat CA", "CA certificate")}
+          {t("Certificat CA")}
           <select
             name="caCertificateId"
             defaultValue={editing?.caCertificateId || ""}
           >
-            <option value="">
-              {t("Aucun (LDAP uniquement)", "None (LDAP only)")}
-            </option>
+            <option value="">{t("Aucun (LDAP uniquement)")}</option>
             {certificates.map((certificate) => (
               <option value={certificate.id} key={certificate.id}>
                 {certificate.name}
@@ -1722,7 +1756,7 @@ function DirectoryPanel({
           </select>
         </label>
         <label>
-          {t("Intervalle (minutes)", "Interval (minutes)")}
+          {t("Intervalle (minutes)")}
           <input
             name="syncIntervalMinutes"
             type="number"
@@ -1738,7 +1772,7 @@ function DirectoryPanel({
           />
         </label>
         <label>
-          {t("Tentatives", "Retries")}
+          {t("Tentatives")}
           <input
             name="retries"
             type="number"
@@ -1751,7 +1785,7 @@ function DirectoryPanel({
             type="checkbox"
             defaultChecked={editing?.nestedGroups ?? true}
           />{" "}
-          {t("Groupes imbriqués", "Nested groups")}
+          {t("Groupes imbriqués")}
         </label>
         <label className="check">
           <input
@@ -1759,16 +1793,14 @@ function DirectoryPanel({
             type="checkbox"
             defaultChecked={editing?.enabled ?? false}
           />{" "}
-          {t("Activer après validation", "Enable after validation")}
+          {t("Activer après validation")}
         </label>
         <button className="primary">
-          {editing
-            ? t("Enregistrer les modifications", "Save changes")
-            : t("Enregistrer", "Save")}
+          {editing ? t("Enregistrer les modifications") : t("Enregistrer")}
         </button>
         {editing && (
           <button type="button" onClick={() => setEditing(null)}>
-            {t("Annuler", "Cancel")}
+            {t("Annuler")}
           </button>
         )}
       </form>
@@ -1786,14 +1818,11 @@ function DirectoryPanel({
               {connection.protocol}://{connection.primaryHost}:{connection.port}
             </p>
             <p>
-              {t("Test", "Test")}:{" "}
+              {t("Test")}:{" "}
               {connection.lastTestStatus
                 ? localizedStatus(locale, connection.lastTestStatus)
-                : t("Jamais", "Never")}{" "}
-              ·{" "}
-              {connection.enabled
-                ? t("Actif", "Active")
-                : t("Inactif", "Inactive")}
+                : t("Jamais")}{" "}
+              · {connection.enabled ? t("Actif") : t("Inactif")}
             </p>
             <div className="button-row">
               <button
@@ -1803,7 +1832,7 @@ function DirectoryPanel({
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
               >
-                {t("Modifier", "Edit")}
+                {t("Modifier")}
               </button>
               <button
                 onClick={() =>
@@ -1812,13 +1841,13 @@ function DirectoryPanel({
                     { method: "POST" },
                   )
                     .then(async (result) => {
-                      onNotice(`${t("Test", "Test")} ${result.status}`);
+                      onNotice(`${t("Test")} ${result.status}`);
                       await onChanged();
                     })
                     .catch((error) => onError(error.message))
                 }
               >
-                {t("Tester", "Test")}
+                {t("Tester")}
               </button>
               <button
                 onClick={() =>
@@ -1827,15 +1856,13 @@ function DirectoryPanel({
                     { method: "POST" },
                   )
                     .then(async (result) => {
-                      onNotice(
-                        `${t("Synchronisation", "Synchronization")} ${result.status}`,
-                      );
+                      onNotice(`${t("Synchronisation")} ${result.status}`);
                       await onChanged();
                     })
                     .catch((error) => onError(error.message))
                 }
               >
-                {t("Synchroniser", "Synchronize")}
+                {t("Synchroniser")}
               </button>
               <button
                 className="danger"
@@ -1847,7 +1874,7 @@ function DirectoryPanel({
                     .catch((error) => onError(error.message))
                 }
               >
-                {t("Désactiver", "Disable")}
+                {t("Désactiver")}
               </button>
             </div>
           </article>
@@ -1874,7 +1901,7 @@ function CertificatesPanel({
   const [name, setName] = useState("");
   return (
     <>
-      <h1>{t("Certificats CA", "CA certificates")}</h1>
+      <h1>{t("Certificats CA")}</h1>
       <p className="lead">
         {t(
           "Un ou deux certificats publics maximum, stockés dans PostgreSQL et séparés des documents.",
@@ -1893,7 +1920,7 @@ function CertificatesPanel({
             .then(async () => {
               setName("");
               setPem("");
-              onNotice(t("Certificat importé.", "Certificate imported."));
+              onNotice(t("Certificat importé."));
               await onChanged();
             })
             .catch((error) => onError(error.message));
@@ -1901,7 +1928,7 @@ function CertificatesPanel({
       >
         <input
           required
-          placeholder={t("Nom convivial", "Friendly name")}
+          placeholder={t("Nom convivial")}
           value={name}
           onChange={(event) => setName(event.target.value)}
         />
@@ -1916,7 +1943,7 @@ function CertificatesPanel({
           }
         />
         <button className="primary" disabled={certificates.length >= 2}>
-          {t("Importer", "Import")}
+          {t("Importer")}
         </button>
       </form>
       <div className="card-grid">
@@ -1931,16 +1958,16 @@ function CertificatesPanel({
             <h2>{certificate.name}</h2>
             <p>
               <mark>{localizedStatus(locale, certificate.status)}</mark>{" "}
-              {certificate.inUse ? t("· utilisé", "· in use") : ""}
+              {certificate.inUse ? t("· utilisé") : ""}
             </p>
             <small>
-              {t("Sujet", "Subject")}: {certificate.subject}
+              {t("Sujet")}: {certificate.subject}
             </small>
             <small>
-              {t("Émetteur", "Issuer")}: {certificate.issuer}
+              {t("Émetteur")}: {certificate.issuer}
             </small>
             <small>
-              {t("Expire", "Expires")}:{" "}
+              {t("Expire")}:{" "}
               {new Date(certificate.validTo).toLocaleDateString(locale)}
             </small>
             <small>SHA-256 : {certificate.fingerprintSha256}</small>
@@ -1955,10 +1982,10 @@ function CertificatesPanel({
                     .catch((error) => onError(error.message))
                 }
               >
-                {t("Tester", "Test")}
+                {t("Tester")}
               </button>
               <a href={`/api/admin/certificates/${certificate.id}/public`}>
-                {t("Télécharger", "Download")}
+                {t("Télécharger")}
               </a>
               <button
                 className="danger"
@@ -1980,7 +2007,7 @@ function CertificatesPanel({
                       .catch((error) => onError(error.message));
                 }}
               >
-                {t("Supprimer", "Delete")}
+                {t("Supprimer")}
               </button>
             </div>
           </article>
@@ -1996,28 +2023,22 @@ function AuditPanel({ events }: { events: Audit[] }) {
     <>
       <div className="section-actions">
         <div>
-          <h1>{t("Journal d’audit", "Audit log")}</h1>
-          <p className="lead">
-            {t("Événements UTC sans secrets.", "UTC events without secrets.")}
-          </p>
+          <h1>{t("Journal d’audit")}</h1>
+          <p className="lead">{t("Événements UTC sans secrets.")}</p>
         </div>
-        <a href="/api/admin/audit/export?format=csv">
-          {t("Exporter CSV", "Export CSV")}
-        </a>
-        <a href="/api/admin/audit/export?format=json">
-          {t("Exporter JSON", "Export JSON")}
-        </a>
+        <a href="/api/admin/audit/export?format=csv">{t("Exporter CSV")}</a>
+        <a href="/api/admin/audit/export?format=json">{t("Exporter JSON")}</a>
       </div>
       <div className="admin-table-wrap">
         <table>
           <thead>
             <tr>
               <th>Date UTC</th>
-              <th>{t("Identité", "Identity")}</th>
-              <th>{t("Action", "Action")}</th>
-              <th>{t("Ressource", "Resource")}</th>
-              <th>{t("Résultat", "Result")}</th>
-              <th>{t("Corrélation", "Correlation")}</th>
+              <th>{t("Identité")}</th>
+              <th>{t("Action")}</th>
+              <th>{t("Ressource")}</th>
+              <th>{t("Résultat")}</th>
+              <th>{t("Corrélation")}</th>
             </tr>
           </thead>
           <tbody>
@@ -2053,21 +2074,24 @@ function HealthPanel({ health }: { health: Record<string, unknown> | null }) {
   const { t } = useAdminI18n();
   return (
     <>
-      <h1>{t("Santé des services", "Service health")}</h1>
+      <h1>{t("Santé des services")}</h1>
       <pre className="health-output">{JSON.stringify(health, null, 2)}</pre>
       <p>
-        <a href="/api/metrics">
-          {t("Métriques Prometheus", "Prometheus metrics")}
-        </a>
+        <a href="/api/metrics">{t("Métriques Prometheus")}</a>
       </p>
     </>
   );
 }
 
 function SettingsPanel({
+  identity,
   onError,
   onNotice,
 }: {
+  identity: {
+    displayName: string;
+    authentication: Authentication;
+  } | null;
   onError: (message: string) => void;
   onNotice: (message: string) => void;
 }) {
@@ -2076,7 +2100,46 @@ function SettingsPanel({
   const [value, setValue] = useState('{"days":[90,60,30,15,7]}');
   return (
     <>
-      <h1>{t("Configuration", "Settings")}</h1>
+      <h1>{t("Configuration")}</h1>
+      <section
+        className="sso-diagnostic"
+        aria-labelledby="sso-diagnostic-title"
+      >
+        <h2 id="sso-diagnostic-title">{t("Diagnostic SSO sécurisé")}</h2>
+        <p>
+          {t(
+            "Seuls les totaux et les correspondances d’autorisation sont affichés. Les claims bruts ne sont jamais exposés.",
+            "Only counts and authorization mappings are displayed. Raw claims are never exposed.",
+          )}
+        </p>
+        <dl>
+          <dt>{t("Source d’identité")}</dt>
+          <dd>{identity?.authentication.source || "—"}</dd>
+          <dt>{t("Groupes reçus")}</dt>
+          <dd>{identity?.authentication.diagnostics.groupCount ?? "—"}</dd>
+          <dt>{t("Espaces associés")}</dt>
+          <dd>
+            {identity?.authentication.diagnostics.mappedSpaceCount ?? "—"}
+          </dd>
+          <dt>{t("Groupes administrateur associés")}</dt>
+          <dd>
+            {identity?.authentication.diagnostics.adminGroupMatchCount ?? "—"}
+          </dd>
+          <dt>{t("Expiration de session")}</dt>
+          <dd>
+            {identity?.authentication.sessionExpiresAt
+              ? new Date(
+                  identity.authentication.sessionExpiresAt,
+                ).toLocaleString()
+              : t("Non communiquée")}
+          </dd>
+        </dl>
+        {identity?.authentication.logoutUrl && (
+          <a className="button-link" href={identity.authentication.logoutUrl}>
+            {t("Se déconnecter du SSO")}
+          </a>
+        )}
+      </section>
       <form
         className="admin-form"
         onSubmit={async (event) => {
@@ -2087,24 +2150,24 @@ function SettingsPanel({
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(JSON.parse(value)),
             });
-            onNotice(t("Paramètre enregistré.", "Setting saved."));
+            onNotice(t("Paramètre enregistré."));
           } catch (error) {
             onError((error as Error).message);
           }
         }}
       >
         <label>
-          {t("Clé", "Key")}
+          {t("Clé")}
           <input value={key} onChange={(event) => setKey(event.target.value)} />
         </label>
         <label>
-          {t("Valeur JSON", "JSON value")}
+          {t("Valeur JSON")}
           <textarea
             value={value}
             onChange={(event) => setValue(event.target.value)}
           />
         </label>
-        <button className="primary">{t("Enregistrer", "Save")}</button>
+        <button className="primary">{t("Enregistrer")}</button>
       </form>
     </>
   );

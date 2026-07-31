@@ -163,6 +163,21 @@ export class IdentityController {
       authentication: {
         source: req.identity.source,
         ssoConnected: req.identity.source === "trusted-proxy",
+        sessionExpiresAt: req.identity.sessionExpiresAt || null,
+        loginUrl: process.env.SSO_LOGIN_URL || null,
+        logoutUrl: process.env.SSO_LOGOUT_URL || null,
+        diagnostics: {
+          groupCount: req.identity.groups.length,
+          mappedSpaceCount: spaces.length,
+          administrator: isAdminIdentity(req.identity.groups),
+          adminGroupMatchCount: req.identity.groups.filter((group) =>
+            (process.env.ISMS_ADMIN_GROUPS || "ISMS-ADMINS,ISMS-SUPER-ADMINS")
+              .split(",")
+              .map((value) => value.trim())
+              .filter(Boolean)
+              .includes(group),
+          ).length,
+        },
       },
       spaces: spaces.map(({ accessRules: _rules, ...space }) => space),
     };
@@ -465,17 +480,32 @@ export class AdminController {
   }
 
   @Get("groups")
-  groups(@Query("q") query = "") {
+  async groups(
+    @Query("q") query = "",
+    @Query("page") pageValue?: string,
+    @Query("limit") limitValue = "50",
+    @Query("sort") sort = "name",
+    @Query("order") order: "asc" | "desc" = "asc",
+  ) {
     const q = query.trim().slice(0, 120);
-    return this.prisma.directoryGroup.findMany({
-      where: q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { distinguishedName: { contains: q, mode: "insensitive" } },
-            ],
-          }
-        : undefined,
+    const where: Prisma.DirectoryGroupWhereInput = q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { distinguishedName: { contains: q, mode: "insensitive" } },
+          ],
+        }
+      : {};
+    const page = Math.max(1, Number(pageValue) || 1);
+    const limit = Math.min(200, Math.max(1, Number(limitValue) || 50));
+    const orderBy =
+      sort === "memberCount"
+        ? { memberCount: order }
+        : sort === "lastSyncedAt"
+          ? { lastSyncedAt: order }
+          : { name: order };
+    const queryOptions: Prisma.DirectoryGroupFindManyArgs = {
+      where,
       include: {
         accessRules: {
           select: {
@@ -486,8 +516,14 @@ export class AdminController {
           },
         },
       },
-      orderBy: { name: "asc" },
-    });
+      orderBy,
+      ...(pageValue ? { skip: (page - 1) * limit, take: limit } : {}),
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.directoryGroup.findMany(queryOptions),
+      this.prisma.directoryGroup.count({ where }),
+    ]);
+    return pageValue ? { items, page, limit, total } : items;
   }
 
   @Post("groups")
@@ -550,11 +586,39 @@ export class AdminController {
   }
 
   @Get("access-rules")
-  rules() {
-    return this.prisma.accessRule.findMany({
+  async rules(
+    @Query("q") query = "",
+    @Query("page") pageValue?: string,
+    @Query("limit") limitValue = "50",
+    @Query("order") order: "asc" | "desc" = "asc",
+  ) {
+    const q = query.trim().slice(0, 120);
+    const where: Prisma.AccessRuleWhereInput = q
+      ? {
+          OR: [
+            { group: { name: { contains: q, mode: "insensitive" as const } } },
+            {
+              space: { nameFr: { contains: q, mode: "insensitive" as const } },
+            },
+            {
+              space: { nameEn: { contains: q, mode: "insensitive" as const } },
+            },
+          ],
+        }
+      : {};
+    const page = Math.max(1, Number(pageValue) || 1);
+    const limit = Math.min(200, Math.max(1, Number(limitValue) || 50));
+    const options: Prisma.AccessRuleFindManyArgs = {
+      where,
       include: { group: true, space: true },
-      orderBy: [{ group: { name: "asc" } }, { space: { slug: "asc" } }],
-    });
+      orderBy: [{ group: { name: order } }, { space: { slug: order } }],
+      ...(pageValue ? { skip: (page - 1) * limit, take: limit } : {}),
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.accessRule.findMany(options),
+      this.prisma.accessRule.count({ where }),
+    ]);
+    return pageValue ? { items, page, limit, total } : items;
   }
 
   @Post("access-rules")
@@ -776,7 +840,7 @@ export class AdminController {
   ) {
     const page = Math.max(1, Number(pageValue) || 1);
     const limit = Math.min(200, Math.max(1, Number(limitValue) || 50));
-    const where = {
+    const where: Prisma.AuditEventWhereInput = {
       ...(action
         ? { action: { contains: action, mode: "insensitive" as const } }
         : {}),
@@ -912,9 +976,34 @@ export class DocumentAdminController {
   ) {}
 
   @Get()
-  list() {
-    return this.prisma.document.findMany({
-      where: { deletedAt: null },
+  async list(
+    @Query("q") query = "",
+    @Query("page") pageValue?: string,
+    @Query("limit") limitValue = "50",
+    @Query("sort") sort = "updatedAt",
+    @Query("order") order: "asc" | "desc" = "desc",
+  ) {
+    const q = query.trim().slice(0, 200);
+    const where: Prisma.DocumentWhereInput = {
+      deletedAt: null,
+      ...(q
+        ? {
+            translations: {
+              some: { title: { contains: q, mode: "insensitive" as const } },
+            },
+          }
+        : {}),
+    };
+    const page = Math.max(1, Number(pageValue) || 1);
+    const limit = Math.min(200, Math.max(1, Number(limitValue) || 50));
+    const orderBy =
+      sort === "status"
+        ? { status: order }
+        : sort === "publishedAt"
+          ? { publishedAt: order }
+          : { updatedAt: order };
+    const options: Prisma.DocumentFindManyArgs = {
+      where,
       include: {
         translations: true,
         versions: {
@@ -923,8 +1012,14 @@ export class DocumentAdminController {
         category: true,
         space: true,
       },
-      orderBy: { updatedAt: "desc" },
-    });
+      orderBy,
+      ...(pageValue ? { skip: (page - 1) * limit, take: limit } : {}),
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.document.findMany(options),
+      this.prisma.document.count({ where }),
+    ]);
+    return pageValue ? { items, page, limit, total } : items;
   }
 
   @Post()

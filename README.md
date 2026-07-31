@@ -162,3 +162,26 @@ Test LDAPS reproductible sans l’AD de production :
 ```bash
 ./scripts/test-ldaps-functional.sh
 ```
+
+## Session SSO et diagnostic
+
+Le frontal SSO approuvé peut transmettre `X-Auth-Session-Expires` au format
+ISO-8601 en plus de l’identité et des groupes. Une date invalide ou expirée est
+refusée par l’API. Configurer les destinations de reprise et de déconnexion
+dans `.env` :
+
+```dotenv
+SSO_LOGIN_URL=https://sso.entreprise.local/login
+SSO_LOGOUT_URL=https://sso.entreprise.local/logout
+```
+
+Le menu du compte et **Administration → Configuration** affichent uniquement
+la source d’identité, l’expiration et des compteurs de groupes/espaces
+associés. Les claims et noms de groupes bruts ne sont pas exposés par ce
+diagnostic. Le navigateur vérifie la session chaque minute et propose une
+réauthentification lorsqu’elle expire.
+
+Les listes administratives volumineuses acceptent les paramètres serveur
+`page`, `limit`, `q`, `sort` et `order` sur les routes des groupes, documents
+et règles. Le journal d’audit accepte également `action` et `result`. La limite
+est plafonnée à 200 éléments par page.
