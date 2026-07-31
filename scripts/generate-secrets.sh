@@ -17,10 +17,12 @@ Usage:
   ./scripts/generate-secrets.sh
   ./scripts/generate-secrets.sh --force
   ./scripts/generate-secrets.sh --credentials-only [--force]
+  ./scripts/generate-secrets.sh --admin-only [--force]
 
 Sans option, génère de nouveaux secrets puis crée .env et credentials.txt.
 --force écrase les fichiers existants et effectue donc une rotation de secrets.
 --credentials-only exporte les identifiants du .env existant sans les modifier.
+--admin-only crée ou renouvelle uniquement le mot de passe administrateur.
 EOF
 }
 
@@ -28,6 +30,7 @@ for argument in "$@"; do
   case "$argument" in
     --force) force=true ;;
     --credentials-only) mode=credentials-only ;;
+    --admin-only) mode=admin-only ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
   esac
@@ -60,10 +63,53 @@ write_credentials() {
     printf 'POSTGRES_PASSWORD=%s\n' "$(read_env_value POSTGRES_PASSWORD)"
     printf 'DATABASE_URL=%s\n' "$(read_env_value DATABASE_URL)"
     printf 'ENCRYPTION_KEY=%s\n' "$(read_env_value ENCRYPTION_KEY)"
-    printf 'ADMIN_AUTH=%s\n' 'Groupes Active Directory (aucun mot de passe local)'
+    printf 'INITIAL_ADMIN_USERNAME=%s\n' "$(read_env_value INITIAL_ADMIN_USERNAME)"
+    printf 'INITIAL_ADMIN_PASSWORD=%s\n' "$(read_env_value INITIAL_ADMIN_PASSWORD)"
+    printf 'ADMIN_AUTH=%s\n' 'Compte local de secours et SSO/Active Directory'
   } > "$target"
   chmod 600 "$target"
 }
+
+if [ "$mode" = admin-only ]; then
+  if [ ! -f "$env_file" ]; then
+    printf '.env est introuvable. Lancez d’abord le mode de génération.\n' >&2
+    exit 1
+  fi
+  current_admin_password=$(read_env_value INITIAL_ADMIN_PASSWORD)
+  if [ -n "$current_admin_password" ] && [ "$force" != true ]; then
+    printf 'Un mot de passe administrateur existe déjà ; utilisez --force pour le renouveler.\n' >&2
+    exit 1
+  fi
+  command -v openssl >/dev/null 2>&1 || {
+    printf 'OpenSSL est requis pour générer le mot de passe.\n' >&2
+    exit 1
+  }
+  admin_password=$(openssl rand -base64 32 | tr -d '\n')
+  env_tmp=$(mktemp "$project_root/.env.tmp.XXXXXX")
+  credentials_tmp=$(mktemp "$project_root/.credentials.txt.tmp.XXXXXX")
+  trap 'rm -f "$env_tmp" "$credentials_tmp"' EXIT HUP INT TERM
+  awk -v admin_password="$admin_password" '
+    BEGIN { found_user=0; found_name=0; found_password=0; found_demo=0 }
+    /^INITIAL_ADMIN_USERNAME=/ { print "INITIAL_ADMIN_USERNAME=admin"; found_user=1; next }
+    /^INITIAL_ADMIN_DISPLAY_NAME=/ { print "INITIAL_ADMIN_DISPLAY_NAME=Administrateur ISMS"; found_name=1; next }
+    /^INITIAL_ADMIN_PASSWORD=/ { print "INITIAL_ADMIN_PASSWORD=" admin_password; found_password=1; next }
+    /^DEMO_MODE=/ { print "DEMO_MODE=false"; found_demo=1; next }
+    { print }
+    END {
+      if (!found_user) print "INITIAL_ADMIN_USERNAME=admin"
+      if (!found_name) print "INITIAL_ADMIN_DISPLAY_NAME=Administrateur ISMS"
+      if (!found_password) print "INITIAL_ADMIN_PASSWORD=" admin_password
+      if (!found_demo) print "DEMO_MODE=false"
+    }
+  ' "$env_file" > "$env_tmp"
+  chmod 600 "$env_tmp"
+  mv -f "$env_tmp" "$env_file"
+  write_credentials "$credentials_tmp"
+  mv -f "$credentials_tmp" "$credentials_file"
+  trap - EXIT HUP INT TERM
+  printf 'Compte administrateur initial généré et mode démonstration désactivé.\n'
+  exit 0
+fi
 
 if [ "$mode" = credentials-only ]; then
   if [ ! -f "$env_file" ]; then
@@ -101,6 +147,7 @@ fi
 
 postgres_password=$(openssl rand -hex 32)
 encryption_key=$(openssl rand -base64 32 | tr -d '\n')
+admin_password=$(openssl rand -base64 32 | tr -d '\n')
 
 env_tmp=$(mktemp "$project_root/.env.tmp.XXXXXX")
 credentials_tmp=$(mktemp "$project_root/.credentials.txt.tmp.XXXXXX")
@@ -108,7 +155,8 @@ trap 'rm -f "$env_tmp" "$credentials_tmp"' EXIT HUP INT TERM
 
 awk \
   -v postgres_password="$postgres_password" \
-  -v encryption_key="$encryption_key" '
+  -v encryption_key="$encryption_key" \
+  -v admin_password="$admin_password" '
   /^POSTGRES_PASSWORD=/ {
     print "POSTGRES_PASSWORD=" postgres_password
     next
@@ -119,6 +167,10 @@ awk \
   }
   /^ENCRYPTION_KEY=/ {
     print "ENCRYPTION_KEY=" encryption_key
+    next
+  }
+  /^INITIAL_ADMIN_PASSWORD=/ {
+    print "INITIAL_ADMIN_PASSWORD=" admin_password
     next
   }
   { print }

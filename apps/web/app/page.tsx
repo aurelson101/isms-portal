@@ -400,6 +400,10 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   useEffect(() => {
     fetch("/api/me")
       .then(async (response) => {
+        if (response.status === 401) {
+          window.location.assign("/login?return=/");
+          throw new Error("authentication-required");
+        }
         if (!response.ok) throw new Error("identity");
         return response.json() as Promise<Identity>;
       })
@@ -635,7 +639,9 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
               >
                 {identity?.authentication.ssoConnected
                   ? t.ssoConnected
-                  : t.demoSession}
+                  : identity?.authentication.source === "local-admin"
+                    ? t.localAdminSession
+                    : t.demoSession}
               </span>
               {identity?.isAdmin && <a href="/admin">{t.administration}</a>}
               {identity && (

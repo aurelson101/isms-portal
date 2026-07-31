@@ -1,9 +1,15 @@
 # Administration
 
-L’accès HTML `/admin` et toutes les API `/api/admin/*` exigent un groupe défini
-dans `ISMS_ADMIN_GROUPS`. Aucun compte ni mot de passe administrateur local
-n’existe. Un administrateur possède toutes les permissions sur tous les espaces
-par défaut ; la matrice concerne les utilisateurs standards.
+L’accès HTML `/admin` et toutes les API `/api/admin/*` exigent soit un groupe
+défini dans `ISMS_ADMIN_GROUPS`, soit un compte administrateur enregistré. Le
+compte principal local est généré hors Git et sert de secours lorsque le SSO
+n’est pas disponible. Un administrateur possède toutes les permissions sur
+tous les espaces par défaut ; la matrice concerne les utilisateurs standards.
+
+Dans **Configuration**, l’administrateur peut modifier son nom et sa photo,
+changer son mot de passe, activer un MFA TOTP, ajouter un compte local ou
+rechercher un utilisateur AD puis lui attribuer l’administration. Le compte
+principal ne peut pas être supprimé.
 
 Les dix sections sont actives :
 

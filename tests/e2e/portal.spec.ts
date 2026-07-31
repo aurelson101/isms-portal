@@ -10,7 +10,7 @@ test("navigation, filtering, search and languages are functional", async ({
     .locator("header")
     .getByRole("button", { name: "FR", exact: true })
     .click();
-  await expect(page.getByText(/Mode démonstration/)).toBeVisible();
+  await expect(page.getByText(/Mode démonstration/)).toHaveCount(0);
   await expect(page.getByRole("heading", { name: /Bienvenue/ })).toBeVisible();
   await expect(
     page.getByText("Politique de sécurité de l’information"),
@@ -200,7 +200,7 @@ test("administration is fully switchable between French and English", async ({
   await page.goto("/admin");
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  await expect(page.getByText("Demo session")).toBeVisible();
+  await expect(page.getByText("Local administrator")).toBeVisible();
 
   for (const [menu, heading] of [
     ["Active Directory groups", "Active Directory groups"],
@@ -223,7 +223,9 @@ test("administration is fully switchable between French and English", async ({
   await expect(
     page.getByRole("heading", { name: "Configuration" }),
   ).toBeVisible();
-  await expect(page.getByText("Session de démonstration")).toBeVisible();
+  await expect(
+    page.getByText("Administrateur local", { exact: true }),
+  ).toBeVisible();
 });
 
 test("administration uses accessible confirmations and edits an existing directory connector", async ({

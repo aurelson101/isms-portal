@@ -18,6 +18,8 @@ import { StorageService } from "./storage.service";
 import { AntivirusService } from "./antivirus.service";
 import { CryptoService } from "./crypto.service";
 import { DirectoryService } from "./directory.service";
+import { AuthService } from "./auth.service";
+import { AuthController, AdminAccountsController } from "./auth.controller";
 
 @Module({
   controllers: [
@@ -28,6 +30,8 @@ import { DirectoryService } from "./directory.service";
     DocumentAdminController,
     DirectoryController,
     CertificatesController,
+    AuthController,
+    AdminAccountsController,
   ],
   providers: [
     PrismaService,
@@ -37,6 +41,7 @@ import { DirectoryService } from "./directory.service";
     AntivirusService,
     CryptoService,
     DirectoryService,
+    AuthService,
     { provide: APP_GUARD, useClass: AdminGuard },
   ],
 })

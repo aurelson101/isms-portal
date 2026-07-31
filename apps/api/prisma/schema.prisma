@@ -243,6 +243,39 @@ model UserPreference {
   updatedAt DateTime @updatedAt
 }
 
+model AdminAccount {
+  id              String         @id @default(uuid())
+  username        String         @unique
+  displayName     String
+  source          String         @default("LOCAL")
+  passwordHash    String?
+  profilePhoto    String?
+  mfaSecret       String?
+  mfaEnabled      Boolean        @default(false)
+  active          Boolean        @default(true)
+  primary         Boolean        @default(false)
+  failedLoginCount Int           @default(0)
+  lockedUntil      DateTime?
+  sessions        AdminSession[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([source, active])
+}
+
+model AdminSession {
+  id             String       @id @default(uuid())
+  tokenHash      String       @unique
+  adminAccountId String
+  adminAccount   AdminAccount @relation(fields: [adminAccountId], references: [id], onDelete: Cascade)
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  lastUsedAt     DateTime     @default(now())
+
+  @@index([adminAccountId])
+  @@index([expiresAt])
+}
+
 model AntivirusScan {
   id String @id @default(uuid())
   storedFileId String

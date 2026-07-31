@@ -293,7 +293,10 @@ export default function Admin() {
   const [notice, setNotice] = useState("");
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [identity, setIdentity] = useState<{
+    username: string;
     displayName: string;
+    profilePhoto: string | null;
+    primaryAdmin: boolean;
     locale: Locale | null;
     demoMode: boolean;
     authentication: Authentication;
@@ -337,7 +340,10 @@ export default function Admin() {
       ] = await Promise.all([
         api<{
           isAdmin: boolean;
+          username: string;
           displayName: string;
+          profilePhoto: string | null;
+          primaryAdmin: boolean;
           locale: Locale | null;
           demoMode: boolean;
           authentication: Authentication;
@@ -571,7 +577,9 @@ export default function Admin() {
                 >
                   {identity?.authentication.ssoConnected
                     ? t("SSO connecté")
-                    : t("Session de démonstration")}
+                    : identity?.authentication.source === "local-admin"
+                      ? t("Administrateur local")
+                      : t("Session de démonstration")}
                 </span>
               </div>
             </header>
@@ -2399,7 +2407,10 @@ function SettingsPanel({
   onNotice,
 }: {
   identity: {
+    username: string;
     displayName: string;
+    profilePhoto: string | null;
+    primaryAdmin: boolean;
     authentication: Authentication;
   } | null;
   onError: (message: string) => void;
@@ -2408,9 +2419,295 @@ function SettingsPanel({
   const { t } = useAdminI18n();
   const [key, setKey] = useState("certificates.expiry-alert-days");
   const [value, setValue] = useState('{"days":[90,60,30,15,7]}');
+  const [accounts, setAccounts] = useState<
+    Array<{
+      id: string;
+      username: string;
+      displayName: string;
+      source: string;
+      mfaEnabled: boolean;
+      primary: boolean;
+    }>
+  >([]);
+  const [profilePhoto, setProfilePhoto] = useState(
+    identity?.profilePhoto || "",
+  );
+  const [mfaSetup, setMfaSetup] = useState<{
+    secret: string;
+    otpauthUrl: string;
+  } | null>(null);
+  const [directoryQuery, setDirectoryQuery] = useState("");
+  const [directoryUsers, setDirectoryUsers] = useState<
+    Array<{ username: string; displayName: string; email: string | null }>
+  >([]);
+  const loadAccounts = useCallback(
+    () =>
+      api<typeof accounts>("/api/admin/accounts")
+        .then(setAccounts)
+        .catch((error) => onError(error.message)),
+    [onError],
+  );
+  useEffect(() => {
+    void loadAccounts();
+  }, [loadAccounts]);
+  useEffect(() => {
+    if (directoryQuery.trim().length < 2) {
+      setDirectoryUsers([]);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      api<typeof directoryUsers>(
+        `/api/admin/accounts/directory-users/${encodeURIComponent(directoryQuery)}`,
+      )
+        .then(setDirectoryUsers)
+        .catch((error) => onError(error.message));
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [directoryQuery, onError]);
   return (
     <>
       <h1>{t("Configuration")}</h1>
+      <section className="admin-card profile-settings">
+        <h2>{t("Profil administrateur")}</h2>
+        {profilePhoto && (
+          <img className="profile-photo" src={profilePhoto} alt="" />
+        )}
+        <form
+          className="admin-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const values = Object.fromEntries(
+              new FormData(event.currentTarget),
+            );
+            await api("/api/admin/accounts/me/profile", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                displayName: values.displayName,
+                profilePhoto: profilePhoto || null,
+              }),
+            })
+              .then(() => onNotice(t("Profil enregistré.")))
+              .catch((error) => onError(error.message));
+          }}
+        >
+          <label>
+            {t("Nom affiché")}
+            <input
+              name="displayName"
+              defaultValue={identity?.displayName}
+              required
+            />
+          </label>
+          <label>
+            {t("Photo de profil")}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                if (file.size > 256 * 1024) {
+                  onError(
+                    t(
+                      "La photo doit faire moins de 256 Kio.",
+                      "The photo must be smaller than 256 KiB.",
+                    ),
+                  );
+                  return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => setProfilePhoto(String(reader.result));
+                reader.readAsDataURL(file);
+              }}
+            />
+          </label>
+          <button className="primary">{t("Enregistrer")}</button>
+        </form>
+        {identity?.authentication.source === "local-admin" && (
+          <form
+            className="admin-form"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const values = Object.fromEntries(
+                new FormData(event.currentTarget),
+              );
+              await api("/api/admin/accounts/me/password", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(values),
+              })
+                .then(() => window.location.assign("/login?fallback=admin"))
+                .catch((error) => onError(error.message));
+            }}
+          >
+            <h3>{t("Changer le mot de passe")}</h3>
+            <input
+              name="currentPassword"
+              type="password"
+              placeholder={t("Mot de passe actuel")}
+              required
+            />
+            <input
+              name="newPassword"
+              type="password"
+              minLength={14}
+              placeholder={t(
+                "Nouveau mot de passe (14 caractères minimum)",
+                "New password (14 characters minimum)",
+              )}
+              required
+            />
+            <button>{t("Changer le mot de passe")}</button>
+          </form>
+        )}
+        {identity?.authentication.source === "local-admin" && (
+          <div className="mfa-settings">
+            <h3>{t("Authentification MFA")}</h3>
+            {!mfaSetup ? (
+              <button
+                onClick={() =>
+                  api<{ secret: string; otpauthUrl: string }>(
+                    "/api/admin/accounts/me/mfa/setup",
+                    { method: "POST" },
+                  )
+                    .then(setMfaSetup)
+                    .catch((error) => onError(error.message))
+                }
+              >
+                {t("Configurer le MFA")}
+              </button>
+            ) : (
+              <form
+                className="admin-form"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  const code = new FormData(event.currentTarget).get("code");
+                  await api("/api/admin/accounts/me/mfa/confirm", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ code }),
+                  })
+                    .then(async () => {
+                      setMfaSetup(null);
+                      onNotice(t("MFA activé."));
+                      await loadAccounts();
+                    })
+                    .catch((error) => onError(error.message));
+                }}
+              >
+                <p>
+                  {t(
+                    "Ajoutez cette clé dans Microsoft Authenticator, Google Authenticator ou une application TOTP :",
+                    "Add this key to Microsoft Authenticator, Google Authenticator, or another TOTP app:",
+                  )}
+                </p>
+                <code>{mfaSetup.secret}</code>
+                <input
+                  name="code"
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  placeholder="000000"
+                  required
+                />
+                <button className="primary">{t("Confirmer le MFA")}</button>
+              </form>
+            )}
+          </div>
+        )}
+      </section>
+      {identity?.primaryAdmin && (
+        <section className="admin-card">
+          <h2>{t("Comptes administrateurs")}</h2>
+          <div className="admin-account-list">
+            {accounts.map((account) => (
+              <div key={account.id}>
+                <span>
+                  <strong>{account.displayName}</strong> — {account.username} ·{" "}
+                  {account.source} · MFA {account.mfaEnabled ? "✓" : "—"}
+                </span>
+                {!account.primary && (
+                  <button
+                    className="danger"
+                    onClick={() =>
+                      api(`/api/admin/accounts/${account.id}`, {
+                        method: "DELETE",
+                      })
+                        .then(loadAccounts)
+                        .catch((error) => onError(error.message))
+                    }
+                  >
+                    {t("Supprimer")}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <form
+            className="admin-form"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const values = Object.fromEntries(
+                new FormData(event.currentTarget),
+              );
+              await api("/api/admin/accounts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ...values, source: "LOCAL" }),
+              })
+                .then(async () => {
+                  event.currentTarget.reset();
+                  await loadAccounts();
+                })
+                .catch((error) => onError(error.message));
+            }}
+          >
+            <h3>{t("Ajouter un administrateur local")}</h3>
+            <input name="displayName" placeholder={t("Nom affiché")} required />
+            <input name="username" placeholder={t("Identifiant")} required />
+            <input
+              name="password"
+              type="password"
+              minLength={14}
+              placeholder={t("Mot de passe fort")}
+              required
+            />
+            <button className="primary">{t("Ajouter")}</button>
+          </form>
+          <label>
+            {t(
+              "Rechercher un utilisateur Active Directory",
+              "Search for an Active Directory user",
+            )}
+            <input
+              value={directoryQuery}
+              onChange={(event) => setDirectoryQuery(event.target.value)}
+              placeholder={t(
+                "Nom, identifiant ou e-mail",
+                "Name, username or email",
+              )}
+            />
+          </label>
+          <div className="directory-user-results">
+            {directoryUsers.map((user) => (
+              <button
+                key={user.username}
+                onClick={() =>
+                  api("/api/admin/accounts", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ...user, source: "DIRECTORY" }),
+                  })
+                    .then(loadAccounts)
+                    .catch((error) => onError(error.message))
+                }
+              >
+                {user.displayName} — {user.username}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       <section
         className="sso-diagnostic"
         aria-labelledby="sso-diagnostic-title"
@@ -2448,6 +2745,17 @@ function SettingsPanel({
           <a className="button-link" href={identity.authentication.logoutUrl}>
             {t("Se déconnecter du SSO")}
           </a>
+        )}
+        {identity?.authentication.source === "local-admin" && (
+          <button
+            onClick={() =>
+              api("/api/auth/logout", { method: "POST" }).then(() =>
+                window.location.assign("/login?fallback=admin"),
+              )
+            }
+          >
+            {t("Se déconnecter")}
+          </button>
         )}
       </section>
       <form

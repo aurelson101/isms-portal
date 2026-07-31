@@ -12,11 +12,18 @@
 - images non-root, capacités minimales, réseaux internes et racine en lecture
   seule ;
 - logs JSON corrélés et audit expurgé.
+- mots de passe administrateur hachés avec scrypt et mot de passe initial
+  généré hors Git ;
+- sessions administrateur limitées à huit heures dans un cookie `HttpOnly`,
+  `SameSite=Strict` et `Secure` en HTTPS ;
+- verrouillage du compte pendant quinze minutes après cinq échecs et limitation
+  Nginx dédiée à la route de connexion ;
+- MFA TOTP optionnel compatible Microsoft Authenticator.
 
-L’application n’utilise pas de cookie de session ni d’authentification par
-cookie : une protection CSRF par jeton n’est donc pas nécessaire dans le mode
-proxy actuel. Si OIDC avec cookie est ajouté au proxy, celui-ci doit imposer
-`Secure`, `HttpOnly`, `SameSite` et une protection CSRF.
+Le cookie administrateur utilise `SameSite=Strict`, ce qui bloque son envoi
+dans les requêtes intersites usuelles. `COOKIE_SECURE=true` est obligatoire
+derrière HTTPS. Les utilisateurs SSO restent authentifiés par le frontal de
+confiance.
 
 Contrôles :
 

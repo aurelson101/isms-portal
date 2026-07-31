@@ -172,6 +172,65 @@ export class DirectoryService {
       .slice(0, 20);
   }
 
+  async searchUsers(query: string) {
+    const term = query.trim().slice(0, 120);
+    if (term.length < 2) return [];
+    const connections = await this.prisma.directoryConnection.findMany({
+      where: { enabled: true },
+      include: { caCertificate: true },
+      orderBy: { name: "asc" },
+    });
+    if (!connections.length)
+      throw new BadRequestException("No active LDAP/LDAPS connector");
+    const users = new Map<
+      string,
+      { username: string; displayName: string; email: string | null }
+    >();
+    let success = false;
+    for (const connection of connections) {
+      try {
+        validateFilter(connection.userFilter);
+        const { client } = await this.bindWithFallback(connection);
+        try {
+          const search = escapeFilter`(|(${connection.usernameAttribute}=*${term}*)(displayName=*${term}*)(${connection.emailAttribute}=*${term}*))`;
+          const result = await client.search(
+            connection.userBaseDn || connection.baseDn,
+            {
+              scope: "sub",
+              filter: `(&${connection.userFilter}${search})`,
+              sizeLimit: 20,
+              attributes: [
+                connection.usernameAttribute,
+                "displayName",
+                connection.emailAttribute,
+              ],
+            },
+          );
+          success = true;
+          for (const entry of result.searchEntries) {
+            const username = String(
+              entry[connection.usernameAttribute] || "",
+            ).trim();
+            if (!username) continue;
+            users.set(username.toLowerCase(), {
+              username,
+              displayName: String(entry.displayName || username),
+              email: entry[connection.emailAttribute]
+                ? String(entry[connection.emailAttribute])
+                : null,
+            });
+          }
+        } finally {
+          await client.unbind().catch(() => undefined);
+        }
+      } catch {
+        // A secondary connector may still answer.
+      }
+    }
+    if (!success) throw new Error("Directory user search failed");
+    return [...users.values()].slice(0, 20);
+  }
+
   async importGroup(connectionId: string, distinguishedName: string) {
     const connection = await this.connection(connectionId);
     if (!connection?.enabled)

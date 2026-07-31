@@ -221,6 +221,27 @@ Test LDAPS reproductible sans l’AD de production :
 
 ## Session SSO et diagnostic
 
+Le portail tente d’abord la connexion SSO configurée (Microsoft 365/Entra ID,
+Keycloak ou un proxy OIDC). Si aucune session professionnelle n’est reconnue,
+`/login` propose le compte administrateur local de secours.
+
+Le compte principal n’utilise jamais un mot de passe fixe versionné. Le script
+génère un mot de passe fort dans `.env` et `credentials.txt`, tous deux exclus
+de Git et protégés en mode `600` :
+
+```bash
+./scripts/generate-secrets.sh
+./scripts/generate-secrets.sh --admin-only
+./scripts/generate-secrets.sh --admin-only --force
+```
+
+L’identifiant initial est `admin` sauf modification de
+`INITIAL_ADMIN_USERNAME`. Lire le mot de passe uniquement dans
+`credentials.txt`, puis le changer dans **Administration → Configuration →
+Profil administrateur**. Cette page permet aussi d’ajouter une photo, de
+configurer un MFA TOTP et de gérer les administrateurs locaux ou associés à un
+utilisateur Active Directory.
+
 Le frontal SSO approuvé peut transmettre `X-Auth-Session-Expires` au format
 ISO-8601 en plus de l’identité et des groupes. Une date invalide ou expirée est
 refusée par l’API. Configurer les destinations de reprise et de déconnexion
@@ -229,6 +250,7 @@ dans `.env` :
 ```dotenv
 SSO_LOGIN_URL=https://sso.entreprise.local/login
 SSO_LOGOUT_URL=https://sso.entreprise.local/logout
+COOKIE_SECURE=true
 ```
 
 Le menu du compte et **Administration → Configuration** affichent uniquement
