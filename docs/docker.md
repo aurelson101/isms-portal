@@ -18,6 +18,12 @@ Les volumes `postgres-data`, `redis-data`, `document-storage` et `clamav-data`
 survivent aux redémarrages. Ne jamais lancer `docker compose down -v` sur une
 installation à conserver.
 
+Le réseau `antivirus-egress` donne uniquement à ClamAV la sortie nécessaire à
+l'actualisation de ses signatures. Aucun port ClamAV n'est publié sur l'hôte ;
+l'API et le worker l'interrogent exclusivement sur le réseau interne `data`.
+Le worker attend que l'API soit saine afin de ne pas interroger PostgreSQL avant
+la fin des migrations d'une installation neuve.
+
 Les limites Compose constituent une base : les ajuster après mesure CPU/RAM.
 Les secrets doivent venir du gestionnaire approuvé ; `.env` et
 `credentials.txt` sont locaux, protégés en `600` et exclus de Git.

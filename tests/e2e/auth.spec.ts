@@ -115,6 +115,7 @@ test("the generated administrator can sign in and manage the secure profile", as
   // Clearing this browser context verifies the protected redirect without
   // revoking that prepared server-side session.
   await page.context().clearCookies();
-  await page.goto("/admin");
-  await expect(page).toHaveURL(/\/admin\/login\?return=/);
+  const redirect = await page.request.get("/admin", { maxRedirects: 0 });
+  expect(redirect.status()).toBe(302);
+  expect(redirect.headers().location).toContain("/admin/login?return=/admin");
 });

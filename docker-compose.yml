@@ -84,6 +84,7 @@ services:
       - path: .env
         required: false
     depends_on:
+      api: { condition: service_healthy }
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
       storage-init: { condition: service_completed_successfully }
@@ -170,7 +171,7 @@ services:
       timeout: 10s
       retries: 30
       start_period: 90s
-    networks: [data]
+    networks: [data, antivirus-egress]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     cap_add: [CHOWN, DAC_OVERRIDE, DAC_READ_SEARCH, FOWNER, SETGID, SETUID]
@@ -186,6 +187,7 @@ networks:
   data:
     internal: true
   directory-egress:
+  antivirus-egress:
 volumes:
   postgres-data:
   redis-data:
