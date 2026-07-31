@@ -16,7 +16,6 @@ type SpacePermissions = {
   edit: boolean;
   publish: boolean;
   archive: boolean;
-  administer: boolean;
 };
 type Space = {
   id: string;
@@ -53,7 +52,6 @@ type PortalDocument = {
     edit: boolean;
     publish: boolean;
     archive: boolean;
-    administer: boolean;
   };
 };
 type PaginatedDocuments = {
@@ -240,7 +238,6 @@ function DocumentRows({
   onOpen,
   onEdit,
   onTransition,
-  onDelete,
   viewMode = "list",
 }: {
   documents: PortalDocument[];
@@ -253,7 +250,6 @@ function DocumentRows({
     document: PortalDocument,
     action: "publish" | "archive" | "restore",
   ) => void;
-  onDelete: (document: PortalDocument) => void;
   viewMode?: ViewMode;
 }) {
   const t = copy[locale];
@@ -323,8 +319,7 @@ function DocumentRows({
             )}
             {(document.permissions.edit ||
               document.permissions.publish ||
-              document.permissions.archive ||
-              document.permissions.administer) && (
+              document.permissions.archive) && (
               <span
                 className="document-manage-actions"
                 aria-label={t.permissionsGranted}
@@ -352,15 +347,6 @@ function DocumentRows({
                       {t.archive}
                     </button>
                   )}
-                {document.permissions.administer && (
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => onDelete(document)}
-                  >
-                    {t.delete}
-                  </button>
-                )}
                 {document.permissions.archive &&
                   document.status === "ARCHIVED" && (
                     <button
@@ -398,7 +384,6 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   const [opened, setOpened] = useState<PortalDocument | null>(null);
   const [editing, setEditing] = useState<PortalDocument | null>(null);
   const [depositOpen, setDepositOpen] = useState(false);
-  const [deleting, setDeleting] = useState<PortalDocument | null>(null);
   const [actionError, setActionError] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -940,24 +925,16 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                       {query || space ? t.search : t.recent}
                     </h2>
                     <div className="explorer-space-actions">
-                      {space && selectedSpace?.permissions?.administer && (
-                        <span className="permission-badge">
-                          <Icon name="settings" />
-                          {t.administerSpace}
-                        </span>
+                      {space && selectedSpace?.permissions?.upload && (
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={() => setDepositOpen(true)}
+                        >
+                          <Icon name="upload" />
+                          {t.deposit}
+                        </button>
                       )}
-                      {space &&
-                        (selectedSpace?.permissions?.upload ||
-                          selectedSpace?.permissions?.administer) && (
-                          <button
-                            type="button"
-                            className="primary"
-                            onClick={() => setDepositOpen(true)}
-                          >
-                            <Icon name="upload" />
-                            {t.deposit}
-                          </button>
-                        )}
                     </div>
                   </div>
                 )}
@@ -976,7 +953,6 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                   onTransition={(document, action) =>
                     void transitionDocument(document, action)
                   }
-                  onDelete={setDeleting}
                   viewMode={category ? viewMode : "list"}
                 />
                 {actionError && (
@@ -1290,50 +1266,6 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                 </button>
               </div>
             </form>
-          </section>
-        </div>
-      )}
-      {deleting && (
-        <div
-          className="modal-backdrop"
-          role="presentation"
-          onMouseDown={() => setDeleting(null)}
-        >
-          <section
-            className="modal small-modal"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="delete-document-title"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <h2 id="delete-document-title">{t.deleteDocument}</h2>
-            <p>{t.deleteDocumentWarning}</p>
-            <strong>{titleFor(deleting, locale)}</strong>
-            <div className="button-row">
-              <button
-                type="button"
-                className="danger"
-                onClick={async () => {
-                  const response = await fetch(
-                    `/api/documents/${deleting.id}`,
-                    {
-                      method: "DELETE",
-                    },
-                  );
-                  if (!response.ok) {
-                    setActionError(t.error);
-                    return;
-                  }
-                  setDeleting(null);
-                  await loadDocuments();
-                }}
-              >
-                {t.confirmDelete}
-              </button>
-              <button type="button" onClick={() => setDeleting(null)}>
-                {t.cancel}
-              </button>
-            </div>
           </section>
         </div>
       )}

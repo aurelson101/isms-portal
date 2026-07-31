@@ -171,7 +171,6 @@ export class IdentityController {
       "edit",
       "publish",
       "archive",
-      "administer",
     ];
     return {
       username: req.identity.username,
@@ -205,9 +204,7 @@ export class IdentityController {
           permissionNames.map((permission) => [
             permission,
             administrator ||
-              accessRules.some(
-                (rule) => rule.administer || Boolean(rule[permission]),
-              ),
+              accessRules.some((rule) => Boolean(rule[permission])),
           ]),
         ),
       })),
@@ -263,7 +260,6 @@ export class DocumentsController {
       "edit",
       "publish",
       "archive",
-      "administer",
     ];
     const permissionEntries = await Promise.all(
       permissionNames.map(
@@ -290,7 +286,7 @@ export class DocumentsController {
       .map((item) => item.id);
     const managedSpaceIds = [
       ...new Set(
-        ["edit", "publish", "archive", "administer"].flatMap((permission) => [
+        ["edit", "publish", "archive"].flatMap((permission) => [
           ...permissionSpaces[permission as keyof typeof permissionSpaces],
         ]),
       ),
@@ -372,7 +368,6 @@ export class DocumentsController {
         edit: permissionSpaces.edit.has(document.space.id),
         publish: permissionSpaces.publish.has(document.space.id),
         archive: permissionSpaces.archive.has(document.space.id),
-        administer: permissionSpaces.administer.has(document.space.id),
       },
       versions: document.versions.map((version) => ({
         ...version,
@@ -587,67 +582,6 @@ export class DocumentsController {
   @Post(":id/restore")
   async userRestore(@Req() req: IsmsRequest, @Param("id") id: string) {
     return this.transition(req, id, "archive", "DRAFT");
-  }
-
-  @Delete(":id")
-  async userDelete(@Req() req: IsmsRequest, @Param("id") id: string) {
-    const document = await this.prisma.document.findFirst({
-      where: { id, deletedAt: null },
-      include: {
-        translations: { select: { title: true, locale: true } },
-        versions: {
-          include: { storedFile: { select: { id: true, objectKey: true } } },
-        },
-      },
-    });
-    if (
-      !document ||
-      !(await this.authorization.can(
-        req.identity.groups,
-        document.spaceId,
-        "administer",
-      ))
-    )
-      throw new NotFoundException();
-    const storedFiles = Array.from(
-      new Map(
-        document.versions.map((version) => [
-          version.storedFile.id,
-          version.storedFile,
-        ]),
-      ).values(),
-    );
-    const storedFileIds = storedFiles.map((file) => file.id);
-    await this.prisma.$transaction([
-      this.prisma.antivirusScan.deleteMany({
-        where: { storedFileId: { in: storedFileIds } },
-      }),
-      this.prisma.documentVersion.deleteMany({ where: { documentId: id } }),
-      this.prisma.documentTranslation.deleteMany({ where: { documentId: id } }),
-      this.prisma.document.delete({ where: { id } }),
-      this.prisma.storedFile.deleteMany({
-        where: { id: { in: storedFileIds }, versions: { none: {} } },
-      }),
-    ]);
-    const cleanupResults = await Promise.allSettled(
-      storedFiles.map((file) => this.storage.removeObject(file.objectKey)),
-    );
-    const storageCleanupFailures = cleanupResults.filter(
-      (result) => result.status === "rejected",
-    ).length;
-    await this.audit.record(
-      req,
-      "document.delete",
-      `document:${id}`,
-      storageCleanupFailures === 0 ? "success" : "failure",
-      {
-        translations: document.translations,
-        deletedVersions: document.versions.length,
-        storageCleanupFailures,
-        delegatedSpaceAdministration: true,
-      },
-    );
-    return { deleted: true, storageCleanupFailures };
   }
 
   private async transition(

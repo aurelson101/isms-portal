@@ -120,7 +120,6 @@ type Rule = {
   edit: boolean;
   publish: boolean;
   archive: boolean;
-  administer: boolean;
 };
 type Certificate = {
   id: string;
@@ -221,7 +220,6 @@ const permissionKeys = [
   "edit",
   "publish",
   "archive",
-  "administer",
 ] as const;
 const permissionLabels: Record<
   (typeof permissionKeys)[number],
@@ -236,7 +234,6 @@ const permissionLabels: Record<
   edit: ["Modifier", "Edit"],
   publish: ["Publier", "Publish"],
   archive: ["Archiver", "Archive"],
-  administer: ["Administrer", "Administer"],
 };
 
 const emptyRule = (
@@ -254,7 +251,6 @@ const emptyRule = (
   edit: false,
   publish: false,
   archive: false,
-  administer: false,
 });
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {

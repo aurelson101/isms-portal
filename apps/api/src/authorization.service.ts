@@ -13,8 +13,7 @@ export type Permission =
   | "upload"
   | "edit"
   | "publish"
-  | "archive"
-  | "administer";
+  | "archive";
 
 @Injectable()
 export class AuthorizationService {
@@ -40,10 +39,7 @@ export class AuthorizationService {
                 name: { equals: name, mode: "insensitive" as const },
               })),
             },
-            OR:
-              permission === "administer"
-                ? [{ administer: true }]
-                : [{ [permission]: true }, { administer: true }],
+            [permission]: true,
           },
         },
       },
@@ -75,10 +71,7 @@ export class AuthorizationService {
               name: { equals: name, mode: "insensitive" as const },
             })),
           },
-          OR:
-            permission === "administer"
-              ? [{ administer: true }]
-              : [{ [permission]: true }, { administer: true }],
+          [permission]: true,
         },
       })) > 0
     );

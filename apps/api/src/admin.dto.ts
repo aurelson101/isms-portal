@@ -84,7 +84,6 @@ export class AccessRuleDto {
   @IsBoolean() edit!: boolean;
   @IsBoolean() publish!: boolean;
   @IsBoolean() archive!: boolean;
-  @IsBoolean() administer!: boolean;
 }
 
 export class DocumentMetadataDto {
