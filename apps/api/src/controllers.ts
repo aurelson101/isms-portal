@@ -17,7 +17,7 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { createHash, randomUUID, X509Certificate } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { basename, extname } from "path";
 import { createConnection } from "net";
 import { ApiConsumes, ApiTags } from "@nestjs/swagger";
@@ -42,6 +42,7 @@ import { StorageService } from "./storage.service";
 import { AntivirusService } from "./antivirus.service";
 import { CryptoService } from "./crypto.service";
 import { DirectoryService } from "./directory.service";
+import { parseCaCertificates } from "./certificate.parser";
 
 const tcpCheck = (host: string, port: number, timeout = 1200) =>
   new Promise<boolean>((resolve) => {
@@ -1529,62 +1530,79 @@ export class CertificatesController {
 
   @Post()
   async create(@Req() req: IsmsRequest, @Body() body: ImportCertificateDto) {
-    if (/PRIVATE KEY/i.test(body.pem))
-      throw new BadRequestException("Private keys are forbidden");
-    const certificateBlocks =
-      body.pem.match(/-----BEGIN CERTIFICATE-----/g)?.length || 0;
-    if (certificateBlocks > 1)
-      throw new BadRequestException(
-        "Import each CA certificate separately (maximum two)",
-      );
-    if ((await this.prisma.trustedCaCertificate.count()) >= 2) {
-      throw new ConflictException(
-        "At most two CA certificates can be configured",
-      );
-    }
-    let certificate: X509Certificate;
+    let certificates;
     try {
-      certificate = new X509Certificate(body.pem);
-    } catch {
-      throw new BadRequestException(
-        "Invalid X.509 certificate: use PEM or DER encoded as a .pem, .crt or .cer file",
+      certificates = parseCaCertificates(body);
+    } catch (error) {
+      throw new BadRequestException((error as Error).message);
+    }
+    const existing = await this.prisma.trustedCaCertificate.findMany({
+      select: { fingerprintSha256: true },
+    });
+    const existingFingerprints = new Set(
+      existing.map((certificate) => certificate.fingerprintSha256),
+    );
+    const uniqueCertificates = certificates.filter((certificate, index) => {
+      const fingerprint = createHash("sha256")
+        .update(certificate.raw)
+        .digest("hex");
+      return (
+        !existingFingerprints.has(fingerprint) &&
+        certificates.findIndex(
+          (candidate) =>
+            createHash("sha256").update(candidate.raw).digest("hex") ===
+            fingerprint,
+        ) === index
+      );
+    });
+    if (!uniqueCertificates.length)
+      throw new ConflictException("Duplicate certificate");
+    if (existing.length + uniqueCertificates.length > 2) {
+      throw new ConflictException(
+        `The file contains ${uniqueCertificates.length} new CA certificates, but only ${2 - existing.length} slot(s) remain`,
       );
     }
-    if (!certificate.ca)
-      throw new BadRequestException("The certificate is not a CA certificate");
-    const fingerprintSha256 = createHash("sha256")
-      .update(certificate.raw)
-      .digest("hex");
-    const duplicate = await this.prisma.trustedCaCertificate.findUnique({
-      where: { fingerprintSha256 },
-    });
-    if (duplicate) throw new ConflictException("Duplicate certificate");
-    const record = await this.prisma.trustedCaCertificate.create({
-      data: {
-        id: randomUUID(),
-        name: body.name.trim(),
-        subject: certificate.subject,
-        issuer: certificate.issuer,
-        serialNumber: certificate.serialNumber,
-        fingerprintSha256,
-        validFrom: new Date(certificate.validFrom),
-        validTo: new Date(certificate.validTo),
-        pem: certificate.toString(),
-      },
-      select: certificateSelection,
-    });
+
+    const records = await this.prisma.$transaction(
+      uniqueCertificates.map((certificate, index) => {
+        const fingerprintSha256 = createHash("sha256")
+          .update(certificate.raw)
+          .digest("hex");
+        const suffix =
+          uniqueCertificates.length > 1
+            ? ` (${index + 1}/${uniqueCertificates.length})`
+            : "";
+        return this.prisma.trustedCaCertificate.create({
+          data: {
+            id: randomUUID(),
+            name: `${body.name.trim()}${suffix}`,
+            subject: certificate.subject,
+            issuer: certificate.issuer,
+            serialNumber: certificate.serialNumber,
+            fingerprintSha256,
+            validFrom: new Date(certificate.validFrom),
+            validTo: new Date(certificate.validTo),
+            pem: certificate.toString(),
+          },
+          select: certificateSelection,
+        });
+      }),
+    );
     await this.audit.record(
       req,
       "certificate.import",
-      `certificate:${record.id}`,
+      `certificates:${records.map((record) => record.id).join(",")}`,
       "success",
-      { fingerprintSha256 },
+      {
+        count: records.length,
+        fingerprintsSha256: records.map((record) => record.fingerprintSha256),
+      },
     );
-    return {
+    return records.map((record) => ({
       ...record,
       status: certificateStatus(record.validFrom, record.validTo),
       inUse: false,
-    };
+    }));
   }
 
   @Get(":id/public")

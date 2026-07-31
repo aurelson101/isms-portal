@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsString, MaxLength } from "class-validator";
+import {
+  IsBase64,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from "class-validator";
 
 export class ImportCertificateDto {
   @IsString()
@@ -7,7 +13,12 @@ export class ImportCertificateDto {
   name!: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   @MaxLength(65536)
-  pem!: string;
+  pem?: string;
+
+  @IsBase64()
+  @IsOptional()
+  @MaxLength(65536)
+  contentBase64?: string;
 }

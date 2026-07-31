@@ -313,36 +313,39 @@ test("administration uses accessible confirmations and edits an existing directo
   await expect(page.getByText("Connecteur modifié.")).toBeVisible();
 });
 
-test("a DER encoded X.509 CA certificate can be imported from the administration", async ({
-  page,
-  request,
-}) => {
-  const name = `CA DER test ${Date.now()}`;
-  let certificateId = "";
-  try {
-    await page.goto("/admin#certificates");
-    await expect(
-      page.getByRole("heading", { name: "Certificats CA" }),
-    ).toBeVisible();
-    await page.getByPlaceholder("Nom convivial").fill(name);
-    await page
-      .locator('input[type="file"]')
-      .setInputFiles("tests/fixtures/test-ca.der.cer");
-    await page.getByRole("button", { name: "Importer" }).click();
-    await expect(page.getByRole("heading", { name })).toBeVisible();
-    await expect(page.getByText(/ISMS DER Test CA/).first()).toBeVisible();
+for (const [format, fixture] of [
+  ["DER X.509", "tests/fixtures/test-ca.der.cer"],
+  ["ADCS PKCS#7", "tests/fixtures/test-adcs-chain.cer"],
+] as const) {
+  test(`a ${format} CA certificate can be imported from the administration`, async ({
+    page,
+    request,
+  }) => {
+    const name = `CA ${format} test ${Date.now()}`;
+    let certificateId = "";
+    try {
+      await page.goto("/admin#certificates");
+      await expect(
+        page.getByRole("heading", { name: "Certificats CA" }),
+      ).toBeVisible();
+      await page.getByPlaceholder("Nom convivial").fill(name);
+      await page.locator('input[type="file"]').setInputFiles(fixture);
+      await page.getByRole("button", { name: "Importer" }).click();
+      await expect(page.getByRole("heading", { name })).toBeVisible();
+      await expect(page.getByText(/ISMS DER Test CA/).first()).toBeVisible();
 
-    const certificates = (await (
-      await request.get("/api/admin/certificates")
-    ).json()) as Array<{ id: string; name: string }>;
-    certificateId =
-      certificates.find((certificate) => certificate.name === name)?.id || "";
-    expect(certificateId).toBeTruthy();
-  } finally {
-    if (certificateId)
-      await request.delete(`/api/admin/certificates/${certificateId}`);
-  }
-});
+      const certificates = (await (
+        await request.get("/api/admin/certificates")
+      ).json()) as Array<{ id: string; name: string }>;
+      certificateId =
+        certificates.find((certificate) => certificate.name === name)?.id || "";
+      expect(certificateId).toBeTruthy();
+    } finally {
+      if (certificateId)
+        await request.delete(`/api/admin/certificates/${certificateId}`);
+    }
+  });
+}
 
 test("categories can be created, edited and deleted", async ({ request }) => {
   const spacesResponse = await request.get("/api/admin/spaces");

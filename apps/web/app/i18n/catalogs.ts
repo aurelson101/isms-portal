@@ -124,8 +124,8 @@ export const adminEnglishCatalog = {
     "Automatic retention of the 20 most recent events.",
   "Supprimer définitivement ce document et tous ses fichiers ?":
     "Permanently delete this document and all its files?",
-  "Formats acceptés : PEM ou X.509 DER (.pem, .crt, .cer), sans clé privée.":
-    "Accepted formats: PEM or X.509 DER (.pem, .crt, .cer), without a private key.",
+  "Formats acceptés : certificat ou chaîne ADCS X.509 PEM, DER ou PKCS#7 (.pem, .crt, .cer, .p7b, .p7c), sans clé privée.":
+    "Accepted formats: ADCS certificate or chain in X.509 PEM, DER or PKCS#7 format (.pem, .crt, .cer, .p7b, .p7c), without a private key.",
   "Le certificat dépasse la taille maximale de 48 Kio.":
     "The certificate exceeds the 48 KiB size limit.",
   "· utilisé": "· in use",

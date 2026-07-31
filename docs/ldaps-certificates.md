@@ -1,9 +1,16 @@
 # Certificats LDAPS
 
 L’administrateur peut importer un ou deux certificats CA publics depuis
-**Administration → Certificats CA**. Formats acceptés : PEM, CRT et CER contenant
-un certificat X.509 lisible. L’API refuse clés privées, non-CA, doublons et
-contenus supérieurs à la limite.
+**Administration → Certificats CA**. L’API reconnaît le contenu, indépendamment
+de l’extension : certificat X.509 PEM/DER ou chaîne ADCS PKCS#7 (`.pem`, `.crt`,
+`.cer`, `.p7b`, `.p7c`). Elle extrait uniquement les CA publiques et refuse clés
+privées, fichiers sans CA, doublons et contenus supérieurs à la limite.
+
+Un fichier `.cer` n’est pas nécessairement un certificat X.509 unique : ADCS
+peut fournir une chaîne PKCS#7 avec cette extension. L’import prend explicitement
+en charge ce cas. Si la chaîne contient plusieurs nouvelles CA, elles sont
+importées ensemble tant que la limite globale de deux certificats n’est pas
+dépassée.
 
 Pour chaque CA, l’écran affiche sujet, émetteur, empreinte SHA-256, validité,
 statut et connecteurs associés. Les actions disponibles sont tester, télécharger
