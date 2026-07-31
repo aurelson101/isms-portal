@@ -82,6 +82,14 @@ type Group = {
   lastSyncedAt?: string;
   accessRules: Array<{ space: Space }>;
 };
+type DirectoryGroupSuggestion = {
+  connectionId: string;
+  connectionName: string;
+  name: string;
+  distinguishedName: string;
+  description: string | null;
+  memberCount: number;
+};
 type Space = {
   id: string;
   slug: string;
@@ -912,6 +920,14 @@ function GroupsPanel({
 }) {
   const { locale, t } = useAdminI18n();
   const confirmAction = useContext(ConfirmContext);
+  const [directoryQuery, setDirectoryQuery] = useState("");
+  const [directorySuggestions, setDirectorySuggestions] = useState<
+    DirectoryGroupSuggestion[]
+  >([]);
+  const [selectedDirectoryGroup, setSelectedDirectoryGroup] =
+    useState<DirectoryGroupSuggestion | null>(null);
+  const [directorySearchLoading, setDirectorySearchLoading] = useState(false);
+  const [directorySearchComplete, setDirectorySearchComplete] = useState(false);
   const [form, setForm] = useState({
     name: "",
     distinguishedName: "",
@@ -922,6 +938,36 @@ function GroupsPanel({
       .toLowerCase()
       .includes(search.toLowerCase()),
   );
+  useEffect(() => {
+    const query = directoryQuery.trim();
+    if (query.length < 2 || selectedDirectoryGroup) {
+      setDirectorySuggestions([]);
+      setDirectorySearchLoading(false);
+      setDirectorySearchComplete(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setDirectorySearchLoading(true);
+      void api<DirectoryGroupSuggestion[]>(
+        `/api/admin/directory-connections/groups/search?q=${encodeURIComponent(query)}`,
+        { signal: controller.signal },
+      )
+        .then(setDirectorySuggestions)
+        .catch((error) => {
+          if ((error as Error).name !== "AbortError")
+            onError((error as Error).message);
+        })
+        .finally(() => {
+          setDirectorySearchLoading(false);
+          setDirectorySearchComplete(true);
+        });
+    }, 300);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [directoryQuery, onError, selectedDirectoryGroup]);
   return (
     <>
       <h1>{t("Groupes Active Directory")}</h1>
@@ -935,18 +981,31 @@ function GroupsPanel({
         className="admin-form inline-form"
         onSubmit={async (event) => {
           event.preventDefault();
-          await api("/api/admin/groups", {
+          const endpoint = selectedDirectoryGroup
+            ? "/api/admin/groups/import"
+            : "/api/admin/groups";
+          const body = selectedDirectoryGroup
+            ? {
+                connectionId: selectedDirectoryGroup.connectionId,
+                distinguishedName: selectedDirectoryGroup.distinguishedName,
+              }
+            : form;
+          await api(endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(form),
+            body: JSON.stringify(body),
           })
             .then(async () => {
               setForm({ name: "", distinguishedName: "", description: "" });
+              setDirectoryQuery("");
+              setSelectedDirectoryGroup(null);
               onNotice(
-                t(
-                  "Référence de groupe AD ajoutée.",
-                  "AD group reference added.",
-                ),
+                selectedDirectoryGroup
+                  ? t("Groupe importé depuis Active Directory.")
+                  : t(
+                      "Référence de groupe AD ajoutée.",
+                      "AD group reference added.",
+                    ),
               );
               await onChanged();
             })
@@ -959,17 +1018,72 @@ function GroupsPanel({
           required
           placeholder={t("Nom du groupe")}
           value={form.name}
-          onChange={(event) => setForm({ ...form, name: event.target.value })}
+          onChange={(event) => {
+            setSelectedDirectoryGroup(null);
+            setForm({ ...form, name: event.target.value });
+          }}
         />
-        <input
-          aria-label={t("DN du groupe AD")}
-          required
-          placeholder="CN=Groupe,OU=Groups,DC=entreprise,DC=local"
-          value={form.distinguishedName}
-          onChange={(event) =>
-            setForm({ ...form, distinguishedName: event.target.value })
-          }
-        />
+        <div className="directory-group-picker">
+          <input
+            aria-label={t("Rechercher ou saisir le DN du groupe AD")}
+            required
+            placeholder={t("Rechercher dans AD (ex. Skill) ou saisir un DN")}
+            value={directoryQuery}
+            onChange={(event) => {
+              const value = event.target.value;
+              setDirectoryQuery(value);
+              setSelectedDirectoryGroup(null);
+              setDirectorySearchComplete(false);
+              setForm({ ...form, distinguishedName: value });
+            }}
+          />
+          {directorySearchLoading && (
+            <small>{t("Recherche dans Active Directory…")}</small>
+          )}
+          {!directorySearchLoading &&
+            directoryQuery.trim().length >= 2 &&
+            !selectedDirectoryGroup &&
+            directorySearchComplete &&
+            directorySuggestions.length === 0 && (
+              <small>{t("Aucun groupe AD trouvé.")}</small>
+            )}
+          {directorySuggestions.length > 0 && !selectedDirectoryGroup && (
+            <div
+              className="directory-group-suggestions"
+              role="listbox"
+              aria-label={t("Groupes trouvés dans Active Directory")}
+            >
+              {directorySuggestions.map((suggestion) => (
+                <button
+                  type="button"
+                  role="option"
+                  key={`${suggestion.connectionId}:${suggestion.distinguishedName}`}
+                  onClick={() => {
+                    setSelectedDirectoryGroup(suggestion);
+                    setDirectoryQuery(suggestion.name);
+                    setForm({
+                      name: suggestion.name,
+                      distinguishedName: suggestion.distinguishedName,
+                      description: suggestion.description || "",
+                    });
+                  }}
+                >
+                  <strong>{suggestion.name}</strong>
+                  <span>{suggestion.distinguishedName}</span>
+                  <small>
+                    {suggestion.connectionName} · {suggestion.memberCount}{" "}
+                    {t("membre(s)")}
+                  </small>
+                </button>
+              ))}
+            </div>
+          )}
+          {selectedDirectoryGroup && (
+            <small className="success-text">
+              {t("Sélection AD")} : {selectedDirectoryGroup.distinguishedName}
+            </small>
+          )}
+        </div>
         <input
           aria-label={t("Description du groupe AD")}
           placeholder={t("Description")}

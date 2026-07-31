@@ -388,6 +388,58 @@ test("categories can be created, edited and deleted", async ({ request }) => {
   expect((await deletedResponse.json()).deleted).toBe(true);
 });
 
+test("an administrator can search and select a live AD group", async ({
+  page,
+}) => {
+  const distinguishedName = "CN=SkillsRDP,OU=Groups,DC=example,DC=com";
+  let importedBody: Record<string, string> | undefined;
+  await page.route(
+    "**/api/admin/directory-connections/groups/search?*",
+    async (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            connectionId: "11111111-1111-4111-8111-111111111111",
+            connectionName: "DC04",
+            name: "SkillsRDP",
+            distinguishedName,
+            description: "Remote desktop access",
+            memberCount: 4,
+          },
+        ]),
+      }),
+  );
+  await page.route("**/api/admin/groups/import", async (route) => {
+    importedBody = route.request().postDataJSON() as Record<string, string>;
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ id: "imported-skills-rdp" }),
+    });
+  });
+
+  await page.goto("/admin#groups");
+  const picker = page.getByRole("textbox", {
+    name: "Rechercher ou saisir le DN du groupe AD",
+  });
+  await picker.fill("Skill");
+  const suggestion = page.getByRole("option", { name: /SkillsRDP/ });
+  await expect(suggestion).toBeVisible();
+  await suggestion.click();
+  await expect(page.getByLabel("Nom du groupe AD")).toHaveValue("SkillsRDP");
+  await expect(
+    page.getByText(`Sélection AD : ${distinguishedName}`),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Ajouter", exact: true }).click();
+  await expect(
+    page.getByText("Groupe importé depuis Active Directory."),
+  ).toBeVisible();
+  expect(importedBody).toEqual({
+    connectionId: "11111111-1111-4111-8111-111111111111",
+    distinguishedName,
+  });
+});
+
 test("portal and administration remain usable on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
