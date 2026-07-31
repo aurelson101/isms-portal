@@ -327,8 +327,32 @@ export default function Admin() {
     setLoading(true);
     setError("");
     try {
+      const me = await api<{
+        isAdmin: boolean;
+        username: string;
+        displayName: string;
+        profilePhoto: string | null;
+        primaryAdmin: boolean;
+        locale: Locale | null;
+        authentication: Authentication;
+      }>("/api/me");
+      if (!me.isAdmin) {
+        setIsAdmin(false);
+        const requested = `${window.location.pathname}${window.location.hash}`;
+        window.location.replace(
+          `/admin/login?return=${encodeURIComponent(requested)}`,
+        );
+        return;
+      }
+      setIsAdmin(true);
+      setIdentity(me);
+      const preferred =
+        (localStorage.getItem("isms-locale") as Locale | null) ||
+        me.locale ||
+        (navigator.language.startsWith("en") ? "en" : "fr");
+      setLocale(preferred);
+      document.documentElement.lang = preferred;
       const [
-        me,
         dashboardResult,
         groupsResult,
         spacesResult,
@@ -339,15 +363,6 @@ export default function Admin() {
         auditResult,
         healthResult,
       ] = await Promise.all([
-        api<{
-          isAdmin: boolean;
-          username: string;
-          displayName: string;
-          profilePhoto: string | null;
-          primaryAdmin: boolean;
-          locale: Locale | null;
-          authentication: Authentication;
-        }>("/api/me"),
         api<Dashboard>("/api/admin/dashboard"),
         api<Group[]>("/api/admin/groups"),
         api<Space[]>("/api/admin/spaces"),
@@ -358,14 +373,6 @@ export default function Admin() {
         api<{ items: Audit[] }>("/api/admin/audit?limit=100"),
         api<Record<string, unknown>>("/api/health/details"),
       ]);
-      setIsAdmin(me.isAdmin);
-      setIdentity(me);
-      const preferred =
-        (localStorage.getItem("isms-locale") as Locale | null) ||
-        me.locale ||
-        (navigator.language.startsWith("en") ? "en" : "fr");
-      setLocale(preferred);
-      document.documentElement.lang = preferred;
       setDashboard(dashboardResult);
       setGroups(groupsResult);
       setSpaces(spacesResult);

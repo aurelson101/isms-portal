@@ -14,6 +14,36 @@ test("the main sign-in page only exposes the user credentials form", async ({
   await expect(page.getByText("Compte Active Directory")).toHaveCount(0);
 });
 
+test("a non-admin session is redirected to the dedicated administrator sign-in", async ({
+  page,
+}) => {
+  await page.route("**/api/me", (route) =>
+    route.fulfill({
+      json: {
+        username: "user@example.com",
+        displayName: "Standard User",
+        isAdmin: false,
+        locale: "fr",
+        authentication: {
+          source: "directory-session",
+          ssoConnected: false,
+          sessionExpiresAt: null,
+          loginUrl: null,
+          logoutUrl: null,
+          diagnostics: {
+            groupCount: 1,
+            mappedSpaceCount: 0,
+            administrator: false,
+            adminGroupMatchCount: 0,
+          },
+        },
+      },
+    }),
+  );
+  await page.goto("/admin");
+  await expect(page).toHaveURL(/\/admin\/login\?return=/);
+});
+
 test("the generated administrator can sign in and manage the secure profile", async ({
   page,
 }) => {
