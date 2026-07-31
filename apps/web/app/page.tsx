@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Icon, type IconName } from "./icons";
+import { Icon } from "./icons";
 import { portalCatalog as copy } from "./i18n/catalogs";
 
 type Locale = "fr" | "en";
@@ -23,6 +23,14 @@ type Space = {
   nameFr: string;
   nameEn: string;
   permissions?: SpacePermissions;
+  categories: Category[];
+};
+type Category = {
+  id: string;
+  slug: string;
+  nameFr: string;
+  nameEn: string;
+  spaceId: string;
 };
 type Translation = {
   locale: string;
@@ -370,7 +378,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   const [locale, setLocale] = useState<Locale>("fr");
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState(explorerMode ? "policies" : "");
+  const [category, setCategory] = useState("");
   const [space, setSpace] = useState("");
   const [documents, setDocuments] = useState<PortalDocument[]>([]);
   const [page, setPage] = useState(1);
@@ -398,7 +406,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
       setLoadError(false);
       const parameters = new URLSearchParams();
       if (query.trim()) parameters.set("q", query.trim());
-      if (category) parameters.set("category", category);
+      if (category) parameters.set("categoryId", category);
       if (space) parameters.set("space", space);
       parameters.set("sort", "recent");
       parameters.set("page", String(page));
@@ -435,15 +443,19 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
 
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search);
-    const requestedCategory = parameters.get("category");
+    const requestedCategory = parameters.get("categoryId");
+    const legacyCategory = parameters.get("category");
     const requestedSpace = parameters.get("space");
     const requestedQuery = parameters.get("q");
     setPage(Math.max(1, Number(parameters.get("page")) || 1));
     if (requestedCategory) {
       setCategory(requestedCategory);
+      setSpace(requestedSpace || "");
+    } else if (legacyCategory) {
+      setCategory(legacyCategory);
       setSpace("");
     }
-    if (requestedSpace) {
+    if (requestedSpace && !requestedCategory && !legacyCategory) {
       setSpace(requestedSpace);
       setCategory("");
     }
@@ -531,19 +543,21 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     }).catch(() => undefined);
   };
 
-  const selectCategory = (next: string) => {
+  const selectCategory = (spaceSlug: string, categoryId: string) => {
     if (!explorerMode) {
-      window.location.assign(`/explorer?category=${encodeURIComponent(next)}`);
+      window.location.assign(
+        `/explorer?space=${encodeURIComponent(spaceSlug)}&categoryId=${encodeURIComponent(categoryId)}`,
+      );
       return;
     }
     setQuery("");
-    setCategory(next);
-    setSpace("");
+    setCategory(categoryId);
+    setSpace(spaceSlug);
     setPage(1);
     window.history.replaceState(
       null,
       "",
-      `/explorer?category=${encodeURIComponent(next)}`,
+      `/explorer?space=${encodeURIComponent(spaceSlug)}&categoryId=${encodeURIComponent(categoryId)}`,
     );
   };
   const changeViewMode = (next: ViewMode) => {
@@ -588,21 +602,21 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     setPage(target);
     const parameters = new URLSearchParams();
     if (query.trim()) parameters.set("q", query.trim());
-    if (category) parameters.set("category", category);
+    if (category) parameters.set("categoryId", category);
     if (space) parameters.set("space", space);
     if (target > 1) parameters.set("page", String(target));
     window.history.replaceState(null, "", `/explorer?${parameters}`);
     resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   const t = copy[locale];
-  const categoryLabel =
-    category === "policies"
-      ? t.policies
-      : category === "procedures"
-        ? t.procedures
-        : category === "guides"
-          ? t.guides
-          : "";
+  const selectedCategory = identity?.spaces
+    .flatMap((item) => item.categories)
+    .find((item) => item.id === category);
+  const categoryLabel = selectedCategory
+    ? locale === "fr"
+      ? selectedCategory.nameFr
+      : selectedCategory.nameEn
+    : category;
   const initials = useMemo(
     () =>
       (identity?.displayName || "ISMS")
@@ -644,37 +658,40 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
           >
             <Icon name="home" /> <span>{t.home}</span>
           </button>
-          <button
-            className={category === "policies" ? "active" : ""}
-            onClick={() => selectCategory("policies")}
-          >
-            <Icon name="policy" /> <span>{t.policies}</span>
-          </button>
-          <button
-            className={category === "procedures" ? "active" : ""}
-            onClick={() => selectCategory("procedures")}
-          >
-            <Icon name="procedure" /> <span>{t.procedures}</span>
-          </button>
-          <button
-            className={category === "guides" ? "active" : ""}
-            onClick={() => selectCategory("guides")}
-          >
-            <Icon name="guide" /> <span>{t.guides}</span>
-          </button>
-          {identity?.spaces
-            .filter((item) => item.slug !== "general")
-            .map((item) => (
-              <button
-                type="button"
-                className={space === item.slug ? "active" : ""}
-                onClick={() => selectSpace(item.slug)}
-                key={item.id}
-              >
-                <Icon name="folder" />{" "}
-                <span>{locale === "fr" ? item.nameFr : item.nameEn}</span>
-              </button>
-            ))}
+          {identity?.spaces.map((item) => (
+            <div className="navigation-space" key={item.id}>
+              {item.slug !== "general" && (
+                <button
+                  type="button"
+                  className={space === item.slug && !category ? "active" : ""}
+                  onClick={() => selectSpace(item.slug)}
+                >
+                  <Icon name="folder" />{" "}
+                  <span>{locale === "fr" ? item.nameFr : item.nameEn}</span>
+                </button>
+              )}
+              {item.slug === "general" && item.categories.length > 0 && (
+                <span className="navigation-space-title">
+                  {locale === "fr" ? item.nameFr : item.nameEn}
+                </span>
+              )}
+              {item.categories.map((itemCategory) => (
+                <button
+                  type="button"
+                  className={`category-menu ${category === itemCategory.id ? "active" : ""}`}
+                  onClick={() => selectCategory(item.slug, itemCategory.id)}
+                  key={itemCategory.id}
+                >
+                  <Icon name="folder" />{" "}
+                  <span>
+                    {locale === "fr"
+                      ? itemCategory.nameFr
+                      : itemCategory.nameEn}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ))}
         </nav>
         <div className="secure">
           ✓ <span>{t.secured}</span>
@@ -823,26 +840,30 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
         </form>
         {!explorerMode && (
           <section className="cards" aria-label={t.spaces}>
-            {(
-              [
-                ["policy", "policies", t.policies],
-                ["procedure", "procedures", t.procedures],
-                ["guide", "guides", t.guides],
-              ] as const
-            ).map(([icon, key, label]) => (
-              <article key={key}>
-                <div className="card-icon">
-                  <Icon name={icon as IconName} />
-                </div>
-                <h2>{label}</h2>
-                <p>
-                  {locale === "fr"
-                    ? "Documents autorisés dans cette catégorie"
-                    : "Authorized documents in this category"}
-                </p>
-                <button onClick={() => selectCategory(key)}>{t.consult}</button>
-              </article>
-            ))}
+            {identity?.spaces.flatMap((item) =>
+              item.categories.map((itemCategory) => (
+                <article key={itemCategory.id}>
+                  <div className="card-icon">
+                    <Icon name="folder" />
+                  </div>
+                  <h2>
+                    {locale === "fr"
+                      ? itemCategory.nameFr
+                      : itemCategory.nameEn}
+                  </h2>
+                  <p>
+                    {locale === "fr"
+                      ? "Documents autorisés dans cette catégorie"
+                      : "Authorized documents in this category"}
+                  </p>
+                  <button
+                    onClick={() => selectCategory(item.slug, itemCategory.id)}
+                  >
+                    {t.consult}
+                  </button>
+                </article>
+              )),
+            )}
             {identity?.spaces
               .filter((item) => item.slug !== "general")
               .map((item) => (

@@ -43,10 +43,14 @@ for (const viewport of viewports) {
       localStorage.setItem("isms-locale", "fr");
       localStorage.setItem("isms-document-view", "list");
     });
-    await page.goto("/explorer?category=procedures");
+    await page.goto("/");
     await page
       .locator("header")
       .getByRole("button", { name: "FR", exact: true })
+      .click();
+    await page
+      .locator("aside")
+      .getByText("Procédures", { exact: true })
       .click();
     await expect(
       page.getByRole("heading", {
