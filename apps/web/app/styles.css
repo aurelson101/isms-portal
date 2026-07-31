@@ -515,6 +515,16 @@ h1 {
   font-size: 21px;
   margin-top: 30px;
 }
+.explorer-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 30px;
+}
+.explorer-title-row .section-title {
+  margin: 0;
+}
 .explorer-heading {
   margin-top: 30px;
   padding: 22px 24px;

@@ -160,11 +160,24 @@ export class IdentityController {
         select: { primary: true },
       }),
     ]);
+    const administrator = isAdminIdentity(req.identity.groups);
+    const permissionNames: Permission[] = [
+      "showMenu",
+      "read",
+      "search",
+      "preview",
+      "download",
+      "upload",
+      "edit",
+      "publish",
+      "archive",
+      "administer",
+    ];
     return {
       username: req.identity.username,
       displayName: req.identity.displayName,
       profilePhoto: req.identity.profilePhoto || null,
-      isAdmin: isAdminIdentity(req.identity.groups),
+      isAdmin: administrator,
       primaryAdmin: adminAccount?.primary || false,
       locale: preference?.locale || null,
       authentication: {
@@ -176,7 +189,7 @@ export class IdentityController {
         diagnostics: {
           groupCount: req.identity.groups.length,
           mappedSpaceCount: spaces.length,
-          administrator: isAdminIdentity(req.identity.groups),
+          administrator,
           adminGroupMatchCount: req.identity.groups.filter((group) =>
             (process.env.ISMS_ADMIN_GROUPS || "ISMS-ADMINS,ISMS-SUPER-ADMINS")
               .split(",")
@@ -186,7 +199,18 @@ export class IdentityController {
           ).length,
         },
       },
-      spaces: spaces.map(({ accessRules: _rules, ...space }) => space),
+      spaces: spaces.map(({ accessRules, ...space }) => ({
+        ...space,
+        permissions: Object.fromEntries(
+          permissionNames.map((permission) => [
+            permission,
+            administrator ||
+              accessRules.some(
+                (rule) => rule.administer || Boolean(rule[permission]),
+              ),
+          ]),
+        ),
+      })),
     };
   }
 
@@ -207,6 +231,7 @@ export class DocumentsController {
     private readonly prisma: PrismaService,
     private readonly authorization: AuthorizationService,
     private readonly storage: StorageService,
+    private readonly antivirus: AntivirusService,
     private readonly audit: AuditService,
   ) {}
 
@@ -366,6 +391,143 @@ export class DocumentsController {
           totalPages,
         }
       : items;
+  }
+
+  @Post("upload")
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      limits: { fileSize: 50 * 1024 * 1024, files: 1 },
+    }),
+  )
+  async upload(
+    @Req() req: IsmsRequest,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: Record<string, string>,
+  ) {
+    if (!file) throw new BadRequestException("A file is required");
+    if (!["fr", "en"].includes(body.locale))
+      throw new BadRequestException("Locale must be fr or en");
+    if (!body.spaceId || !body.title?.trim())
+      throw new BadRequestException("spaceId and title are required");
+    const existing = body.documentId
+      ? await this.prisma.document.findFirst({
+          where: { id: body.documentId, deletedAt: null },
+          select: { id: true, spaceId: true },
+        })
+      : null;
+    if (body.documentId && !existing) throw new NotFoundException();
+    if (existing && existing.spaceId !== body.spaceId)
+      throw new BadRequestException(
+        "A version must remain in its document space",
+      );
+    const requiredPermission: Permission = existing ? "edit" : "upload";
+    if (
+      !(await this.authorization.can(
+        req.identity.groups,
+        body.spaceId,
+        requiredPermission,
+      ))
+    )
+      throw new NotFoundException();
+    const extension = extname(file.originalname).toLowerCase();
+    if (
+      !allowedExtensions[extension]?.includes(file.mimetype) ||
+      !magicMatches(file.buffer, extension)
+    )
+      throw new BadRequestException(
+        "File extension, MIME type and content are inconsistent",
+      );
+    const [space, category] = await Promise.all([
+      this.prisma.documentSpace.findFirst({
+        where: { id: body.spaceId, deletedAt: null },
+      }),
+      body.categoryId
+        ? this.prisma.documentCategory.findFirst({
+            where: {
+              id: body.categoryId,
+              spaceId: body.spaceId,
+              deletedAt: null,
+            },
+          })
+        : Promise.resolve(null),
+    ]);
+    if (!space || (body.categoryId && !category))
+      throw new BadRequestException("Invalid space or category");
+    const scan = await this.antivirus.scan(file.buffer);
+    const documentId = existing?.id || randomUUID();
+    const objectKey = `${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${randomUUID()}${extension}`;
+    const sha256 = createHash("sha256").update(file.buffer).digest("hex");
+    await this.storage.putObject(objectKey, file.buffer, {
+      "Content-Type": file.mimetype,
+      "X-Amz-Meta-Sha256": sha256,
+    });
+    const result = await this.prisma.$transaction(async (tx) => {
+      if (!existing) {
+        await tx.document.create({
+          data: {
+            id: documentId,
+            spaceId: body.spaceId,
+            categoryId: body.categoryId || null,
+            sensitive: body.sensitive === "true",
+            status: scan.status === "CLEAN" ? "DRAFT" : "QUARANTINED",
+          },
+        });
+      }
+      const latest = await tx.documentVersion.findFirst({
+        where: { documentId, locale: body.locale },
+        orderBy: { version: "desc" },
+      });
+      const storedFile = await tx.storedFile.create({
+        data: {
+          objectKey,
+          originalName: basename(file.originalname).replace(/[\r\n]/g, "_"),
+          mimeType: file.mimetype,
+          size: BigInt(file.size),
+          sha256,
+          scans: {
+            create: {
+              status: scan.status,
+              signature: "signature" in scan ? scan.signature : null,
+              scannedAt: new Date(),
+            },
+          },
+        },
+      });
+      await tx.documentVersion.create({
+        data: {
+          documentId,
+          locale: body.locale,
+          version: (latest?.version || 0) + 1,
+          storedFileId: storedFile.id,
+        },
+      });
+      await tx.documentTranslation.upsert({
+        where: { documentId_locale: { documentId, locale: body.locale } },
+        update: {
+          title: body.title.trim(),
+          description: body.description?.trim() || null,
+        },
+        create: {
+          documentId,
+          locale: body.locale,
+          title: body.title.trim(),
+          description: body.description?.trim() || null,
+        },
+      });
+      return tx.document.findUnique({
+        where: { id: documentId },
+        include: { translations: true, versions: true },
+      });
+    });
+    await this.audit.record(
+      req,
+      existing ? "document.version.upload" : "document.upload",
+      `document:${documentId}`,
+      scan.status === "CLEAN" ? "success" : "failure",
+      { locale: body.locale, scanStatus: scan.status, size: file.size, sha256 },
+    );
+    return result;
   }
 
   @Put(":id/metadata")
