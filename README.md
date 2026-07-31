@@ -102,6 +102,9 @@ redirige également.
 L’explorateur possède sa propre URL partageable, la navigation entre catégories
 et espaces, les modes mémorisés fenêtres/liste et le lecteur sécurisé
 extensible. Les documents ne sont donc plus rendus sous les cartes de l’accueil.
+Les résultats sont paginés côté serveur par groupes de 10 documents. Les
+boutons **Précédent** et **Suivant**, le numéro de page et le total restent
+cohérents avec les filtres et sont conservés dans l’URL.
 
 Dans **Administration → Documents**, les actions permettent de publier,
 archiver, restaurer ou supprimer définitivement un document. La suppression,

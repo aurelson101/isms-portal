@@ -29,6 +29,13 @@ type PortalDocument = {
   versions: Version[];
   permissions: { preview: boolean; download: boolean };
 };
+type PaginatedDocuments = {
+  items: PortalDocument[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
 type Identity = {
   displayName: string;
   username: string;
@@ -294,7 +301,9 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   const [category, setCategory] = useState(explorerMode ? "policies" : "");
   const [space, setSpace] = useState("");
   const [documents, setDocuments] = useState<PortalDocument[]>([]);
-  const [popular, setPopular] = useState<PortalDocument[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [selectedLocales, setSelectedLocales] = useState<
@@ -317,19 +326,36 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
       if (category) parameters.set("category", category);
       if (space) parameters.set("space", space);
       parameters.set("sort", "recent");
+      parameters.set("page", String(page));
+      parameters.set("limit", "10");
       try {
         const response = await fetch(`/api/documents?${parameters}`, {
           signal,
         });
         if (!response.ok) throw new Error("documents");
-        setDocuments((await response.json()) as PortalDocument[]);
+        const result = (await response.json()) as PaginatedDocuments;
+        setDocuments(result.items);
+        setTotal(result.total);
+        setTotalPages(result.totalPages);
+        if (result.page !== page) {
+          setPage(result.page);
+          const currentUrl = new URL(window.location.href);
+          if (result.page > 1)
+            currentUrl.searchParams.set("page", String(result.page));
+          else currentUrl.searchParams.delete("page");
+          window.history.replaceState(
+            null,
+            "",
+            `${currentUrl.pathname}${currentUrl.search}`,
+          );
+        }
       } catch (error) {
         if ((error as Error).name !== "AbortError") setLoadError(true);
       } finally {
         if (!signal?.aborted) setLoading(false);
       }
     },
-    [query, category, space],
+    [query, category, space, page],
   );
 
   useEffect(() => {
@@ -337,6 +363,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     const requestedCategory = parameters.get("category");
     const requestedSpace = parameters.get("space");
     const requestedQuery = parameters.get("q");
+    setPage(Math.max(1, Number(parameters.get("page")) || 1));
     if (requestedCategory) {
       setCategory(requestedCategory);
       setSpace("");
@@ -387,14 +414,6 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
         document.documentElement.lang = preferred;
       })
       .catch(() => setLoadError(true));
-    fetch("/api/documents?sort=popular")
-      .then((response) =>
-        response.ok
-          ? (response.json() as Promise<PortalDocument[]>)
-          : Promise.reject(),
-      )
-      .then((items) => setPopular(items.slice(0, 5)))
-      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -441,6 +460,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     setQuery("");
     setCategory(next);
     setSpace("");
+    setPage(1);
     window.history.replaceState(
       null,
       "",
@@ -459,6 +479,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     setQuery("");
     setSpace(next);
     setCategory("");
+    setPage(1);
     window.history.replaceState(
       null,
       "",
@@ -467,6 +488,17 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   };
   const selectHome = () => {
     window.location.assign("/");
+  };
+  const changePage = (next: number) => {
+    const target = Math.min(Math.max(1, next), Math.max(1, totalPages));
+    setPage(target);
+    const parameters = new URLSearchParams();
+    if (query.trim()) parameters.set("q", query.trim());
+    if (category) parameters.set("category", category);
+    if (space) parameters.set("space", space);
+    if (target > 1) parameters.set("page", String(target));
+    window.history.replaceState(null, "", `/explorer?${parameters}`);
+    resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   const t = copy[locale];
   const categoryLabel =
@@ -663,6 +695,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
             onChange={(event) => {
               const value = event.target.value;
               setQuery(value);
+              setPage(1);
               if (value.trim()) {
                 setCategory("");
                 setSpace("");
@@ -742,10 +775,8 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                       <span>{t.explorer}</span>
                       <h2 id="explorer-title">{categoryLabel}</h2>
                       <p>
-                        {documents.length}{" "}
-                        {documents.length === 1
-                          ? t.documentCountOne
-                          : t.documentCount}
+                        {total}{" "}
+                        {total === 1 ? t.documentCountOne : t.documentCount}
                       </p>
                     </div>
                     <div
@@ -793,23 +824,25 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                   onOpen={setOpened}
                   viewMode={category ? viewMode : "list"}
                 />
-              </>
-            )}
-            {!query && !category && !space && popular.length > 0 && (
-              <>
-                <h2 className="section-title">{t.popular}</h2>
-                <DocumentRows
-                  documents={popular}
-                  locale={locale}
-                  selectedLocales={selectedLocales}
-                  onLocale={(id, next) =>
-                    setSelectedLocales((current) => ({
-                      ...current,
-                      [id]: next,
-                    }))
-                  }
-                  onOpen={setOpened}
-                />
+                <nav className="document-pagination" aria-label={t.pagination}>
+                  <button
+                    type="button"
+                    disabled={page <= 1}
+                    onClick={() => changePage(page - 1)}
+                  >
+                    ← {t.previous}
+                  </button>
+                  <span aria-live="polite">
+                    {t.page} {page} {t.of} {Math.max(1, totalPages)}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={page >= totalPages}
+                    onClick={() => changePage(page + 1)}
+                  >
+                    {t.next} →
+                  </button>
+                </nav>
               </>
             )}
           </div>

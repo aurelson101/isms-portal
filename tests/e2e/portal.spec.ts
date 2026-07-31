@@ -107,6 +107,58 @@ test("category explorer supports window and list views with an expandable reader
   await expect(dialog).not.toHaveClass(/expanded/);
 });
 
+test("document explorer paginates ten documents with next and previous controls", async ({
+  page,
+  request,
+}) => {
+  const sourceDocuments = (await (
+    await request.get("/api/documents")
+  ).json()) as Array<Record<string, unknown>>;
+  expect(sourceDocuments.length).toBeGreaterThan(0);
+  const documents = Array.from({ length: 11 }, (_, index) => ({
+    ...sourceDocuments[0],
+    id: `pagination-document-${index + 1}`,
+    translations: [
+      {
+        locale: "fr",
+        title: `Document pagination ${index + 1}`,
+        description: null,
+      },
+    ],
+  }));
+  await page.route("**/api/documents?**", async (route) => {
+    const url = new URL(route.request().url());
+    if (!url.searchParams.has("page")) {
+      await route.continue();
+      return;
+    }
+    const currentPage = Number(url.searchParams.get("page")) || 1;
+    const start = (currentPage - 1) * 10;
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: documents.slice(start, start + 10),
+        page: currentPage,
+        limit: 10,
+        total: documents.length,
+        totalPages: 2,
+      }),
+    });
+  });
+
+  await page.goto("/explorer?space=general");
+  await expect(page.locator(".documents > *")).toHaveCount(10);
+  await page.getByRole("button", { name: /Suivant/ }).click();
+  await expect(page).toHaveURL(/page=2/);
+  await expect(page.getByText("Document pagination 11")).toBeVisible();
+  await expect(page.locator(".documents > *")).toHaveCount(1);
+  await page.getByRole("button", { name: /Précédent/ }).click();
+  await expect(page).not.toHaveURL(/page=2/);
+  await expect(
+    page.getByRole("button", { name: "Document pagination 1", exact: true }),
+  ).toBeVisible();
+});
+
 test("administration uses live APIs and every menu opens a section", async ({
   page,
 }) => {
@@ -511,6 +563,31 @@ test("public and administration routes respond and document capabilities are exp
     permissions: { preview: boolean; download: boolean };
   }>;
   expect(documents.length).toBeGreaterThan(0);
+  const firstPageResponse = await request.get(
+    "/api/documents?page=1&limit=1&sort=recent",
+  );
+  expect(firstPageResponse.status()).toBe(200);
+  const firstPage = (await firstPageResponse.json()) as {
+    items: Array<{ id: string }>;
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  expect(firstPage.page).toBe(1);
+  expect(firstPage.limit).toBe(1);
+  expect(firstPage.items).toHaveLength(1);
+  expect(firstPage.total).toBe(documents.length);
+  const clampedPage = (await (
+    await request.get("/api/documents?page=999999&limit=1&sort=recent")
+  ).json()) as { page: number; totalPages: number };
+  expect(clampedPage.page).toBe(Math.max(1, clampedPage.totalPages));
+  if (firstPage.totalPages > 1) {
+    const secondPage = (await (
+      await request.get("/api/documents?page=2&limit=1&sort=recent")
+    ).json()) as { items: Array<{ id: string }> };
+    expect(secondPage.items[0].id).not.toBe(firstPage.items[0].id);
+  }
   expect(documents[0].permissions).toEqual({ preview: true, download: true });
   expect(
     (await request.get(`/api/documents/${documents[0].id}`)).status(),

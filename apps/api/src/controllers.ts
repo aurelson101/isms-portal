@@ -210,8 +210,16 @@ export class DocumentsController {
     @Query("category") category?: string,
     @Query("space") space?: string,
     @Query("sort") sort: "recent" | "popular" = "recent",
+    @Query("page") pageValue?: string,
+    @Query("limit") limitValue = "10",
   ) {
     const q = query.trim().slice(0, 200);
+    const requestedPage = Math.max(1, Number(pageValue) || 1);
+    const limit = Math.min(100, Math.max(1, Number(limitValue) || 10));
+    const paginated = Boolean(pageValue);
+    const emptyResult = paginated
+      ? { items: [], page: 1, limit, total: 0, totalPages: 0 }
+      : [];
     const spaces = await this.authorization.permittedSpaces(
       req.identity.groups,
       q ? "search" : "read",
@@ -232,7 +240,7 @@ export class DocumentsController {
     const spaceIds = spaces
       .filter((item) => !space || item.slug === space)
       .map((item) => item.id);
-    if (spaceIds.length === 0) return [];
+    if (spaceIds.length === 0) return emptyResult;
     const fullTextMatches = q
       ? await this.prisma.$queryRaw<Array<{ documentId: string }>>(Prisma.sql`
           SELECT DISTINCT "documentId"
@@ -242,17 +250,21 @@ export class DocumentsController {
           LIMIT 500
         `)
       : [];
-    if (q && fullTextMatches.length === 0) return [];
+    if (q && fullTextMatches.length === 0) return emptyResult;
+    const where: Prisma.DocumentWhereInput = {
+      deletedAt: null,
+      status: "PUBLISHED",
+      spaceId: { in: spaceIds },
+      ...(q
+        ? { id: { in: fullTextMatches.map((match) => match.documentId) } }
+        : {}),
+      ...(category ? { category: { slug: category, deletedAt: null } } : {}),
+    };
+    const total = await this.prisma.document.count({ where });
+    const totalPages = Math.ceil(total / limit);
+    const page = Math.min(requestedPage, Math.max(1, totalPages));
     const documents = await this.prisma.document.findMany({
-      where: {
-        deletedAt: null,
-        status: "PUBLISHED",
-        spaceId: { in: spaceIds },
-        ...(q
-          ? { id: { in: fullTextMatches.map((match) => match.documentId) } }
-          : {}),
-        ...(category ? { category: { slug: category, deletedAt: null } } : {}),
-      },
+      where,
       select: {
         id: true,
         status: true,
@@ -260,7 +272,9 @@ export class DocumentsController {
         publishedAt: true,
         viewCount: true,
         downloadCount: true,
-        space: { select: { id: true, slug: true, nameFr: true, nameEn: true } },
+        space: {
+          select: { id: true, slug: true, nameFr: true, nameEn: true },
+        },
         category: {
           select: { id: true, slug: true, nameFr: true, nameEn: true },
         },
@@ -286,9 +300,10 @@ export class DocumentsController {
               { publishedAt: "desc" },
             ]
           : { publishedAt: "desc" },
-      take: 100,
+      skip: paginated ? (page - 1) * limit : undefined,
+      take: paginated ? limit : 100,
     });
-    return documents.map((document) => ({
+    const items = documents.map((document) => ({
       ...document,
       permissions: {
         preview: previewSpaceIds.has(document.space.id),
@@ -302,6 +317,15 @@ export class DocumentsController {
         },
       })),
     }));
+    return paginated
+      ? {
+          items,
+          page,
+          limit,
+          total,
+          totalPages,
+        }
+      : items;
   }
 
   @Get(":id")
