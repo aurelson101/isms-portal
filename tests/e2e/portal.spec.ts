@@ -276,6 +276,87 @@ test("administration is fully switchable between French and English", async ({
   ).toBeVisible();
 });
 
+test("successful asynchronous forms reset without losing their element", async ({
+  page,
+  request,
+}) => {
+  const suffix = Date.now().toString(36);
+  const documentTitle = `Formulaire asynchrone ${suffix}`;
+  const adminUsername = `reset-${suffix}`;
+  const adminDisplayName = `Reset ${suffix}`;
+
+  try {
+    const spaces = (await (
+      await request.get("/api/admin/spaces")
+    ).json()) as Array<{ id: string; slug: string }>;
+    const spaceId = spaces.find((space) => space.slug === "general")?.id;
+    expect(spaceId).toBeTruthy();
+
+    await page.goto("/admin#documents");
+    const uploadForm = page.locator("form.upload-form");
+    await uploadForm.locator('select[name="spaceId"]').selectOption(spaceId!);
+    await uploadForm.locator('input[name="title"]').fill(documentTitle);
+    await uploadForm.locator('input[name="file"]').setInputFiles({
+      name: "form-reset.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4\n%%EOF\n"),
+    });
+    await uploadForm
+      .getByRole("button", { name: "Déposer et analyser" })
+      .click();
+    await expect(uploadForm.locator('input[name="title"]')).toHaveValue("");
+    await expect(uploadForm.locator('input[name="file"]')).toHaveValue("");
+
+    await page
+      .getByRole("button", { name: "Configuration", exact: true })
+      .click();
+    const accountForm = page.locator("form").filter({
+      has: page.getByRole("heading", {
+        name: "Ajouter un administrateur local",
+      }),
+    });
+    await accountForm
+      .locator('input[name="displayName"]')
+      .fill(adminDisplayName);
+    await accountForm.locator('input[name="username"]').fill(adminUsername);
+    await accountForm
+      .locator('input[name="password"]')
+      .fill(`Aa9!reset-${suffix}-Strong`);
+    await accountForm.getByRole("button", { name: "Ajouter" }).click();
+    await expect(accountForm.locator('input[name="username"]')).toHaveValue("");
+    await expect(
+      page.getByText(`${adminDisplayName} — ${adminUsername}`),
+    ).toBeVisible();
+  } finally {
+    const accounts = (await (
+      await request.get("/api/admin/accounts")
+    ).json()) as Array<{ id: string; username: string; primary: boolean }>;
+    const account = accounts.find(
+      (candidate) => candidate.username === adminUsername,
+    );
+    if (account && !account.primary)
+      expect(
+        (await request.delete(`/api/admin/accounts/${account.id}`)).ok(),
+      ).toBeTruthy();
+
+    const documents = (await (
+      await request.get("/api/admin/documents")
+    ).json()) as Array<{
+      id: string;
+      translations: Array<{ title: string }>;
+    }>;
+    const document = documents.find((candidate) =>
+      candidate.translations.some(
+        (translation) => translation.title === documentTitle,
+      ),
+    );
+    if (document)
+      expect(
+        (await request.delete(`/api/admin/documents/${document.id}`)).ok(),
+      ).toBeTruthy();
+  }
+});
+
 test("administration uses accessible confirmations and edits an existing directory connector", async ({
   page,
 }) => {
