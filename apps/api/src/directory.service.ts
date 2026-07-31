@@ -514,54 +514,39 @@ export class DirectoryService {
       data: { connectionId: id, status: "RUNNING" },
     });
     try {
+      const selectedGroups = await this.prisma.directoryGroup.findMany({
+        where: { directoryConnectionId: connection.id },
+        select: { id: true, distinguishedName: true },
+        orderBy: { name: "asc" },
+      });
       const { client, host } = await this.bindWithFallback(connection);
       try {
-        const pages = client.searchPaginated(
-          connection.groupBaseDn || connection.baseDn,
-          {
-            scope: "sub",
-            filter: connection.groupFilter,
-            paged: { pageSize: 500 },
-            attributes: [connection.groupAttribute, "description", "member"],
-          },
-        );
         let groupCount = 0;
-        let pageCount = 0;
         const synchronizedAt = new Date();
         const synchronizedDns: string[] = [];
-        for await (const page of pages) {
-          pageCount += 1;
-          for (const entry of page.searchEntries) {
-            const group = this.groupFromEntry(connection, entry);
-            if (!group.name) continue;
-            const data = {
+        for (const selected of selectedGroups) {
+          const result = await client.search(selected.distinguishedName, {
+            scope: "base",
+            filter: connection.groupFilter,
+            sizeLimit: 1,
+            attributes: [connection.groupAttribute, "description", "member"],
+          });
+          const entry = result.searchEntries[0];
+          if (!entry) continue;
+          const group = this.groupFromEntry(connection, entry);
+          if (!group.name) continue;
+          await this.prisma.directoryGroup.update({
+            where: { id: selected.id },
+            data: {
               ...group,
               active: true,
               lastSyncedAt: synchronizedAt,
-              directoryConnectionId: connection.id,
-            };
-            const existing = await this.prisma.directoryGroup.findFirst({
-              where: {
-                OR: [
-                  { distinguishedName: group.distinguishedName },
-                  { name: group.name },
-                ],
-              },
-              select: { id: true },
-            });
-            if (existing) {
-              await this.prisma.directoryGroup.update({
-                where: { id: existing.id },
-                data,
-              });
-            } else {
-              await this.prisma.directoryGroup.create({ data });
-            }
-            synchronizedDns.push(group.distinguishedName);
-            groupCount += 1;
-          }
+            },
+          });
+          synchronizedDns.push(group.distinguishedName);
+          groupCount += 1;
         }
-        const staleGroups = groupCount
+        const staleGroups = selectedGroups.length
           ? await this.prisma.directoryGroup.findMany({
               where: {
                 directoryConnectionId: connection.id,
@@ -585,10 +570,9 @@ export class DirectoryService {
         const details = {
           host,
           groups: groupCount,
-          pages: pageCount,
+          selectedGroups: selectedGroups.length,
           removedGroups: removed.groups,
           removedRules: removed.rules,
-          reconciliationSkipped: groupCount === 0,
         };
         await this.prisma.directorySyncJob.update({
           where: { id: job.id },
