@@ -2550,10 +2550,8 @@ function HealthPanel({ health }: { health: Record<string, unknown> | null }) {
     <>
       <h1>{t("Santé des services")}</h1>
       <pre className="health-output">{JSON.stringify(health, null, 2)}</pre>
-      <p>
-        <a className="button-link" href="/api/metrics">
-          {t("Métriques Prometheus")}
-        </a>
+      <p className="retention-note">
+        {t("Métriques Prometheus disponibles sur le réseau API privé.")}
       </p>
     </>
   );

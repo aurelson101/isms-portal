@@ -300,7 +300,8 @@ export const adminEnglishCatalog = {
   Langues: "Languages",
   "Matrice des autorisations": "Authorization matrix",
   Membres: "Members",
-  "Métriques Prometheus": "Prometheus metrics",
+  "Métriques Prometheus disponibles sur le réseau API privé.":
+    "Prometheus metrics are available on the private API network.",
   "Mon profil": "My profile",
   Modifier: "Edit",
   "Modifier la catégorie": "Edit category",
