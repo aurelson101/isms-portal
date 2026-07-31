@@ -44,4 +44,36 @@ describe("AuthService directory sessions", () => {
       }),
     );
   });
+
+  it("logs out an administrator without deleting the user session", async () => {
+    const adminDelete = vi.fn().mockResolvedValue({ count: 1 });
+    const directoryDelete = vi.fn().mockResolvedValue({ count: 0 });
+    const prisma = {
+      adminSession: { deleteMany: adminDelete },
+      directoryUserSession: { deleteMany: directoryDelete },
+    };
+    const response = { clearCookie: vi.fn() };
+    const service = new AuthService(prisma as never, {} as never);
+
+    await service.logout(
+      {
+        headers: {
+          cookie:
+            "isms_admin_session=admin-token; isms_directory_session=user-token",
+        },
+      } as never,
+      response as never,
+      "admin",
+    );
+
+    expect(adminDelete).toHaveBeenCalledOnce();
+    expect(directoryDelete).not.toHaveBeenCalled();
+    expect(response.clearCookie).toHaveBeenCalledWith("isms_admin_session", {
+      path: "/",
+    });
+    expect(response.clearCookie).not.toHaveBeenCalledWith(
+      "isms_directory_session",
+      expect.anything(),
+    );
+  });
 });

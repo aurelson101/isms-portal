@@ -265,7 +265,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
       (response.status === 401 || response.status === 403) &&
       (url.startsWith("/api/admin/") || url === "/api/health/details")
     ) {
-      const identityResponse = await fetch("/api/me", {
+      const identityResponse = await fetch("/api/admin/check", {
         cache: "no-store",
       }).catch(() => null);
       const identity = identityResponse?.ok
@@ -355,7 +355,7 @@ export default function Admin() {
         primaryAdmin: boolean;
         locale: Locale | null;
         authentication: Authentication;
-      }>("/api/me");
+      }>("/api/admin/check");
       if (!me.isAdmin) {
         setIsAdmin(false);
         const requested = `${window.location.pathname}${window.location.hash}`;
@@ -427,9 +427,9 @@ export default function Admin() {
   }, [refresh]);
   useEffect(() => {
     const checkSession = async () => {
-      const response = await fetch("/api/me", { cache: "no-store" }).catch(
-        () => null,
-      );
+      const response = await fetch("/api/admin/check", {
+        cache: "no-store",
+      }).catch(() => null);
       if (!response?.ok) {
         setSessionExpired(true);
         return;
@@ -675,7 +675,9 @@ export default function Admin() {
                       role="menuitem"
                       className="danger"
                       onClick={() =>
-                        api("/api/auth/logout", { method: "POST" }).then(() =>
+                        api("/api/auth/logout?scope=admin", {
+                          method: "POST",
+                        }).then(() =>
                           window.location.assign("/admin/login?loggedout=1"),
                         )
                       }
@@ -2867,7 +2869,7 @@ function SettingsPanel({
         ) && (
           <button
             onClick={() =>
-              api("/api/auth/logout", { method: "POST" }).then(() =>
+              api("/api/auth/logout?scope=admin", { method: "POST" }).then(() =>
                 window.location.assign("/admin/login?loggedout=1"),
               )
             }

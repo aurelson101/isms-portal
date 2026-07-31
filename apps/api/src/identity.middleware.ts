@@ -38,6 +38,13 @@ export class IdentityMiddleware implements NestMiddleware {
       };
       return next();
     }
+    if (route === "/admin" || route.startsWith("/admin/")) {
+      const adminIdentity = await this.auth.adminSessionIdentity(req);
+      if (adminIdentity) {
+        req.identity = adminIdentity;
+        return next();
+      }
+    }
     const provider = this.providers.find((candidate) =>
       candidate.supports(req),
     );

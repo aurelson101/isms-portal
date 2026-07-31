@@ -117,6 +117,32 @@ export class AuthService implements OnModuleInit {
   }
 
   async sessionIdentity(request: IsmsRequest): Promise<Identity | null> {
+    const adminIdentity = await this.adminSessionIdentity(request);
+    if (adminIdentity) return adminIdentity;
+    const directoryToken = this.cookie(request, directoryCookieName);
+    if (!directoryToken) return null;
+    const session = await this.prisma.directoryUserSession.findUnique({
+      where: { tokenHash: hashToken(directoryToken) },
+    });
+    if (!session || session.expiresAt <= new Date()) return null;
+    await this.prisma.directoryUserSession.update({
+      where: { id: session.id },
+      data: { lastUsedAt: new Date() },
+    });
+    return this.enrichSsoIdentity({
+      username: session.username,
+      displayName: session.displayName,
+      groups: Array.isArray(session.groups)
+        ? session.groups.filter(
+            (group): group is string => typeof group === "string",
+          )
+        : [],
+      source: "directory-session",
+      sessionExpiresAt: session.expiresAt.toISOString(),
+    });
+  }
+
+  async adminSessionIdentity(request: IsmsRequest): Promise<Identity | null> {
     const adminToken = this.cookie(request, adminCookieName);
     if (adminToken) {
       const session = await this.prisma.adminSession.findUnique({
@@ -142,27 +168,7 @@ export class AuthService implements OnModuleInit {
         };
       }
     }
-    const directoryToken = this.cookie(request, directoryCookieName);
-    if (!directoryToken) return null;
-    const session = await this.prisma.directoryUserSession.findUnique({
-      where: { tokenHash: hashToken(directoryToken) },
-    });
-    if (!session || session.expiresAt <= new Date()) return null;
-    await this.prisma.directoryUserSession.update({
-      where: { id: session.id },
-      data: { lastUsedAt: new Date() },
-    });
-    return this.enrichSsoIdentity({
-      username: session.username,
-      displayName: session.displayName,
-      groups: Array.isArray(session.groups)
-        ? session.groups.filter(
-            (group): group is string => typeof group === "string",
-          )
-        : [],
-      source: "directory-session",
-      sessionExpiresAt: session.expiresAt.toISOString(),
-    });
+    return null;
   }
 
   async enrichSsoIdentity(identity: Identity) {
@@ -277,19 +283,27 @@ export class AuthService implements OnModuleInit {
     );
   }
 
-  async logout(request: IsmsRequest, response: Response) {
+  async logout(
+    request: IsmsRequest,
+    response: Response,
+    requestedScope?: string,
+  ) {
+    const scope = ["admin", "user"].includes(requestedScope || "")
+      ? requestedScope
+      : "all";
     const adminToken = this.cookie(request, adminCookieName);
-    if (adminToken)
+    if (adminToken && scope !== "user")
       await this.prisma.adminSession.deleteMany({
         where: { tokenHash: hashToken(adminToken) },
       });
     const directoryToken = this.cookie(request, directoryCookieName);
-    if (directoryToken)
+    if (directoryToken && scope !== "admin")
       await this.prisma.directoryUserSession.deleteMany({
         where: { tokenHash: hashToken(directoryToken) },
       });
-    response.clearCookie(adminCookieName, { path: "/" });
-    response.clearCookie(directoryCookieName, { path: "/" });
+    if (scope !== "user") response.clearCookie(adminCookieName, { path: "/" });
+    if (scope !== "admin")
+      response.clearCookie(directoryCookieName, { path: "/" });
     return { authenticated: false };
   }
 

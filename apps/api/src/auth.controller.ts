@@ -7,6 +7,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
   Put,
   Req,
   Res,
@@ -66,8 +67,9 @@ export class AuthController {
   logout(
     @Req() request: IsmsRequest,
     @Res({ passthrough: true }) response: Response,
+    @Query("scope") scope?: string,
   ) {
-    return this.auth.logout(request, response);
+    return this.auth.logout(request, response, scope);
   }
 }
 

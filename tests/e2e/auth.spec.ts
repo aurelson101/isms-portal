@@ -17,27 +17,10 @@ test("the main sign-in page only exposes the user credentials form", async ({
 test("a non-admin session is redirected to the dedicated administrator sign-in", async ({
   page,
 }) => {
-  await page.route("**/api/me", (route) =>
+  await page.route("**/api/admin/check", (route) =>
     route.fulfill({
-      json: {
-        username: "user@example.com",
-        displayName: "Standard User",
-        isAdmin: false,
-        locale: "fr",
-        authentication: {
-          source: "directory-session",
-          ssoConnected: false,
-          sessionExpiresAt: null,
-          loginUrl: null,
-          logoutUrl: null,
-          diagnostics: {
-            groupCount: 1,
-            mappedSpaceCount: 0,
-            administrator: false,
-            adminGroupMatchCount: 0,
-          },
-        },
-      },
+      status: 403,
+      json: { message: "Forbidden" },
     }),
   );
   await page.goto("/admin");
@@ -48,15 +31,12 @@ test("an admin API forbidden response rechecks the identity and redirects a repl
   page,
 }) => {
   let identityChecks = 0;
-  await page.route("**/api/me", async (route) => {
+  await page.route("**/api/admin/check", async (route) => {
     identityChecks += 1;
     if (identityChecks === 1) return route.continue();
     return route.fulfill({
-      json: {
-        username: "user@example.com",
-        displayName: "Standard User",
-        isAdmin: false,
-      },
+      status: 403,
+      json: { message: "Forbidden" },
     });
   });
   await page.route(

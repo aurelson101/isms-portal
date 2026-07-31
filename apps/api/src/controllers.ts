@@ -494,8 +494,45 @@ export class AdminController {
   ) {}
 
   @Get("check")
-  check() {
-    return { authorized: true };
+  async check(@Req() req: IsmsRequest) {
+    const [preference, account, mappedSpaceCount] = await Promise.all([
+      this.prisma.userPreference.findUnique({
+        where: { identity: req.identity.username },
+      }),
+      this.prisma.adminAccount.findUnique({
+        where: { username: req.identity.username },
+        select: { primary: true },
+      }),
+      this.prisma.documentSpace.count({ where: { deletedAt: null } }),
+    ]);
+    return {
+      authorized: true,
+      isAdmin: true,
+      username: req.identity.username,
+      displayName: req.identity.displayName,
+      profilePhoto: req.identity.profilePhoto || null,
+      primaryAdmin: account?.primary || false,
+      locale: preference?.locale || null,
+      authentication: {
+        source: req.identity.source,
+        ssoConnected: req.identity.source === "trusted-proxy",
+        sessionExpiresAt: req.identity.sessionExpiresAt || null,
+        loginUrl: process.env.SSO_LOGIN_URL || null,
+        logoutUrl: process.env.SSO_LOGOUT_URL || null,
+        diagnostics: {
+          groupCount: req.identity.groups.length,
+          mappedSpaceCount,
+          administrator: true,
+          adminGroupMatchCount: req.identity.groups.filter((group) =>
+            (process.env.ISMS_ADMIN_GROUPS || "ISMS-ADMINS,ISMS-SUPER-ADMINS")
+              .split(",")
+              .map((value) => value.trim())
+              .filter(Boolean)
+              .includes(group),
+          ).length,
+        },
+      },
+    };
   }
 
   @Get("dashboard")

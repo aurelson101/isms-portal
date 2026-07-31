@@ -670,7 +670,9 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                   <button
                     type="button"
                     onClick={() =>
-                      fetch("/api/auth/logout", { method: "POST" }).then(() =>
+                      fetch("/api/auth/logout?scope=user", {
+                        method: "POST",
+                      }).then(() =>
                         window.location.assign("/login?loggedout=1"),
                       )
                     }
