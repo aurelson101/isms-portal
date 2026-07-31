@@ -176,6 +176,8 @@ type DirectoryConnection = {
 type AdminDocument = {
   id: string;
   status: string;
+  sensitive: boolean;
+  watermarkPosition: "HEADER" | "CENTER" | "FOOTER";
   translations: Array<{ locale: string; title: string }>;
   space: Space;
   category?: Category;
@@ -1618,6 +1620,10 @@ function DocumentsPanel({
   const { locale, t } = useAdminI18n();
   const confirmAction = useContext(ConfirmContext);
   const [spaceId, setSpaceId] = useState("");
+  const [sensitive, setSensitive] = useState(false);
+  const [watermarkPosition, setWatermarkPosition] = useState<
+    "HEADER" | "CENTER" | "FOOTER"
+  >("CENTER");
   const selectedSpace = spaces.find((space) => space.id === spaceId);
   return (
     <>
@@ -1631,6 +1637,8 @@ function DocumentsPanel({
             .then(async () => {
               event.currentTarget.reset();
               setSpaceId("");
+              setSensitive(false);
+              setWatermarkPosition("CENTER");
               await onChanged();
             })
             .catch((error) => onError(error.message));
@@ -1690,9 +1698,45 @@ function DocumentsPanel({
           <input name="file" type="file" required accept=".pdf,.docx,.xlsx" />
         </label>
         <label className="check">
-          <input name="sensitive" value="true" type="checkbox" />{" "}
+          <input
+            name="sensitive"
+            value="true"
+            type="checkbox"
+            checked={sensitive}
+            onChange={(event) => setSensitive(event.target.checked)}
+          />{" "}
           {t("Document sensible")}
         </label>
+        {sensitive && (
+          <section className="watermark-config">
+            <label>
+              {t("Position du filigrane")}
+              <select
+                name="watermarkPosition"
+                value={watermarkPosition}
+                onChange={(event) =>
+                  setWatermarkPosition(
+                    event.target.value as "HEADER" | "CENTER" | "FOOTER",
+                  )
+                }
+              >
+                <option value="HEADER">{t("Haut de page")}</option>
+                <option value="CENTER">{t("Milieu de page")}</option>
+                <option value="FOOTER">{t("Bas de page")}</option>
+              </select>
+            </label>
+            <div>
+              <strong>{t("Aperçu du filigrane")}</strong>
+              <div className="watermark-preview" aria-live="polite">
+                <span
+                  className={`sensitive-watermark ${watermarkPosition.toLowerCase()}`}
+                >
+                  SENSITIVE DOCUMENT
+                </span>
+              </div>
+            </div>
+          </section>
+        )}
         <button className="primary">{t("Déposer et analyser")}</button>
       </form>
       <div className="admin-table-wrap">

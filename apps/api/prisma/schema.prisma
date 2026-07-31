@@ -14,6 +14,12 @@ enum DocumentStatus {
   QUARANTINED
 }
 
+enum WatermarkPosition {
+  HEADER
+  CENTER
+  FOOTER
+}
+
 enum ScanStatus {
   PENDING
   CLEAN
@@ -160,6 +166,7 @@ model Document {
   category DocumentCategory? @relation(fields: [categoryId], references: [id])
   status DocumentStatus @default(DRAFT)
   sensitive Boolean @default(false)
+  watermarkPosition WatermarkPosition @default(CENTER)
   viewCount Int @default(0)
   downloadCount Int @default(0)
   publishedAt DateTime?

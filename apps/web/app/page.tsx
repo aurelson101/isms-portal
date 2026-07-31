@@ -6,6 +6,7 @@ import { portalCatalog as copy } from "./i18n/catalogs";
 
 type Locale = "fr" | "en";
 type ViewMode = "list" | "grid";
+type WatermarkPosition = "HEADER" | "CENTER" | "FOOTER";
 type SpacePermissions = {
   showMenu: boolean;
   read: boolean;
@@ -50,6 +51,7 @@ type PortalDocument = {
   id: string;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED" | "QUARANTINED";
   sensitive: boolean;
+  watermarkPosition: WatermarkPosition;
   publishedAt: string;
   viewCount: number;
   downloadCount: number;
@@ -105,6 +107,17 @@ function fileLabel(mimeType?: string) {
   if (mimeType === excelMime) return "XLSX";
   if (mimeType?.startsWith("image/")) return "IMG";
   return "FILE";
+}
+
+function SensitiveWatermark({ position }: { position: WatermarkPosition }) {
+  return (
+    <span
+      className={`sensitive-watermark ${position.toLowerCase()}`}
+      aria-hidden="true"
+    >
+      SENSITIVE DOCUMENT
+    </span>
+  );
 }
 
 function OfficePreview({
@@ -1115,23 +1128,28 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
             </div>
             {openedVersion && opened.permissions.preview ? (
               <>
-                {openedVersion.storedFile.mimeType === "application/pdf" ||
-                openedVersion.storedFile.mimeType.startsWith("image/") ? (
-                  <iframe
-                    title={titleFor(opened, openedLocale || locale)}
-                    src={`/api/documents/${opened.id}/content?locale=${openedLocale}`}
-                  />
-                ) : [wordMime, excelMime].includes(
-                    openedVersion.storedFile.mimeType,
-                  ) ? (
-                  <OfficePreview
-                    url={`/api/documents/${opened.id}/content?locale=${openedLocale}`}
-                    mimeType={openedVersion.storedFile.mimeType}
-                    locale={locale}
-                  />
-                ) : (
-                  <p>{t.previewError}</p>
-                )}
+                <div className="document-preview-frame">
+                  {openedVersion.storedFile.mimeType === "application/pdf" ||
+                  openedVersion.storedFile.mimeType.startsWith("image/") ? (
+                    <iframe
+                      title={titleFor(opened, openedLocale || locale)}
+                      src={`/api/documents/${opened.id}/content?locale=${openedLocale}`}
+                    />
+                  ) : [wordMime, excelMime].includes(
+                      openedVersion.storedFile.mimeType,
+                    ) ? (
+                    <OfficePreview
+                      url={`/api/documents/${opened.id}/content?locale=${openedLocale}`}
+                      mimeType={openedVersion.storedFile.mimeType}
+                      locale={locale}
+                    />
+                  ) : (
+                    <p>{t.previewError}</p>
+                  )}
+                  {opened.sensitive && (
+                    <SensitiveWatermark position={opened.watermarkPosition} />
+                  )}
+                </div>
                 {opened.permissions.download ? (
                   <a
                     className="primary-link"
