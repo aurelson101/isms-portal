@@ -55,4 +55,30 @@ describe("AuthorizationService", () => {
       }),
     );
   });
+
+  it.each([
+    "showMenu",
+    "read",
+    "search",
+    "preview",
+    "download",
+    "upload",
+    "edit",
+    "publish",
+    "archive",
+  ] as const)(
+    "checks %s independently and accepts administer",
+    async (permission) => {
+      count.mockResolvedValue(1);
+      await expect(
+        service.can(["SkillsRDP"], "space-it", permission),
+      ).resolves.toBe(true);
+      expect(count).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          spaceId: "space-it",
+          OR: [{ [permission]: true }, { administer: true }],
+        }),
+      });
+    },
+  );
 });

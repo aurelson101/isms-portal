@@ -6,7 +6,25 @@ import { portalCatalog as copy } from "./i18n/catalogs";
 
 type Locale = "fr" | "en";
 type ViewMode = "list" | "grid";
-type Space = { id: string; slug: string; nameFr: string; nameEn: string };
+type SpacePermissions = {
+  showMenu: boolean;
+  read: boolean;
+  search: boolean;
+  preview: boolean;
+  download: boolean;
+  upload: boolean;
+  edit: boolean;
+  publish: boolean;
+  archive: boolean;
+  administer: boolean;
+};
+type Space = {
+  id: string;
+  slug: string;
+  nameFr: string;
+  nameEn: string;
+  permissions?: SpacePermissions;
+};
 type Translation = {
   locale: string;
   title: string;
@@ -367,6 +385,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   >({});
   const [opened, setOpened] = useState<PortalDocument | null>(null);
   const [editing, setEditing] = useState<PortalDocument | null>(null);
+  const [depositOpen, setDepositOpen] = useState(false);
   const [actionError, setActionError] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -605,6 +624,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   const openedVersion = opened?.versions.find(
     (version) => version.locale === openedLocale,
   );
+  const selectedSpace = identity?.spaces.find((item) => item.slug === space);
 
   return (
     <div className="shell">
@@ -902,9 +922,23 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                     </div>
                   </section>
                 ) : (
-                  <h2 className="section-title">
-                    {query || space ? t.search : t.recent}
-                  </h2>
+                  <div className="explorer-title-row">
+                    <h2 className="section-title">
+                      {query || space ? t.search : t.recent}
+                    </h2>
+                    {space &&
+                      (selectedSpace?.permissions?.upload ||
+                        selectedSpace?.permissions?.administer) && (
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={() => setDepositOpen(true)}
+                        >
+                          <Icon name="upload" />
+                          {t.deposit}
+                        </button>
+                      )}
+                  </div>
                 )}
                 <DocumentRows
                   documents={documents}
@@ -1158,6 +1192,78 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
               <div className="button-row">
                 <button className="primary">{t.save}</button>
                 <button type="button" onClick={() => setEditing(null)}>
+                  {t.cancel}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+      {depositOpen && selectedSpace && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={() => setDepositOpen(false)}
+        >
+          <section
+            className="modal small-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="deposit-document-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h2 id="deposit-document-title">{t.depositDocument}</h2>
+            <p>
+              {locale === "fr" ? selectedSpace.nameFr : selectedSpace.nameEn}
+            </p>
+            <form
+              className="admin-form"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                setActionError("");
+                const data = new FormData(event.currentTarget);
+                data.set("spaceId", selectedSpace.id);
+                const response = await fetch("/api/documents/upload", {
+                  method: "POST",
+                  body: data,
+                });
+                if (!response.ok) {
+                  setActionError(t.depositError);
+                  return;
+                }
+                setDepositOpen(false);
+                await loadDocuments();
+              }}
+            >
+              <label>
+                {t.language}
+                <select name="locale" defaultValue={locale}>
+                  <option value="fr">FR</option>
+                  <option value="en">EN</option>
+                </select>
+              </label>
+              <label>
+                {t.title}
+                <input name="title" required maxLength={200} />
+              </label>
+              <label>
+                {t.description}
+                <textarea name="description" maxLength={2000} />
+              </label>
+              <label>
+                {t.file}
+                <input
+                  name="file"
+                  type="file"
+                  required
+                  accept=".pdf,.docx,.xlsx"
+                />
+              </label>
+              <small>{t.acceptedFiles}</small>
+              {actionError && <p className="error-state">{actionError}</p>}
+              <div className="button-row">
+                <button className="primary">{t.deposit}</button>
+                <button type="button" onClick={() => setDepositOpen(false)}>
                   {t.cancel}
                 </button>
               </div>

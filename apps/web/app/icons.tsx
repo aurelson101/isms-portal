@@ -16,6 +16,7 @@ export type IconName =
   | "health"
   | "settings"
   | "download"
+  | "upload"
   | "search"
   | "add"
   | "grid"
@@ -79,6 +80,12 @@ export function Icon({
       <>
         <path d="M6 2h8l4 4v16H6V2Z" />
         <path d="M14 2v5h5M9 12h6M9 16h6" />
+      </>
+    ),
+    upload: (
+      <>
+        <path d="M12 16V4M7 9l5-5 5 5" />
+        <path d="M4 15v5h16v-5" />
       </>
     ),
     sync: (

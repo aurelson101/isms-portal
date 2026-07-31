@@ -67,6 +67,15 @@ export const portalCatalog = {
     cancel: "Annuler",
     permissionsGranted: "Permissions accordées",
     metadataUpdated: "Document modifié.",
+    deposit: "Déposer",
+    depositDocument: "Déposer un document",
+    depositError: "Le dépôt du document a échoué.",
+    language: "Langue",
+    title: "Titre",
+    description: "Description",
+    file: "Fichier",
+    acceptedFiles:
+      "Formats acceptés : PDF, Word (.docx) et Excel (.xlsx), 50 Mo maximum.",
   },
   en: {
     welcome: "Welcome",
@@ -132,6 +141,15 @@ export const portalCatalog = {
     cancel: "Cancel",
     permissionsGranted: "Granted permissions",
     metadataUpdated: "Document updated.",
+    deposit: "Upload",
+    depositDocument: "Upload a document",
+    depositError: "The document upload failed.",
+    language: "Language",
+    title: "Title",
+    description: "Description",
+    file: "File",
+    acceptedFiles:
+      "Accepted formats: PDF, Word (.docx), and Excel (.xlsx), up to 50 MB.",
   },
 } as const;
 
