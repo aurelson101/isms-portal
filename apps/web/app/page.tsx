@@ -891,10 +891,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                       ? "Accessible selon vos autorisations"
                       : "Available through your permissions"}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => selectSpace(item.slug)}
-                  >
+                  <button type="button" onClick={() => selectSpace(item.slug)}>
                     {t.consult}
                   </button>
                 </article>

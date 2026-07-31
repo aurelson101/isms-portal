@@ -25,7 +25,9 @@ test("navigation, filtering, search and languages are functional", async ({
   expect(await homeCards.count()).toBeGreaterThan(0);
   for (const card of await homeCards.all()) {
     const iconBox = await card.locator(".card-icon").boundingBox();
-    const titleBox = await card.getByRole("heading", { level: 2 }).boundingBox();
+    const titleBox = await card
+      .getByRole("heading", { level: 2 })
+      .boundingBox();
     expect(iconBox).not.toBeNull();
     expect(titleBox).not.toBeNull();
     expect(iconBox!.y + iconBox!.height).toBeLessThanOrEqual(titleBox!.y + 1);
@@ -215,6 +217,14 @@ test("administration uses live APIs and every menu opens a section", async ({
     await expect(
       page.getByRole("heading", { name: heading, exact: true }).first(),
     ).toBeVisible();
+    if (heading === "Santé des services") {
+      await expect(
+        page.getByText(
+          "Métriques Prometheus disponibles sur le réseau API privé.",
+        ),
+      ).toBeVisible();
+      await expect(page.locator('a[href="/api/metrics"]')).toHaveCount(0);
+    }
   }
 });
 
@@ -782,11 +792,14 @@ test("public and administration routes respond and document capabilities are exp
   expect(
     (await request.get(`/api/documents/${documents[0].id}`)).status(),
   ).toBe(200);
-  expect(
-    (
-      await request.get(`/api/documents/${documents[0].id}/content?locale=fr`)
-    ).status(),
-  ).toBe(200);
+  const contentResponse = await request.get(
+    `/api/documents/${documents[0].id}/content?locale=fr`,
+  );
+  expect(contentResponse.status()).toBe(200);
+  expect(contentResponse.headers()["x-frame-options"]).toBe("SAMEORIGIN");
+  expect(contentResponse.headers()["content-security-policy"]).toBe(
+    "default-src 'none'; frame-ancestors 'self';",
+  );
   expect(
     (
       await request.get(`/api/documents/${documents[0].id}/download?locale=fr`)
@@ -795,6 +808,34 @@ test("public and administration routes respond and document capabilities are exp
   expect((await request.get("/api/documents/not-a-document")).status()).toBe(
     404,
   );
+});
+
+test("the edge exposes one strict policy and compresses immutable assets", async ({
+  request,
+}) => {
+  const healthResponse = await request.get("/api/health/ready");
+  expect(healthResponse.status()).toBe(200);
+  const healthHeaders = healthResponse.headers();
+  expect(healthHeaders["x-frame-options"]).toBe("DENY");
+  expect(healthHeaders["x-content-type-options"]).toBe("nosniff");
+  expect(healthHeaders["content-security-policy"]).toContain(
+    "frame-ancestors 'none'",
+  );
+  expect(healthHeaders["content-security-policy"]).not.toContain(
+    "unsafe-inline",
+  );
+
+  const homeResponse = await request.get("/");
+  const assetPath = (await homeResponse.text()).match(
+    /\/_next\/static\/[^"' ]+\.js/,
+  )?.[0];
+  expect(assetPath).toBeTruthy();
+  const assetResponse = await request.get(assetPath!, {
+    headers: { "Accept-Encoding": "gzip" },
+  });
+  expect(assetResponse.status()).toBe(200);
+  expect(assetResponse.headers()["content-encoding"]).toBe("gzip");
+  expect(assetResponse.headers()["cache-control"]).toContain("immutable");
 });
 
 test("Word and Excel documents open in a read-only viewer", async ({
