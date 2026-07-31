@@ -21,7 +21,7 @@ describe("AuthorizationService", () => {
       { id: "space-it", slug: "it", accessRules: [] },
     ]);
     await expect(
-      service.can(["ISMS-ADMINS"], "space-it", "administer"),
+      service.can(["ISMS-ADMINS"], "space-it", "archive"),
     ).resolves.toBe(true);
     await expect(
       service.permittedSpaces(["ISMS-ADMINS"], "upload"),
@@ -36,7 +36,7 @@ describe("AuthorizationService", () => {
     ).resolves.toBe(false);
   });
 
-  it("matches standard user groups case-insensitively and honors administer", async () => {
+  it("matches standard user groups case-insensitively", async () => {
     findMany.mockResolvedValue([]);
     await service.permittedSpaces(["ITAD"], "search");
     expect(findMany).toHaveBeenCalledWith(
@@ -48,7 +48,7 @@ describe("AuthorizationService", () => {
                 active: true,
                 OR: [{ name: { equals: "ITAD", mode: "insensitive" } }],
               },
-              OR: [{ search: true }, { administer: true }],
+              search: true,
             }),
           },
         }),
@@ -66,19 +66,26 @@ describe("AuthorizationService", () => {
     "edit",
     "publish",
     "archive",
-  ] as const)(
-    "checks %s independently and accepts administer",
-    async (permission) => {
-      count.mockResolvedValue(1);
-      await expect(
-        service.can(["SkillsRDP"], "space-it", permission),
-      ).resolves.toBe(true);
-      expect(count).toHaveBeenCalledWith({
-        where: expect.objectContaining({
-          spaceId: "space-it",
-          OR: [{ [permission]: true }, { administer: true }],
-        }),
-      });
-    },
-  );
+  ] as const)("checks %s independently", async (permission) => {
+    count.mockResolvedValue(1);
+    await expect(
+      service.can(["SkillsRDP"], "space-it", permission),
+    ).resolves.toBe(true);
+    expect(count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        spaceId: "space-it",
+        [permission]: true,
+      }),
+    });
+  });
+
+  it("ignores the legacy administer column for directory groups", async () => {
+    count.mockResolvedValue(0);
+    await expect(
+      service.can(["SkillsRDP"], "space-it", "publish"),
+    ).resolves.toBe(false);
+    expect(count).toHaveBeenCalledWith({
+      where: expect.not.objectContaining({ administer: true }),
+    });
+  });
 });
