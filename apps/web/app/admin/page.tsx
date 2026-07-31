@@ -165,7 +165,7 @@ type DirectoryConnection = {
     status: string;
     details?: {
       groups?: number;
-      pages?: number;
+      selectedGroups?: number;
       removedGroups?: number;
       removedRules?: number;
       error?: string;
@@ -2155,8 +2155,8 @@ function DirectoryPanel({
                       latestSync.details?.groups !== undefined && (
                         <small>
                           {t(
-                            `${latestSync.details.groups} groupe(s) lu(s) sur ${latestSync.details.pages || 1} page(s).`,
-                            `${latestSync.details.groups} group(s) read across ${latestSync.details.pages || 1} page(s).`,
+                            `${latestSync.details.groups} groupe(s) sélectionné(s) actualisé(s).`,
+                            `${latestSync.details.groups} selected group(s) refreshed.`,
                           )}
                         </small>
                       )}
@@ -2201,7 +2201,7 @@ function DirectoryPanel({
                       const result = await api<{
                         status: string;
                         groups?: number;
-                        pages?: number;
+                        selectedGroups?: number;
                         error?: string;
                       }>(
                         `/api/admin/directory-connections/${connection.id}/synchronize`,
@@ -2218,8 +2218,8 @@ function DirectoryPanel({
                       } else {
                         onNotice(
                           t(
-                            `Synchronisation réussie : ${result.groups || 0} groupe(s) sur ${result.pages || 1} page(s).`,
-                            `Synchronization successful: ${result.groups || 0} group(s) across ${result.pages || 1} page(s).`,
+                            `Synchronisation réussie : ${result.groups || 0} groupe(s) sélectionné(s) actualisé(s).`,
+                            `Synchronization successful: ${result.groups || 0} selected group(s) refreshed.`,
                           ),
                         );
                       }

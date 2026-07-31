@@ -304,7 +304,7 @@ test("administration uses accessible confirmations and edits an existing directo
       {
         id: "22222222-2222-4222-8222-222222222222",
         status: "SUCCESS",
-        details: { groups: 1869, pages: 4 },
+        details: { groups: 1, selectedGroups: 1 },
         startedAt: "2026-07-31T08:28:37.582Z",
         finishedAt: "2026-07-31T08:28:44.530Z",
       },
@@ -336,7 +336,7 @@ test("administration uses accessible confirmations and edits an existing directo
     page.getByRole("heading", { name: "Synchronisation LDAP/LDAPS" }),
   ).toBeVisible();
   await expect(
-    page.getByText("1869 groupe(s) lu(s) sur 4 page(s)."),
+    page.getByText("1 groupe(s) sélectionné(s) actualisé(s)."),
   ).toBeVisible();
   await page
     .getByRole("heading", { name: connection.name })
