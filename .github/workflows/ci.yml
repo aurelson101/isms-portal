@@ -18,13 +18,11 @@ jobs:
           node-version: 22.13.1
           cache: npm
       - run: npm ci
-      - run: npm run lint
-      - run: npm test
+      - run: npm run verify
       - run: npm run build
-      - run: npm audit --omit=dev
-      - run: npx knip
 
   docker-smoke:
+    timeout-minutes: 20
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -33,12 +31,5 @@ jobs:
           node-version: 22.13.1
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
       - run: ./scripts/generate-secrets.sh
-      - run: docker compose -f docker-compose.yml -f deploy/compose/verify.yml up -d --build --wait
-      - run: curl --fail --show-error http://127.0.0.1:18080/api/health/ready
-      - run: PLAYWRIGHT_BASE_URL=http://127.0.0.1:18080 npm run test:e2e -- --grep "visual regression"
-      - if: always()
-        run: docker compose -f docker-compose.yml -f deploy/compose/verify.yml logs --no-color
-      - if: always()
-        run: docker compose -f docker-compose.yml -f deploy/compose/verify.yml down -v
+      - run: ./scripts/test-e2e-isolated.sh

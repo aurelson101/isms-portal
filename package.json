@@ -14,6 +14,8 @@
     "test": "npm run test -w @isms/api",
     "test:e2e": "playwright test",
     "test:e2e:isolated": "./scripts/test-e2e-isolated.sh",
+    "diagnose": "./scripts/diagnose.sh",
+    "verify": "npm run lint && npm run format:check && npm test && npm exec knip && npm audit --audit-level=moderate",
     "migrate": "npm run migrate -w @isms/api",
     "seed": "npm run seed -w @isms/api"
   },

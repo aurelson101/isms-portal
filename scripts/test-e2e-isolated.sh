@@ -6,7 +6,15 @@ project_name=isms-portal-e2e
 compose_args="-p $project_name -f $project_root/docker-compose.yml -f $project_root/deploy/compose/verify.yml --env-file $project_root/.env"
 
 cleanup() {
+  exit_status=$?
+  trap - EXIT INT TERM
+  if [ "$exit_status" -ne 0 ]; then
+    printf '%s\n' 'E2E failure: disposable stack status and logs follow.' >&2
+    docker compose $compose_args ps >&2 || true
+    docker compose $compose_args logs --no-color >&2 || true
+  fi
   docker compose $compose_args down --volumes --remove-orphans >/dev/null 2>&1 || true
+  exit "$exit_status"
 }
 trap cleanup EXIT INT TERM
 

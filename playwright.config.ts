@@ -3,6 +3,8 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   globalSetup: "./tests/e2e/global-setup.ts",
   testDir: "./tests/e2e",
+  forbidOnly: Boolean(process.env.CI),
+  failOnFlakyTests: Boolean(process.env.CI),
   timeout: 30_000,
   expect: { timeout: 8_000 },
   fullyParallel: false,
