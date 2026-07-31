@@ -1286,6 +1286,19 @@ h1 {
   gap: 8px;
   margin-top: 14px;
 }
+.directory-sync-status {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-left: 4px solid #0a9b62;
+  border-radius: 5px;
+  background: #edf9f4;
+  color: #155b43;
+}
+.directory-sync-status.error {
+  border-left-color: #c03535;
+  background: #fff1f1;
+  color: #8b2020;
+}
 .health-output {
   background: #061a38;
   color: #dff7ff;

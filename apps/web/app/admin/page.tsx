@@ -159,6 +159,19 @@ type DirectoryConnection = {
   lastTestStatus?: string;
   lastTestAt?: string;
   caCertificateId?: string;
+  syncJobs?: Array<{
+    id: string;
+    status: string;
+    details?: {
+      groups?: number;
+      pages?: number;
+      removedGroups?: number;
+      removedRules?: number;
+      error?: string;
+    };
+    startedAt: string;
+    finishedAt?: string;
+  }>;
 };
 type AdminDocument = {
   id: string;
@@ -1709,6 +1722,7 @@ function DirectoryPanel({
   const { locale, t } = useAdminI18n();
   const confirmAction = useContext(ConfirmContext);
   const [editing, setEditing] = useState<DirectoryConnection | null>(null);
+  const [synchronizingId, setSynchronizingId] = useState<string | null>(null);
   const [selectedProtocol, setSelectedProtocol] = useState<"LDAP" | "LDAPS">(
     "LDAPS",
   );
@@ -2025,74 +2039,133 @@ function DirectoryPanel({
             en="No LDAP/LDAPS connector is configured. Use the form above to create one."
           />
         )}
-        {connections.map((connection) => (
-          <article className="admin-card" key={connection.id}>
-            <h2>{connection.name}</h2>
-            <p>
-              {connection.protocol}://{connection.primaryHost}:{connection.port}
-            </p>
-            <p>
-              {t("Test")}:{" "}
-              {connection.lastTestStatus
-                ? localizedStatus(locale, connection.lastTestStatus)
-                : t("Jamais")}{" "}
-              · {connection.enabled ? t("Actif") : t("Inactif")}
-            </p>
-            <div className="button-row">
-              <button
-                type="button"
-                onClick={() => {
-                  setEditing(connection);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
+        {connections.map((connection) => {
+          const latestSync = connection.syncJobs?.[0];
+          return (
+            <article className="admin-card" key={connection.id}>
+              <h2>{connection.name}</h2>
+              <p>
+                {connection.protocol}://{connection.primaryHost}:
+                {connection.port}
+              </p>
+              <p>
+                {t("Test")}:{" "}
+                {connection.lastTestStatus
+                  ? localizedStatus(locale, connection.lastTestStatus)
+                  : t("Jamais")}{" "}
+                · {connection.enabled ? t("Actif") : t("Inactif")}
+              </p>
+              <div
+                className={`directory-sync-status ${latestSync?.status === "ERROR" ? "error" : ""}`}
+                aria-live="polite"
               >
-                {t("Modifier")}
-              </button>
-              <button
-                onClick={() =>
-                  api<{ status: string }>(
-                    `/api/admin/directory-connections/${connection.id}/test`,
-                    { method: "POST" },
-                  )
-                    .then(async (result) => {
-                      onNotice(`${t("Test")} ${result.status}`);
+                <strong>{t("Dernière synchronisation")} :</strong>{" "}
+                {latestSync ? (
+                  <>
+                    {localizedStatus(locale, latestSync.status)} ·{" "}
+                    {new Date(
+                      latestSync.finishedAt || latestSync.startedAt,
+                    ).toLocaleString(locale)}
+                    {latestSync.status === "SUCCESS" &&
+                      latestSync.details?.groups !== undefined && (
+                        <small>
+                          {t(
+                            `${latestSync.details.groups} groupe(s) lu(s) sur ${latestSync.details.pages || 1} page(s).`,
+                            `${latestSync.details.groups} group(s) read across ${latestSync.details.pages || 1} page(s).`,
+                          )}
+                        </small>
+                      )}
+                    {latestSync.details?.error && (
+                      <small>{latestSync.details.error}</small>
+                    )}
+                  </>
+                ) : (
+                  t("Jamais")
+                )}
+              </div>
+              <div className="button-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(connection);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                >
+                  {t("Modifier")}
+                </button>
+                <button
+                  onClick={() =>
+                    api<{ status: string }>(
+                      `/api/admin/directory-connections/${connection.id}/test`,
+                      { method: "POST" },
+                    )
+                      .then(async (result) => {
+                        onNotice(`${t("Test")} ${result.status}`);
+                        await onChanged();
+                      })
+                      .catch((error) => onError(error.message))
+                  }
+                >
+                  {t("Tester")}
+                </button>
+                <button
+                  disabled={synchronizingId !== null}
+                  onClick={async () => {
+                    setSynchronizingId(connection.id);
+                    try {
+                      const result = await api<{
+                        status: string;
+                        groups?: number;
+                        pages?: number;
+                        error?: string;
+                      }>(
+                        `/api/admin/directory-connections/${connection.id}/synchronize`,
+                        { method: "POST" },
+                      );
+                      if (result.status !== "SUCCESS") {
+                        onError(
+                          result.error ||
+                            t(
+                              "La synchronisation de l’annuaire a échoué.",
+                              "Directory synchronization failed.",
+                            ),
+                        );
+                      } else {
+                        onNotice(
+                          t(
+                            `Synchronisation réussie : ${result.groups || 0} groupe(s) sur ${result.pages || 1} page(s).`,
+                            `Synchronization successful: ${result.groups || 0} group(s) across ${result.pages || 1} page(s).`,
+                          ),
+                        );
+                      }
                       await onChanged();
+                    } catch (error) {
+                      onError((error as Error).message);
+                    } finally {
+                      setSynchronizingId(null);
+                    }
+                  }}
+                >
+                  {synchronizingId === connection.id
+                    ? t("Synchronisation en cours…")
+                    : t("Synchroniser")}
+                </button>
+                <button
+                  className="danger"
+                  onClick={() =>
+                    api(`/api/admin/directory-connections/${connection.id}`, {
+                      method: "DELETE",
                     })
-                    .catch((error) => onError(error.message))
-                }
-              >
-                {t("Tester")}
-              </button>
-              <button
-                onClick={() =>
-                  api<{ status: string }>(
-                    `/api/admin/directory-connections/${connection.id}/synchronize`,
-                    { method: "POST" },
-                  )
-                    .then(async (result) => {
-                      onNotice(`${t("Synchronisation")} ${result.status}`);
-                      await onChanged();
-                    })
-                    .catch((error) => onError(error.message))
-                }
-              >
-                {t("Synchroniser")}
-              </button>
-              <button
-                className="danger"
-                onClick={() =>
-                  api(`/api/admin/directory-connections/${connection.id}`, {
-                    method: "DELETE",
-                  })
-                    .then(onChanged)
-                    .catch((error) => onError(error.message))
-                }
-              >
-                {t("Désactiver")}
-              </button>
-            </div>
-          </article>
-        ))}
+                      .then(onChanged)
+                      .catch((error) => onError(error.message))
+                  }
+                >
+                  {t("Désactiver")}
+                </button>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </>
   );

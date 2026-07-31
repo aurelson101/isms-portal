@@ -298,6 +298,15 @@ test("administration uses accessible confirmations and edits an existing directo
     enabled: false,
     caCertificateId: null,
     lastTestStatus: null,
+    syncJobs: [
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        status: "SUCCESS",
+        details: { groups: 1869, pages: 4 },
+        startedAt: "2026-07-31T08:28:37.582Z",
+        finishedAt: "2026-07-31T08:28:44.530Z",
+      },
+    ],
   };
   await page.route("**/api/admin/directory-connections", async (route) => {
     await route.fulfill({ json: [connection] });
@@ -323,6 +332,9 @@ test("administration uses accessible confirmations and edits an existing directo
     .click();
   await expect(
     page.getByRole("heading", { name: "Synchronisation LDAP/LDAPS" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("1869 groupe(s) lu(s) sur 4 page(s)."),
   ).toBeVisible();
   await page
     .getByRole("heading", { name: connection.name })

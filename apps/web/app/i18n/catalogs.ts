@@ -280,6 +280,10 @@ export const adminEnglishCatalog = {
   Supprimer: "Delete",
   "Supprimer cette règle ?": "Delete this rule?",
   Synchronisation: "Synchronization",
+  "Dernière synchronisation": "Last synchronization",
+  "Synchronisation en cours…": "Synchronization in progress…",
+  "La synchronisation de l’annuaire a échoué.":
+    "Directory synchronization failed.",
   "Synchronisation LDAP/LDAPS": "LDAP/LDAPS synchronization",
   "Synchronisé AD": "AD synchronized",
   Synchroniser: "Synchronize",
