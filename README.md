@@ -185,6 +185,11 @@ synchronisation réussie, les groupes sont proposés dans la recherche de
 **Groupes Active Directory** et dans la création des règles. Le secret de bind
 est chiffré en AES-256-GCM et n’est jamais renvoyé par l’API.
 
+La synchronisation complète utilise le contrôle de pagination LDAP, par pages
+de 500 groupes. Elle respecte ainsi la limite serveur Active Directory
+(`sizeLimitExceeded`, code `0x4`) et enregistre dans le résultat du job le
+nombre de pages et de groupes effectivement traités.
+
 Dans **Groupes Active Directory**, le deuxième champ interroge directement les
 connecteurs actifs à partir de deux caractères. Par exemple, `Skill` propose
 les groupes correspondants avec leur DN. Cliquer sur un résultat remplit le

@@ -342,8 +342,8 @@ export default function Admin() {
       setIsAdmin(me.isAdmin);
       setIdentity(me);
       const preferred =
-        me.locale ||
         (localStorage.getItem("isms-locale") as Locale | null) ||
+        me.locale ||
         (navigator.language.startsWith("en") ? "en" : "fr");
       setLocale(preferred);
       document.documentElement.lang = preferred;
