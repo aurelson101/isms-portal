@@ -37,6 +37,13 @@ le `.env` actuel :
 ./scripts/generate-secrets.sh --credentials-only
 ```
 
+Pour ajouter le secret de cookie SSO à une installation existante sans changer
+le mot de passe PostgreSQL, la clé de chiffrement ni le compte administrateur :
+
+```bash
+./scripts/generate-secrets.sh --sso-only
+```
+
 `credentials.txt` est exclu de Git mais reste un fichier sensible à déplacer
 vers un gestionnaire de secrets après installation.
 
@@ -50,6 +57,9 @@ valider dans Git.
 openssl rand -hex 32
 
 # Clé applicative de 32 octets encodée en base64 : ENCRYPTION_KEY.
+openssl rand -base64 32
+
+# Secret de cookie oauth2-proxy : OAUTH2_PROXY_COOKIE_SECRET.
 openssl rand -base64 32
 ```
 
@@ -314,9 +324,12 @@ Test LDAP/LDAPS reproductible sans l’AD de production :
 
 ## Session SSO et diagnostic
 
-Le portail tente d’abord la connexion SSO configurée (Microsoft 365/Entra ID,
-Keycloak ou un proxy OIDC). Si aucune session professionnelle n’est reconnue,
-`/admin/login` propose le compte administrateur local de secours.
+Le mode SSO Microsoft 365 utilise `oauth2-proxy` 7.15.3 devant l’API. Lorsqu’un
+utilisateur ouvre le portail, Nginx vérifie sa session Entra ID. Un navigateur
+qui possède déjà une session professionnelle revient automatiquement au
+portail ; une règle MFA ou Conditional Access peut néanmoins demander une
+validation. La connexion directe LDAP/LDAPS reste disponible sur `/login` et
+le compte administrateur local reste isolé sur `/admin/login`.
 
 Le compte principal n’utilise jamais un mot de passe fixe versionné. Le script
 génère un mot de passe fort dans `.env` et `credentials.txt`, tous deux exclus
@@ -326,6 +339,7 @@ de Git et protégés en mode `600` :
 ./scripts/generate-secrets.sh
 ./scripts/generate-secrets.sh --admin-only
 ./scripts/generate-secrets.sh --admin-only --force
+./scripts/generate-secrets.sh --sso-only
 ```
 
 L’identifiant initial est `admin` sauf modification de
@@ -335,22 +349,88 @@ Profil administrateur**. Cette page permet aussi d’ajouter une photo, de
 configurer un MFA TOTP et de gérer les administrateurs locaux ou associés à un
 utilisateur Active Directory.
 
-Le frontal SSO approuvé peut transmettre `X-Auth-Session-Expires` au format
-ISO-8601 en plus de l’identité et des groupes. Une date invalide ou expirée est
-refusée par l’API. Configurer les destinations de reprise et de déconnexion
-dans `.env` :
+### 1. Inscription Microsoft Entra ID
+
+Dans **Microsoft Entra ID → Inscriptions d’applications**, créer une
+application mono-tenant, ajouter une plateforme **Web** et déclarer exactement
+l’URI publique suivante :
+
+```text
+https://isms.example.com/oauth2/callback
+```
+
+Dans **Configuration du jeton**, ajouter la revendication facultative `email`
+au jeton d’identité. Elle doit contenir le même attribut `mail` que celui de
+l’utilisateur dans Active Directory. Créer ensuite un secret client avec une
+date d’expiration maîtrisée. Sa valeur, le Tenant ID et le Client ID doivent
+rester exclusivement dans `.env` ou dans le gestionnaire de secrets ; ne
+jamais les placer dans Git, le README ou `credentials.txt`.
+
+Il n’est pas nécessaire d’envoyer les centaines de groupes de l’utilisateur
+dans le jeton Microsoft. Après validation de l’identité Entra, l’API recherche
+son adresse `mail` exacte avec le compte de service LDAP/LDAPS puis résout ses
+groupes directs ou imbriqués. Seuls les groupes actifs déjà importés dans le
+portail alimentent les règles d’accès. Le résultat est mis en cache cinq
+minutes par défaut afin de ne pas interroger le contrôleur à chaque requête.
+
+### 2. Variables locales
+
+Compléter `.env` avec les valeurs de l’inscription et l’URL publique HTTPS :
 
 ```dotenv
-SSO_LOGIN_URL=https://sso.entreprise.local/login
-SSO_LOGOUT_URL=https://sso.entreprise.local/logout
+ENTRA_TENANT_ID=<TENANT_ID>
+ENTRA_CLIENT_ID=<CLIENT_ID>
+ENTRA_CLIENT_SECRET=<SECRET_DANS_GESTIONNAIRE_DE_SECRETS>
+OAUTH2_PROXY_COOKIE_SECRET=<GENERE_PAR_LE_SCRIPT>
+OAUTH2_PROXY_REDIRECT_URL=https://isms.example.com/oauth2/callback
+SSO_LOGIN_URL=/oauth2/start?rd=/
+SSO_LOGOUT_URL=/oauth2/sign_out
+SSO_DIRECTORY_GROUP_ENRICHMENT=true
+SSO_DIRECTORY_CACHE_TTL_SECONDS=300
 COOKIE_SECURE=true
 ```
 
-Le menu du compte et **Administration → Configuration** affichent uniquement
-la source d’identité, l’expiration et des compteurs de groupes/espaces
-associés. Les claims et noms de groupes bruts ne sont pas exposés par ce
-diagnostic. Le navigateur vérifie la session chaque minute et propose une
-réauthentification lorsqu’elle expire.
+Le portail doit impérativement être publié en HTTPS. Si TLS est terminé par un
+reverse proxy d’entreprise placé devant le port 8080, celui-ci doit transmettre
+`Host`, `X-Forwarded-For` et `X-Forwarded-Proto: https`. Le port de
+`oauth2-proxy` n’est jamais publié : Nginx est le seul service autorisé à lui
+adresser une sous-requête d’authentification et l’API continue de refuser tout
+en-tête d’identité provenant d’une adresse hors de `TRUSTED_PROXY_CIDRS`.
+
+### 3. Démarrage et contrôle
+
+Valider d’abord la fusion Compose, puis démarrer le profil SSO :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.sso.yml config --quiet
+docker compose -f docker-compose.yml -f docker-compose.sso.yml \
+  up -d --build --wait
+docker compose -f docker-compose.yml -f docker-compose.sso.yml ps
+```
+
+Contrôles attendus :
+
+1. une fenêtre privée ouvre la page Microsoft puis revient au portail ;
+2. un navigateur déjà connecté à Microsoft 365 revient sans ressaisie du mot
+   de passe, sauf exigence MFA/Conditional Access ;
+3. `/api/me` retourne `source: trusted-proxy` et `ssoConnected: true` ;
+4. le profil affiche les groupes AD reçus et les groupes importés reconnus ;
+5. `/admin` reste indépendant et redirige vers `/admin/login` sans utiliser la
+   session utilisateur Entra.
+
+Pour revenir au mode LDAP/LDAPS sans passerelle Entra, redémarrer uniquement le
+fichier Compose principal :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.sso.yml down
+docker compose up -d --build --wait
+```
+
+Le menu du compte affiche la source d’identité, le nombre d’appartenances AD,
+les groupes reconnus par le portail et les espaces associés. Les groupes non
+importés ne sont jamais détaillés. La résolution annuaire échoue de façon sûre :
+une identité Entra valide mais introuvable dans AD ne reçoit aucun droit issu
+de LDAP.
 
 Les listes administratives volumineuses acceptent les paramètres serveur
 `page`, `limit`, `q`, `sort` et `order` sur les routes des groupes, documents

@@ -114,6 +114,38 @@ describe("IdentityMiddleware", () => {
     });
   });
 
+  it("accepts the comma-separated group header emitted by oauth2-proxy", async () => {
+    const req = {
+      path: "/documents",
+      originalUrl: "/documents",
+      headers: {
+        "x-auth-mail": "alice@example.com",
+        "x-auth-groups": "group-id-1,group-id-2",
+      },
+      socket: { remoteAddress: "172.20.0.5" },
+    } as unknown as IsmsRequest;
+    await middleware.use(req, response() as never, vi.fn());
+    expect(req.identity.groups).toEqual(["group-id-1", "group-id-2"]);
+  });
+
+  it("accepts an Entra mail without group claims for LDAP enrichment", async () => {
+    const req = {
+      path: "/documents",
+      originalUrl: "/documents",
+      headers: {
+        "x-auth-mail": "alice@example.com",
+        "x-auth-name": "Alice Example",
+      },
+      socket: { remoteAddress: "172.20.0.5" },
+    } as unknown as IsmsRequest;
+    await middleware.use(req, response() as never, vi.fn());
+    expect(req.identity).toMatchObject({
+      username: "alice@example.com",
+      groups: [],
+      source: "trusted-proxy",
+    });
+  });
+
   it("rejects identity headers coming from an untrusted address", async () => {
     const req = {
       path: "/documents",

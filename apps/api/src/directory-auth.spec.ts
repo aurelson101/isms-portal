@@ -157,4 +157,36 @@ describe("DirectoryService user authentication", () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(prisma.directoryConnection.findMany).not.toHaveBeenCalled();
   });
+
+  it("resolves a trusted SSO mail to its direct and nested AD groups", async () => {
+    const { service, search, userBind } = harness([alice]);
+
+    await expect(
+      service.resolveUserByMail(" Alice@Example.com "),
+    ).resolves.toEqual({
+      username: "alice@example.com",
+      displayName: "Alice Example",
+      groups: ["ITAD", "Domain Users"],
+      connectionId: "directory-1",
+    });
+    expect(userBind).not.toHaveBeenCalled();
+    expect(String(search.mock.calls[0][1].filter)).toContain(
+      "(mail=alice@example.com)",
+    );
+    expect(String(search.mock.calls[1][1].filter)).toContain(
+      "member:1.2.840.113556.1.4.1941:=CN=Alice",
+    );
+  });
+
+  it("does not resolve an ambiguous SSO mail", async () => {
+    const { service, search } = harness([
+      alice,
+      { ...alice, dn: "CN=Alice2,OU=Users,DC=example,DC=com" },
+    ]);
+
+    await expect(service.resolveUserByMail("alice@example.com")).resolves.toBe(
+      null,
+    );
+    expect(search).toHaveBeenCalledOnce();
+  });
 });

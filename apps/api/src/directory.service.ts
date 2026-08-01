@@ -191,6 +191,87 @@ export class DirectoryService {
     throw new UnauthorizedException("Invalid directory credentials");
   }
 
+  async resolveUserByMail(mailValue: string) {
+    const mail = mailValue.trim().toLowerCase();
+    if (
+      !mail.includes("@") ||
+      mail.length > 255 ||
+      mail.includes("\\") ||
+      mail.includes("\0")
+    )
+      return null;
+    const connections = await this.prisma.directoryConnection.findMany({
+      where: { enabled: true },
+      include: { caCertificate: true },
+      orderBy: { name: "asc" },
+    });
+    const preferredConnections = [...connections].sort(
+      (left, right) =>
+        Number(right.protocol === "LDAPS") - Number(left.protocol === "LDAPS"),
+    );
+    for (const connection of preferredConnections) {
+      let client: Client | null = null;
+      try {
+        validateFilter(connection.userFilter);
+        validateFilter(connection.groupFilter);
+        for (const attribute of [
+          connection.emailAttribute,
+          connection.groupAttribute,
+        ])
+          if (!/^[a-z][a-z0-9-]{0,79}$/iu.test(attribute))
+            throw new Error("Invalid directory attribute");
+        ({ client } = await this.bindWithFallback(connection));
+        const mailFilter = escapeFilter`(${connection.emailAttribute}=${mail})`;
+        const result = await client.search(
+          connection.userBaseDn || connection.baseDn,
+          {
+            scope: "sub",
+            filter: `(&${connection.userFilter}${mailFilter})`,
+            sizeLimit: 2,
+            attributes: [connection.emailAttribute, "displayName"],
+          },
+        );
+        if (result.searchEntries.length !== 1) continue;
+        const user = result.searchEntries[0];
+        const resolvedMail = String(user[connection.emailAttribute] || "")
+          .trim()
+          .toLowerCase();
+        if (resolvedMail !== mail) continue;
+        const membershipRule = connection.nestedGroups
+          ? escapeFilter`(member:1.2.840.113556.1.4.1941:=${user.dn})`
+          : escapeFilter`(member=${user.dn})`;
+        const groupResult = await client.search(
+          connection.groupBaseDn || connection.baseDn,
+          {
+            scope: "sub",
+            filter: `(&${connection.groupFilter}${membershipRule})`,
+            paged: { pageSize: 500 },
+            attributes: [connection.groupAttribute],
+          },
+        );
+        return {
+          username: resolvedMail,
+          displayName: String(user.displayName || resolvedMail).trim(),
+          groups: [
+            ...new Set(
+              groupResult.searchEntries
+                .map((entry) =>
+                  String(entry[connection.groupAttribute] || "").trim(),
+                )
+                .filter(Boolean),
+            ),
+          ],
+          connectionId: connection.id,
+        };
+      } catch {
+        // A secondary connector may still resolve the trusted SSO identity.
+      } finally {
+        await client?.unbind().catch(() => undefined);
+      }
+    }
+    return null;
+  }
+
   private groupFromEntry(
     connection: ConnectionWithCa,
     entry: Record<string, unknown> & { dn: string },
