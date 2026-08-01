@@ -22,7 +22,10 @@ ensuite le compte par correspondance exacte sur l’attribut AD `mail` avec le
 bind de service LDAP/LDAPS, charge les groupes directs ou imbriqués et fusionne
 ce résultat avec les claims éventuels. La résolution est mise en cache pendant
 `SSO_DIRECTORY_CACHE_TTL_SECONDS` et n’accorde aucun droit lorsque le compte
-est absent ou ambigu.
+est absent ou ambigu. Les recherches concurrentes d’une même identité sont
+coalescées ; les absences et pannes utilisent séparément
+`SSO_DIRECTORY_NEGATIVE_CACHE_TTL_SECONDS`, limité à trente secondes par
+défaut.
 
 Les utilisateurs standards n’ont aucun mot de passe local. En cas d’identité
 absente, proxy non approuvé ou groupes périmés, l’accès documentaire est

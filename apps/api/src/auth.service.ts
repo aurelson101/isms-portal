@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   OnModuleInit,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -60,12 +61,17 @@ const totp = (secret: string, timestamp = Date.now()) => {
 
 @Injectable()
 export class AuthService implements OnModuleInit {
+  private readonly logger = new Logger(AuthService.name);
   private readonly ssoDirectoryCache = new Map<
     string,
     {
       expiresAt: number;
       profile: Awaited<ReturnType<DirectoryService["resolveUserByMail"]>>;
     }
+  >();
+  private readonly ssoDirectoryInFlight = new Map<
+    string,
+    Promise<Awaited<ReturnType<DirectoryService["resolveUserByMail"]>>>
   >();
 
   constructor(
@@ -185,35 +191,7 @@ export class AuthService implements OnModuleInit {
       identity.source === "trusted-proxy" &&
       process.env.SSO_DIRECTORY_GROUP_ENRICHMENT !== "false"
     ) {
-      const ttlSeconds = Math.min(
-        3600,
-        Math.max(
-          30,
-          Number(process.env.SSO_DIRECTORY_CACHE_TTL_SECONDS || 300) || 300,
-        ),
-      );
-      const cached = this.ssoDirectoryCache.get(identity.username);
-      let profile =
-        cached?.expiresAt && cached.expiresAt > Date.now()
-          ? cached.profile
-          : undefined;
-      if (profile === undefined) {
-        profile = await this.directory
-          .resolveUserByMail(identity.username)
-          .catch(() => null);
-        if (this.ssoDirectoryCache.size >= 10_000)
-          for (const [key, value] of this.ssoDirectoryCache)
-            if (value.expiresAt <= Date.now())
-              this.ssoDirectoryCache.delete(key);
-        if (this.ssoDirectoryCache.size >= 10_000)
-          this.ssoDirectoryCache.delete(
-            this.ssoDirectoryCache.keys().next().value!,
-          );
-        this.ssoDirectoryCache.set(identity.username, {
-          expiresAt: Date.now() + ttlSeconds * 1000,
-          profile,
-        });
-      }
+      const profile = await this.ssoDirectoryProfile(identity.username);
       if (profile)
         enrichedIdentity = {
           ...identity,
@@ -242,6 +220,59 @@ export class AuthService implements OnModuleInit {
           ],
         }
       : enrichedIdentity;
+  }
+
+  private boundedSeconds(value: string | undefined, fallback: number) {
+    return Math.min(3600, Math.max(5, Number(value || fallback) || fallback));
+  }
+
+  private rememberSsoDirectoryProfile(
+    username: string,
+    profile: Awaited<ReturnType<DirectoryService["resolveUserByMail"]>>,
+  ) {
+    const ttlSeconds = profile
+      ? this.boundedSeconds(process.env.SSO_DIRECTORY_CACHE_TTL_SECONDS, 300)
+      : this.boundedSeconds(
+          process.env.SSO_DIRECTORY_NEGATIVE_CACHE_TTL_SECONDS,
+          30,
+        );
+    this.ssoDirectoryCache.delete(username);
+    while (this.ssoDirectoryCache.size >= 10_000) {
+      const oldest = this.ssoDirectoryCache.keys().next().value;
+      if (!oldest) break;
+      this.ssoDirectoryCache.delete(oldest);
+    }
+    this.ssoDirectoryCache.set(username, {
+      expiresAt: Date.now() + ttlSeconds * 1000,
+      profile,
+    });
+  }
+
+  private async ssoDirectoryProfile(username: string) {
+    const cached = this.ssoDirectoryCache.get(username);
+    if (cached && cached.expiresAt > Date.now()) {
+      this.ssoDirectoryCache.delete(username);
+      this.ssoDirectoryCache.set(username, cached);
+      return cached.profile;
+    }
+    if (cached) this.ssoDirectoryCache.delete(username);
+    const existing = this.ssoDirectoryInFlight.get(username);
+    if (existing) return existing;
+    const lookup = this.directory
+      .resolveUserByMail(username)
+      .catch(() => {
+        this.logger.warn(
+          "SSO directory enrichment failed; access remains deny-by-default",
+        );
+        return null;
+      })
+      .then((profile) => {
+        this.rememberSsoDirectoryProfile(username, profile);
+        return profile;
+      })
+      .finally(() => this.ssoDirectoryInFlight.delete(username));
+    this.ssoDirectoryInFlight.set(username, lookup);
+    return lookup;
   }
 
   async login(

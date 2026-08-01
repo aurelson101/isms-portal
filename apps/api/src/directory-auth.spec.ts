@@ -189,4 +189,20 @@ describe("DirectoryService user authentication", () => {
     );
     expect(search).toHaveBeenCalledOnce();
   });
+
+  it("distinguishes an unavailable directory from an unknown SSO mail", async () => {
+    const prisma = {
+      directoryConnection: {
+        findMany: vi.fn().mockResolvedValue([connection]),
+      },
+    };
+    const service = new DirectoryService(prisma as never, {} as never);
+    vi.spyOn(service as never, "bindWithFallback").mockRejectedValue(
+      new Error("controller unavailable"),
+    );
+
+    await expect(
+      service.resolveUserByMail("alice@example.com"),
+    ).rejects.toThrow("Directory SSO identity resolution failed");
+  });
 });

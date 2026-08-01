@@ -387,6 +387,7 @@ SSO_LOGIN_URL=/oauth2/start?rd=/
 SSO_LOGOUT_URL=/oauth2/sign_out
 SSO_DIRECTORY_GROUP_ENRICHMENT=true
 SSO_DIRECTORY_CACHE_TTL_SECONDS=300
+SSO_DIRECTORY_NEGATIVE_CACHE_TTL_SECONDS=30
 COOKIE_SECURE=true
 ```
 
@@ -430,7 +431,10 @@ Le menu du compte affiche la source d’identité, le nombre d’appartenances A
 les groupes reconnus par le portail et les espaces associés. Les groupes non
 importés ne sont jamais détaillés. La résolution annuaire échoue de façon sûre :
 une identité Entra valide mais introuvable dans AD ne reçoit aucun droit issu
-de LDAP.
+de LDAP. Les appels simultanés d’une même identité partagent une seule recherche
+annuaire. Un résultat positif reste en cache cinq minutes ; une absence ou une
+panne utilise un cache négatif de trente secondes afin d’éviter une surcharge
+sans prolonger inutilement une indisponibilité.
 
 Les listes administratives volumineuses acceptent les paramètres serveur
 `page`, `limit`, `q`, `sort` et `order` sur les routes des groupes, documents
