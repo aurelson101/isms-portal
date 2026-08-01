@@ -46,6 +46,8 @@ import { CryptoService } from "./crypto.service";
 import { DirectoryService } from "./directory.service";
 import { parseCaCertificates } from "./certificate.parser";
 import { validateDirectoryHosts } from "./directory-host";
+import { WatermarkService } from "./watermark.service";
+import { ObservabilityService } from "./observability.service";
 
 const tcpCheck = (host: string, port: number, timeout = 1200) =>
   new Promise<boolean>((resolve) => {
@@ -87,6 +89,7 @@ export class HealthController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly observability: ObservabilityService,
   ) {}
 
   @Get("health/live")
@@ -136,6 +139,12 @@ export class HealthController {
 
   @Get("metrics")
   async metrics(@Res() response: Response) {
+    await this.observability.collect({
+      postgres: await tcpCheck("postgres", 5432),
+      redis: await tcpCheck("redis", 6379),
+      documentStorage: await this.storage.healthCheck(),
+      clamav: await tcpCheck("clamav", 3310),
+    });
     response.type(register.contentType).send(await register.metrics());
   }
 }
@@ -228,6 +237,7 @@ export class DocumentsController {
     private readonly storage: StorageService,
     private readonly antivirus: AntivirusService,
     private readonly audit: AuditService,
+    private readonly watermark: WatermarkService,
   ) {}
 
   @Get()
@@ -649,6 +659,10 @@ export class DocumentsController {
       throw new ConflictException(
         "Every document version must pass antivirus scanning",
       );
+    const distributedFiles =
+      status === "PUBLISHED"
+        ? await this.watermark.prepareForPublication(document.id)
+        : [];
     const updated = await this.prisma.document.update({
       where: { id },
       data: {
@@ -661,6 +675,7 @@ export class DocumentsController {
       `document.${status.toLowerCase()}`,
       `document:${id}`,
       "success",
+      distributedFiles.length ? { distributedFiles } : undefined,
     );
     return updated;
   }
@@ -761,7 +776,7 @@ export class DocumentsController {
           where: { locale },
           orderBy: { version: "desc" },
           take: 1,
-          select: { storedFile: true },
+          select: { id: true, storedFile: true, distributedStoredFile: true },
         },
       },
     });
@@ -778,7 +793,18 @@ export class DocumentsController {
         .catch(() => undefined);
       throw new NotFoundException();
     }
-    const storedFile = document.versions[0]?.storedFile;
+    const version = document.versions[0];
+    let storedFile = document.sensitive
+      ? version?.distributedStoredFile
+      : version?.storedFile;
+    if (document.sensitive && version && !storedFile) {
+      await this.watermark.prepareForPublication(id);
+      const refreshed = await this.prisma.documentVersion.findUnique({
+        where: { id: version.id },
+        select: { distributedStoredFile: true },
+      });
+      storedFile = refreshed?.distributedStoredFile || null;
+    }
     if (!storedFile)
       throw new NotFoundException("Translation has no downloadable version");
     const safeName = basename(storedFile.originalName).replace(/[\r\n"]/g, "_");
@@ -1420,6 +1446,7 @@ export class DocumentAdminController {
     private readonly storage: StorageService,
     private readonly antivirus: AntivirusService,
     private readonly audit: AuditService,
+    private readonly watermark: WatermarkService,
   ) {}
 
   @Get()
@@ -1617,6 +1644,7 @@ export class DocumentAdminController {
         "Every document version must pass antivirus scanning",
       );
     }
+    const distributedFiles = await this.watermark.prepareForPublication(id);
     const updated = await this.prisma.document.update({
       where: { id },
       data: { status: "PUBLISHED", publishedAt: new Date() },
@@ -1626,6 +1654,7 @@ export class DocumentAdminController {
       "document.publish",
       `document:${id}`,
       "success",
+      distributedFiles.length ? { distributedFiles } : undefined,
     );
     return updated;
   }
@@ -1667,17 +1696,25 @@ export class DocumentAdminController {
       include: {
         translations: { select: { title: true, locale: true } },
         versions: {
-          include: { storedFile: { select: { id: true, objectKey: true } } },
+          include: {
+            storedFile: { select: { id: true, objectKey: true } },
+            distributedStoredFile: {
+              select: { id: true, objectKey: true },
+            },
+          },
         },
       },
     });
     if (!document) throw new NotFoundException();
     const storedFiles = Array.from(
       new Map(
-        document.versions.map((version) => [
-          version.storedFile.id,
-          version.storedFile,
-        ]),
+        document.versions.flatMap((version) =>
+          [version.storedFile, version.distributedStoredFile]
+            .filter((file): file is { id: string; objectKey: string } =>
+              Boolean(file),
+            )
+            .map((file) => [file.id, file] as const),
+        ),
       ).values(),
     );
     const storedFileIds = storedFiles.map((file) => file.id);
@@ -1689,7 +1726,11 @@ export class DocumentAdminController {
       this.prisma.documentTranslation.deleteMany({ where: { documentId: id } }),
       this.prisma.document.delete({ where: { id } }),
       this.prisma.storedFile.deleteMany({
-        where: { id: { in: storedFileIds }, versions: { none: {} } },
+        where: {
+          id: { in: storedFileIds },
+          sourceVersions: { none: {} },
+          distributedVersions: { none: {} },
+        },
       }),
     ]);
     const cleanupResults = await Promise.allSettled(

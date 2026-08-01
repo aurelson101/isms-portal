@@ -20,6 +20,8 @@ import { CryptoService } from "./crypto.service";
 import { DirectoryService } from "./directory.service";
 import { AuthService } from "./auth.service";
 import { AuthController, AdminAccountsController } from "./auth.controller";
+import { WatermarkService } from "./watermark.service";
+import { ObservabilityService } from "./observability.service";
 
 @Module({
   controllers: [
@@ -42,6 +44,8 @@ import { AuthController, AdminAccountsController } from "./auth.controller";
     CryptoService,
     DirectoryService,
     AuthService,
+    WatermarkService,
+    ObservabilityService,
     { provide: APP_GUARD, useClass: AdminGuard },
   ],
 })

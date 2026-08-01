@@ -92,6 +92,14 @@ les capacités autorisées et l’interface masque le téléchargement lorsqu’
 n’est pas accordé. Les fichiers sont conservés dans le volume Docker
 `document-storage`, monté dans `/data/documents`.
 
+Lorsqu’un document est marqué **sensible**, la publication génère une copie de
+diffusion portant définitivement la mention `SENSITIVE DOCUMENT` en en-tête,
+au centre ou en pied de page. Cette copie PDF, DOCX ou XLSX est de nouveau
+analysée par ClamAV, possède sa propre empreinte SHA-256 et reste marquée après
+téléchargement, ouverture hors ligne et impression. La source originale reste
+interne et n’est jamais servie aux utilisateurs. La prévisualisation de
+l’administration reprend la même position que le fichier distribué.
+
 ## Explorateur documentaire
 
 L’accueil reste volontairement synthétique. Les cartes et menus **Politiques**,
@@ -134,6 +142,7 @@ docker run --rm --network host -v "$PWD:/work" -w /work \
 ./scripts/test-ldaps-functional.sh
 ./scripts/test-authorization-functional.sh
 ./scripts/test-restore-functional.sh
+./scripts/test-performance-functional.sh
 ./scripts/backup.sh backups/$(date +%Y%m%d-%H%M%S)
 docker compose logs -f
 ```
@@ -145,6 +154,47 @@ JavaScript non interceptée ou une réponse HTTP 5xx observée par le navigateur
 `./scripts/diagnose.sh` contrôle sans modifier les données la configuration
 Compose, la santé des sept services, les routes publiques attendues et les
 principaux en-têtes de sécurité.
+
+Sur chaque hôte Linux Docker, appliquer une fois le réglage requis par la
+persistance Redis, puis vérifier qu’il vaut `1` :
+
+```bash
+sudo ./scripts/configure-host.sh
+sysctl vm.overcommit_memory
+docker compose restart redis
+docker compose logs redis | grep -i overcommit || true
+```
+
+## Exploitation P2
+
+Le workflow `Supply chain` construit les images API et Web sur chaque push de
+`main`, publie les digests immuables dans le registre privé GHCR, joint une
+attestation BuildKit et une SBOM SPDX par image, recherche les vulnérabilités
+système et applicatives HIGH/CRITICAL avec Trivy, puis signe chaque digest sans
+clé avec Cosign/OIDC. Les actions tierces sont épinglées sur leur SHA de commit.
+
+Le test de performance crée 2 000 groupes jetables et vérifie, avec dix requêtes
+concurrentes, les budgets p95 suivants : recherche documentaire 2 s,
+pagination 1,5 s, liste AD volumineuse 2 s, sans aucune réponse en erreur. Les
+seuils et la charge peuvent être ajustés avec `PERFORMANCE_REQUESTS` et
+`PERFORMANCE_CONCURRENCY`.
+
+Le workflow hebdomadaire `Resilience drills` restaure une sauvegarde dans une
+pile Docker jetable. Il contrôle le manifeste de sauvegarde, la santé, les
+métadonnées, chaque taille et chaque empreinte SHA-256 restaurée ; toute
+différence fait échouer le workflow et déclenche les notifications GitHub du
+dépôt. Son second job, activé avec la variable privée
+`AD_FAILOVER_TEST_ENABLED=true`, utilise un runner interne et les secrets de
+l’environnement `ad-failover-test` pour provoquer une coupure contrôlée du
+contrôleur primaire, valider la synchronisation via le secondaire, restaurer le
+primaire puis vérifier l’authentification SSO. Le script n’imprime aucune
+identité ni aucun secret.
+
+Les métriques Prometheus restent accessibles uniquement sur le réseau privé de
+l’API via `/metrics`. Elles couvrent santé des dépendances, taux HTTP 5xx,
+échecs LDAP, profondeur BullMQ, espace disque documentaire et durée ClamAV. Les
+règles prêtes à importer sont dans
+`deploy/monitoring/prometheus-alerts.yml`.
 
 Voir [l’architecture](docs/architecture.md), [l’installation](docs/installation.md),
 [les routes](docs/routes.md) et [la sécurité](docs/security.md).

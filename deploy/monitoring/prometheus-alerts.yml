@@ -1,0 +1,45 @@
+groups:
+  - name: isms-portal
+    rules:
+      - alert: IsmsApiUnavailable
+        expr: up{job="isms-api"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: ISMS Portal API is unavailable
+      - alert: IsmsApiHigh5xxRate
+        expr: sum(rate(isms_http_requests_total{status_class="5xx"}[5m])) / clamp_min(sum(rate(isms_http_requests_total[5m])), 0.001) > 0.05
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: ISMS Portal API 5xx rate exceeds 5 percent
+      - alert: IsmsDirectorySynchronizationFailures
+        expr: isms_directory_sync_failures_15m > 0
+        for: 1m
+        labels: { severity: warning }
+        annotations:
+          summary: Active Directory synchronization is failing
+      - alert: IsmsDirectoryQueueBacklog
+        expr: sum(isms_directory_queue_jobs{state=~"waiting|delayed"}) > 50
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: Directory synchronization queue is backlogged
+      - alert: IsmsDirectoryQueueFailedJobs
+        expr: isms_directory_queue_jobs{state="failed"} > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: Directory synchronization queue contains failed jobs
+      - alert: IsmsDocumentStorageLow
+        expr: isms_document_storage_available_bytes / isms_document_storage_total_bytes < 0.10
+        for: 15m
+        labels: { severity: critical }
+        annotations:
+          summary: Document storage has less than 10 percent free space
+      - alert: IsmsAntivirusScanSlow
+        expr: histogram_quantile(0.95, sum by (le) (rate(isms_antivirus_scan_duration_seconds_bucket[15m]))) > 10
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: ClamAV p95 scan duration exceeds 10 seconds

@@ -1,0 +1,38 @@
+name: Resilience drills
+
+on:
+  schedule:
+    - cron: "17 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - run: ./scripts/generate-secrets.sh
+      - name: Restore into disposable infrastructure and verify hashes
+        run: ./scripts/test-restore-functional.sh
+
+  directory-failover:
+    if: ${{ vars.AD_FAILOVER_TEST_ENABLED == 'true' }}
+    timeout-minutes: 20
+    runs-on: self-hosted
+    environment: ad-failover-test
+    steps:
+      - uses: actions/checkout@v5
+      - name: Exercise real AD controllers and SSO without exporting identities
+        env:
+          ISMS_FAILOVER_BASE_URL: ${{ secrets.ISMS_FAILOVER_BASE_URL }}
+          ISMS_FAILOVER_ADMIN_USERNAME: ${{ secrets.ISMS_FAILOVER_ADMIN_USERNAME }}
+          ISMS_FAILOVER_ADMIN_PASSWORD: ${{ secrets.ISMS_FAILOVER_ADMIN_PASSWORD }}
+          ISMS_FAILOVER_CONNECTION_ID: ${{ secrets.ISMS_FAILOVER_CONNECTION_ID }}
+          ISMS_FAILOVER_OUTAGE_START_URL: ${{ secrets.ISMS_FAILOVER_OUTAGE_START_URL }}
+          ISMS_FAILOVER_OUTAGE_STOP_URL: ${{ secrets.ISMS_FAILOVER_OUTAGE_STOP_URL }}
+          ISMS_FAILOVER_OUTAGE_TOKEN: ${{ secrets.ISMS_FAILOVER_OUTAGE_TOKEN }}
+          ISMS_FAILOVER_SSO_COOKIE: ${{ secrets.ISMS_FAILOVER_SSO_COOKIE }}
+        run: ./scripts/test-directory-failover-functional.sh

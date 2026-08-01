@@ -1,6 +1,6 @@
 import { expect, test } from "./test";
 import AxeBuilder from "@axe-core/playwright";
-import { strToU8, zipSync } from "fflate";
+import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 
 test.beforeEach(async ({ page }) => {
   const response = await page.request.put("/api/me/preferences", {
@@ -1023,6 +1023,16 @@ test("Word and Excel documents open in a read-only viewer", async ({
           await request.post(`/api/admin/documents/${created.id}/publish`)
         ).status(),
       ).toBe(201);
+      if (item.title === wordTitle) {
+        const download = await request.get(
+          `/api/documents/${created.id}/download?locale=fr`,
+        );
+        expect(download.status()).toBe(200);
+        const distributed = unzipSync(new Uint8Array(await download.body()));
+        const documentXml = strFromU8(distributed["word/document.xml"]);
+        expect(documentXml).toContain("SENSITIVE DOCUMENT");
+        expect(documentXml).toContain("mso-position-vertical:bottom");
+      }
     }
 
     await page.goto(`/explorer?q=${encodeURIComponent(wordTitle)}`);
