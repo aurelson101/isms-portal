@@ -134,7 +134,7 @@ docker run --rm -v "$PWD:/workspace" -w /workspace \
 docker compose exec api npx prisma migrate deploy
 docker compose exec api npm run seed
 docker compose run --rm api npm test
-docker run --rm -v "$PWD:/app" -w /app node:22.13.1-alpine npm run lint
+docker run --rm -v "$PWD:/app" -w /app node:22.23.2-alpine npm run lint
 docker run --rm --network host -v "$PWD:/work" -w /work \
   mcr.microsoft.com/playwright:v1.55.1-noble npx playwright test
 # Recette E2E isolée : crée puis détruit une pile et des volumes dédiés sur 18080.

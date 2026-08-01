@@ -27,5 +27,5 @@ docker compose $compose_args exec -T api node prisma/seed.js
 docker compose $compose_args exec -T api node prisma/performance-seed.js
 docker run --rm --network host --env-file "$project_root/.env" \
   -e PERFORMANCE_BASE_URL=http://127.0.0.1:18080 \
-  -v "$project_root:/workspace:ro" -w /workspace node:22.13.1-alpine \
+  -v "$project_root:/workspace:ro" -w /workspace node:22.23.2-alpine \
   node scripts/performance-test.mjs
