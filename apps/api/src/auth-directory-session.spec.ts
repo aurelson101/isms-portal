@@ -119,4 +119,41 @@ describe("AuthService directory sessions", () => {
     await service.enrichSsoIdentity(identity);
     expect(resolveUserByMail).toHaveBeenCalledOnce();
   });
+
+  it("coalesces concurrent LDAP enrichment for the same SSO identity", async () => {
+    const resolveUserByMail = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                username: "alice@example.com",
+                displayName: "Alice Example",
+                groups: ["ITAD"],
+                connectionId: "directory-1",
+              }),
+            5,
+          ),
+        ),
+    );
+    const service = new AuthService(
+      { adminAccount: { findFirst: vi.fn().mockResolvedValue(null) } } as never,
+      { resolveUserByMail } as never,
+    );
+    const identity = {
+      username: "alice@example.com",
+      displayName: "Alice",
+      groups: [],
+      source: "trusted-proxy" as const,
+    };
+
+    const [first, second] = await Promise.all([
+      service.enrichSsoIdentity(identity),
+      service.enrichSsoIdentity(identity),
+    ]);
+
+    expect(first.groups).toEqual(["ITAD"]);
+    expect(second.groups).toEqual(["ITAD"]);
+    expect(resolveUserByMail).toHaveBeenCalledOnce();
+  });
 });

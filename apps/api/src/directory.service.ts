@@ -209,6 +209,7 @@ export class DirectoryService {
       (left, right) =>
         Number(right.protocol === "LDAPS") - Number(left.protocol === "LDAPS"),
     );
+    const errors: unknown[] = [];
     for (const connection of preferredConnections) {
       let client: Client | null = null;
       try {
@@ -263,12 +264,15 @@ export class DirectoryService {
           ],
           connectionId: connection.id,
         };
-      } catch {
+      } catch (error) {
+        errors.push(error);
         // A secondary connector may still resolve the trusted SSO identity.
       } finally {
         await client?.unbind().catch(() => undefined);
       }
     }
+    if (errors.length)
+      throw new Error("Directory SSO identity resolution failed");
     return null;
   }
 
