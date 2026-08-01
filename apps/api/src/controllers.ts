@@ -159,17 +159,33 @@ export class IdentityController {
 
   @Get()
   async get(@Req() req: IsmsRequest) {
-    const [spaces, preference, adminAccount] = await Promise.all([
-      this.authorization.permittedSpaces(req.identity.groups, "showMenu"),
-      this.prisma.userPreference.findUnique({
-        where: { identity: req.identity.username },
-      }),
-      this.prisma.adminAccount.findUnique({
-        where: { username: req.identity.username },
-        select: { primary: true },
-      }),
-    ]);
     const administrator = isAdminIdentity(req.identity.groups);
+    const matchedGroupsPromise =
+      !administrator && req.identity.groups.length > 0
+        ? this.prisma.directoryGroup.findMany({
+            where: {
+              active: true,
+              OR: req.identity.groups.map((name) => ({
+                name: { equals: name, mode: "insensitive" as const },
+              })),
+            },
+            select: { name: true },
+            orderBy: { name: "asc" },
+          })
+        : Promise.resolve([]);
+    const [spaces, preference, adminAccount, matchedGroups] = await Promise.all(
+      [
+        this.authorization.permittedSpaces(req.identity.groups, "showMenu"),
+        this.prisma.userPreference.findUnique({
+          where: { identity: req.identity.username },
+        }),
+        this.prisma.adminAccount.findUnique({
+          where: { username: req.identity.username },
+          select: { primary: true },
+        }),
+        matchedGroupsPromise,
+      ],
+    );
     const permissionNames: Permission[] = [
       "showMenu",
       "read",
@@ -196,6 +212,7 @@ export class IdentityController {
         logoutUrl: process.env.SSO_LOGOUT_URL || null,
         diagnostics: {
           groupCount: req.identity.groups.length,
+          matchedGroups: matchedGroups.map((group) => group.name),
           mappedSpaceCount: spaces.length,
           administrator,
           administratorAccount: administrator,

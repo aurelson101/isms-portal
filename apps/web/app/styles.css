@@ -422,7 +422,7 @@ textarea:focus-visible {
 }
 .session-diagnostics dt,
 .sso-diagnostic dt {
-  color: var(--muted);
+  color: #66758f;
 }
 .session-diagnostics dd,
 .sso-diagnostic dd {
@@ -430,13 +430,34 @@ textarea:focus-visible {
   text-align: right;
   overflow-wrap: anywhere;
 }
+.matched-groups summary {
+  cursor: pointer;
+  color: #0665e8;
+  font-weight: 700;
+}
+.matched-groups ul {
+  width: min(18rem, 70vw);
+  max-height: 10rem;
+  margin: 0.45rem 0 0;
+  padding: 0.5rem 0.7rem;
+  overflow: auto;
+  list-style: none;
+  text-align: left;
+  border: 1px solid #d4deeb;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+.matched-groups li {
+  padding: 0.2rem 0;
+  overflow-wrap: anywhere;
+}
 .sso-diagnostic {
   max-width: 52rem;
   margin: 1rem 0 1.5rem;
   padding: 1rem 1.2rem;
-  border: 1px solid var(--line);
+  border: 1px solid #d4deeb;
   border-radius: 0.8rem;
-  background: var(--panel);
+  background: #fff;
 }
 h1 {
   font-size: 42px;

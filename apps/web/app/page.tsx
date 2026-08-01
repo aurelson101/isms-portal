@@ -88,6 +88,7 @@ type Identity = {
     logoutUrl: string | null;
     diagnostics: {
       groupCount: number;
+      matchedGroups?: string[];
       mappedSpaceCount: number;
       administrator: boolean;
       administratorAccount: boolean;
@@ -771,6 +772,29 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                     <>
                       <dt>{t.groupsDetected}</dt>
                       <dd>{identity.authentication.diagnostics.groupCount}</dd>
+                      <dt>{t.groupsRecognized}</dt>
+                      <dd>
+                        {(identity.authentication.diagnostics.matchedGroups
+                          ?.length ?? 0) > 0 ? (
+                          <details className="matched-groups">
+                            <summary>
+                              {
+                                identity.authentication.diagnostics
+                                  .matchedGroups?.length
+                              }
+                            </summary>
+                            <ul>
+                              {identity.authentication.diagnostics.matchedGroups?.map(
+                                (group) => (
+                                  <li key={group}>{group}</li>
+                                ),
+                              )}
+                            </ul>
+                          </details>
+                        ) : (
+                          t.noRecognizedGroup
+                        )}
+                      </dd>
                     </>
                   )}
                   <dt>{t.spacesMapped}</dt>

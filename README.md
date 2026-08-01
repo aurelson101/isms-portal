@@ -259,6 +259,9 @@ AD `mail`, par exemple `jdupont@example.com`. Le domaine qualifié
 - `mail` devient l’identité stable affichée dans le profil ;
 - les groupes AD sont relus à la connexion puis comparés aux groupes et règles
   d’accès configurés dans l’application ;
+- le profil distingue le nombre total d'appartenances AD reçues des groupes
+  actifs réellement importés et reconnus par l'application ; leurs noms sont
+  consultables sans exposer les groupes non configurés ;
 - le mot de passe AD n’est jamais écrit en base, dans les logs ou les cookies ;
 - une session HttpOnly de huit heures est créée et révoquée par
   **Se déconnecter**.
