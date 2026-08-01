@@ -1,4 +1,4 @@
-FROM node:22.13.1-alpine AS build
+FROM node:22.23.2-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 COPY apps/api/package.json apps/api/package.json
@@ -11,7 +11,7 @@ RUN npx prisma generate --schema apps/api/prisma/schema.prisma \
     && npm ci --omit=dev \
     && npx prisma generate --schema apps/api/prisma/schema.prisma
 
-FROM node:22.13.1-alpine
+FROM node:22.23.2-alpine
 ENV NODE_ENV=production
 WORKDIR /app
 RUN addgroup -S isms && adduser -S isms -G isms
@@ -20,7 +20,10 @@ COPY --from=build --chown=isms:isms /app/apps/api/node_modules ./node_modules
 COPY --from=build --chown=isms:isms /app/apps/api/dist ./dist
 COPY --from=build --chown=isms:isms /app/apps/api/prisma ./prisma
 COPY --chown=isms:isms scripts/container-entrypoint.sh /usr/local/bin/isms-entrypoint
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+    /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn*
 USER isms
 EXPOSE 3001
 ENTRYPOINT ["/usr/local/bin/isms-entrypoint"]
-CMD ["sh", "-c", "node prisma/prepare-migrations.js && npx prisma migrate deploy --schema prisma/schema.prisma && node dist/main.js"]
+CMD ["sh", "-c", "node prisma/prepare-migrations.js && node node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma && node dist/main.js"]
