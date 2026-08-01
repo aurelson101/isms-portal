@@ -277,7 +277,7 @@ export class AuthService implements OnModuleInit {
   async directoryLoginEnabled() {
     return Boolean(
       await this.prisma.directoryConnection.findFirst({
-        where: { enabled: true, protocol: "LDAPS" },
+        where: { enabled: true },
         select: { id: true },
       }),
     );

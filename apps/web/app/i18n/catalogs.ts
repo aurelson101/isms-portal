@@ -230,6 +230,7 @@ export const adminEnglishCatalog = {
   "Attribut email": "Email attribute",
   "Attribut groupe": "Group attribute",
   "Attribut utilisateur": "Username attribute",
+  "Attribut du login court": "Short-login attribute",
   "Aucun (LDAP uniquement)": "None (LDAP only)",
   Catégorie: "Category",
   "Certificat CA": "CA certificate",

@@ -2086,10 +2086,7 @@ function DirectoryPanel({
           />
         </label>
         <label>
-          {t(
-            "Attribut de connexion (login court)",
-            "Sign-in attribute (short login)",
-          )}
+          {t("Attribut du login court")}
           <input
             name="loginAttribute"
             defaultValue={editing?.loginAttribute || "sAMAccountName"}

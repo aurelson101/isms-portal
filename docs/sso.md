@@ -30,13 +30,16 @@ Pour Microsoft 365, définir `SSO_LOGIN_URL` vers le point d’entrée du proxy
 OIDC/Entra. La page de connexion affiche alors cette méthode sans imposer de
 redirection automatique.
 
-## Connexion AD directe sans UPN
+## Connexion AD directe par login ou attribut mail
 
-L’utilisateur saisit uniquement son login court. L’API le recherche avec
-l’attribut configurable `sAMAccountName`, effectue un bind utilisateur
-exclusivement en LDAPS, puis utilise `mail` comme identité du profil. Les
-groupes directs ou imbriqués sont chargés à la connexion et alimentent le même
-moteur d’autorisation que le SSO. Le mot de passe AD n’est jamais conservé.
+L’utilisateur saisit son login court ou l’adresse exacte de son attribut AD
+`mail`. L’API effectue une recherche exacte et échappée sur l’attribut de login
+configurable (`sAMAccountName` par défaut) et sur `mail`, résout le DN du compte,
+puis effectue le bind utilisateur. Le connecteur peut utiliser LDAPS ou LDAP ;
+LDAP en clair ne doit être activé que sur un réseau interne isolé, car il ne
+protège pas le mot de passe par TLS. `mail` reste l’identité canonique du profil.
+Les groupes directs ou imbriqués alimentent le même moteur d’autorisation que
+le SSO et le mot de passe AD n’est jamais conservé.
 
 ## Détection de la session
 

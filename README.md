@@ -247,11 +247,15 @@ sur un réseau isolé et maîtrisé. Préférer LDAPS.
 ### Connexion des utilisateurs Active Directory
 
 La connexion directe des utilisateurs standards est proposée dès qu’un
-connecteur **LDAPS actif** existe. L’utilisateur saisit uniquement son login
-court, par exemple `jdupont`, sans domaine, UPN ni suffixe `@entreprise.fr`.
+connecteur **LDAP ou LDAPS actif** existe. L’utilisateur peut saisir son login
+court, par exemple `jdupont`, ou l’adresse exacte enregistrée dans son attribut
+AD `mail`, par exemple `jdupont@example.com`. Le domaine qualifié
+`EXAMPLE\\jdupont` et l’UPN ne sont pas requis.
 
-- `sAMAccountName` retrouve le compte et le mot de passe est validé directement
-  auprès d’un contrôleur AD ;
+- l’API recherche une correspondance exacte sur l’attribut de connexion
+  (`sAMAccountName` par défaut) ou sur l’attribut email (`mail` par défaut) ;
+- le mot de passe est validé directement auprès d’un contrôleur AD en utilisant
+  le DN renvoyé par la recherche ;
 - `mail` devient l’identité stable affichée dans le profil ;
 - les groupes AD sont relus à la connexion puis comparés aux groupes et règles
   d’accès configurés dans l’application ;
@@ -259,9 +263,12 @@ court, par exemple `jdupont`, sans domaine, UPN ni suffixe `@entreprise.fr`.
 - une session HttpOnly de huit heures est créée et révoquée par
   **Se déconnecter**.
 
-Cette fonction refuse LDAP en clair et exige LDAPS avec une CA valide. La page
-`/login` est exclusivement réservée aux utilisateurs. Le compte administrateur
-local est uniquement accessible sur `/admin/login`.
+LDAPS valide la chaîne de certification, le nom d’hôte et TLS 1.2 au minimum.
+LDAP/389 est également accepté lorsqu’il est explicitement configuré et actif,
+mais le bind utilisateur et son mot de passe ne sont alors pas protégés par TLS :
+réserver ce mode à un réseau interne isolé et maîtrisé, et préférer LDAPS. La
+page `/login` est exclusivement réservée aux utilisateurs. Le compte
+administrateur local est uniquement accessible sur `/admin/login`.
 
 Le test vérifie DNS, TCP, chaîne TLS, nom d’hôte, bind et recherches. Après une
 synchronisation réussie, les groupes sont proposés dans la recherche de
@@ -296,7 +303,7 @@ La fiche de configuration préremplie pour DeftaGroup est disponible dans
 [README-LDAP-LOCAL.md](README-LDAP-LOCAL.md). Elle ne contient aucun mot de
 passe ; les contrôleurs et le Group Base DN restent à compléter.
 
-Test LDAPS reproductible sans l’AD de production :
+Test LDAP/LDAPS reproductible sans l’AD de production :
 
 ```bash
 ./scripts/test-ldaps-functional.sh

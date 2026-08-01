@@ -21,6 +21,14 @@ recherche groupe. **Synchroniser** importe les groupes et leurs effectifs puis
 journalise le résultat. Le contrôleur secondaire est utilisé après échec et
 tentatives sur le primaire.
 
+La page de connexion accepte soit le login court défini par l’attribut de
+connexion (`sAMAccountName` par défaut), soit l’adresse exacte de l’attribut
+`mail`. Le même mot de passe AD est utilisé dans les deux cas et `mail` devient
+l’identité canonique de la session. Le bind utilisateur fonctionne avec un
+connecteur LDAP ou LDAPS actif. Préférer systématiquement LDAPS ; LDAP/389
+transmet le mot de passe sans chiffrement TLS et doit être confiné à un réseau
+interne isolé et maîtrisé.
+
 Groupes de démonstration : `Domain Users`, `ITAD`, `HRAD`, `FINANCEAD`,
 `MANAGEMENTAD`, `ISMS-ADMINS` et `ISMS-SUPER-ADMINS`.
 
@@ -31,5 +39,6 @@ Test isolé, sans AD de production :
 ```
 
 Le test génère une CA éphémère, démarre OpenLDAP, impose la validation TLS et du
-nom `ldap-test`, vérifie bind/recherches/synchronisation, puis détruit son
-environnement et ses volumes de test.
+nom `ldap-test.demo.local`, puis vérifie les binds par login court et attribut
+`mail` en LDAPS et en LDAP, le refus d'un mauvais mot de passe, les recherches
+et la synchronisation. Il détruit ensuite son environnement et ses volumes.
