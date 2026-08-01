@@ -14,6 +14,48 @@ test("the main sign-in page only exposes the user credentials form", async ({
   await expect(page.getByText("Compte Active Directory")).toHaveCount(0);
 });
 
+test("the user profile lists groups recognized by the application", async ({
+  page,
+}) => {
+  await page.route("**/api/me", (route) =>
+    route.fulfill({
+      json: {
+        username: "alice@example.com",
+        displayName: "Alice Example",
+        isAdmin: false,
+        primaryAdmin: false,
+        locale: "fr",
+        authentication: {
+          source: "directory-session",
+          ssoConnected: false,
+          sessionExpiresAt: "2026-08-01T17:03:19.052Z",
+          loginUrl: null,
+          logoutUrl: null,
+          diagnostics: {
+            groupCount: 187,
+            matchedGroups: ["SkillsRDP"],
+            mappedSpaceCount: 2,
+            administrator: false,
+            administratorAccount: false,
+          },
+        },
+        spaces: [],
+      },
+    }),
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.locator(".account-button").click();
+
+  await expect(page.getByText("Groupes détectés")).toBeVisible();
+  await expect(
+    page.getByText("Groupes reconnus dans l’application"),
+  ).toBeVisible();
+  const recognizedGroups = page.locator(".matched-groups");
+  await recognizedGroups.locator("summary").click();
+  await expect(recognizedGroups.getByText("SkillsRDP")).toBeVisible();
+});
+
 test("a non-admin session is redirected to the dedicated administrator sign-in", async ({
   page,
 }) => {
