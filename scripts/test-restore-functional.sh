@@ -24,8 +24,11 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 
 cd "$project_root"
-"$script_dir/backup.sh" "$validation_root/source"
-
+COMPOSE_PROJECT_NAME="$compose_project" docker compose $compose_files up -d --build --wait
+COMPOSE_PROJECT_NAME="$compose_project" docker compose $compose_files exec -T api node prisma/seed.js
+COMPOSE_PROJECT_NAME="$compose_project" COMPOSE_FILE="docker-compose.yml:deploy/compose/verify.yml" \
+  "$script_dir/backup.sh" "$validation_root/source"
+COMPOSE_PROJECT_NAME="$compose_project" docker compose $compose_files down -v
 COMPOSE_PROJECT_NAME="$compose_project" docker compose $compose_files up -d --build --wait
 COMPOSE_PROJECT_NAME="$compose_project" "$script_dir/restore.sh" "$validation_root/source"
 COMPOSE_PROJECT_NAME="$compose_project" docker compose $compose_files restart api worker
@@ -33,11 +36,7 @@ COMPOSE_PROJECT_NAME="$compose_project" docker compose $compose_files up -d --wa
 
 curl -fsS http://127.0.0.1:18080/api/health/ready |
   jq -e '.status == "ok" and (.checks | all(. == true))' >/dev/null
-documents=$(curl -fsS http://127.0.0.1:18080/api/documents)
-printf '%s' "$documents" | jq -e 'length > 0 and all(.versions | length > 0)' >/dev/null
-document_id=$(printf '%s' "$documents" | jq -r '.[0].id')
-curl -fsS -o "$validation_root/restored-document.bin" \
-  "http://127.0.0.1:18080/api/documents/$document_id/content?locale=fr"
-test -s "$validation_root/restored-document.bin"
+COMPOSE_PROJECT_NAME="$compose_project" docker compose $compose_files exec -T api \
+  node prisma/verify-storage.js
 
-printf 'Restauration isolée validée : santé, métadonnées et contenu documentaire.\n'
+printf 'Restauration isolée validée : santé, métadonnées, contenu, tailles et empreintes SHA-256.\n'

@@ -1,5 +1,6 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { createConnection } from "net";
+import { antivirusDuration } from "./metrics";
 
 export type AntivirusResult =
   | { status: "CLEAN" }
@@ -9,6 +10,12 @@ export type AntivirusResult =
 @Injectable()
 export class AntivirusService {
   scan(content: Buffer): Promise<AntivirusResult> {
+    const startedAt = process.hrtime.bigint();
+    const observe = (result: string) =>
+      antivirusDuration.observe(
+        { result },
+        Number(process.hrtime.bigint() - startedAt) / 1_000_000_000,
+      );
     return new Promise((resolve, reject) => {
       const socket = createConnection({
         host: process.env.CLAMAV_HOST || "clamav",
@@ -37,26 +44,34 @@ export class AntivirusService {
           .toString("utf8")
           .replace(/\0/g, "")
           .trim();
-        if (response.endsWith("OK")) return resolve({ status: "CLEAN" });
+        if (response.endsWith("OK")) {
+          observe("clean");
+          return resolve({ status: "CLEAN" });
+        }
         const infected = response.match(/: (.+) FOUND$/);
-        if (infected)
+        if (infected) {
+          observe("infected");
           return resolve({ status: "INFECTED", signature: infected[1] });
+        }
+        observe("error");
         resolve({
           status: "ERROR",
           signature: response || "Unknown ClamAV response",
         });
       });
       socket.on("timeout", () => {
+        observe("timeout");
         socket.destroy();
         reject(new ServiceUnavailableException("ClamAV scan timed out"));
       });
-      socket.on("error", (error) =>
+      socket.on("error", (error) => {
+        observe("unavailable");
         reject(
           new ServiceUnavailableException(
             `ClamAV unavailable: ${error.message}`,
           ),
-        ),
-      );
+        );
+      });
     });
   }
 }

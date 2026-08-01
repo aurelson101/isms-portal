@@ -7,6 +7,7 @@ import type { NextFunction, Request, Response } from "express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { collectDefaultMetrics } from "prom-client";
+import { httpDuration, httpRequests } from "./metrics";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -19,6 +20,14 @@ async function bootstrap() {
   app.use((request: Request, response: Response, next: NextFunction) => {
     const startedAt = Date.now();
     response.on("finish", () => {
+      const route = request.route?.path || request.path;
+      const elapsedSeconds = (Date.now() - startedAt) / 1000;
+      httpRequests.inc({
+        method: request.method,
+        route,
+        status_class: `${Math.floor(response.statusCode / 100)}xx`,
+      });
+      httpDuration.observe({ method: request.method, route }, elapsedSeconds);
       process.stdout.write(
         `${JSON.stringify({
           level: "info",

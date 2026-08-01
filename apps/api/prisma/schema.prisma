@@ -200,11 +200,14 @@ model DocumentVersion {
   locale String
   version Int
   storedFileId String
-  storedFile StoredFile @relation(fields: [storedFileId], references: [id])
+  storedFile StoredFile @relation("SourceDocumentVersion", fields: [storedFileId], references: [id])
+  distributedStoredFileId String?
+  distributedStoredFile StoredFile? @relation("DistributedDocumentVersion", fields: [distributedStoredFileId], references: [id])
   createdAt DateTime @default(now())
 
   @@unique([documentId, locale, version])
   @@index([storedFileId])
+  @@index([distributedStoredFileId])
 }
 
 model StoredFile {
@@ -214,7 +217,8 @@ model StoredFile {
   mimeType String
   size BigInt
   sha256 String
-  versions DocumentVersion[]
+  sourceVersions DocumentVersion[] @relation("SourceDocumentVersion")
+  distributedVersions DocumentVersion[] @relation("DistributedDocumentVersion")
   scans AntivirusScan[]
   createdAt DateTime @default(now())
 }

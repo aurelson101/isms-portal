@@ -4,7 +4,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { constants } from "fs";
-import { access, mkdir, open, rename, rm, stat } from "fs/promises";
+import { access, mkdir, open, rename, rm, stat, statfs } from "fs/promises";
 import { createReadStream } from "fs";
 import { dirname, resolve, sep } from "path";
 import { randomUUID } from "crypto";
@@ -71,8 +71,24 @@ export class StorageService implements OnModuleInit {
     return createReadStream(target);
   }
 
+  async getBuffer(objectKey: string): Promise<Buffer> {
+    const chunks: Buffer[] = [];
+    for await (const chunk of await this.getObject(objectKey)) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  }
+
   statObject(objectKey: string) {
     return stat(this.pathFor(objectKey));
+  }
+
+  async diskMetrics() {
+    const stats = await statfs(this.root);
+    return {
+      availableBytes: Number(stats.bavail) * Number(stats.bsize),
+      totalBytes: Number(stats.blocks) * Number(stats.bsize),
+    };
   }
 
   async removeObject(objectKey: string) {

@@ -37,3 +37,11 @@ jobs:
       - run: npm ci
       - run: ./scripts/generate-secrets.sh
       - run: ./scripts/test-e2e-isolated.sh
+
+  performance:
+    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - run: ./scripts/generate-secrets.sh
+      - run: ./scripts/test-performance-functional.sh
