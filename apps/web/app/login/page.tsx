@@ -21,7 +21,7 @@ const copy = {
   en: {
     title: "Sign in",
     subtitle: "Enter your credentials to access your documents.",
-    identifier: "Username",
+    identifier: "Identifier",
     password: "Password",
     submit: "Sign in",
     busy: "Signing in…",

@@ -2,6 +2,20 @@ import { describe, expect, it, vi } from "vitest";
 import { AuthService } from "./auth.service";
 
 describe("AuthService directory sessions", () => {
+  it("enables user login for any active LDAP or LDAPS connector", async () => {
+    const findFirst = vi.fn().mockResolvedValue({ id: "ldap-1" });
+    const service = new AuthService(
+      { directoryConnection: { findFirst } } as never,
+      {} as never,
+    );
+
+    await expect(service.directoryLoginEnabled()).resolves.toBe(true);
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { enabled: true },
+      select: { id: true },
+    });
+  });
+
   it("stores an opaque session without retaining the AD password", async () => {
     const sessionCreate = vi.fn().mockResolvedValue({ id: "session-1" });
     const directory = {

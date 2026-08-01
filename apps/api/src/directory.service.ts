@@ -116,20 +116,18 @@ export class DirectoryService {
 
   async authenticateUser(loginValue: string, password: string) {
     const login = loginValue.trim();
-    if (
-      !login ||
-      login.includes("@") ||
-      login.includes("\\") ||
-      !/^[^()\0*]{1,128}$/u.test(login) ||
-      !password
-    )
+    if (!login || login.includes("\\") || login.includes("\0") || !password)
       throw new UnauthorizedException("Invalid directory credentials");
     const connections = await this.prisma.directoryConnection.findMany({
-      where: { enabled: true, protocol: "LDAPS" },
+      where: { enabled: true },
       include: { caCertificate: true },
       orderBy: { name: "asc" },
     });
-    for (const connection of connections) {
+    const preferredConnections = [...connections].sort(
+      (left, right) =>
+        Number(right.protocol === "LDAPS") - Number(left.protocol === "LDAPS"),
+    );
+    for (const connection of preferredConnections) {
       let client: Client | null = null;
       try {
         validateFilter(connection.userFilter);
@@ -142,7 +140,7 @@ export class DirectoryService {
           if (!/^[a-z][a-z0-9-]{0,79}$/iu.test(attribute))
             throw new Error("Invalid directory attribute");
         ({ client } = await this.bindWithFallback(connection));
-        const loginFilter = escapeFilter`(${connection.loginAttribute}=${login})`;
+        const loginFilter = escapeFilter`(|(${connection.loginAttribute}=${login})(${connection.emailAttribute}=${login}))`;
         const result = await client.search(
           connection.userBaseDn || connection.baseDn,
           {
@@ -158,11 +156,7 @@ export class DirectoryService {
         );
         if (result.searchEntries.length !== 1) continue;
         const user = result.searchEntries[0];
-        const mail = String(
-          user[connection.emailAttribute] ||
-            user[connection.usernameAttribute] ||
-            "",
-        )
+        const mail = String(user[connection.emailAttribute] || "")
           .trim()
           .toLowerCase();
         if (!mail.includes("@")) continue;

@@ -1,7 +1,7 @@
 services:
   ldap-test:
     image: osixia/openldap:1.5.0
-    hostname: ldap-test
+    hostname: ldap-test.demo.local
     environment:
       LDAP_ORGANISATION: ISMS Test
       LDAP_DOMAIN: demo.local
@@ -29,6 +29,9 @@ services:
   api:
     environment:
       ENCRYPTION_KEY: ${LDAP_TEST_ENCRYPTION_KEY:?LDAP_TEST_ENCRYPTION_KEY is required}
+      INITIAL_ADMIN_USERNAME: ldap-functional-admin
+      INITIAL_ADMIN_DISPLAY_NAME: LDAP Functional Administrator
+      INITIAL_ADMIN_PASSWORD: LdapFunctionalAdmin-NotForProduction-2026
     depends_on:
       ldap-test: { condition: service_healthy }
 

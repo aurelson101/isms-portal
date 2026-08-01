@@ -12,6 +12,7 @@ uid: alice
 sn: Example
 cn: Alice Example
 mail: alice@demo.local
+userPassword: AliceFunctionalOnly-NotForProduction-2026
 
 dn: cn=ITAD,ou=Groups,dc=demo,dc=local
 objectClass: groupOfNames

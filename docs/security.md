@@ -5,6 +5,8 @@
 - en-têtes `X-Auth-*` acceptés uniquement depuis `TRUSTED_PROXY_CIDRS` ;
 - compte de service LDAP chiffré en AES-256-GCM ;
 - TLS 1.2 minimum, CA et nom d’hôte obligatoires pour LDAPS ;
+- connexion utilisateur LDAP en clair autorisée uniquement par configuration
+  explicite sur un réseau interne maîtrisé ; LDAPS reste recommandé ;
 - validation DTO, limites JSON 256 Kio et upload 50 Mio ;
 - extension, MIME, signature de fichier et nom neutralisé ;
 - analyse ClamAV avant publication et quarantaine des échecs ;
