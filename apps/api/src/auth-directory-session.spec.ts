@@ -90,4 +90,33 @@ describe("AuthService directory sessions", () => {
       expect.anything(),
     );
   });
+
+  it("enriches and caches trusted Entra identities with LDAP groups", async () => {
+    const findFirst = vi.fn().mockResolvedValue(null);
+    const resolveUserByMail = vi.fn().mockResolvedValue({
+      username: "alice@example.com",
+      displayName: "Alice from AD",
+      groups: ["ITAD", "Domain Users"],
+      connectionId: "directory-1",
+    });
+    const service = new AuthService(
+      { adminAccount: { findFirst } } as never,
+      { resolveUserByMail } as never,
+    );
+    const identity = {
+      username: "alice@example.com",
+      displayName: "Alice from Entra",
+      groups: ["entra-group-id"],
+      source: "trusted-proxy" as const,
+      sessionExpiresAt: null,
+    };
+
+    await expect(service.enrichSsoIdentity(identity)).resolves.toMatchObject({
+      username: "alice@example.com",
+      displayName: "Alice from AD",
+      groups: ["entra-group-id", "ITAD", "Domain Users"],
+    });
+    await service.enrichSsoIdentity(identity);
+    expect(resolveUserByMail).toHaveBeenCalledOnce();
+  });
 });

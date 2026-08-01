@@ -53,14 +53,15 @@ export class TrustedProxyIdentityProvider implements IdentityProvider {
     const mail = request.headers["x-auth-mail"];
     const groups = request.headers["x-auth-groups"];
     const expiresHeader = request.headers["x-auth-session-expires"];
-    if (typeof mail !== "string" || typeof groups !== "string")
+    if (typeof mail !== "string") throw new UnauthorizedException();
+    if (groups !== undefined && typeof groups !== "string")
       throw new UnauthorizedException();
     const username = mail.trim().toLowerCase();
     if (
       !username ||
       username.length > 255 ||
       !username.includes("@") ||
-      groups.length > 8192
+      (groups?.length || 0) > 8192
     )
       throw new UnauthorizedException();
     const sessionExpiresAt =
@@ -76,8 +77,8 @@ export class TrustedProxyIdentityProvider implements IdentityProvider {
       displayName: String(request.headers["x-auth-name"] || username).trim(),
       source: "trusted-proxy" as const,
       sessionExpiresAt: sessionExpiresAt?.toISOString() || null,
-      groups: groups
-        .split(";")
+      groups: (groups || "")
+        .split(/[;,]/u)
         .map((group) => group.trim())
         .filter(Boolean),
     };

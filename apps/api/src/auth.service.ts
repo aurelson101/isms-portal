@@ -60,6 +60,14 @@ const totp = (secret: string, timestamp = Date.now()) => {
 
 @Injectable()
 export class AuthService implements OnModuleInit {
+  private readonly ssoDirectoryCache = new Map<
+    string,
+    {
+      expiresAt: number;
+      profile: Awaited<ReturnType<DirectoryService["resolveUserByMail"]>>;
+    }
+  >();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly directory: DirectoryService,
@@ -172,21 +180,68 @@ export class AuthService implements OnModuleInit {
   }
 
   async enrichSsoIdentity(identity: Identity) {
+    let enrichedIdentity = identity;
+    if (
+      identity.source === "trusted-proxy" &&
+      process.env.SSO_DIRECTORY_GROUP_ENRICHMENT !== "false"
+    ) {
+      const ttlSeconds = Math.min(
+        3600,
+        Math.max(
+          30,
+          Number(process.env.SSO_DIRECTORY_CACHE_TTL_SECONDS || 300) || 300,
+        ),
+      );
+      const cached = this.ssoDirectoryCache.get(identity.username);
+      let profile =
+        cached?.expiresAt && cached.expiresAt > Date.now()
+          ? cached.profile
+          : undefined;
+      if (profile === undefined) {
+        profile = await this.directory
+          .resolveUserByMail(identity.username)
+          .catch(() => null);
+        if (this.ssoDirectoryCache.size >= 10_000)
+          for (const [key, value] of this.ssoDirectoryCache)
+            if (value.expiresAt <= Date.now())
+              this.ssoDirectoryCache.delete(key);
+        if (this.ssoDirectoryCache.size >= 10_000)
+          this.ssoDirectoryCache.delete(
+            this.ssoDirectoryCache.keys().next().value!,
+          );
+        this.ssoDirectoryCache.set(identity.username, {
+          expiresAt: Date.now() + ttlSeconds * 1000,
+          profile,
+        });
+      }
+      if (profile)
+        enrichedIdentity = {
+          ...identity,
+          username: profile.username,
+          displayName: profile.displayName || identity.displayName,
+          groups: [...new Set([...identity.groups, ...profile.groups])],
+        };
+    }
     const account = await this.prisma.adminAccount.findFirst({
       where: {
-        username: { equals: identity.username, mode: "insensitive" },
+        username: {
+          equals: enrichedIdentity.username,
+          mode: "insensitive",
+        },
         source: "DIRECTORY",
         active: true,
       },
     });
     return account
       ? {
-          ...identity,
-          displayName: account.displayName || identity.displayName,
+          ...enrichedIdentity,
+          displayName: account.displayName || enrichedIdentity.displayName,
           profilePhoto: account.profilePhoto,
-          groups: [...new Set([...identity.groups, "ISMS-LOCAL-ADMINS"])],
+          groups: [
+            ...new Set([...enrichedIdentity.groups, "ISMS-LOCAL-ADMINS"]),
+          ],
         }
-      : identity;
+      : enrichedIdentity;
   }
 
   async login(

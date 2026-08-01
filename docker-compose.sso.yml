@@ -1,0 +1,53 @@
+services:
+  reverse-proxy:
+    volumes:
+      - ./deploy/nginx/nginx.sso.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      oauth2-proxy: { condition: service_healthy }
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.3@sha256:10a1165743a192e1940b4708fb9647027185ce11a681a1c5519b442ff7f1f561
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      OAUTH2_PROXY_PROVIDER: entra-id
+      OAUTH2_PROXY_OIDC_ISSUER_URL: https://login.microsoftonline.com/${ENTRA_TENANT_ID:?ENTRA_TENANT_ID must be set}/v2.0
+      OAUTH2_PROXY_CLIENT_ID: ${ENTRA_CLIENT_ID:?ENTRA_CLIENT_ID must be set}
+      OAUTH2_PROXY_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:?ENTRA_CLIENT_SECRET must be set}
+      OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET:?OAUTH2_PROXY_COOKIE_SECRET must be set}
+      OAUTH2_PROXY_REDIRECT_URL: ${OAUTH2_PROXY_REDIRECT_URL:?OAUTH2_PROXY_REDIRECT_URL must be set}
+      OAUTH2_PROXY_SCOPE: openid profile email
+      OAUTH2_PROXY_OIDC_EMAIL_CLAIM: email
+      OAUTH2_PROXY_CODE_CHALLENGE_METHOD: S256
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+      OAUTH2_PROXY_UPSTREAMS: static://202
+      OAUTH2_PROXY_REVERSE_PROXY: "true"
+      OAUTH2_PROXY_TRUSTED_PROXY_IPS: 172.16.0.0/12
+      OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
+      OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
+      OAUTH2_PROXY_COOKIE_SECURE: "true"
+      OAUTH2_PROXY_COOKIE_SAMESITE: lax
+      OAUTH2_PROXY_COOKIE_NAME: __Host-isms_sso
+      OAUTH2_PROXY_COOKIE_EXPIRE: 8h
+      OAUTH2_PROXY_COOKIE_REFRESH: 1h
+      OAUTH2_PROXY_SESSION_STORE_TYPE: redis
+      OAUTH2_PROXY_REDIS_CONNECTION_URL: redis://redis:6379
+    depends_on:
+      redis: { condition: service_healthy }
+    networks: [edge, app, data]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "/bin/oauth2-proxy", "--version"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    deploy:
+      resources:
+        limits: { cpus: "0.50", memory: 256M }
+        reservations: { memory: 64M }
