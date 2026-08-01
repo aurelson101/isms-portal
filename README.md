@@ -131,9 +131,9 @@ même rétention.
 docker run --rm -v "$PWD:/workspace" -w /workspace \
   mcr.microsoft.com/playwright:v1.55.1-noble npm run verify
 ./scripts/diagnose.sh
-docker compose exec api npx prisma migrate deploy
-docker compose exec api npm run seed
-docker compose run --rm api npm test
+docker compose exec api node node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma
+docker compose exec api node prisma/seed.js
+docker run --rm -v "$PWD:/app" -w /app node:22.23.2-alpine npm test
 docker run --rm -v "$PWD:/app" -w /app node:22.23.2-alpine npm run lint
 docker run --rm --network host -v "$PWD:/work" -w /work \
   mcr.microsoft.com/playwright:v1.55.1-noble npx playwright test

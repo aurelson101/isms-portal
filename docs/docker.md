@@ -9,7 +9,7 @@ sont internes ; seul Nginx publie TCP/8080.
 ./scripts/generate-secrets.sh
 docker compose config --quiet
 docker compose up -d --build --wait
-docker compose exec api npx prisma migrate deploy
+docker compose exec api node node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma
 docker compose ps
 curl -fsS http://localhost:8080/api/health/ready
 ```
