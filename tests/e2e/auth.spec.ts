@@ -278,7 +278,7 @@ test("the generated administrator can sign in and manage the secure profile", as
     .click();
   await expect(page.getByText("Administrateur ajouté.")).toBeVisible();
   expect(userCreationPayload).toMatchObject({
-    username: "test.user",
+    username: "test.user@example.invalid",
     source: "DIRECTORY",
     justification: "Recette fonctionnelle",
   });

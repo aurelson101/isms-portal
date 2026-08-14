@@ -3363,7 +3363,12 @@ function SettingsPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: selectedDirectoryUser.username,
+          // Directory sessions use the normalized mail attribute as their
+          // stable identity. Persist the same value for administrator grants
+          // so a selected sAMAccountName can actually match after sign-in.
+          username:
+            selectedDirectoryUser.email?.trim().toLowerCase() ||
+            selectedDirectoryUser.username,
           displayName: selectedDirectoryUser.displayName,
           source: "DIRECTORY",
           justification: directoryAdminJustification.trim(),
