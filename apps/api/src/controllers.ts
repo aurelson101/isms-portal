@@ -275,10 +275,7 @@ export class DocumentsController {
     const emptyResult = paginated
       ? { items: [], page: 1, limit, total: 0, totalPages: 0 }
       : [];
-    const spaces = await this.authorization.permittedSpaces(
-      req.identity.groups,
-      q ? "search" : "read",
-    );
+    const listingPermission = q ? "search" : "read";
     const permissionNames = [
       "preview",
       "download",
@@ -287,17 +284,14 @@ export class DocumentsController {
       "publish",
       "archive",
     ] as const satisfies readonly Permission[];
-    const permissionEntries = await Promise.all(
-      permissionNames.map(
-        async (permission) =>
-          [
-            permission,
-            await this.authorization.permittedSpaces(
-              req.identity.groups,
-              permission,
-            ),
-          ] as const,
-      ),
+    const spacesByPermission = await this.authorization.permittedSpacesFor(
+      req.identity.groups,
+      [listingPermission, ...permissionNames],
+    );
+    const spaces = spacesByPermission.get(listingPermission)!;
+    const permissionEntries = permissionNames.map(
+      (permission) =>
+        [permission, spacesByPermission.get(permission)!] as const,
     );
     const permissionSpaces = permissionEntries.reduce(
       (result, [permission, records]) => {

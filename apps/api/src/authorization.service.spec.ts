@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthorizationService } from "./authorization.service";
 import type { PrismaService } from "./prisma.service";
 
@@ -10,6 +10,11 @@ describe("AuthorizationService", () => {
     accessRule: { count },
   } as unknown as PrismaService;
   const service = new AuthorizationService(prisma);
+
+  beforeEach(() => {
+    findMany.mockReset();
+    count.mockReset();
+  });
 
   it("grants every permission to an administrator without a per-space rule", async () => {
     findMany.mockResolvedValue([
@@ -49,12 +54,35 @@ describe("AuthorizationService", () => {
                 active: true,
                 OR: [{ name: { equals: "ITAD", mode: "insensitive" } }],
               },
-              search: true,
             }),
           },
         }),
       }),
     );
+  });
+
+  it("loads spaces once when calculating several permissions", async () => {
+    findMany.mockResolvedValue([
+      {
+        id: "space-it",
+        slug: "it",
+        accessRules: [
+          { read: true, search: false, preview: true, download: false },
+        ],
+        categories: [],
+      },
+    ]);
+
+    const permissions = await service.permittedSpacesFor(
+      ["SkillsRDP"],
+      ["read", "search", "preview", "download"],
+    );
+
+    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(permissions.get("read")).toHaveLength(1);
+    expect(permissions.get("preview")).toHaveLength(1);
+    expect(permissions.get("search")).toHaveLength(0);
+    expect(permissions.get("download")).toHaveLength(0);
   });
 
   it.each([
