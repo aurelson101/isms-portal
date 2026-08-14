@@ -421,9 +421,18 @@ export default function Admin() {
   };
 
   useEffect(() => {
-    const requested = window.location.hash.slice(1) as Tab;
-    if (tabs.some(([key]) => key === requested)) setTab(requested);
+    const synchronizeTabWithLocation = () => {
+      const requested = window.location.hash.slice(1) as Tab;
+      setTab(tabs.some(([key]) => key === requested) ? requested : "dashboard");
+      setNavigationOpen(false);
+      setError("");
+      setNotice("");
+    };
+    synchronizeTabWithLocation();
+    window.addEventListener("hashchange", synchronizeTabWithLocation);
     void refresh();
+    return () =>
+      window.removeEventListener("hashchange", synchronizeTabWithLocation);
   }, [refresh]);
   useEffect(() => {
     const closeNavigation = (event: KeyboardEvent) => {
@@ -1766,6 +1775,7 @@ function SpacesPanel({
                   <Icon name="add" /> {t("Ajouter une catégorie")}
                 </button>
                 <button
+                  type="button"
                   className="danger"
                   onClick={async () => {
                     if (
@@ -3704,6 +3714,8 @@ function SettingsPanel({
           identity?.authentication.source || "",
         ) && (
           <button
+            type="button"
+            className="button-link"
             onClick={() =>
               api("/api/auth/logout?scope=admin", { method: "POST" }).then(() =>
                 window.location.assign("/admin/login?loggedout=1"),
