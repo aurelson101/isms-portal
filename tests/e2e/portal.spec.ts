@@ -208,6 +208,34 @@ test("PDF reader provides responsive zoom and dedicated viewing controls", async
   ).toHaveAttribute("target", "_blank");
 });
 
+test("PDF reader controls are fully translated in English", async ({
+  page,
+}) => {
+  await page.goto("/explorer?space=general");
+  await page
+    .locator("header")
+    .getByRole("button", { name: "EN", exact: true })
+    .click();
+  await page
+    .locator(".documents")
+    .getByRole("button", { name: "Open" })
+    .first()
+    .click();
+
+  const toolbar = page.getByRole("toolbar", { name: "PDF viewer controls" });
+  await expect(toolbar.getByLabel("Zoom level")).toHaveText("Automatic");
+  await expect(
+    toolbar.getByRole("button", { name: "Fit to width" }),
+  ).toBeVisible();
+  await expect(
+    toolbar.getByRole("button", { name: "Fit whole page" }),
+  ).toBeVisible();
+  await expect(
+    toolbar.getByRole("link", { name: "Open in a new tab" }),
+  ).toBeVisible();
+  await expect(toolbar.getByText("Ajuster à la largeur")).toHaveCount(0);
+});
+
 test("grid and list views apply to spaces and global searches", async ({
   page,
 }) => {
@@ -420,6 +448,19 @@ test("administration is fully switchable between French and English", async ({
       ).toBeChecked();
       await expect(
         page.getByText("Only identifies the language of the file."),
+      ).toBeVisible();
+    } else if (menu === "Document spaces") {
+      await expect(
+        page.getByRole("button", { name: "New space" }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "New category" }),
+      ).toBeVisible();
+      await expect(
+        page
+          .locator(".space-management-card")
+          .first()
+          .getByRole("button", { name: "Add category" }),
       ).toBeVisible();
     }
   }

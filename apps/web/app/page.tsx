@@ -1343,7 +1343,9 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                     −
                   </button>
                   <output aria-label={t.zoomLevel}>
-                    {typeof pdfZoom === "number" ? `${pdfZoom}%` : "Auto"}
+                    {typeof pdfZoom === "number"
+                      ? `${pdfZoom}%`
+                      : t.automaticZoom}
                   </output>
                   <button
                     type="button"
