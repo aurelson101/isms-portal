@@ -1017,7 +1017,7 @@ test("admin deep links stay synchronized with browser navigation", async ({
   ).toBeVisible();
 });
 
-test("annual incident reports can be created, updated and deleted", async ({
+test("annual incident reports can be published and read without write actions", async ({
   page,
   request,
 }) => {
@@ -1058,13 +1058,32 @@ test("annual incident reports can be created, updated and deleted", async ({
   await expect(card.getByText("100%")).toBeVisible();
   await expect(card.getByText("Publié")).toBeVisible();
 
-  await card.getByRole("button", { name: "Supprimer" }).click();
+  await page.goto("/incident-reports");
+  await expect(
+    page.getByRole("heading", { name: "Rapports annuels d’incidents" }),
+  ).toBeVisible();
+  const publishedReport = page.locator(".published-incident-report", {
+    has: page.getByRole("heading", { name: String(year) }),
+  });
+  await expect(publishedReport).toBeVisible();
+  await expect(publishedReport.getByText("100%")).toBeVisible();
+  await expect(
+    publishedReport.getByText("Consultation en lecture seule"),
+  ).toBeVisible();
+  await expect(publishedReport.getByRole("button")).toHaveCount(0);
+
+  await page.goto("/admin#incidents");
+  const adminCard = page.locator(".incident-report-card", {
+    has: page.getByRole("heading", { name: String(year) }),
+  });
+
+  await adminCard.getByRole("button", { name: "Supprimer" }).click();
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: "Confirmer", exact: true })
     .click();
   await expect(page.getByText("Rapport annuel supprimé.")).toBeVisible();
-  await expect(card).toHaveCount(0);
+  await expect(adminCard).toHaveCount(0);
 });
 
 test("portal and administration remain usable on mobile", async ({ page }) => {
@@ -1072,7 +1091,7 @@ test("portal and administration remain usable on mobile", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Ouvrir la navigation" }).click();
   await expect(page.locator("aside nav")).toBeVisible();
-  await expect(page.locator("aside nav svg")).toHaveCount(9);
+  await expect(page.locator("aside nav svg")).toHaveCount(10);
   await page
     .locator("aside .category-submenu")
     .first()

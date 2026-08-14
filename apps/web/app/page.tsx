@@ -78,6 +78,16 @@ type PaginatedDocuments = {
   total: number;
   totalPages: number;
 };
+type PublishedIncidentReport = {
+  id: string;
+  year: number;
+  totalIncidents: number;
+  criticalIncidents: number;
+  resolvedIncidents: number;
+  summary: string;
+  lessonsLearned: string | null;
+  updatedAt: string;
+};
 type Identity = {
   displayName: string;
   username: string;
@@ -420,7 +430,13 @@ function DocumentRows({
   );
 }
 
-export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
+export function Portal({
+  explorerMode = false,
+  reportsMode = false,
+}: {
+  explorerMode?: boolean;
+  reportsMode?: boolean;
+}) {
   const [locale, setLocale] = useState<Locale>("fr");
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [query, setQuery] = useState("");
@@ -453,6 +469,9 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   const [pdfZoom, setPdfZoom] = useState<PdfZoom>("page-width");
   const [sessionExpired, setSessionExpired] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const [incidentReports, setIncidentReports] = useState<
+    PublishedIncidentReport[]
+  >([]);
   const resultsRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -590,7 +609,15 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     fetch("/api/me?refresh=1", { cache: "no-store" })
       .then(async (response) => {
         if (response.status === 401) {
-          window.location.assign("/login?return=/");
+          window.location.assign(
+            `/login?return=${encodeURIComponent(
+              reportsMode
+                ? "/incident-reports"
+                : explorerMode
+                  ? "/explorer"
+                  : "/",
+            )}`,
+          );
           throw new Error("authentication-required");
         }
         if (!response.ok) throw new Error("identity");
@@ -607,7 +634,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
         document.documentElement.lang = preferred;
       })
       .catch(() => setLoadError(true));
-  }, []);
+  }, [explorerMode, reportsMode]);
 
   useEffect(() => {
     if (!explorerMode || !identity) return;
@@ -621,6 +648,30 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
       controller.abort();
     };
   }, [explorerMode, identity, loadDocuments, query]);
+
+  useEffect(() => {
+    if (!reportsMode || !identity) return;
+    const controller = new AbortController();
+    setLoading(true);
+    setLoadError(false);
+    fetch("/api/incident-reports", {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("incident-reports");
+        setIncidentReports(
+          (await response.json()) as PublishedIncidentReport[],
+        );
+      })
+      .catch((error) => {
+        if ((error as Error).name !== "AbortError") setLoadError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [identity, reportsMode]);
 
   useEffect(() => {
     if (!category && !space && !query) return;
@@ -908,10 +959,17 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
         <nav id="portal-navigation" aria-label={t.navigation}>
           <button
             type="button"
-            className={!explorerMode ? "active" : ""}
+            className={!explorerMode && !reportsMode ? "active" : ""}
             onClick={selectHome}
           >
             <Icon name="home" /> <span>{t.home}</span>
+          </button>
+          <button
+            type="button"
+            className={reportsMode ? "active" : ""}
+            onClick={() => window.location.assign("/incident-reports")}
+          >
+            <Icon name="audit" /> <span>{t.incidentReports}</span>
           </button>
           <button
             type="button"
@@ -1093,81 +1151,88 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
           )}
         </header>
         <h1>
-          {explorerMode
-            ? t.explorer
-            : `${t.welcome} ${identity?.displayName || "…"}`}
+          {reportsMode
+            ? t.annualIncidentReports
+            : explorerMode
+              ? t.explorer
+              : `${t.welcome} ${identity?.displayName || "…"}`}
         </h1>
         <p className="lead">
-          {explorerMode
-            ? locale === "fr"
-              ? "Choisissez une catégorie ou un espace, puis ouvrez vos documents dans le lecteur sécurisé."
-              : "Choose a category or space, then open your documents in the secure viewer."
-            : t.subtitle}
+          {reportsMode
+            ? t.incidentReportsIntro
+            : explorerMode
+              ? locale === "fr"
+                ? "Choisissez une catégorie ou un espace, puis ouvrez vos documents dans le lecteur sécurisé."
+                : "Choose a category or space, then open your documents in the secure viewer."
+              : t.subtitle}
         </p>
-        <form
-          className="search"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (explorerMode) {
-              const parameters = new URLSearchParams();
-              if (query.trim()) parameters.set("q", query.trim());
-              if (documentSort === "popular") {
-                parameters.set("sort", documentSort);
-              }
-              if (favoritesOnly) parameters.set("favorites", "true");
-              if (documentFormat) parameters.set("format", documentFormat);
-              if (documentLanguage) parameters.set("locale", documentLanguage);
-              if (documentSensitivity)
-                parameters.set("sensitive", documentSensitivity);
-              window.history.replaceState(
-                null,
-                "",
-                `/explorer${parameters.size ? `?${parameters}` : ""}`,
-              );
-              void loadDocuments();
-            } else {
-              window.location.assign(
-                `/explorer?q=${encodeURIComponent(query.trim())}`,
-              );
-            }
-          }}
-        >
-          <span>
-            <Icon name="search" />
-          </span>
-          <input
-            ref={searchInputRef}
-            value={query}
-            onChange={(event) => {
-              const value = event.target.value;
-              setQuery(value);
-              setPage(1);
-              if (value.trim()) {
-                setCategory("");
-                setSpace("");
+        {!reportsMode && (
+          <form
+            className="search"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (explorerMode) {
+                const parameters = new URLSearchParams();
+                if (query.trim()) parameters.set("q", query.trim());
+                if (documentSort === "popular") {
+                  parameters.set("sort", documentSort);
+                }
+                if (favoritesOnly) parameters.set("favorites", "true");
+                if (documentFormat) parameters.set("format", documentFormat);
+                if (documentLanguage)
+                  parameters.set("locale", documentLanguage);
+                if (documentSensitivity)
+                  parameters.set("sensitive", documentSensitivity);
+                window.history.replaceState(
+                  null,
+                  "",
+                  `/explorer${parameters.size ? `?${parameters}` : ""}`,
+                );
+                void loadDocuments();
+              } else {
+                window.location.assign(
+                  `/explorer?q=${encodeURIComponent(query.trim())}`,
+                );
               }
             }}
-            placeholder={t.search}
-            aria-label={t.search}
-          />
-          {query && (
-            <button
-              className="search-clear"
-              aria-label={t.clearSearch}
-              title={t.clearSearch}
-              type="button"
-              onClick={() => {
-                setQuery("");
+          >
+            <span>
+              <Icon name="search" />
+            </span>
+            <input
+              ref={searchInputRef}
+              value={query}
+              onChange={(event) => {
+                const value = event.target.value;
+                setQuery(value);
                 setPage(1);
+                if (value.trim()) {
+                  setCategory("");
+                  setSpace("");
+                }
               }}
-            >
-              <Icon name="close" />
+              placeholder={t.search}
+              aria-label={t.search}
+            />
+            {query && (
+              <button
+                className="search-clear"
+                aria-label={t.clearSearch}
+                title={t.clearSearch}
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  setPage(1);
+                }}
+              >
+                <Icon name="close" />
+              </button>
+            )}
+            <button aria-label={t.search} type="submit">
+              <Icon name="search" />
             </button>
-          )}
-          <button aria-label={t.search} type="submit">
-            <Icon name="search" />
-          </button>
-        </form>
+          </form>
+        )}
         {explorerMode && (query || space || category || favoritesOnly) && (
           <div className="active-context" aria-label={t.activeFilters}>
             <div>
@@ -1191,7 +1256,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
             </button>
           </div>
         )}
-        {!explorerMode && (
+        {!explorerMode && !reportsMode && (
           <section className="cards" aria-label={t.spaces}>
             {identity?.spaces.map((item) => {
               const categories = populatedCategories(item);
@@ -1232,6 +1297,80 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                 </article>
               );
             })}
+          </section>
+        )}
+        {reportsMode && (
+          <section
+            className="published-incident-reports"
+            aria-label={t.annualIncidentReports}
+          >
+            {loadError ? (
+              <p role="alert" className="error-state">
+                {t.incidentReportsError}
+              </p>
+            ) : loading ? (
+              <p className="loading-state">{t.loading}</p>
+            ) : incidentReports.length === 0 ? (
+              <div className="incident-reports-empty">
+                <Icon name="audit" />
+                <h2>{t.noPublishedIncidentReports}</h2>
+                <p>{t.noPublishedIncidentReportsHint}</p>
+              </div>
+            ) : (
+              incidentReports.map((report) => {
+                const resolutionRate = report.totalIncidents
+                  ? Math.round(
+                      (report.resolvedIncidents / report.totalIncidents) * 100,
+                    )
+                  : 0;
+                return (
+                  <article
+                    className="published-incident-report"
+                    key={report.id}
+                  >
+                    <header>
+                      <div>
+                        <span>{t.annualReport}</span>
+                        <h2>{report.year}</h2>
+                      </div>
+                      <strong className="readonly-label">{t.readonly}</strong>
+                    </header>
+                    <dl className="incident-report-metrics">
+                      <div>
+                        <dt>{t.totalIncidents}</dt>
+                        <dd>{report.totalIncidents}</dd>
+                      </div>
+                      <div>
+                        <dt>{t.criticalIncidents}</dt>
+                        <dd>{report.criticalIncidents}</dd>
+                      </div>
+                      <div>
+                        <dt>{t.resolvedIncidents}</dt>
+                        <dd>{report.resolvedIncidents}</dd>
+                      </div>
+                      <div>
+                        <dt>{t.resolutionRate}</dt>
+                        <dd>{resolutionRate}%</dd>
+                      </div>
+                    </dl>
+                    <section>
+                      <h3>{t.annualSummary}</h3>
+                      <p>{report.summary}</p>
+                    </section>
+                    {report.lessonsLearned && (
+                      <section>
+                        <h3>{t.lessonsLearned}</h3>
+                        <p>{report.lessonsLearned}</p>
+                      </section>
+                    )}
+                    <small>
+                      {t.lastUpdated}{" "}
+                      {new Date(report.updatedAt).toLocaleDateString(locale)}
+                    </small>
+                  </article>
+                );
+              })
+            )}
           </section>
         )}
         {explorerMode && (
