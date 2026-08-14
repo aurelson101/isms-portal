@@ -391,7 +391,7 @@ export class AuthService implements OnModuleInit {
       (!account.validUntil || account.validUntil > new Date()) &&
       (await this.verifyPassword(password, account.passwordHash));
     if (!valid) {
-      if (account) {
+      if (account?.source === "LOCAL") {
         const failedLoginCount = account.failedLoginCount + 1;
         await this.prisma.adminAccount.update({
           where: { id: account.id },
