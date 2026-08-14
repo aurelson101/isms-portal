@@ -384,7 +384,8 @@ ENTRA_CLIENT_SECRET=<SECRET_DANS_GESTIONNAIRE_DE_SECRETS>
 OAUTH2_PROXY_COOKIE_SECRET=<GENERE_PAR_LE_SCRIPT>
 OAUTH2_PROXY_REDIRECT_URL=https://isms.example.com/oauth2/callback
 SSO_LOGIN_URL=/oauth2/start?rd=/
-SSO_LOGOUT_URL=/oauth2/sign_out
+# Remplacer les valeurs puis encoder toute l'URL Entra placée après rd=.
+SSO_LOGOUT_URL=/oauth2/sign_out?rd=<URL_ENTRA_END_SESSION_ENCODEE>
 SSO_DIRECTORY_GROUP_ENRICHMENT=true
 SSO_DIRECTORY_CACHE_TTL_SECONDS=300
 SSO_DIRECTORY_NEGATIVE_CACHE_TTL_SECONDS=30
@@ -397,6 +398,17 @@ reverse proxy d’entreprise placé devant le port 8080, celui-ci doit transmett
 `oauth2-proxy` n’est jamais publié : Nginx est le seul service autorisé à lui
 adresser une sous-requête d’authentification et l’API continue de refuser tout
 en-tête d’identité provenant d’une adresse hors de `TRUSTED_PROXY_CIDRS`.
+
+La déconnexion `/oauth2/sign_out` seule efface uniquement le cookie local
+oauth2-proxy. Pour fermer également la session de l'application dans Entra,
+construire `SSO_LOGOUT_URL` avec le paramètre `rd` pointant vers l'endpoint
+tenant `https://login.microsoftonline.com/<TENANT_ID>/oauth2/v2.0/logout`, puis
+ajouter un `post_logout_redirect_uri` HTTPS enregistré dans l'application.
+Encoder deux fois l'URL de retour puisqu'elle est imbriquée dans `rd`. Le domaine
+Microsoft est explicitement autorisé dans `docker-compose.sso.yml` ; ne pas
+élargir cette liste. Pour le single sign-out entre applications, enregistrer
+également une URL front-channel Entra capable de supprimer la session locale
+avant de répondre HTTP 200.
 
 ### 3. Démarrage et contrôle
 

@@ -444,6 +444,8 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   const [depositOpen, setDepositOpen] = useState(false);
   const [actionError, setActionError] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [accessRefreshing, setAccessRefreshing] = useState(false);
+  const [accessRefreshMessage, setAccessRefreshMessage] = useState("");
   const [accountOpen, setAccountOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [documentSort, setDocumentSort] = useState<DocumentSort>("recent");
@@ -719,6 +721,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     window.location.assign("/");
   };
   const selectFavorites = () => {
+    setHelpOpen(false);
     if (!explorerMode) {
       window.location.assign("/explorer?favorites=true");
       return;
@@ -771,6 +774,21 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
       return;
     }
     await loadDocuments();
+  };
+  const refreshAccess = async () => {
+    setAccessRefreshing(true);
+    setAccessRefreshMessage("");
+    try {
+      const response = await fetch("/api/me?refresh=1", { cache: "no-store" });
+      if (!response.ok) throw new Error("refresh-access");
+      setIdentity((await response.json()) as Identity);
+      if (explorerMode) await loadDocuments();
+      setAccessRefreshMessage(t.permissionsRefreshed);
+    } catch {
+      setAccessRefreshMessage(t.permissionsRefreshFailed);
+    } finally {
+      setAccessRefreshing(false);
+    }
   };
   const changeAdvancedFilter = (
     key: "format" | "locale" | "sensitive",
@@ -1042,6 +1060,17 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
               )}
               {identity?.authentication.logoutUrl && (
                 <a href={identity.authentication.logoutUrl}>{t.signOut}</a>
+              )}
+              {!identity?.isAdmin && (
+                <button
+                  type="button"
+                  disabled={accessRefreshing}
+                  onClick={() => void refreshAccess()}
+                >
+                  {accessRefreshing
+                    ? t.refreshingPermissions
+                    : t.refreshPermissions}
+                </button>
               )}
               {identity &&
                 ["directory-session", "local-admin"].includes(
@@ -1390,7 +1419,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
           onMouseDown={() => setHelpOpen(false)}
         >
           <section
-            className="modal small-modal"
+            className="modal help-center-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="help-title"
@@ -1403,8 +1432,71 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
             >
               ×
             </button>
-            <h2 id="help-title">{t.help}</h2>
-            <p>{t.helpText}</p>
+            <div className="help-center-heading">
+              <span aria-hidden="true">?</span>
+              <div>
+                <h2 id="help-title">{t.helpCenter}</h2>
+                <p>{t.helpIntro}</p>
+              </div>
+            </div>
+            <div className="help-topic-grid">
+              {[
+                [t.helpFindTitle, t.helpFindText],
+                [t.helpReadTitle, t.helpReadText],
+                [t.helpPersonalTitle, t.helpPersonalText],
+                [t.helpAccessTitle, t.helpAccessText],
+              ].map(([title, text]) => (
+                <article key={title}>
+                  <h3>{title}</h3>
+                  <p>{text}</p>
+                </article>
+              ))}
+            </div>
+            <section
+              className="help-access-summary"
+              aria-label={t.accessSummary}
+            >
+              <div>
+                <h3>{t.accessSummary}</h3>
+                <dl>
+                  <dt>{t.identitySource}</dt>
+                  <dd>{identity?.authentication.source || "—"}</dd>
+                  <dt>{t.groupsRecognized}</dt>
+                  <dd>
+                    {identity?.authentication.diagnostics.matchedGroups
+                      ?.length ?? 0}
+                  </dd>
+                  <dt>{t.spacesMapped}</dt>
+                  <dd>
+                    {identity?.authentication.diagnostics.mappedSpaceCount ?? 0}
+                  </dd>
+                </dl>
+              </div>
+              <div className="help-actions">
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={accessRefreshing}
+                  onClick={() => void refreshAccess()}
+                >
+                  {accessRefreshing
+                    ? t.refreshingPermissions
+                    : t.refreshPermissions}
+                </button>
+                <button type="button" onClick={selectFavorites}>
+                  {t.openFavorites}
+                </button>
+              </div>
+              {accessRefreshMessage && (
+                <p role="status" className="help-refresh-status">
+                  {accessRefreshMessage}
+                </p>
+              )}
+            </section>
+            <aside className="help-support">
+              <strong>{t.helpSupportTitle}</strong>
+              <span>{t.helpSupportText}</span>
+            </aside>
           </section>
         </div>
       )}

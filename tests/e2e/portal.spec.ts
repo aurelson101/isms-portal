@@ -174,6 +174,31 @@ test("mobile navigation stays compact and remains fully usable", async ({
   await expect(navigation).toBeHidden();
 });
 
+test("the contextual help center explains access and refreshes permissions", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Aide" }).click();
+  const dialog = page.getByRole("dialog", { name: "Centre d’aide ISMS" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Trouver un document")).toBeVisible();
+  await expect(dialog.getByText("Lire et télécharger")).toBeVisible();
+  await expect(dialog.getByText("Organiser votre travail")).toBeVisible();
+  await expect(dialog.getByText("Connexion et droits")).toBeVisible();
+  await dialog.getByRole("button", { name: "Actualiser mes droits" }).click();
+  await expect(dialog.getByText("Droits et groupes actualisés.")).toBeVisible();
+  await dialog.getByRole("button", { name: "Fermer" }).click();
+
+  await page
+    .locator("header")
+    .getByRole("button", { name: "EN", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Help" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "ISMS help center" }),
+  ).toBeVisible();
+});
+
 test("explorer exposes its active context and can reset all filters", async ({
   page,
 }) => {
