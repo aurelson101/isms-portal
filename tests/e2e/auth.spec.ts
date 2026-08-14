@@ -214,6 +214,38 @@ test("the generated administrator can sign in and manage the secure profile", as
   await expect(
     page.getByRole("button", { name: "Ajouter le groupe sélectionné" }),
   ).toBeVisible();
+  await expect(
+    page.getByText("Saisissez au moins deux caractères.").first(),
+  ).toBeVisible();
+  await page.route(
+    "**/api/admin/accounts/directory-users/**",
+    async (route) => {
+      await route.fulfill({
+        json: [
+          {
+            username: "test.user",
+            displayName: "Test User",
+            email: "test.user@example.invalid",
+          },
+        ],
+      });
+    },
+  );
+  const directoryUserCard = page
+    .locator(".administrator-grant-card")
+    .filter({ hasText: "Ajouter un utilisateur Active Directory" });
+  await directoryUserCard
+    .getByLabel("Rechercher un utilisateur Active Directory")
+    .fill("test");
+  await directoryUserCard.getByRole("button", { name: /Test User/ }).click();
+  await directoryUserCard
+    .getByLabel("Justification du privilège")
+    .fill("Recette fonctionnelle");
+  await expect(
+    directoryUserCard.getByRole("button", {
+      name: "Ajouter l’utilisateur sélectionné",
+    }),
+  ).toBeEnabled();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Add an Active Directory group" }),
