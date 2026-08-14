@@ -275,6 +275,9 @@ export const portalCatalog = {
 
 export const adminEnglishCatalog = {
   "Éditeur de règle": "Rule editor",
+  "Motif de cet accès administrateur": "Reason for this administrator access",
+  "Ajouter l’utilisateur sélectionné": "Add selected user",
+  "Ajouter le groupe sélectionné": "Add selected group",
   "Afficher la navigation": "Show navigation",
   "Vue d’ensemble": "Overview",
   "Contenu et accès": "Content and access",

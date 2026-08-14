@@ -2230,11 +2230,57 @@ h1 {
 .administrator-grant-card h3 {
   margin-top: 0;
 }
+.directory-admin-grant {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.directory-admin-grant > label {
+  display: grid;
+  gap: 7px;
+  color: #314e78;
+  font-weight: 650;
+}
+.directory-admin-grant input,
+.directory-admin-grant textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid #b8c8dd;
+  border-radius: 7px;
+  background: #fff;
+  color: #071b3d;
+}
+.directory-admin-grant textarea {
+  min-height: 82px;
+  resize: vertical;
+}
+.directory-admin-grant .directory-user-results {
+  max-height: 240px;
+  margin: 0;
+  overflow-y: auto;
+}
 .directory-user-results button {
   display: grid;
   gap: 3px;
   width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #b8c8dd;
+  border-radius: 7px;
+  background: #fff;
+  color: #17365f;
   overflow-wrap: anywhere;
+}
+.directory-user-results button:hover,
+.directory-user-results button.selected {
+  border-color: #0768ea;
+  background: #eaf3ff;
+  color: #064fae;
+}
+.administrator-add-button {
+  width: 100%;
+  min-height: 44px;
+  margin-top: auto;
 }
 .administrator-grant-card small,
 .admin-account-list small {

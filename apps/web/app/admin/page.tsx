@@ -2880,6 +2880,11 @@ function SettingsPanel({
   const [directoryUsers, setDirectoryUsers] = useState<
     Array<{ username: string; displayName: string; email: string | null }>
   >([]);
+  const [selectedDirectoryUser, setSelectedDirectoryUser] = useState<{
+    username: string;
+    displayName: string;
+    email: string | null;
+  } | null>(null);
   const [adminGroups, setAdminGroups] = useState<
     Array<{
       id: string;
@@ -2895,6 +2900,8 @@ function SettingsPanel({
   const [adminGroupSuggestions, setAdminGroupSuggestions] = useState<
     DirectoryGroupSuggestion[]
   >([]);
+  const [selectedAdminGroup, setSelectedAdminGroup] =
+    useState<DirectoryGroupSuggestion | null>(null);
   const [administratorFilter, setAdministratorFilter] = useState("");
   const [directoryAdminJustification, setDirectoryAdminJustification] =
     useState("");
@@ -2951,6 +2958,7 @@ function SettingsPanel({
     }
   }, [identity?.primaryAdmin, loadAdminGroups, onError]);
   useEffect(() => {
+    setSelectedDirectoryUser(null);
     if (directoryQuery.trim().length < 2) {
       setDirectoryUsers([]);
       return;
@@ -2965,6 +2973,7 @@ function SettingsPanel({
     return () => window.clearTimeout(timer);
   }, [directoryQuery, onError]);
   useEffect(() => {
+    setSelectedAdminGroup(null);
     if (adminGroupQuery.trim().length < 2) {
       setAdminGroupSuggestions([]);
       return;
@@ -2985,6 +2994,54 @@ function SettingsPanel({
       controller.abort();
     };
   }, [adminGroupQuery, onError]);
+  const addDirectoryAdministrator = async () => {
+    if (!selectedDirectoryUser || directoryAdminJustification.trim().length < 3)
+      return;
+    await api("/api/admin/accounts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...selectedDirectoryUser,
+        source: "DIRECTORY",
+        justification: directoryAdminJustification.trim(),
+        validUntil: directoryAdminValidUntil || undefined,
+      }),
+    })
+      .then(async () => {
+        setDirectoryQuery("");
+        setDirectoryUsers([]);
+        setSelectedDirectoryUser(null);
+        setDirectoryAdminJustification("");
+        setDirectoryAdminValidUntil("");
+        await loadAccounts();
+        onNotice(t("Administrateur ajouté."));
+      })
+      .catch((error) => onError(error.message));
+  };
+  const addDirectoryAdministratorGroup = async () => {
+    if (!selectedAdminGroup || groupAdminJustification.trim().length < 3)
+      return;
+    await api("/api/admin/accounts/groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: selectedAdminGroup.name,
+        distinguishedName: selectedAdminGroup.distinguishedName,
+        justification: groupAdminJustification.trim(),
+        validUntil: groupAdminValidUntil || undefined,
+      }),
+    })
+      .then(async () => {
+        setAdminGroupQuery("");
+        setAdminGroupSuggestions([]);
+        setSelectedAdminGroup(null);
+        setGroupAdminJustification("");
+        setGroupAdminValidUntil("");
+        await loadAdminGroups();
+        onNotice(t("Groupe administrateur ajouté."));
+      })
+      .catch((error) => onError(error.message));
+  };
   return (
     <>
       <h1>{t("Configuration")}</h1>
@@ -3300,7 +3357,7 @@ function SettingsPanel({
               </label>
               <button className="primary">{t("Ajouter")}</button>
             </form>
-            <div className="administrator-grant-card">
+            <div className="administrator-grant-card directory-admin-grant">
               <h3>{t("Ajouter un utilisateur Active Directory")}</h3>
               <label>
                 {t(
@@ -3316,16 +3373,19 @@ function SettingsPanel({
                   )}
                 />
               </label>
-              <textarea
-                value={directoryAdminJustification}
-                onChange={(event) =>
-                  setDirectoryAdminJustification(event.target.value)
-                }
-                minLength={3}
-                maxLength={500}
-                placeholder={t("Justification du privilège")}
-                required
-              />
+              <label>
+                {t("Justification du privilège")}
+                <textarea
+                  value={directoryAdminJustification}
+                  onChange={(event) =>
+                    setDirectoryAdminJustification(event.target.value)
+                  }
+                  minLength={3}
+                  maxLength={500}
+                  placeholder={t("Motif de cet accès administrateur")}
+                  required
+                />
+              </label>
               <label>
                 {t("Expiration facultative")}
                 <input
@@ -3339,36 +3399,36 @@ function SettingsPanel({
               <div className="directory-user-results">
                 {directoryUsers.map((user) => (
                   <button
+                    type="button"
                     key={user.username}
-                    disabled={directoryAdminJustification.trim().length < 3}
-                    onClick={() =>
-                      api("/api/admin/accounts", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          ...user,
-                          source: "DIRECTORY",
-                          justification: directoryAdminJustification,
-                          validUntil: directoryAdminValidUntil || undefined,
-                        }),
-                      })
-                        .then(async () => {
-                          setDirectoryQuery("");
-                          setDirectoryUsers([]);
-                          setDirectoryAdminJustification("");
-                          setDirectoryAdminValidUntil("");
-                          await loadAccounts();
-                          onNotice(t("Administrateur ajouté."));
-                        })
-                        .catch((error) => onError(error.message))
+                    className={
+                      selectedDirectoryUser?.username === user.username
+                        ? "selected"
+                        : ""
                     }
+                    aria-pressed={
+                      selectedDirectoryUser?.username === user.username
+                    }
+                    onClick={() => setSelectedDirectoryUser(user)}
                   >
-                    {user.displayName} — {user.username}
+                    <strong>{user.displayName}</strong>
+                    <small>{user.email || user.username}</small>
                   </button>
                 ))}
               </div>
+              <button
+                type="button"
+                className="primary administrator-add-button"
+                disabled={
+                  !selectedDirectoryUser ||
+                  directoryAdminJustification.trim().length < 3
+                }
+                onClick={() => void addDirectoryAdministrator()}
+              >
+                <Icon name="add" /> {t("Ajouter l’utilisateur sélectionné")}
+              </button>
             </div>
-            <div className="administrator-grant-card">
+            <div className="administrator-grant-card directory-admin-grant">
               <h3>{t("Ajouter un groupe Active Directory")}</h3>
               <p className="retention-note">
                 {t(
@@ -3383,16 +3443,19 @@ function SettingsPanel({
                   placeholder={t("Nom du groupe")}
                 />
               </label>
-              <textarea
-                value={groupAdminJustification}
-                onChange={(event) =>
-                  setGroupAdminJustification(event.target.value)
-                }
-                minLength={3}
-                maxLength={500}
-                placeholder={t("Justification du privilège")}
-                required
-              />
+              <label>
+                {t("Justification du privilège")}
+                <textarea
+                  value={groupAdminJustification}
+                  onChange={(event) =>
+                    setGroupAdminJustification(event.target.value)
+                  }
+                  minLength={3}
+                  maxLength={500}
+                  placeholder={t("Motif de cet accès administrateur")}
+                  required
+                />
+              </label>
               <label>
                 {t("Expiration facultative")}
                 <input
@@ -3406,35 +3469,36 @@ function SettingsPanel({
               <div className="directory-user-results">
                 {adminGroupSuggestions.map((group) => (
                   <button
+                    type="button"
                     key={`${group.connectionId}:${group.distinguishedName}`}
-                    disabled={groupAdminJustification.trim().length < 3}
-                    onClick={() =>
-                      api("/api/admin/accounts/groups", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          name: group.name,
-                          distinguishedName: group.distinguishedName,
-                          justification: groupAdminJustification,
-                          validUntil: groupAdminValidUntil || undefined,
-                        }),
-                      })
-                        .then(async () => {
-                          setAdminGroupQuery("");
-                          setAdminGroupSuggestions([]);
-                          setGroupAdminJustification("");
-                          setGroupAdminValidUntil("");
-                          await loadAdminGroups();
-                          onNotice(t("Groupe administrateur ajouté."));
-                        })
-                        .catch((error) => onError(error.message))
+                    className={
+                      selectedAdminGroup?.distinguishedName ===
+                      group.distinguishedName
+                        ? "selected"
+                        : ""
                     }
+                    aria-pressed={
+                      selectedAdminGroup?.distinguishedName ===
+                      group.distinguishedName
+                    }
+                    onClick={() => setSelectedAdminGroup(group)}
                   >
                     <strong>{group.name}</strong>
                     <small>{group.distinguishedName}</small>
                   </button>
                 ))}
               </div>
+              <button
+                type="button"
+                className="primary administrator-add-button"
+                disabled={
+                  !selectedAdminGroup ||
+                  groupAdminJustification.trim().length < 3
+                }
+                onClick={() => void addDirectoryAdministratorGroup()}
+              >
+                <Icon name="add" /> {t("Ajouter le groupe sélectionné")}
+              </button>
               <div className="admin-account-list">
                 {adminGroups.map((group) => (
                   <div key={group.id}>
