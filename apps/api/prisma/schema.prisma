@@ -28,38 +28,38 @@ enum ScanStatus {
 }
 
 model DirectoryConnection {
-  id String @id @default(uuid())
-  name String @unique
-  domain String
-  primaryHost String
-  secondaryHost String?
-  port Int @default(636)
-  protocol String @default("LDAPS")
-  baseDn String
-  userBaseDn String?
-  groupBaseDn String?
-  bindDn String
+  id                  String                 @id @default(uuid())
+  name                String                 @unique
+  domain              String
+  primaryHost         String
+  secondaryHost       String?
+  port                Int                    @default(636)
+  protocol            String                 @default("LDAPS")
+  baseDn              String
+  userBaseDn          String?
+  groupBaseDn         String?
+  bindDn              String
   encryptedBindSecret String
-  userFilter String @default("(objectClass=user)")
-  groupFilter String @default("(objectClass=group)")
-  loginAttribute String @default("sAMAccountName")
-  usernameAttribute String @default("mail")
-  groupAttribute String @default("cn")
-  emailAttribute String @default("mail")
-  nestedGroups Boolean @default(true)
-  syncIntervalMinutes Int @default(60)
-  timeoutMs Int @default(5000)
-  retries Int @default(2)
-  enabled Boolean @default(false)
-  caCertificateId String?
-  caCertificate TrustedCaCertificate? @relation(fields: [caCertificateId], references: [id])
-  syncJobs DirectorySyncJob[]
-  groups DirectoryGroup[]
-  userSessions DirectoryUserSession[]
-  lastTestAt DateTime?
-  lastTestStatus String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  userFilter          String                 @default("(objectClass=user)")
+  groupFilter         String                 @default("(objectClass=group)")
+  loginAttribute      String                 @default("sAMAccountName")
+  usernameAttribute   String                 @default("mail")
+  groupAttribute      String                 @default("cn")
+  emailAttribute      String                 @default("mail")
+  nestedGroups        Boolean                @default(true)
+  syncIntervalMinutes Int                    @default(60)
+  timeoutMs           Int                    @default(5000)
+  retries             Int                    @default(2)
+  enabled             Boolean                @default(false)
+  caCertificateId     String?
+  caCertificate       TrustedCaCertificate?  @relation(fields: [caCertificateId], references: [id])
+  syncJobs            DirectorySyncJob[]
+  groups              DirectoryGroup[]
+  userSessions        DirectoryUserSession[]
+  lastTestAt          DateTime?
+  lastTestStatus      String?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
 
   @@index([enabled])
   @@index([caCertificateId])
@@ -83,75 +83,75 @@ model DirectoryUserSession {
 }
 
 model TrustedCaCertificate {
-  id String @id @default(uuid())
-  name String
-  subject String
-  issuer String
-  serialNumber String
-  fingerprintSha256 String @unique
-  validFrom DateTime
-  validTo DateTime
-  pem String
-  connections DirectoryConnection[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String                @id @default(uuid())
+  name              String
+  subject           String
+  issuer            String
+  serialNumber      String
+  fingerprintSha256 String                @unique
+  validFrom         DateTime
+  validTo           DateTime
+  pem               String
+  connections       DirectoryConnection[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
 
   @@index([validTo])
 }
 
 model DirectoryGroup {
-  id String @id @default(uuid())
-  name String @unique
-  distinguishedName String @unique
-  description String?
-  memberCount Int @default(0)
-  active Boolean @default(true)
-  lastSyncedAt DateTime?
+  id                    String               @id @default(uuid())
+  name                  String               @unique
+  distinguishedName     String               @unique
+  description           String?
+  memberCount           Int                  @default(0)
+  active                Boolean              @default(true)
+  lastSyncedAt          DateTime?
   directoryConnectionId String?
-  directoryConnection DirectoryConnection? @relation(fields: [directoryConnectionId], references: [id])
-  accessRules AccessRule[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  directoryConnection   DirectoryConnection? @relation(fields: [directoryConnectionId], references: [id])
+  accessRules           AccessRule[]
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
 
   @@index([directoryConnectionId])
 }
 
 model DirectorySyncJob {
-  id String @id @default(uuid())
+  id           String              @id @default(uuid())
   connectionId String
-  connection DirectoryConnection @relation(fields: [connectionId], references: [id])
-  status String
-  details Json?
-  startedAt DateTime @default(now())
-  finishedAt DateTime?
+  connection   DirectoryConnection @relation(fields: [connectionId], references: [id])
+  status       String
+  details      Json?
+  startedAt    DateTime            @default(now())
+  finishedAt   DateTime?
 
   @@index([connectionId, startedAt])
   @@index([status])
 }
 
 model DocumentSpace {
-  id String @id @default(uuid())
-  slug String @unique
-  nameFr String
-  nameEn String
-  categories DocumentCategory[]
-  documents Document[]
+  id          String             @id @default(uuid())
+  slug        String             @unique
+  nameFr      String
+  nameEn      String
+  categories  DocumentCategory[]
+  documents   Document[]
   accessRules AccessRule[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deletedAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  deletedAt   DateTime?
 }
 
 model DocumentCategory {
-  id String @id @default(uuid())
-  slug String
-  nameFr String
-  nameEn String
-  spaceId String
-  space DocumentSpace @relation(fields: [spaceId], references: [id])
+  id        String        @id @default(uuid())
+  slug      String
+  nameFr    String
+  nameEn    String
+  spaceId   String
+  space     DocumentSpace @relation(fields: [spaceId], references: [id])
   documents Document[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
   deletedAt DateTime?
 
   @@unique([spaceId, slug])
@@ -159,34 +159,46 @@ model DocumentCategory {
 }
 
 model Document {
-  id String @id @default(uuid())
-  spaceId String
-  space DocumentSpace @relation(fields: [spaceId], references: [id])
-  categoryId String?
-  category DocumentCategory? @relation(fields: [categoryId], references: [id])
-  status DocumentStatus @default(DRAFT)
-  sensitive Boolean @default(false)
-  watermarkPosition WatermarkPosition @default(CENTER)
-  viewCount Int @default(0)
-  downloadCount Int @default(0)
-  publishedAt DateTime?
-  translations DocumentTranslation[]
-  versions DocumentVersion[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deletedAt DateTime?
+  id                String                @id @default(uuid())
+  spaceId           String
+  space             DocumentSpace         @relation(fields: [spaceId], references: [id])
+  categoryId        String?
+  category          DocumentCategory?     @relation(fields: [categoryId], references: [id])
+  status            DocumentStatus        @default(DRAFT)
+  sensitive         Boolean               @default(false)
+  watermarkPosition WatermarkPosition     @default(CENTER)
+  viewCount         Int                   @default(0)
+  downloadCount     Int                   @default(0)
+  publishedAt       DateTime?
+  translations      DocumentTranslation[]
+  versions          DocumentVersion[]
+  favorites         UserFavorite[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  deletedAt         DateTime?
 
   @@index([spaceId, status])
   @@index([categoryId])
   @@index([publishedAt])
 }
 
-model DocumentTranslation {
-  id String @id @default(uuid())
+model UserFavorite {
+  identity   String
   documentId String
-  document Document @relation(fields: [documentId], references: [id])
-  locale String
-  title String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([identity, documentId])
+  @@index([identity, createdAt])
+  @@index([documentId])
+}
+
+model DocumentTranslation {
+  id          String   @id @default(uuid())
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id])
+  locale      String
+  title       String
   description String?
 
   @@unique([documentId, locale])
@@ -194,16 +206,16 @@ model DocumentTranslation {
 }
 
 model DocumentVersion {
-  id String @id @default(uuid())
-  documentId String
-  document Document @relation(fields: [documentId], references: [id])
-  locale String
-  version Int
-  storedFileId String
-  storedFile StoredFile @relation("SourceDocumentVersion", fields: [storedFileId], references: [id])
+  id                      String      @id @default(uuid())
+  documentId              String
+  document                Document    @relation(fields: [documentId], references: [id])
+  locale                  String
+  version                 Int
+  storedFileId            String
+  storedFile              StoredFile  @relation("SourceDocumentVersion", fields: [storedFileId], references: [id])
   distributedStoredFileId String?
-  distributedStoredFile StoredFile? @relation("DistributedDocumentVersion", fields: [distributedStoredFileId], references: [id])
-  createdAt DateTime @default(now())
+  distributedStoredFile   StoredFile? @relation("DistributedDocumentVersion", fields: [distributedStoredFileId], references: [id])
+  createdAt               DateTime    @default(now())
 
   @@unique([documentId, locale, version])
   @@index([storedFileId])
@@ -211,83 +223,84 @@ model DocumentVersion {
 }
 
 model StoredFile {
-  id String @id @default(uuid())
-  objectKey String @unique
-  originalName String
-  mimeType String
-  size BigInt
-  sha256 String
-  sourceVersions DocumentVersion[] @relation("SourceDocumentVersion")
+  id                  String            @id @default(uuid())
+  objectKey           String            @unique
+  originalName        String
+  mimeType            String
+  size                BigInt
+  sha256              String
+  sourceVersions      DocumentVersion[] @relation("SourceDocumentVersion")
   distributedVersions DocumentVersion[] @relation("DistributedDocumentVersion")
-  scans AntivirusScan[]
-  createdAt DateTime @default(now())
+  scans               AntivirusScan[]
+  createdAt           DateTime          @default(now())
 }
 
 model AccessRule {
-  id String @id @default(uuid())
-  groupId String
-  group DirectoryGroup @relation(fields: [groupId], references: [id])
-  spaceId String
-  space DocumentSpace @relation(fields: [spaceId], references: [id])
-  showMenu Boolean @default(false)
-  read Boolean @default(false)
-  search Boolean @default(false)
-  preview Boolean @default(false)
-  download Boolean @default(false)
-  upload Boolean @default(false)
-  edit Boolean @default(false)
-  publish Boolean @default(false)
-  archive Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String         @id @default(uuid())
+  groupId   String
+  group     DirectoryGroup @relation(fields: [groupId], references: [id])
+  spaceId   String
+  space     DocumentSpace  @relation(fields: [spaceId], references: [id])
+  showMenu  Boolean        @default(false)
+  read      Boolean        @default(false)
+  search    Boolean        @default(false)
+  preview   Boolean        @default(false)
+  download  Boolean        @default(false)
+  upload    Boolean        @default(false)
+  edit      Boolean        @default(false)
+  publish   Boolean        @default(false)
+  archive   Boolean        @default(false)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   @@unique([groupId, spaceId])
   @@index([spaceId])
 }
 
 model AuditEvent {
-  id String @id @default(uuid())
-  occurredAt DateTime @default(now())
-  identity String
-  ipAddress String
-  action String
-  resource String
-  result String
+  id            String   @id @default(uuid())
+  occurredAt    DateTime @default(now())
+  identity      String
+  ipAddress     String
+  action        String
+  resource      String
+  result        String
   correlationId String
-  details Json?
+  details       Json?
+
   @@index([occurredAt])
   @@index([action, occurredAt])
   @@index([identity, occurredAt])
 }
 
 model ApplicationSetting {
-  key String @id
-  value Json
+  key       String   @id
+  value     Json
   updatedAt DateTime @updatedAt
 }
 
 model UserPreference {
-  identity String @id
-  locale String @default("fr")
+  identity  String   @id
+  locale    String   @default("fr")
   updatedAt DateTime @updatedAt
 }
 
 model AdminAccount {
-  id              String         @id @default(uuid())
-  username        String         @unique
-  displayName     String
-  source          String         @default("LOCAL")
-  passwordHash    String?
-  profilePhoto    String?
-  mfaSecret       String?
-  mfaEnabled      Boolean        @default(false)
-  active          Boolean        @default(true)
-  primary         Boolean        @default(false)
-  failedLoginCount Int           @default(0)
+  id               String         @id @default(uuid())
+  username         String         @unique
+  displayName      String
+  source           String         @default("LOCAL")
+  passwordHash     String?
+  profilePhoto     String?
+  mfaSecret        String?
+  mfaEnabled       Boolean        @default(false)
+  active           Boolean        @default(true)
+  primary          Boolean        @default(false)
+  failedLoginCount Int            @default(0)
   lockedUntil      DateTime?
-  sessions        AdminSession[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  sessions         AdminSession[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   @@index([source, active])
 }
@@ -306,12 +319,12 @@ model AdminSession {
 }
 
 model AntivirusScan {
-  id String @id @default(uuid())
+  id           String     @id @default(uuid())
   storedFileId String
-  storedFile StoredFile @relation(fields: [storedFileId], references: [id])
-  status ScanStatus @default(PENDING)
-  signature String?
-  scannedAt DateTime?
+  storedFile   StoredFile @relation(fields: [storedFileId], references: [id])
+  status       ScanStatus @default(PENDING)
+  signature    String?
+  scannedAt    DateTime?
 
   @@index([storedFileId, status])
 }

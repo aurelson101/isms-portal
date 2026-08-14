@@ -75,6 +75,87 @@ test("navigation, filtering, search and languages are functional", async ({
   ).toBeVisible();
 });
 
+test("personal favorites follow the signed-in account and remain ACL-filtered", async ({
+  page,
+}) => {
+  await page.goto("/explorer");
+  const firstDocument = page.locator(".document").first();
+  await expect(firstDocument).toBeVisible();
+  const title = (
+    await firstDocument.locator(".document-title").innerText()
+  ).trim();
+
+  await firstDocument
+    .getByRole("button", { name: "Ajouter aux favoris" })
+    .click();
+  await expect(
+    firstDocument.getByRole("button", { name: "Retirer des favoris" }),
+  ).toBeVisible();
+
+  await page
+    .getByRole("navigation", { name: "Navigation principale" })
+    .getByRole("button", { name: "Mes favoris" })
+    .click();
+  await expect(page).toHaveURL(/favorites=true/);
+  const favoriteRow = page.locator(".document").filter({ hasText: title });
+  await expect(favoriteRow).toBeVisible();
+  await favoriteRow
+    .getByRole("button", { name: "Retirer des favoris" })
+    .click();
+  await expect(favoriteRow).toHaveCount(0);
+
+  await page
+    .locator("header")
+    .getByRole("button", { name: "EN", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "My favorites", level: 2 }),
+  ).toBeVisible();
+});
+
+test("advanced document filters are combinable, URL-persistent and bilingual", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/explorer");
+  await page.getByLabel("Tous les formats").selectOption("pdf");
+  await page.getByLabel("Toutes les langues").selectOption("fr");
+  await page.getByLabel("Tous les documents").selectOption("false");
+  await expect(page).toHaveURL(/format=pdf/);
+  await expect(page).toHaveURL(/locale=fr/);
+  await expect(page).toHaveURL(/sensitive=false/);
+
+  const response = await request.get(
+    "/api/documents?page=1&limit=100&format=pdf&locale=fr",
+  );
+  expect(response.status()).toBe(200);
+  const result = (await response.json()) as {
+    items: Array<{
+      versions: Array<{
+        locale: string;
+        storedFile: { mimeType: string };
+      }>;
+    }>;
+  };
+  for (const document of result.items) {
+    expect(
+      document.versions.some(
+        (version) =>
+          version.locale === "fr" &&
+          version.storedFile.mimeType === "application/pdf",
+      ),
+    ).toBe(true);
+  }
+
+  await page
+    .locator("header")
+    .getByRole("button", { name: "EN", exact: true })
+    .click();
+  await expect(page.getByLabel("All formats")).toHaveValue("pdf");
+  await expect(page.getByLabel("All languages")).toHaveValue("fr");
+  await expect(page.getByLabel("All documents")).toHaveValue("false");
+});
+
 test("mobile navigation stays compact and remains fully usable", async ({
   page,
 }) => {
@@ -1308,7 +1389,7 @@ test("Word and Excel documents open in a read-only viewer", async ({
   }
 });
 
-test("the audit journal automatically retains at most 20 events", async ({
+test("the audit journal automatically retains at most 50 events", async ({
   request,
 }) => {
   const response = await request.get("/api/admin/audit?limit=200");
@@ -1317,7 +1398,7 @@ test("the audit journal automatically retains at most 20 events", async ({
     items: unknown[];
     total: number;
   };
-  expect(audit.total).toBeLessThanOrEqual(20);
+  expect(audit.total).toBeLessThanOrEqual(50);
   expect(audit.items).toHaveLength(audit.total);
 });
 

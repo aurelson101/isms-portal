@@ -3,6 +3,8 @@ import type { Prisma } from "@prisma/client";
 import { PrismaService } from "./prisma.service";
 import type { IsmsRequest } from "./types";
 
+const AUDIT_RETENTION_LIMIT = 50;
+
 @Injectable()
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
@@ -35,7 +37,7 @@ export class AuditService {
       });
       const obsolete = await transaction.auditEvent.findMany({
         orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-        skip: 20,
+        skip: AUDIT_RETENTION_LIMIT,
         select: { id: true },
       });
       if (obsolete.length > 0) {

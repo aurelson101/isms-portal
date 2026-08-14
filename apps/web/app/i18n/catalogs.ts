@@ -94,6 +94,15 @@ export const portalCatalog = {
     sortBy: "Trier par",
     sortRecent: "Plus récents",
     sortPopular: "Plus consultés",
+    favorites: "Mes favoris",
+    addFavorite: "Ajouter aux favoris",
+    removeFavorite: "Retirer des favoris",
+    advancedFilters: "Filtres documentaires",
+    allFormats: "Tous les formats",
+    allLanguages: "Toutes les langues",
+    allSensitivity: "Tous les documents",
+    sensitiveOnly: "Documents sensibles",
+    standardOnly: "Documents standards",
     searchResults: "Résultats de recherche",
     documentLanguage: "Langue du document",
     documentLanguageHint: "Indique uniquement la langue du fichier.",
@@ -194,6 +203,15 @@ export const portalCatalog = {
     sortBy: "Sort by",
     sortRecent: "Most recent",
     sortPopular: "Most viewed",
+    favorites: "My favorites",
+    addFavorite: "Add to favorites",
+    removeFavorite: "Remove from favorites",
+    advancedFilters: "Document filters",
+    allFormats: "All formats",
+    allLanguages: "All languages",
+    allSensitivity: "All documents",
+    sensitiveOnly: "Sensitive documents",
+    standardOnly: "Standard documents",
     searchResults: "Search results",
     documentLanguage: "Document language",
     documentLanguageHint: "Only identifies the language of the file.",
@@ -241,8 +259,8 @@ export const adminEnglishCatalog = {
   "Rechercher un utilisateur Active Directory":
     "Search for an Active Directory user",
   "Nom, identifiant ou e-mail": "Name, username or email",
-  "Conservation automatique des 20 événements les plus récents.":
-    "Automatic retention of the 20 most recent events.",
+  "Conservation automatique des 50 événements les plus récents.":
+    "Automatic retention of the 50 most recent events.",
   "Supprimer définitivement ce document et tous ses fichiers ?":
     "Permanently delete this document and all its files?",
   "Formats acceptés : certificat ou chaîne ADCS X.509 PEM, DER ou PKCS#7 (.pem, .crt, .cer, .p7b, .p7c), sans clé privée.":

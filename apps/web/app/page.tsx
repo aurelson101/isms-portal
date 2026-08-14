@@ -57,6 +57,7 @@ type PortalDocument = {
   publishedAt: string;
   viewCount: number;
   downloadCount: number;
+  favorite: boolean;
   space: Space;
   category: { slug: string; nameFr: string; nameEn: string } | null;
   translations: Translation[];
@@ -266,6 +267,7 @@ function DocumentRows({
   onOpen,
   onEdit,
   onTransition,
+  onFavorite,
   viewMode = "list",
 }: {
   documents: PortalDocument[];
@@ -278,6 +280,7 @@ function DocumentRows({
     document: PortalDocument,
     action: "publish" | "archive" | "restore",
   ) => void;
+  onFavorite: (document: PortalDocument) => void;
   viewMode?: ViewMode;
 }) {
   const t = copy[locale];
@@ -334,6 +337,18 @@ function DocumentRows({
               ))}
             </span>
             <span className="document-row-actions">
+              <button
+                type="button"
+                className="favorite-toggle"
+                aria-pressed={document.favorite}
+                aria-label={
+                  document.favorite ? t.removeFavorite : t.addFavorite
+                }
+                title={document.favorite ? t.removeFavorite : t.addFavorite}
+                onClick={() => onFavorite(document)}
+              >
+                <span aria-hidden="true">{document.favorite ? "★" : "☆"}</span>
+              </button>
               <button
                 className="document-open"
                 onClick={() => onOpen(document)}
@@ -411,6 +426,10 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [space, setSpace] = useState("");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [documentFormat, setDocumentFormat] = useState("");
+  const [documentLanguage, setDocumentLanguage] = useState("");
+  const [documentSensitivity, setDocumentSensitivity] = useState("");
   const [documents, setDocuments] = useState<PortalDocument[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -443,6 +462,10 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
       if (query.trim()) parameters.set("q", query.trim());
       if (category) parameters.set("categoryId", category);
       if (space) parameters.set("space", space);
+      if (favoritesOnly) parameters.set("favorites", "true");
+      if (documentFormat) parameters.set("format", documentFormat);
+      if (documentLanguage) parameters.set("locale", documentLanguage);
+      if (documentSensitivity) parameters.set("sensitive", documentSensitivity);
       parameters.set("sort", documentSort);
       parameters.set("page", String(page));
       parameters.set("limit", "10");
@@ -473,7 +496,17 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
         if (!signal?.aborted) setLoading(false);
       }
     },
-    [query, category, space, page, documentSort],
+    [
+      query,
+      category,
+      space,
+      favoritesOnly,
+      documentFormat,
+      documentLanguage,
+      documentSensitivity,
+      page,
+      documentSort,
+    ],
   );
 
   useEffect(() => {
@@ -483,6 +516,10 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     const requestedSpace = parameters.get("space");
     const requestedQuery = parameters.get("q");
     const requestedSort = parameters.get("sort");
+    const requestedFavorites = parameters.get("favorites") === "true";
+    const requestedFormat = parameters.get("format");
+    const requestedLanguage = parameters.get("locale");
+    const requestedSensitivity = parameters.get("sensitive");
     setPage(Math.max(1, Number(parameters.get("page")) || 1));
     if (requestedCategory) {
       setCategory(requestedCategory);
@@ -501,6 +538,13 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
       setSpace("");
     }
     if (requestedSort === "popular") setDocumentSort("popular");
+    setFavoritesOnly(requestedFavorites);
+    if (["pdf", "docx", "xlsx"].includes(requestedFormat || ""))
+      setDocumentFormat(requestedFormat || "");
+    if (["fr", "en"].includes(requestedLanguage || ""))
+      setDocumentLanguage(requestedLanguage || "");
+    if (["true", "false"].includes(requestedSensitivity || ""))
+      setDocumentSensitivity(requestedSensitivity || "");
     const savedView = localStorage.getItem("isms-document-view");
     if (savedView === "grid" || savedView === "list") setViewMode(savedView);
   }, []);
@@ -609,6 +653,10 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     setQuery("");
     setCategory(categoryId);
     setSpace(spaceSlug);
+    setFavoritesOnly(false);
+    setDocumentFormat("");
+    setDocumentLanguage("");
+    setDocumentSensitivity("");
     setPage(1);
     window.history.replaceState(
       null,
@@ -656,6 +704,10 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     setQuery("");
     setSpace(next);
     setCategory("");
+    setFavoritesOnly(false);
+    setDocumentFormat("");
+    setDocumentLanguage("");
+    setDocumentSensitivity("");
     setPage(1);
     window.history.replaceState(
       null,
@@ -666,10 +718,29 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   const selectHome = () => {
     window.location.assign("/");
   };
+  const selectFavorites = () => {
+    if (!explorerMode) {
+      window.location.assign("/explorer?favorites=true");
+      return;
+    }
+    setQuery("");
+    setCategory("");
+    setSpace("");
+    setFavoritesOnly(true);
+    setDocumentFormat("");
+    setDocumentLanguage("");
+    setDocumentSensitivity("");
+    setPage(1);
+    window.history.replaceState(null, "", "/explorer?favorites=true");
+  };
   const clearFilters = () => {
     setQuery("");
     setCategory("");
     setSpace("");
+    setFavoritesOnly(false);
+    setDocumentFormat("");
+    setDocumentLanguage("");
+    setDocumentSensitivity("");
     setPage(1);
     setDocumentSort("recent");
     window.history.replaceState(null, "", "/explorer");
@@ -681,10 +752,43 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     if (query.trim()) parameters.set("q", query.trim());
     if (category) parameters.set("categoryId", category);
     if (space) parameters.set("space", space);
+    if (favoritesOnly) parameters.set("favorites", "true");
+    if (documentFormat) parameters.set("format", documentFormat);
+    if (documentLanguage) parameters.set("locale", documentLanguage);
+    if (documentSensitivity) parameters.set("sensitive", documentSensitivity);
     if (documentSort === "popular") parameters.set("sort", documentSort);
     if (target > 1) parameters.set("page", String(target));
     window.history.replaceState(null, "", `/explorer?${parameters}`);
     resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const toggleFavorite = async (document: PortalDocument) => {
+    setActionError("");
+    const response = await fetch(`/api/documents/${document.id}/favorite`, {
+      method: document.favorite ? "DELETE" : "POST",
+    });
+    if (!response.ok) {
+      setActionError(t.error);
+      return;
+    }
+    await loadDocuments();
+  };
+  const changeAdvancedFilter = (
+    key: "format" | "locale" | "sensitive",
+    value: string,
+  ) => {
+    if (key === "format") setDocumentFormat(value);
+    if (key === "locale") setDocumentLanguage(value);
+    if (key === "sensitive") setDocumentSensitivity(value);
+    setPage(1);
+    const parameters = new URLSearchParams(window.location.search);
+    parameters.delete("page");
+    if (value) parameters.set(key, value);
+    else parameters.delete(key);
+    window.history.replaceState(
+      null,
+      "",
+      `/explorer${parameters.size ? `?${parameters}` : ""}`,
+    );
   };
   const t = copy[locale];
   const selectedCategory = identity?.spaces
@@ -790,6 +894,16 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
             onClick={selectHome}
           >
             <Icon name="home" /> <span>{t.home}</span>
+          </button>
+          <button
+            type="button"
+            className={favoritesOnly ? "active" : ""}
+            onClick={selectFavorites}
+          >
+            <span className="favorite-navigation-icon" aria-hidden="true">
+              ★
+            </span>
+            <span>{t.favorites}</span>
           </button>
           {identity?.spaces.map((item) => (
             <div className="navigation-space" key={item.id}>
@@ -971,6 +1085,11 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
               if (documentSort === "popular") {
                 parameters.set("sort", documentSort);
               }
+              if (favoritesOnly) parameters.set("favorites", "true");
+              if (documentFormat) parameters.set("format", documentFormat);
+              if (documentLanguage) parameters.set("locale", documentLanguage);
+              if (documentSensitivity)
+                parameters.set("sensitive", documentSensitivity);
               window.history.replaceState(
                 null,
                 "",
@@ -1020,20 +1139,22 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
             <Icon name="search" />
           </button>
         </form>
-        {explorerMode && (query || space || category) && (
+        {explorerMode && (query || space || category || favoritesOnly) && (
           <div className="active-context" aria-label={t.activeFilters}>
             <div>
               <span>{t.currentSelection}</span>
               <strong>
-                {query
-                  ? `“${query}”`
-                  : category
-                    ? categoryLabel
-                    : selectedSpace
-                      ? locale === "fr"
-                        ? selectedSpace.nameFr
-                        : selectedSpace.nameEn
-                      : t.explorer}
+                {favoritesOnly
+                  ? t.favorites
+                  : query
+                    ? `“${query}”`
+                    : category
+                      ? categoryLabel
+                      : selectedSpace
+                        ? locale === "fr"
+                          ? selectedSpace.nameFr
+                          : selectedSpace.nameEn
+                        : t.explorer}
               </strong>
             </div>
             <button type="button" onClick={clearFilters}>
@@ -1102,15 +1223,17 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                   <div>
                     <span>{t.explorer}</span>
                     <h2 id="explorer-title">
-                      {category
-                        ? categoryLabel
-                        : query
-                          ? t.searchResults
-                          : selectedSpace
-                            ? locale === "fr"
-                              ? selectedSpace.nameFr
-                              : selectedSpace.nameEn
-                            : t.recent}
+                      {favoritesOnly
+                        ? t.favorites
+                        : category
+                          ? categoryLabel
+                          : query
+                            ? t.searchResults
+                            : selectedSpace
+                              ? locale === "fr"
+                                ? selectedSpace.nameFr
+                                : selectedSpace.nameEn
+                              : t.recent}
                     </h2>
                     <p>
                       {total}{" "}
@@ -1128,6 +1251,46 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                         {t.deposit}
                       </button>
                     )}
+                    <div
+                      className="advanced-document-filters"
+                      role="group"
+                      aria-label={t.advancedFilters}
+                    >
+                      <select
+                        value={documentFormat}
+                        aria-label={t.allFormats}
+                        onChange={(event) =>
+                          changeAdvancedFilter("format", event.target.value)
+                        }
+                      >
+                        <option value="">{t.allFormats}</option>
+                        <option value="pdf">PDF</option>
+                        <option value="docx">Word</option>
+                        <option value="xlsx">Excel</option>
+                      </select>
+                      <select
+                        value={documentLanguage}
+                        aria-label={t.allLanguages}
+                        onChange={(event) =>
+                          changeAdvancedFilter("locale", event.target.value)
+                        }
+                      >
+                        <option value="">{t.allLanguages}</option>
+                        <option value="fr">FR</option>
+                        <option value="en">EN</option>
+                      </select>
+                      <select
+                        value={documentSensitivity}
+                        aria-label={t.allSensitivity}
+                        onChange={(event) =>
+                          changeAdvancedFilter("sensitive", event.target.value)
+                        }
+                      >
+                        <option value="">{t.allSensitivity}</option>
+                        <option value="true">{t.sensitiveOnly}</option>
+                        <option value="false">{t.standardOnly}</option>
+                      </select>
+                    </div>
                     <label className="document-sort">
                       <span>{t.sortBy}</span>
                       <select
@@ -1183,6 +1346,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                   onTransition={(document, action) =>
                     void transitionDocument(document, action)
                   }
+                  onFavorite={(document) => void toggleFavorite(document)}
                   viewMode={viewMode}
                 />
                 {actionError && (
