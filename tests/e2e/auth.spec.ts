@@ -214,6 +214,14 @@ test("the generated administrator can sign in and manage the secure profile", as
   await expect(
     page.getByRole("button", { name: "Ajouter le groupe sélectionné" }),
   ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Ajouter l’utilisateur sélectionné" })
+    .click();
+  await expect(
+    page.getByText(
+      "Sélectionnez d’abord un utilisateur AD dans les résultats.",
+    ),
+  ).toBeVisible();
   await expect(
     page.getByText("Saisissez au moins deux caractères.").first(),
   ).toBeVisible();
@@ -246,6 +254,73 @@ test("the generated administrator can sign in and manage the secure profile", as
       name: "Ajouter l’utilisateur sélectionné",
     }),
   ).toBeEnabled();
+  let userCreationPayload: Record<string, unknown> | null = null;
+  await page.route("**/api/admin/accounts", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    userCreationPayload = route.request().postDataJSON() as Record<
+      string,
+      unknown
+    >;
+    await route.fulfill({
+      status: 201,
+      json: { id: "directory-admin-test", ...userCreationPayload },
+    });
+  });
+  await directoryUserCard
+    .getByRole("button", { name: "Ajouter l’utilisateur sélectionné" })
+    .click();
+  await expect(page.getByText("Administrateur ajouté.")).toBeVisible();
+  expect(userCreationPayload).toMatchObject({
+    username: "test.user",
+    source: "DIRECTORY",
+    justification: "Recette fonctionnelle",
+  });
+  await page.route(
+    "**/api/admin/accounts/directory-groups/**",
+    async (route) => {
+      await route.fulfill({
+        json: [
+          {
+            connectionId: "directory-test",
+            name: "ISMS-ADMINS-TEST",
+            distinguishedName:
+              "CN=ISMS-ADMINS-TEST,OU=Groups,DC=example,DC=invalid",
+            memberCount: 3,
+          },
+        ],
+      });
+    },
+  );
+  const directoryGroupCard = page
+    .locator(".administrator-grant-card")
+    .filter({ hasText: "Ajouter un groupe Active Directory" });
+  await directoryGroupCard.getByLabel("Rechercher un groupe AD").fill("isms");
+  await directoryGroupCard
+    .getByRole("button", { name: /ISMS-ADMINS-TEST/ })
+    .click();
+  await directoryGroupCard
+    .getByLabel("Justification du privilège")
+    .fill("Recette groupe AD");
+  let groupCreationPayload: Record<string, unknown> | null = null;
+  await page.route("**/api/admin/accounts/groups", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    groupCreationPayload = route.request().postDataJSON() as Record<
+      string,
+      unknown
+    >;
+    await route.fulfill({
+      status: 201,
+      json: { id: "directory-admin-group-test", ...groupCreationPayload },
+    });
+  });
+  await directoryGroupCard
+    .getByRole("button", { name: "Ajouter le groupe sélectionné" })
+    .click();
+  await expect(page.getByText("Groupe administrateur ajouté.")).toBeVisible();
+  expect(groupCreationPayload).toMatchObject({
+    name: "ISMS-ADMINS-TEST",
+    justification: "Recette groupe AD",
+  });
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Add an Active Directory group" }),

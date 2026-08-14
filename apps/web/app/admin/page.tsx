@@ -3017,12 +3017,15 @@ function SettingsPanel({
     };
   }, [adminGroupQuery, onError]);
   const addDirectoryAdministrator = async () => {
-    if (
-      administratorGrantPending ||
-      !selectedDirectoryUser ||
-      directoryAdminJustification.trim().length < 3
-    )
+    if (administratorGrantPending) return;
+    if (!selectedDirectoryUser) {
+      onError(t("Sélectionnez d’abord un utilisateur AD dans les résultats."));
       return;
+    }
+    if (directoryAdminJustification.trim().length < 3) {
+      onError(t("Renseignez une justification d’au moins trois caractères."));
+      return;
+    }
     setAdministratorGrantPending("user");
     try {
       await api("/api/admin/accounts", {
@@ -3049,12 +3052,15 @@ function SettingsPanel({
     }
   };
   const addDirectoryAdministratorGroup = async () => {
-    if (
-      administratorGrantPending ||
-      !selectedAdminGroup ||
-      groupAdminJustification.trim().length < 3
-    )
+    if (administratorGrantPending) return;
+    if (!selectedAdminGroup) {
+      onError(t("Sélectionnez d’abord un groupe AD dans les résultats."));
       return;
+    }
+    if (groupAdminJustification.trim().length < 3) {
+      onError(t("Renseignez une justification d’au moins trois caractères."));
+      return;
+    }
     setAdministratorGrantPending("group");
     try {
       await api("/api/admin/accounts/groups", {
@@ -3466,11 +3472,7 @@ function SettingsPanel({
               <button
                 type="button"
                 className="primary administrator-add-button"
-                disabled={
-                  !selectedDirectoryUser ||
-                  directoryAdminJustification.trim().length < 3 ||
-                  administratorGrantPending !== null
-                }
+                disabled={administratorGrantPending !== null}
                 onClick={() => void addDirectoryAdministrator()}
               >
                 <Icon name="add" />
@@ -3553,11 +3555,7 @@ function SettingsPanel({
               <button
                 type="button"
                 className="primary administrator-add-button"
-                disabled={
-                  !selectedAdminGroup ||
-                  groupAdminJustification.trim().length < 3 ||
-                  administratorGrantPending !== null
-                }
+                disabled={administratorGrantPending !== null}
                 onClick={() => void addDirectoryAdministratorGroup()}
               >
                 <Icon name="add" />
