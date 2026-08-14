@@ -282,6 +282,12 @@ export const adminEnglishCatalog = {
   "Aucun utilisateur AD trouvé.": "No AD user found.",
   "Saisissez au moins deux caractères.": "Enter at least two characters.",
   "Ajout en cours…": "Adding…",
+  "Sélectionnez d’abord un utilisateur AD dans les résultats.":
+    "First select an AD user from the results.",
+  "Sélectionnez d’abord un groupe AD dans les résultats.":
+    "First select an AD group from the results.",
+  "Renseignez une justification d’au moins trois caractères.":
+    "Enter a justification of at least three characters.",
   "Afficher la navigation": "Show navigation",
   "Vue d’ensemble": "Overview",
   "Contenu et accès": "Content and access",
