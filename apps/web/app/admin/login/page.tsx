@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 
 type Locale = "fr" | "en";
+type LoginMode = "local" | "directory";
 const copy = {
   fr: {
     title: "Connexion administrateur",
@@ -14,6 +15,9 @@ const copy = {
     busy: "Connexion…",
     invalid: "Identifiants ou code MFA incorrects.",
     loggedOut: "La session administrateur est fermée.",
+    localMode: "Compte local",
+    directoryMode: "Active Directory",
+    directoryUnavailable: "La connexion Active Directory est indisponible.",
   },
   en: {
     title: "Administrator sign in",
@@ -25,6 +29,9 @@ const copy = {
     busy: "Signing in…",
     invalid: "Incorrect credentials or MFA code.",
     loggedOut: "The administrator session is closed.",
+    localMode: "Local account",
+    directoryMode: "Active Directory",
+    directoryUnavailable: "Active Directory sign-in is unavailable.",
   },
 } as const;
 
@@ -34,6 +41,8 @@ export default function AdminLoginPage() {
   const [busy, setBusy] = useState(false);
   const [needsMfa, setNeedsMfa] = useState(false);
   const [loggedOut, setLoggedOut] = useState(false);
+  const [mode, setMode] = useState<LoginMode>("local");
+  const [directoryAvailable, setDirectoryAvailable] = useState(false);
   const t = copy[locale];
 
   useEffect(() => {
@@ -41,6 +50,12 @@ export default function AdminLoginPage() {
     setLoggedOut(
       new URLSearchParams(window.location.search).get("loggedout") === "1",
     );
+    fetch("/api/auth/config")
+      .then((response) => response.json())
+      .then((config: { directoryLoginEnabled?: boolean }) =>
+        setDirectoryAvailable(Boolean(config.directoryLoginEnabled)),
+      )
+      .catch(() => setDirectoryAvailable(false));
   }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -48,14 +63,21 @@ export default function AdminLoginPage() {
     setBusy(true);
     setError("");
     const values = Object.fromEntries(new FormData(event.currentTarget));
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
-    }).catch(() => null);
+    const response = await fetch(
+      mode === "local" ? "/api/auth/login" : "/api/auth/directory-login",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          mode === "local"
+            ? values
+            : { login: values.username, password: values.password },
+        ),
+      },
+    ).catch(() => null);
     setBusy(false);
     if (!response?.ok) {
-      setNeedsMfa(true);
+      setNeedsMfa(mode === "local");
       setError(t.invalid);
       return;
     }
@@ -96,6 +118,35 @@ export default function AdminLoginPage() {
         <h1>{t.title}</h1>
         <p>{t.subtitle}</p>
         {loggedOut && <p className="login-success">{t.loggedOut}</p>}
+        <div className="login-tabs" role="tablist" aria-label={t.title}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "local"}
+            onClick={() => {
+              setMode("local");
+              setNeedsMfa(false);
+              setError("");
+            }}
+          >
+            {t.localMode}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "directory"}
+            onClick={() => {
+              setMode("directory");
+              setNeedsMfa(false);
+              setError("");
+            }}
+          >
+            {t.directoryMode}
+          </button>
+        </div>
+        {mode === "directory" && !directoryAvailable && (
+          <p className="login-warning">{t.directoryUnavailable}</p>
+        )}
         <form onSubmit={submit} className="login-form">
           <label>
             {t.identifier}
@@ -115,7 +166,7 @@ export default function AdminLoginPage() {
               autoComplete="current-password"
             />
           </label>
-          {needsMfa && (
+          {mode === "local" && needsMfa && (
             <label>
               {t.mfa}
               <input
@@ -132,7 +183,10 @@ export default function AdminLoginPage() {
               {error}
             </p>
           )}
-          <button className="primary" disabled={busy}>
+          <button
+            className="primary"
+            disabled={busy || (mode === "directory" && !directoryAvailable)}
+          >
             {busy ? t.busy : t.submit}
           </button>
         </form>

@@ -165,6 +165,13 @@ test("the generated administrator can sign in and manage the secure profile", as
   await expect(
     page.getByRole("heading", { name: "Connexion administrateur" }),
   ).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Compte local" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(
+    page.getByRole("tab", { name: "Active Directory" }),
+  ).toBeVisible();
   await page.getByLabel("Identifiant administrateur").fill(username!);
   await page.getByLabel("Mot de passe").fill(password!);
   await page
