@@ -10,14 +10,19 @@ const itSpace = { id: "space-it", slug: "it" };
 describe("DocumentsController ACL scoping", () => {
   const count = vi.fn().mockResolvedValue(0);
   const findMany = vi.fn().mockResolvedValue([]);
+  const findFirst = vi.fn();
+  const upsertFavorite = vi.fn();
   const queryRaw = vi.fn().mockResolvedValue([]);
   const prisma = {
-    document: { count, findMany },
+    document: { count, findMany, findFirst },
+    userFavorite: { upsert: upsertFavorite },
     $queryRaw: queryRaw,
   } as unknown as PrismaService;
   const permittedSpacesFor = vi.fn();
+  const can = vi.fn();
   const authorization = {
     permittedSpacesFor,
+    can,
   } as unknown as AuthorizationService;
   const controller = new DocumentsController(
     prisma,
@@ -40,6 +45,9 @@ describe("DocumentsController ACL scoping", () => {
     count.mockClear();
     findMany.mockClear();
     queryRaw.mockReset().mockResolvedValue([]);
+    findFirst.mockReset();
+    upsertFavorite.mockReset();
+    can.mockReset();
     permittedSpacesFor.mockReset();
   });
 
@@ -130,6 +138,73 @@ describe("DocumentsController ACL scoping", () => {
           id: categoryId,
           deletedAt: null,
           spaceId: { in: ["space-general"] },
+        },
+      }),
+    });
+  });
+
+  it("filters favorites by the current identity without bypassing ACL", async () => {
+    grant({ read: [general] });
+
+    await controller.list(
+      request,
+      "",
+      undefined,
+      undefined,
+      undefined,
+      "recent",
+      "1",
+      "10",
+      "true",
+    );
+
+    expect(count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        favorites: { some: { identity: "acl-user@example.test" } },
+        OR: [
+          { status: "PUBLISHED", spaceId: { in: ["space-general"] } },
+          { spaceId: { in: [] } },
+        ],
+      }),
+    });
+  });
+
+  it("does not allow favoriting a document without read permission", async () => {
+    findFirst.mockResolvedValue({ id: "document-1", spaceId: general.id });
+    can.mockResolvedValue(false);
+
+    await expect(
+      controller.addFavorite(request, "document-1"),
+    ).rejects.toThrow();
+    expect(upsertFavorite).not.toHaveBeenCalled();
+  });
+
+  it("combines format, document language and sensitivity filters", async () => {
+    grant({ read: [general] });
+
+    await controller.list(
+      request,
+      "",
+      undefined,
+      undefined,
+      undefined,
+      "recent",
+      "1",
+      "10",
+      "false",
+      "pdf",
+      "fr",
+      "true",
+    );
+
+    expect(count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        sensitive: true,
+        versions: {
+          some: {
+            locale: "fr",
+            storedFile: { mimeType: "application/pdf" },
+          },
         },
       }),
     });

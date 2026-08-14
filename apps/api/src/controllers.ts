@@ -267,11 +267,24 @@ export class DocumentsController {
     @Query("sort") sort: "recent" | "popular" = "recent",
     @Query("page") pageValue?: string,
     @Query("limit") limitValue = "10",
+    @Query("favorites") favorites = "false",
+    @Query("format") format = "",
+    @Query("locale") documentLocale = "",
+    @Query("sensitive") sensitive = "",
   ) {
     const q = query.trim().slice(0, 200);
     const requestedPage = Math.max(1, Number(pageValue) || 1);
     const limit = Math.min(100, Math.max(1, Number(limitValue) || 10));
     const paginated = Boolean(pageValue);
+    const mimeByFormat: Record<string, string> = {
+      pdf: "application/pdf",
+      docx: allowedExtensions[".docx"][0],
+      xlsx: allowedExtensions[".xlsx"][0],
+    };
+    const selectedMime = mimeByFormat[format.toLowerCase()];
+    const selectedLocale = ["fr", "en"].includes(documentLocale)
+      ? documentLocale
+      : "";
     const emptyResult = paginated
       ? { items: [], page: 1, limit, total: 0, totalPages: 0 }
       : [];
@@ -381,6 +394,24 @@ export class DocumentsController {
         ? { id: { in: fullTextMatches.map((match) => match.documentId) } }
         : {}),
       ...(categoryWhere ? { category: categoryWhere } : {}),
+      ...(favorites === "true"
+        ? { favorites: { some: { identity: req.identity.username } } }
+        : {}),
+      ...(sensitive === "true" || sensitive === "false"
+        ? { sensitive: sensitive === "true" }
+        : {}),
+      ...(selectedMime || selectedLocale
+        ? {
+            versions: {
+              some: {
+                ...(selectedLocale ? { locale: selectedLocale } : {}),
+                ...(selectedMime
+                  ? { storedFile: { mimeType: selectedMime } }
+                  : {}),
+              },
+            },
+          }
+        : {}),
     };
     const total = await this.prisma.document.count({ where });
     const totalPages = Math.ceil(total / limit);
@@ -414,6 +445,11 @@ export class DocumentsController {
           },
           orderBy: { version: "desc" },
         },
+        favorites: {
+          where: { identity: req.identity.username },
+          select: { identity: true },
+          take: 1,
+        },
       },
       orderBy:
         sort === "popular"
@@ -428,6 +464,7 @@ export class DocumentsController {
     });
     const items = documents.map((document) => ({
       ...document,
+      favorite: document.favorites.length > 0,
       permissions: {
         preview: permissionSpaces.preview.has(document.space.id),
         download: permissionSpaces.download.has(document.space.id),
@@ -443,6 +480,7 @@ export class DocumentsController {
           size: version.storedFile.size.toString(),
         },
       })),
+      favorites: undefined,
     }));
     return paginated
       ? {
@@ -453,6 +491,42 @@ export class DocumentsController {
           totalPages,
         }
       : items;
+  }
+
+  @Post(":id/favorite")
+  async addFavorite(@Req() req: IsmsRequest, @Param("id") id: string) {
+    const document = await this.prisma.document.findFirst({
+      where: { id, deletedAt: null, status: "PUBLISHED" },
+      select: { id: true, spaceId: true },
+    });
+    if (
+      !document ||
+      !(await this.authorization.can(
+        req.identity.groups,
+        document.spaceId,
+        "read",
+      ))
+    )
+      throw new NotFoundException();
+    await this.prisma.userFavorite.upsert({
+      where: {
+        identity_documentId: {
+          identity: req.identity.username,
+          documentId: document.id,
+        },
+      },
+      update: {},
+      create: { identity: req.identity.username, documentId: document.id },
+    });
+    return { favorite: true };
+  }
+
+  @Delete(":id/favorite")
+  async removeFavorite(@Req() req: IsmsRequest, @Param("id") id: string) {
+    await this.prisma.userFavorite.deleteMany({
+      where: { identity: req.identity.username, documentId: id },
+    });
+    return { favorite: false };
   }
 
   @Post("upload")

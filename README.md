@@ -130,7 +130,7 @@ réservée aux administrateurs, demande une confirmation puis retire les
 traductions, versions, analyses antivirus, métadonnées et fichiers du volume
 POSIX.
 
-Le journal d’audit conserve automatiquement les 20 événements les plus récents.
+Le journal d’audit conserve automatiquement les 50 événements les plus récents.
 Chaque nouvel événement déclenche, dans la même transaction PostgreSQL, la
 suppression des événements plus anciens. Les exports CSV/JSON suivent cette
 même rétention.
