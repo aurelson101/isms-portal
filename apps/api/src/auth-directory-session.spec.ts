@@ -28,6 +28,7 @@ describe("AuthService directory sessions", () => {
     };
     const prisma = {
       directoryUserSession: { create: sessionCreate },
+      adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
     };
     const response = { cookie: vi.fn() };
     const service = new AuthService(prisma as never, directory as never);
@@ -57,6 +58,45 @@ describe("AuthService directory sessions", () => {
         path: "/",
       }),
     );
+  });
+
+  it("migrates a legacy short-login administrator grant to canonical mail", async () => {
+    const legacyAccount = {
+      id: "directory-admin-1",
+      username: "alice",
+      source: "DIRECTORY",
+    };
+    const findFirst = vi
+      .fn()
+      .mockResolvedValueOnce(legacyAccount)
+      .mockResolvedValueOnce(null);
+    const update = vi.fn().mockResolvedValue({
+      ...legacyAccount,
+      username: "alice@example.com",
+    });
+    const service = new AuthService(
+      {
+        directoryUserSession: { create: vi.fn() },
+        adminAccount: { findFirst, update },
+      } as never,
+      {
+        authenticateUser: vi.fn().mockResolvedValue({
+          username: "alice@example.com",
+          displayName: "Alice Example",
+          groups: [],
+          connectionId: "directory-1",
+        }),
+      } as never,
+    );
+
+    await service.directoryLogin("alice", "ad-password", {
+      cookie: vi.fn(),
+    } as never);
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "directory-admin-1" },
+      data: { username: "alice@example.com" },
+    });
   });
 
   it("refreshes and persists directory groups without replacing the session", async () => {

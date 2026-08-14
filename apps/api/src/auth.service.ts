@@ -438,6 +438,10 @@ export class AuthService implements OnModuleInit {
 
   async directoryLogin(login: string, password: string, response: Response) {
     const identity = await this.directory.authenticateUser(login, password);
+    await this.reconcileDirectoryAdministratorIdentity(
+      login,
+      identity.username,
+    );
     const token = randomBytes(32).toString("base64url");
     const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
     await this.prisma.directoryUserSession.create({
@@ -458,6 +462,34 @@ export class AuthService implements OnModuleInit {
       expires: expiresAt,
     });
     return { authenticated: true, destination: "/" };
+  }
+
+  private async reconcileDirectoryAdministratorIdentity(
+    loginValue: string,
+    canonicalUsername: string,
+  ) {
+    const login = loginValue.trim();
+    const canonical = canonicalUsername.trim().toLowerCase();
+    if (!login || !canonical || login.toLowerCase() === canonical) return;
+    const [legacyAccount, canonicalAccount] = await Promise.all([
+      this.prisma.adminAccount.findFirst({
+        where: {
+          username: { equals: login, mode: "insensitive" },
+          source: "DIRECTORY",
+        },
+      }),
+      this.prisma.adminAccount.findFirst({
+        where: {
+          username: { equals: canonical, mode: "insensitive" },
+          source: "DIRECTORY",
+        },
+      }),
+    ]);
+    if (legacyAccount && !canonicalAccount)
+      await this.prisma.adminAccount.update({
+        where: { id: legacyAccount.id },
+        data: { username: canonical },
+      });
   }
 
   async directoryLoginEnabled() {
