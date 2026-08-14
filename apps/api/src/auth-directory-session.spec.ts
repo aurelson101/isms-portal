@@ -304,6 +304,44 @@ describe("AuthService directory sessions", () => {
     });
   });
 
+  it("grants administration when the authenticated AD user is explicitly configured", async () => {
+    const adminAccount = {
+      findFirst: vi.fn().mockResolvedValue({
+        id: "directory-admin-1",
+        displayName: "Alice Administrator",
+        profilePhoto: null,
+        lastAuthorizedAt: null,
+      }),
+      update: vi.fn().mockResolvedValue({ id: "directory-admin-1" }),
+    };
+    const service = new AuthService(
+      {
+        adminAccount,
+        adminDirectoryGroup: { findFirst: vi.fn().mockResolvedValue(null) },
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.enrichSsoIdentity({
+        username: "Alice@example.com",
+        displayName: "Alice",
+        groups: ["Domain Users"],
+        source: "directory-session",
+      }),
+    ).resolves.toMatchObject({
+      displayName: "Alice Administrator",
+      groups: ["Domain Users", "ISMS-LOCAL-ADMINS"],
+    });
+    expect(adminAccount.findFirst).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        username: { equals: "Alice@example.com", mode: "insensitive" },
+        source: "DIRECTORY",
+        active: true,
+      }),
+    });
+  });
+
   it("coalesces concurrent LDAP enrichment for the same SSO identity", async () => {
     const resolveUserByMail = vi.fn().mockImplementation(
       () =>
