@@ -15,11 +15,32 @@ describe("IdentityMiddleware", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     process.env = {
       ...originalEnv,
       NODE_ENV: "production",
       TRUSTED_PROXY_CIDRS: "172.16.0.0/12",
     };
+  });
+
+  it("requests a directory-group refresh for an explicit identity reload", async () => {
+    auth.sessionIdentity.mockResolvedValueOnce({
+      username: "alice@example.com",
+      displayName: "Alice Example",
+      groups: ["ITAD"],
+      source: "directory-session",
+      sessionExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const req = {
+      path: "/me",
+      originalUrl: "/me?refresh=1",
+      query: { refresh: "1" },
+      headers: {},
+    } as unknown as IsmsRequest;
+
+    await middleware.use(req, response() as never, vi.fn());
+
+    expect(auth.sessionIdentity).toHaveBeenCalledWith(req, true);
   });
 
   afterAll(() => {

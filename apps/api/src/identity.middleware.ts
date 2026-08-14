@@ -48,15 +48,20 @@ export class IdentityMiddleware implements NestMiddleware {
     const provider = this.providers.find((candidate) =>
       candidate.supports(req),
     );
+    const refreshDirectoryGroups =
+      route === "/me" && req.query?.refresh === "1";
     if (provider) {
       const identity = provider.resolve(req);
       req.identity =
         identity.source === "trusted-proxy"
-          ? await this.auth.enrichSsoIdentity(identity)
+          ? await this.auth.enrichSsoIdentity(identity, refreshDirectoryGroups)
           : identity;
       return next();
     }
-    const sessionIdentity = await this.auth.sessionIdentity(req);
+    const sessionIdentity = await this.auth.sessionIdentity(
+      req,
+      refreshDirectoryGroups,
+    );
     if (sessionIdentity) {
       req.identity = sessionIdentity;
       return next();

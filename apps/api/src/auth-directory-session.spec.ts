@@ -59,6 +59,122 @@ describe("AuthService directory sessions", () => {
     );
   });
 
+  it("refreshes and persists directory groups without replacing the session", async () => {
+    const session = {
+      id: "session-1",
+      username: "alice@example.com",
+      displayName: "Alice Example",
+      groups: ["OLD-GROUP"],
+      directoryConnectionId: "directory-1",
+      expiresAt: new Date(Date.now() + 60_000),
+    };
+    const update = vi.fn().mockResolvedValue(session);
+    const prisma = {
+      directoryUserSession: {
+        findUnique: vi.fn().mockResolvedValue(session),
+        update,
+      },
+      adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
+    };
+    const directory = {
+      resolveUserByMail: vi.fn().mockResolvedValue({
+        username: "alice@example.com",
+        displayName: "Alice Updated",
+        groups: ["NEW-GROUP"],
+        connectionId: "directory-2",
+      }),
+    };
+    const service = new AuthService(prisma as never, directory as never);
+
+    await expect(
+      service.sessionIdentity(
+        { headers: { cookie: "isms_directory_session=opaque-token" } } as never,
+        true,
+      ),
+    ).resolves.toMatchObject({
+      displayName: "Alice Updated",
+      groups: ["NEW-GROUP"],
+      source: "directory-session",
+    });
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "session-1" },
+      data: expect.objectContaining({
+        username: "alice@example.com",
+        displayName: "Alice Updated",
+        groups: ["NEW-GROUP"],
+        directoryConnectionId: "directory-2",
+      }),
+    });
+  });
+
+  it("removes stale groups when the directory confirms the user is absent", async () => {
+    const session = {
+      id: "session-1",
+      username: "alice@example.com",
+      displayName: "Alice Example",
+      groups: ["OLD-GROUP"],
+      directoryConnectionId: "directory-1",
+      expiresAt: new Date(Date.now() + 60_000),
+    };
+    const update = vi.fn().mockResolvedValue(session);
+    const service = new AuthService(
+      {
+        directoryUserSession: {
+          findUnique: vi.fn().mockResolvedValue(session),
+          update,
+        },
+        adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
+      } as never,
+      { resolveUserByMail: vi.fn().mockResolvedValue(null) } as never,
+    );
+
+    await expect(
+      service.sessionIdentity(
+        { headers: { cookie: "isms_directory_session=opaque-token" } } as never,
+        true,
+      ),
+    ).resolves.toMatchObject({ groups: [] });
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "session-1" },
+      data: expect.objectContaining({ groups: [] }),
+    });
+  });
+
+  it("keeps the last known groups during a temporary directory outage", async () => {
+    const session = {
+      id: "session-1",
+      username: "alice@example.com",
+      displayName: "Alice Example",
+      groups: ["KNOWN-GROUP"],
+      directoryConnectionId: "directory-1",
+      expiresAt: new Date(Date.now() + 60_000),
+    };
+    const update = vi.fn().mockResolvedValue(session);
+    const service = new AuthService(
+      {
+        directoryUserSession: {
+          findUnique: vi.fn().mockResolvedValue(session),
+          update,
+        },
+        adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
+      } as never,
+      {
+        resolveUserByMail: vi.fn().mockRejectedValue(new Error("DNS outage")),
+      } as never,
+    );
+
+    await expect(
+      service.sessionIdentity(
+        { headers: { cookie: "isms_directory_session=opaque-token" } } as never,
+        true,
+      ),
+    ).resolves.toMatchObject({ groups: ["KNOWN-GROUP"] });
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "session-1" },
+      data: { lastUsedAt: expect.any(Date) },
+    });
+  });
+
   it("logs out an administrator without deleting the user session", async () => {
     const adminDelete = vi.fn().mockResolvedValue({ count: 1 });
     const directoryDelete = vi.fn().mockResolvedValue({ count: 0 });
@@ -118,6 +234,20 @@ describe("AuthService directory sessions", () => {
     });
     await service.enrichSsoIdentity(identity);
     expect(resolveUserByMail).toHaveBeenCalledOnce();
+
+    resolveUserByMail.mockResolvedValue({
+      username: "alice@example.com",
+      displayName: "Alice refreshed from AD",
+      groups: ["UPDATED-GROUP"],
+      connectionId: "directory-1",
+    });
+    await expect(
+      service.enrichSsoIdentity(identity, true),
+    ).resolves.toMatchObject({
+      displayName: "Alice refreshed from AD",
+      groups: ["entra-group-id", "UPDATED-GROUP"],
+    });
+    expect(resolveUserByMail).toHaveBeenCalledTimes(2);
   });
 
   it("coalesces concurrent LDAP enrichment for the same SSO identity", async () => {
