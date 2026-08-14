@@ -6,6 +6,7 @@ import { portalCatalog as copy } from "./i18n/catalogs";
 
 type Locale = "fr" | "en";
 type ViewMode = "list" | "grid";
+type DocumentSort = "recent" | "popular";
 type WatermarkPosition = "HEADER" | "CENTER" | "FOOTER";
 type SpacePermissions = {
   showMenu: boolean;
@@ -425,10 +426,12 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [documentSort, setDocumentSort] = useState<DocumentSort>("recent");
   const [viewerExpanded, setViewerExpanded] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const loadDocuments = useCallback(
     async (signal?: AbortSignal) => {
@@ -438,7 +441,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
       if (query.trim()) parameters.set("q", query.trim());
       if (category) parameters.set("categoryId", category);
       if (space) parameters.set("space", space);
-      parameters.set("sort", "recent");
+      parameters.set("sort", documentSort);
       parameters.set("page", String(page));
       parameters.set("limit", "10");
       try {
@@ -468,7 +471,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
         if (!signal?.aborted) setLoading(false);
       }
     },
-    [query, category, space, page],
+    [query, category, space, page, documentSort],
   );
 
   useEffect(() => {
@@ -477,6 +480,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     const legacyCategory = parameters.get("category");
     const requestedSpace = parameters.get("space");
     const requestedQuery = parameters.get("q");
+    const requestedSort = parameters.get("sort");
     setPage(Math.max(1, Number(parameters.get("page")) || 1));
     if (requestedCategory) {
       setCategory(requestedCategory);
@@ -494,6 +498,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
       setCategory("");
       setSpace("");
     }
+    if (requestedSort === "popular") setDocumentSort("popular");
     const savedView = localStorage.getItem("isms-document-view");
     if (savedView === "grid" || savedView === "list") setViewMode(savedView);
   }, []);
@@ -501,6 +506,17 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   useEffect(() => {
     const closeNavigation = (event: KeyboardEvent) => {
       if (event.key === "Escape") setNavigationOpen(false);
+      if (
+        event.key === "/" &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !(event.target instanceof HTMLInputElement) &&
+        !(event.target instanceof HTMLTextAreaElement) &&
+        !(event.target instanceof HTMLSelectElement)
+      ) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
     };
     window.addEventListener("keydown", closeNavigation);
     return () => window.removeEventListener("keydown", closeNavigation);
@@ -595,12 +611,25 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     window.history.replaceState(
       null,
       "",
-      `/explorer?space=${encodeURIComponent(spaceSlug)}&categoryId=${encodeURIComponent(categoryId)}`,
+      `/explorer?space=${encodeURIComponent(spaceSlug)}&categoryId=${encodeURIComponent(categoryId)}${documentSort === "popular" ? "&sort=popular" : ""}`,
     );
   };
   const changeViewMode = (next: ViewMode) => {
     setViewMode(next);
     localStorage.setItem("isms-document-view", next);
+  };
+  const changeDocumentSort = (next: DocumentSort) => {
+    setDocumentSort(next);
+    setPage(1);
+    const parameters = new URLSearchParams(window.location.search);
+    parameters.delete("page");
+    if (next === "popular") parameters.set("sort", next);
+    else parameters.delete("sort");
+    window.history.replaceState(
+      null,
+      "",
+      `/explorer${parameters.size ? `?${parameters}` : ""}`,
+    );
   };
   const transitionDocument = async (
     document: PortalDocument,
@@ -629,7 +658,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     window.history.replaceState(
       null,
       "",
-      `/explorer?space=${encodeURIComponent(next)}`,
+      `/explorer?space=${encodeURIComponent(next)}${documentSort === "popular" ? "&sort=popular" : ""}`,
     );
   };
   const selectHome = () => {
@@ -640,6 +669,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     setCategory("");
     setSpace("");
     setPage(1);
+    setDocumentSort("recent");
     window.history.replaceState(null, "", "/explorer");
   };
   const changePage = (next: number) => {
@@ -649,6 +679,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     if (query.trim()) parameters.set("q", query.trim());
     if (category) parameters.set("categoryId", category);
     if (space) parameters.set("space", space);
+    if (documentSort === "popular") parameters.set("sort", documentSort);
     if (target > 1) parameters.set("page", String(target));
     window.history.replaceState(null, "", `/explorer?${parameters}`);
     resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -890,6 +921,16 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
           onSubmit={(event) => {
             event.preventDefault();
             if (explorerMode) {
+              const parameters = new URLSearchParams();
+              if (query.trim()) parameters.set("q", query.trim());
+              if (documentSort === "popular") {
+                parameters.set("sort", documentSort);
+              }
+              window.history.replaceState(
+                null,
+                "",
+                `/explorer${parameters.size ? `?${parameters}` : ""}`,
+              );
               void loadDocuments();
             } else {
               window.location.assign(
@@ -902,6 +943,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
             <Icon name="search" />
           </span>
           <input
+            ref={searchInputRef}
             value={query}
             onChange={(event) => {
               const value = event.target.value;
@@ -1008,23 +1050,55 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
               <p className="loading-state">{t.loading}</p>
             ) : (
               <>
-                {category ? (
-                  <section
-                    className="explorer-heading"
-                    aria-labelledby="explorer-title"
-                  >
-                    <div>
-                      <span>{t.explorer}</span>
-                      <h2 id="explorer-title">{categoryLabel}</h2>
-                      <p>
-                        {total}{" "}
-                        {total === 1 ? t.documentCountOne : t.documentCount}
-                      </p>
-                    </div>
+                <section
+                  className="explorer-heading"
+                  aria-labelledby="explorer-title"
+                >
+                  <div>
+                    <span>{t.explorer}</span>
+                    <h2 id="explorer-title">
+                      {category
+                        ? categoryLabel
+                        : query
+                          ? t.searchResults
+                          : selectedSpace
+                            ? locale === "fr"
+                              ? selectedSpace.nameFr
+                              : selectedSpace.nameEn
+                            : t.recent}
+                    </h2>
+                    <p>
+                      {total}{" "}
+                      {total === 1 ? t.documentCountOne : t.documentCount}
+                    </p>
+                  </div>
+                  <div className="explorer-controls">
+                    {space && selectedSpace?.permissions?.upload && (
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={() => setDepositOpen(true)}
+                      >
+                        <Icon name="upload" />
+                        {t.deposit}
+                      </button>
+                    )}
+                    <label className="document-sort">
+                      <span>{t.sortBy}</span>
+                      <select
+                        value={documentSort}
+                        onChange={(event) =>
+                          changeDocumentSort(event.target.value as DocumentSort)
+                        }
+                      >
+                        <option value="recent">{t.sortRecent}</option>
+                        <option value="popular">{t.sortPopular}</option>
+                      </select>
+                    </label>
                     <div
                       className="view-switcher"
                       role="group"
-                      aria-label={t.explorer}
+                      aria-label={t.displayMode}
                     >
                       <button
                         type="button"
@@ -1047,26 +1121,8 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                         <span>{locale === "fr" ? "Liste" : "List"}</span>
                       </button>
                     </div>
-                  </section>
-                ) : (
-                  <div className="explorer-title-row">
-                    <h2 className="section-title">
-                      {query || space ? t.search : t.recent}
-                    </h2>
-                    <div className="explorer-space-actions">
-                      {space && selectedSpace?.permissions?.upload && (
-                        <button
-                          type="button"
-                          className="primary"
-                          onClick={() => setDepositOpen(true)}
-                        >
-                          <Icon name="upload" />
-                          {t.deposit}
-                        </button>
-                      )}
-                    </div>
                   </div>
-                )}
+                </section>
                 <DocumentRows
                   documents={documents}
                   locale={locale}
@@ -1082,7 +1138,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                   onTransition={(document, action) =>
                     void transitionDocument(document, action)
                   }
-                  viewMode={category ? viewMode : "list"}
+                  viewMode={viewMode}
                 />
                 {actionError && (
                   <p className="error-state" role="alert">

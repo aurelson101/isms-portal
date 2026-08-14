@@ -2805,6 +2805,30 @@ svg {
   border-color: #0768ea;
   background: #0768ea;
 }
+.explorer-controls {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.document-sort {
+  display: grid;
+  gap: 4px;
+  color: #536382;
+  font-size: 12px;
+  font-weight: 650;
+}
+.document-sort select {
+  min-width: 145px;
+  min-height: 42px;
+  padding: 8px 34px 8px 11px;
+  border: 1px solid #bdcbe0;
+  border-radius: 9px;
+  color: #17345f;
+  background: white;
+  font-size: 14px;
+}
 
 @media (max-width: 1100px) {
   .document {
@@ -2915,5 +2939,13 @@ svg {
   }
   .dashboard-shortcuts button {
     justify-content: center;
+  }
+  .explorer-controls,
+  .document-sort,
+  .document-sort select {
+    width: 100%;
+  }
+  .explorer-controls .primary {
+    width: 100%;
   }
 }

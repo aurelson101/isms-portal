@@ -62,6 +62,7 @@ for (const viewport of viewports) {
         level: 1,
       }),
     ).toBeVisible();
+    await expect(page.getByLabel("Trier par")).toBeVisible();
     await expect(page).toHaveScreenshot(`explorer-${viewport.name}.png`, {
       animations: "disabled",
       fullPage: true,
