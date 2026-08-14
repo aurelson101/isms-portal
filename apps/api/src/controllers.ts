@@ -62,7 +62,7 @@ const tcpCheck = (host: string, port: number, timeout = 1200) =>
     socket.once("error", () => finish(false));
   });
 
-const certificateStatus = (validFrom: Date, validTo: Date) => {
+export const certificateStatus = (validFrom: Date, validTo: Date) => {
   const now = new Date();
   if (validTo < now) return "expired";
   if (validFrom > now) return "not-yet-valid";
@@ -119,7 +119,7 @@ export class HealthController {
         orderBy: { startedAt: "desc" },
       }),
       this.prisma.trustedCaCertificate.findMany({
-        select: { id: true, name: true, validTo: true },
+        select: { id: true, name: true, validFrom: true, validTo: true },
       }),
     ]);
     return {
@@ -132,7 +132,7 @@ export class HealthController {
       lastDirectorySync: lastSync,
       certificates: certificates.map((certificate) => ({
         ...certificate,
-        status: certificateStatus(new Date(0), certificate.validTo),
+        status: certificateStatus(certificate.validFrom, certificate.validTo),
       })),
     };
   }
