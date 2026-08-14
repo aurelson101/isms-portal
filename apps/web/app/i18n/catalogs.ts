@@ -24,6 +24,31 @@ export const portalCatalog = {
     help: "Aide",
     helpText:
       "Recherchez, ouvrez ou téléchargez uniquement les documents autorisés par vos groupes Active Directory.",
+    helpCenter: "Centre d’aide ISMS",
+    helpIntro:
+      "Retrouvez les fonctions essentielles du portail et vérifiez immédiatement votre accès.",
+    helpFindTitle: "Trouver un document",
+    helpFindText:
+      "Utilisez la recherche, un espace ou une catégorie. Les filtres format, langue et sensibilité peuvent être combinés et partagés par URL.",
+    helpReadTitle: "Lire et télécharger",
+    helpReadText:
+      "PDF, Word et Excel s’ouvrent en lecture seule. Le téléchargement et les actions de gestion restent indépendants selon vos autorisations.",
+    helpPersonalTitle: "Organiser votre travail",
+    helpPersonalText:
+      "Épinglez vos documents dans Mes favoris. Un favori devenu interdit est automatiquement masqué.",
+    helpAccessTitle: "Connexion et droits",
+    helpAccessText:
+      "Le SSO ou votre session annuaire détecte vos groupes. Actualisez vos droits après une modification Active Directory.",
+    helpSupportTitle: "Un problème persiste ?",
+    helpSupportText:
+      "Notez l’heure, l’action et l’espace concernés, puis transmettez ces éléments à votre administrateur sans joindre de mot de passe.",
+    refreshPermissions: "Actualiser mes droits",
+    refreshingPermissions: "Actualisation…",
+    permissionsRefreshed: "Droits et groupes actualisés.",
+    permissionsRefreshFailed: "Impossible d’actualiser les droits.",
+    openFavorites: "Ouvrir mes favoris",
+    accessSummary: "Résumé de votre accès",
+    identitySource: "Source de connexion",
     close: "Fermer",
     administration: "Administration",
     account: "Préférences du compte",
@@ -134,6 +159,31 @@ export const portalCatalog = {
     help: "Help",
     helpText:
       "Search, open or download only documents authorized by your Active Directory groups.",
+    helpCenter: "ISMS help center",
+    helpIntro:
+      "Find the portal’s essential features and immediately verify your access.",
+    helpFindTitle: "Find a document",
+    helpFindText:
+      "Use search, a space or a category. Format, language and sensitivity filters can be combined and shared through the URL.",
+    helpReadTitle: "Read and download",
+    helpReadText:
+      "PDF, Word and Excel open read-only. Download and management actions remain independent according to your permissions.",
+    helpPersonalTitle: "Organize your work",
+    helpPersonalText:
+      "Pin documents in My favorites. A favorite that is no longer authorized is automatically hidden.",
+    helpAccessTitle: "Sign-in and permissions",
+    helpAccessText:
+      "SSO or your directory session detects your groups. Refresh access after an Active Directory change.",
+    helpSupportTitle: "Still experiencing a problem?",
+    helpSupportText:
+      "Record the time, action and affected space, then send these details to your administrator without including a password.",
+    refreshPermissions: "Refresh my access",
+    refreshingPermissions: "Refreshing…",
+    permissionsRefreshed: "Permissions and groups refreshed.",
+    permissionsRefreshFailed: "Unable to refresh permissions.",
+    openFavorites: "Open my favorites",
+    accessSummary: "Your access summary",
+    identitySource: "Sign-in source",
     close: "Close",
     administration: "Administration",
     account: "Account preferences",

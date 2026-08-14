@@ -149,6 +149,46 @@ describe("IdentityMiddleware", () => {
     expect(req.identity.groups).toEqual(["group-id-1", "group-id-2"]);
   });
 
+  it("deduplicates SSO groups without changing their first display value", async () => {
+    const req = {
+      path: "/documents",
+      originalUrl: "/documents",
+      headers: {
+        "x-auth-mail": "alice@example.com",
+        "x-auth-groups": "SkillsRDP,skillsrdp,Domain Users",
+      },
+      socket: { remoteAddress: "172.20.0.5" },
+    } as unknown as IsmsRequest;
+    await middleware.use(req, response() as never, vi.fn());
+    expect(req.identity.groups).toEqual(["SkillsRDP", "Domain Users"]);
+  });
+
+  it("rejects unsafe or oversized trusted proxy profile values", async () => {
+    for (const headers of [
+      {
+        "x-auth-mail": "alice@example.com",
+        "x-auth-name": `Alice\nInjected`,
+      },
+      {
+        "x-auth-mail": "alice@example.com",
+        "x-auth-groups": Array.from(
+          { length: 513 },
+          (_, index) => `group-${index}`,
+        ).join(","),
+      },
+    ]) {
+      const req = {
+        path: "/documents",
+        originalUrl: "/documents",
+        headers,
+        socket: { remoteAddress: "172.20.0.5" },
+      } as unknown as IsmsRequest;
+      await expect(
+        middleware.use(req, response() as never, vi.fn()),
+      ).rejects.toThrow(UnauthorizedException);
+    }
+  });
+
   it("accepts an Entra mail without group claims for LDAP enrichment", async () => {
     const req = {
       path: "/documents",

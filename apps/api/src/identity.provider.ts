@@ -33,6 +33,12 @@ const cidrContains = (cidr: string, address: string) => {
   return (networkNumber & mask) === (addressNumber & mask);
 };
 
+const hasControlCharacters = (value: string) =>
+  Array.from(value).some((character) => {
+    const code = character.charCodeAt(0);
+    return code <= 31 || code === 127;
+  });
+
 export class TrustedProxyIdentityProvider implements IdentityProvider {
   supports(request: IsmsRequest) {
     return (
@@ -57,11 +63,31 @@ export class TrustedProxyIdentityProvider implements IdentityProvider {
     if (groups !== undefined && typeof groups !== "string")
       throw new UnauthorizedException();
     const username = mail.trim().toLowerCase();
+    const displayName = String(
+      request.headers["x-auth-name"] || username,
+    ).trim();
+    const normalizedGroups = (groups || "")
+      .split(/[;,]/u)
+      .map((group) => group.trim())
+      .filter(Boolean)
+      .filter(
+        (group, index, values) =>
+          values.findIndex(
+            (candidate) => candidate.toLowerCase() === group.toLowerCase(),
+          ) === index,
+      );
     if (
       !username ||
       username.length > 255 ||
       !username.includes("@") ||
-      (groups?.length || 0) > 8192
+      !displayName ||
+      displayName.length > 255 ||
+      hasControlCharacters(displayName) ||
+      (groups?.length || 0) > 8192 ||
+      normalizedGroups.length > 512 ||
+      normalizedGroups.some(
+        (group) => group.length > 255 || hasControlCharacters(group),
+      )
     )
       throw new UnauthorizedException();
     const sessionExpiresAt =
@@ -74,13 +100,10 @@ export class TrustedProxyIdentityProvider implements IdentityProvider {
       throw new UnauthorizedException("SSO session expired");
     return {
       username,
-      displayName: String(request.headers["x-auth-name"] || username).trim(),
+      displayName,
       source: "trusted-proxy" as const,
       sessionExpiresAt: sessionExpiresAt?.toISOString() || null,
-      groups: (groups || "")
-        .split(/[;,]/u)
-        .map((group) => group.trim())
-        .filter(Boolean),
+      groups: normalizedGroups,
     };
   }
 }
