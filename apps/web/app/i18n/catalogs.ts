@@ -449,6 +449,16 @@ export const adminEnglishCatalog = {
   "MFA géré par l’identité": "MFA managed by identity provider",
   "Supprimer cet administrateur ?": "Delete this administrator?",
   "Aucun administrateur correspondant.": "No matching administrator.",
+  "Aucune justification": "No justification",
+  "Dernière utilisation": "Last use",
+  "Revue avant": "Review due",
+  Expiration: "Expiry",
+  "Sans expiration": "No expiry",
+  Recertifier: "Recertify",
+  "Justification du privilège": "Privilege justification",
+  "Expiration facultative": "Optional expiry",
+  "Sessions administrateur actives": "Active administrator sessions",
+  Révoquer: "Revoke",
   "Tous les membres détectés de ce groupe disposeront des droits administratifs complets.":
     "Every detected member of this group will receive full administrator rights.",
   "Seul l’administrateur principal peut accorder ou retirer ces droits. Un utilisateur ou membre d’un groupe AD obtient tous les droits administratifs uniquement après authentification réussie.":

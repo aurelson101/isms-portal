@@ -135,6 +135,21 @@ Chaque nouvel événement déclenche, dans la même transaction PostgreSQL, la
 suppression des événements plus anciens. Les exports CSV/JSON suivent cette
 même rétention.
 
+## Gouvernance des administrateurs
+
+Le compte principal gère les comptes et groupes administrateurs depuis le
+profil d’administration. Chaque nouvelle délégation exige une justification ;
+elle peut recevoir une date d’expiration appliquée côté API. Une revue initiale
+est enregistrée à la création et sa prochaine recertification est fixée à six
+mois. Le compte principal peut renouveler cette revue, consulter les sessions
+administrateur actives et révoquer une session précise sans exposer son jeton.
+
+La dernière utilisation d’un privilège est affichée dans l’interface et mise à
+jour au plus toutes les cinq minutes afin de conserver une information utile
+sans provoquer une écriture PostgreSQL à chaque requête. Un compte ou groupe
+expiré ne donne plus aucun droit, même si sa session ou son appartenance AD est
+encore valide.
+
 ## Commandes
 
 ```bash

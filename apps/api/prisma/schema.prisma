@@ -296,6 +296,11 @@ model AdminAccount {
   mfaEnabled       Boolean        @default(false)
   active           Boolean        @default(true)
   primary          Boolean        @default(false)
+  justification    String?
+  validUntil       DateTime?
+  lastAuthorizedAt DateTime?
+  lastReviewedAt   DateTime?
+  reviewDueAt      DateTime?
   failedLoginCount Int            @default(0)
   lockedUntil      DateTime?
   sessions         AdminSession[]
@@ -310,10 +315,16 @@ model AdminDirectoryGroup {
   name              String   @unique
   distinguishedName String   @unique
   active            Boolean  @default(true)
+  justification     String
+  validUntil        DateTime?
+  lastAuthorizedAt  DateTime?
+  lastReviewedAt    DateTime?
+  reviewDueAt       DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@index([active, name])
+  @@index([active, validUntil])
 }
 
 model AdminSession {

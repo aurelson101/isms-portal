@@ -2201,6 +2201,24 @@ h1 {
   font-size: 0.78rem;
   font-weight: 700;
 }
+.administrator-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.administrator-sessions {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid #d5deeb;
+}
+.administrator-sessions > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e5ebf3;
+}
 .administrator-grant-card {
   align-content: start;
   margin: 0;

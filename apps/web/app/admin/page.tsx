@@ -2851,6 +2851,11 @@ function SettingsPanel({
       source: string;
       mfaEnabled: boolean;
       primary: boolean;
+      justification: string | null;
+      validUntil: string | null;
+      lastAuthorizedAt: string | null;
+      lastReviewedAt: string | null;
+      reviewDueAt: string | null;
     }>
   >([]);
   const [profilePhoto, setProfilePhoto] = useState(
@@ -2865,13 +2870,35 @@ function SettingsPanel({
     Array<{ username: string; displayName: string; email: string | null }>
   >([]);
   const [adminGroups, setAdminGroups] = useState<
-    Array<{ id: string; name: string; distinguishedName: string }>
+    Array<{
+      id: string;
+      name: string;
+      distinguishedName: string;
+      justification: string;
+      validUntil: string | null;
+      lastAuthorizedAt: string | null;
+      reviewDueAt: string | null;
+    }>
   >([]);
   const [adminGroupQuery, setAdminGroupQuery] = useState("");
   const [adminGroupSuggestions, setAdminGroupSuggestions] = useState<
     DirectoryGroupSuggestion[]
   >([]);
   const [administratorFilter, setAdministratorFilter] = useState("");
+  const [directoryAdminJustification, setDirectoryAdminJustification] =
+    useState("");
+  const [directoryAdminValidUntil, setDirectoryAdminValidUntil] = useState("");
+  const [groupAdminJustification, setGroupAdminJustification] = useState("");
+  const [groupAdminValidUntil, setGroupAdminValidUntil] = useState("");
+  const [adminSessions, setAdminSessions] = useState<
+    Array<{
+      id: string;
+      createdAt: string;
+      lastUsedAt: string;
+      expiresAt: string;
+      adminAccount: { username: string; displayName: string; source: string };
+    }>
+  >([]);
   const filteredAccounts = useMemo(() => {
     const query = administratorFilter.trim().toLowerCase();
     if (!query) return accounts;
@@ -2905,8 +2932,13 @@ function SettingsPanel({
     [onError],
   );
   useEffect(() => {
-    if (identity?.primaryAdmin) void loadAdminGroups();
-  }, [identity?.primaryAdmin, loadAdminGroups]);
+    if (identity?.primaryAdmin) {
+      void loadAdminGroups();
+      void api<typeof adminSessions>("/api/admin/accounts/sessions/active")
+        .then(setAdminSessions)
+        .catch((error) => onError(error.message));
+    }
+  }, [identity?.primaryAdmin, loadAdminGroups, onError]);
   useEffect(() => {
     if (directoryQuery.trim().length < 2) {
       setDirectoryUsers([]);
@@ -3148,27 +3180,57 @@ function SettingsPanel({
                         : t("MFA géré par l’identité")}
                     </span>
                   </span>
+                  <small>
+                    {account.justification || t("Aucune justification")}
+                  </small>
+                  <small>
+                    {t("Dernière utilisation")}:{" "}
+                    {account.lastAuthorizedAt
+                      ? new Date(account.lastAuthorizedAt).toLocaleString()
+                      : "—"}{" "}
+                    · {t("Revue avant")}:{" "}
+                    {account.reviewDueAt
+                      ? new Date(account.reviewDueAt).toLocaleDateString()
+                      : "—"}{" "}
+                    · {t("Expiration")}:{" "}
+                    {account.validUntil
+                      ? new Date(account.validUntil).toLocaleString()
+                      : t("Sans expiration")}
+                  </small>
                 </span>
-                {!account.primary && (
+                <div className="administrator-row-actions">
                   <button
-                    className="danger"
-                    onClick={async () => {
-                      if (
-                        !(await confirmAction(
-                          t("Supprimer cet administrateur ?"),
-                        ))
-                      )
-                        return;
-                      await api(`/api/admin/accounts/${account.id}`, {
-                        method: "DELETE",
+                    onClick={() =>
+                      api(`/api/admin/accounts/${account.id}/review`, {
+                        method: "PUT",
                       })
                         .then(loadAccounts)
-                        .catch((error) => onError(error.message));
-                    }}
+                        .catch((error) => onError(error.message))
+                    }
                   >
-                    {t("Supprimer")}
+                    {t("Recertifier")}
                   </button>
-                )}
+                  {!account.primary && (
+                    <button
+                      className="danger"
+                      onClick={async () => {
+                        if (
+                          !(await confirmAction(
+                            t("Supprimer cet administrateur ?"),
+                          ))
+                        )
+                          return;
+                        await api(`/api/admin/accounts/${account.id}`, {
+                          method: "DELETE",
+                        })
+                          .then(loadAccounts)
+                          .catch((error) => onError(error.message));
+                      }}
+                    >
+                      {t("Supprimer")}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
             {!filteredAccounts.length && (
@@ -3187,7 +3249,11 @@ function SettingsPanel({
                 await api("/api/admin/accounts", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ ...values, source: "LOCAL" }),
+                  body: JSON.stringify({
+                    ...values,
+                    source: "LOCAL",
+                    validUntil: values.validUntil || undefined,
+                  }),
                 })
                   .then(async () => {
                     formElement.reset();
@@ -3210,6 +3276,17 @@ function SettingsPanel({
                 placeholder={t("Mot de passe fort")}
                 required
               />
+              <textarea
+                name="justification"
+                minLength={3}
+                maxLength={500}
+                placeholder={t("Justification du privilège")}
+                required
+              />
+              <label>
+                {t("Expiration facultative")}
+                <input name="validUntil" type="datetime-local" />
+              </label>
               <button className="primary">{t("Ajouter")}</button>
             </form>
             <div className="administrator-grant-card">
@@ -3228,19 +3305,47 @@ function SettingsPanel({
                   )}
                 />
               </label>
+              <textarea
+                value={directoryAdminJustification}
+                onChange={(event) =>
+                  setDirectoryAdminJustification(event.target.value)
+                }
+                minLength={3}
+                maxLength={500}
+                placeholder={t("Justification du privilège")}
+                required
+              />
+              <label>
+                {t("Expiration facultative")}
+                <input
+                  type="datetime-local"
+                  value={directoryAdminValidUntil}
+                  onChange={(event) =>
+                    setDirectoryAdminValidUntil(event.target.value)
+                  }
+                />
+              </label>
               <div className="directory-user-results">
                 {directoryUsers.map((user) => (
                   <button
                     key={user.username}
+                    disabled={directoryAdminJustification.trim().length < 3}
                     onClick={() =>
                       api("/api/admin/accounts", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ ...user, source: "DIRECTORY" }),
+                        body: JSON.stringify({
+                          ...user,
+                          source: "DIRECTORY",
+                          justification: directoryAdminJustification,
+                          validUntil: directoryAdminValidUntil || undefined,
+                        }),
                       })
                         .then(async () => {
                           setDirectoryQuery("");
                           setDirectoryUsers([]);
+                          setDirectoryAdminJustification("");
+                          setDirectoryAdminValidUntil("");
                           await loadAccounts();
                           onNotice(t("Administrateur ajouté."));
                         })
@@ -3267,10 +3372,31 @@ function SettingsPanel({
                   placeholder={t("Nom du groupe")}
                 />
               </label>
+              <textarea
+                value={groupAdminJustification}
+                onChange={(event) =>
+                  setGroupAdminJustification(event.target.value)
+                }
+                minLength={3}
+                maxLength={500}
+                placeholder={t("Justification du privilège")}
+                required
+              />
+              <label>
+                {t("Expiration facultative")}
+                <input
+                  type="datetime-local"
+                  value={groupAdminValidUntil}
+                  onChange={(event) =>
+                    setGroupAdminValidUntil(event.target.value)
+                  }
+                />
+              </label>
               <div className="directory-user-results">
                 {adminGroupSuggestions.map((group) => (
                   <button
                     key={`${group.connectionId}:${group.distinguishedName}`}
+                    disabled={groupAdminJustification.trim().length < 3}
                     onClick={() =>
                       api("/api/admin/accounts/groups", {
                         method: "POST",
@@ -3278,11 +3404,15 @@ function SettingsPanel({
                         body: JSON.stringify({
                           name: group.name,
                           distinguishedName: group.distinguishedName,
+                          justification: groupAdminJustification,
+                          validUntil: groupAdminValidUntil || undefined,
                         }),
                       })
                         .then(async () => {
                           setAdminGroupQuery("");
                           setAdminGroupSuggestions([]);
+                          setGroupAdminJustification("");
+                          setGroupAdminValidUntil("");
                           await loadAdminGroups();
                           onNotice(t("Groupe administrateur ajouté."));
                         })
@@ -3300,31 +3430,92 @@ function SettingsPanel({
                     <span>
                       <strong>{group.name}</strong>
                       <small>{group.distinguishedName}</small>
+                      <small>{group.justification}</small>
+                      <small>
+                        {t("Dernière utilisation")}:{" "}
+                        {group.lastAuthorizedAt
+                          ? new Date(group.lastAuthorizedAt).toLocaleString()
+                          : "—"}{" "}
+                        · {t("Revue avant")}:{" "}
+                        {group.reviewDueAt
+                          ? new Date(group.reviewDueAt).toLocaleDateString()
+                          : "—"}{" "}
+                        · {t("Expiration")}:{" "}
+                        {group.validUntil
+                          ? new Date(group.validUntil).toLocaleString()
+                          : t("Sans expiration")}
+                      </small>
                     </span>
-                    <button
-                      className="danger"
-                      onClick={async () => {
-                        if (
-                          !(await confirmAction(
-                            t(
-                              "Retirer les droits administratifs de ce groupe AD ?",
-                            ),
-                          ))
-                        )
-                          return;
-                        await api(`/api/admin/accounts/groups/${group.id}`, {
-                          method: "DELETE",
-                        })
-                          .then(loadAdminGroups)
-                          .catch((error) => onError(error.message));
-                      }}
-                    >
-                      {t("Supprimer")}
-                    </button>
+                    <div className="administrator-row-actions">
+                      <button
+                        onClick={() =>
+                          api(`/api/admin/accounts/groups/${group.id}/review`, {
+                            method: "PUT",
+                          })
+                            .then(loadAdminGroups)
+                            .catch((error) => onError(error.message))
+                        }
+                      >
+                        {t("Recertifier")}
+                      </button>
+                      <button
+                        className="danger"
+                        onClick={async () => {
+                          if (
+                            !(await confirmAction(
+                              t(
+                                "Retirer les droits administratifs de ce groupe AD ?",
+                              ),
+                            ))
+                          )
+                            return;
+                          await api(`/api/admin/accounts/groups/${group.id}`, {
+                            method: "DELETE",
+                          })
+                            .then(loadAdminGroups)
+                            .catch((error) => onError(error.message));
+                        }}
+                      >
+                        {t("Supprimer")}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
+          </div>
+          <div className="administrator-sessions">
+            <h3>{t("Sessions administrateur actives")}</h3>
+            {adminSessions.map((session) => (
+              <div key={session.id}>
+                <span>
+                  <strong>{session.adminAccount.displayName}</strong>
+                  <small>
+                    {session.adminAccount.username} ·{" "}
+                    {t("Dernière utilisation")}:{" "}
+                    {new Date(session.lastUsedAt).toLocaleString()} ·{" "}
+                    {t("Expiration")}:{" "}
+                    {new Date(session.expiresAt).toLocaleString()}
+                  </small>
+                </span>
+                <button
+                  className="danger"
+                  onClick={() =>
+                    api(`/api/admin/accounts/sessions/${session.id}`, {
+                      method: "DELETE",
+                    })
+                      .then(() =>
+                        setAdminSessions((current) =>
+                          current.filter((item) => item.id !== session.id),
+                        ),
+                      )
+                      .catch((error) => onError(error.message))
+                  }
+                >
+                  {t("Révoquer")}
+                </button>
+              </div>
+            ))}
           </div>
         </section>
       )}

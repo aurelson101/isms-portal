@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsDateString,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -48,11 +49,15 @@ export class CreateAdminDto {
   @IsString() @MinLength(2) @MaxLength(160) displayName!: string;
   @IsIn(["LOCAL", "DIRECTORY"]) source!: "LOCAL" | "DIRECTORY";
   @IsOptional() @IsString() @MinLength(14) @MaxLength(1024) password?: string;
+  @IsString() @MinLength(3) @MaxLength(500) justification!: string;
+  @IsOptional() @IsDateString() validUntil?: string;
 }
 
 export class CreateAdminDirectoryGroupDto {
   @IsString() @MinLength(2) @MaxLength(160) name!: string;
   @IsString() @MinLength(3) @MaxLength(1024) distinguishedName!: string;
+  @IsString() @MinLength(3) @MaxLength(500) justification!: string;
+  @IsOptional() @IsDateString() validUntil?: string;
 }
 
 export class SpaceDto {
