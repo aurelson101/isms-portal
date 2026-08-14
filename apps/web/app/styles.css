@@ -2282,6 +2282,12 @@ h1 {
   min-height: 44px;
   margin-top: auto;
 }
+.directory-search-status {
+  min-height: 20px;
+  margin: -5px 0 0;
+  color: #52698d;
+  font-size: 0.86rem;
+}
 .administrator-grant-card small,
 .admin-account-list small {
   display: block;

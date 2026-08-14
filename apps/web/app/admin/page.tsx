@@ -2877,6 +2877,7 @@ function SettingsPanel({
     otpauthUrl: string;
   } | null>(null);
   const [directoryQuery, setDirectoryQuery] = useState("");
+  const [directoryUsersLoading, setDirectoryUsersLoading] = useState(false);
   const [directoryUsers, setDirectoryUsers] = useState<
     Array<{ username: string; displayName: string; email: string | null }>
   >([]);
@@ -2897,6 +2898,7 @@ function SettingsPanel({
     }>
   >([]);
   const [adminGroupQuery, setAdminGroupQuery] = useState("");
+  const [adminGroupsLoading, setAdminGroupsLoading] = useState(false);
   const [adminGroupSuggestions, setAdminGroupSuggestions] = useState<
     DirectoryGroupSuggestion[]
   >([]);
@@ -2908,6 +2910,9 @@ function SettingsPanel({
   const [directoryAdminValidUntil, setDirectoryAdminValidUntil] = useState("");
   const [groupAdminJustification, setGroupAdminJustification] = useState("");
   const [groupAdminValidUntil, setGroupAdminValidUntil] = useState("");
+  const [administratorGrantPending, setAdministratorGrantPending] = useState<
+    "user" | "group" | null
+  >(null);
   const [adminSessions, setAdminSessions] = useState<
     Array<{
       id: string;
@@ -2961,24 +2966,38 @@ function SettingsPanel({
     setSelectedDirectoryUser(null);
     if (directoryQuery.trim().length < 2) {
       setDirectoryUsers([]);
+      setDirectoryUsersLoading(false);
       return;
     }
+    const controller = new AbortController();
+    setDirectoryUsersLoading(true);
     const timer = window.setTimeout(() => {
       api<typeof directoryUsers>(
         `/api/admin/accounts/directory-users/${encodeURIComponent(directoryQuery)}`,
+        { signal: controller.signal },
       )
         .then(setDirectoryUsers)
-        .catch((error) => onError(error.message));
+        .catch((error) => {
+          if ((error as Error).name !== "AbortError") onError(error.message);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setDirectoryUsersLoading(false);
+        });
     }, 350);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [directoryQuery, onError]);
   useEffect(() => {
     setSelectedAdminGroup(null);
     if (adminGroupQuery.trim().length < 2) {
       setAdminGroupSuggestions([]);
+      setAdminGroupsLoading(false);
       return;
     }
     const controller = new AbortController();
+    setAdminGroupsLoading(true);
     const timer = window.setTimeout(() => {
       api<DirectoryGroupSuggestion[]>(
         `/api/admin/accounts/directory-groups/${encodeURIComponent(adminGroupQuery)}`,
@@ -2987,6 +3006,9 @@ function SettingsPanel({
         .then(setAdminGroupSuggestions)
         .catch((error) => {
           if ((error as Error).name !== "AbortError") onError(error.message);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setAdminGroupsLoading(false);
         });
     }, 350);
     return () => {
@@ -2995,52 +3017,68 @@ function SettingsPanel({
     };
   }, [adminGroupQuery, onError]);
   const addDirectoryAdministrator = async () => {
-    if (!selectedDirectoryUser || directoryAdminJustification.trim().length < 3)
+    if (
+      administratorGrantPending ||
+      !selectedDirectoryUser ||
+      directoryAdminJustification.trim().length < 3
+    )
       return;
-    await api("/api/admin/accounts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...selectedDirectoryUser,
-        source: "DIRECTORY",
-        justification: directoryAdminJustification.trim(),
-        validUntil: directoryAdminValidUntil || undefined,
-      }),
-    })
-      .then(async () => {
-        setDirectoryQuery("");
-        setDirectoryUsers([]);
-        setSelectedDirectoryUser(null);
-        setDirectoryAdminJustification("");
-        setDirectoryAdminValidUntil("");
-        await loadAccounts();
-        onNotice(t("Administrateur ajouté."));
-      })
-      .catch((error) => onError(error.message));
+    setAdministratorGrantPending("user");
+    try {
+      await api("/api/admin/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...selectedDirectoryUser,
+          source: "DIRECTORY",
+          justification: directoryAdminJustification.trim(),
+          validUntil: directoryAdminValidUntil || undefined,
+        }),
+      });
+      setDirectoryQuery("");
+      setDirectoryUsers([]);
+      setSelectedDirectoryUser(null);
+      setDirectoryAdminJustification("");
+      setDirectoryAdminValidUntil("");
+      await loadAccounts();
+      onNotice(t("Administrateur ajouté."));
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      setAdministratorGrantPending(null);
+    }
   };
   const addDirectoryAdministratorGroup = async () => {
-    if (!selectedAdminGroup || groupAdminJustification.trim().length < 3)
+    if (
+      administratorGrantPending ||
+      !selectedAdminGroup ||
+      groupAdminJustification.trim().length < 3
+    )
       return;
-    await api("/api/admin/accounts/groups", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: selectedAdminGroup.name,
-        distinguishedName: selectedAdminGroup.distinguishedName,
-        justification: groupAdminJustification.trim(),
-        validUntil: groupAdminValidUntil || undefined,
-      }),
-    })
-      .then(async () => {
-        setAdminGroupQuery("");
-        setAdminGroupSuggestions([]);
-        setSelectedAdminGroup(null);
-        setGroupAdminJustification("");
-        setGroupAdminValidUntil("");
-        await loadAdminGroups();
-        onNotice(t("Groupe administrateur ajouté."));
-      })
-      .catch((error) => onError(error.message));
+    setAdministratorGrantPending("group");
+    try {
+      await api("/api/admin/accounts/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: selectedAdminGroup.name,
+          distinguishedName: selectedAdminGroup.distinguishedName,
+          justification: groupAdminJustification.trim(),
+          validUntil: groupAdminValidUntil || undefined,
+        }),
+      });
+      setAdminGroupQuery("");
+      setAdminGroupSuggestions([]);
+      setSelectedAdminGroup(null);
+      setGroupAdminJustification("");
+      setGroupAdminValidUntil("");
+      await loadAdminGroups();
+      onNotice(t("Groupe administrateur ajouté."));
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      setAdministratorGrantPending(null);
+    }
   };
   return (
     <>
@@ -3416,16 +3454,30 @@ function SettingsPanel({
                   </button>
                 ))}
               </div>
+              <p className="directory-search-status" aria-live="polite">
+                {directoryUsersLoading
+                  ? t("Recherche en cours…")
+                  : directoryQuery.trim().length >= 2 && !directoryUsers.length
+                    ? t("Aucun utilisateur AD trouvé.")
+                    : directoryQuery.trim().length < 2
+                      ? t("Saisissez au moins deux caractères.")
+                      : ""}
+              </p>
               <button
                 type="button"
                 className="primary administrator-add-button"
                 disabled={
                   !selectedDirectoryUser ||
-                  directoryAdminJustification.trim().length < 3
+                  directoryAdminJustification.trim().length < 3 ||
+                  administratorGrantPending !== null
                 }
                 onClick={() => void addDirectoryAdministrator()}
               >
-                <Icon name="add" /> {t("Ajouter l’utilisateur sélectionné")}
+                <Icon name="add" />
+                {" "}
+                {administratorGrantPending === "user"
+                  ? t("Ajout en cours…")
+                  : t("Ajouter l’utilisateur sélectionné")}
               </button>
             </div>
             <div className="administrator-grant-card directory-admin-grant">
@@ -3488,16 +3540,31 @@ function SettingsPanel({
                   </button>
                 ))}
               </div>
+              <p className="directory-search-status" aria-live="polite">
+                {adminGroupsLoading
+                  ? t("Recherche en cours…")
+                  : adminGroupQuery.trim().length >= 2 &&
+                      !adminGroupSuggestions.length
+                    ? t("Aucun groupe AD trouvé.")
+                    : adminGroupQuery.trim().length < 2
+                      ? t("Saisissez au moins deux caractères.")
+                      : ""}
+              </p>
               <button
                 type="button"
                 className="primary administrator-add-button"
                 disabled={
                   !selectedAdminGroup ||
-                  groupAdminJustification.trim().length < 3
+                  groupAdminJustification.trim().length < 3 ||
+                  administratorGrantPending !== null
                 }
                 onClick={() => void addDirectoryAdministratorGroup()}
               >
-                <Icon name="add" /> {t("Ajouter le groupe sélectionné")}
+                <Icon name="add" />
+                {" "}
+                {administratorGrantPending === "group"
+                  ? t("Ajout en cours…")
+                  : t("Ajouter le groupe sélectionné")}
               </button>
               <div className="admin-account-list">
                 {adminGroups.map((group) => (
