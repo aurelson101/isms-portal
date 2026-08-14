@@ -177,6 +177,37 @@ test("category explorer supports window and list views with an expandable reader
   await expect(dialog).not.toHaveClass(/expanded/);
 });
 
+test("PDF reader provides responsive zoom and dedicated viewing controls", async ({
+  page,
+}) => {
+  await page.goto("/explorer?space=general");
+  await page
+    .locator(".documents")
+    .getByRole("button", { name: "Ouvrir" })
+    .first()
+    .click();
+
+  const dialog = page.getByRole("dialog");
+  const frame = dialog.locator("iframe");
+  const toolbar = dialog.getByRole("toolbar", {
+    name: "Commandes du lecteur PDF",
+  });
+  await expect(toolbar).toBeVisible();
+  await expect(frame).toHaveAttribute("src", /zoom=page-width/);
+
+  await toolbar.getByRole("button", { name: "Augmenter le zoom" }).click();
+  await expect(toolbar.getByLabel("Niveau de zoom")).toHaveText("125%");
+  await expect(frame).toHaveAttribute("src", /zoom=125/);
+
+  await toolbar
+    .getByRole("button", { name: "Afficher la page entière" })
+    .click();
+  await expect(frame).toHaveAttribute("src", /zoom=page-fit/);
+  await expect(
+    toolbar.getByRole("link", { name: "Ouvrir dans un nouvel onglet" }),
+  ).toHaveAttribute("target", "_blank");
+});
+
 test("grid and list views apply to spaces and global searches", async ({
   page,
 }) => {

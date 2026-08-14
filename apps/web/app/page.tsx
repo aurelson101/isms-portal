@@ -7,6 +7,7 @@ import { portalCatalog as copy } from "./i18n/catalogs";
 type Locale = "fr" | "en";
 type ViewMode = "list" | "grid";
 type DocumentSort = "recent" | "popular";
+type PdfZoom = number | "page-width" | "page-fit";
 type WatermarkPosition = "HEADER" | "CENTER" | "FOOTER";
 type SpacePermissions = {
   showMenu: boolean;
@@ -428,6 +429,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [documentSort, setDocumentSort] = useState<DocumentSort>("recent");
   const [viewerExpanded, setViewerExpanded] = useState(false);
+  const [pdfZoom, setPdfZoom] = useState<PdfZoom>("page-width");
   const [sessionExpired, setSessionExpired] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -712,7 +714,50 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   const openedVersion = opened?.versions.find(
     (version) => version.locale === openedLocale,
   );
+  const openedPdf = openedVersion?.storedFile.mimeType === "application/pdf";
+  const openedContentUrl = openedVersion
+    ? `/api/documents/${opened?.id}/content?locale=${openedLocale}`
+    : "";
+  const pdfSource = openedPdf
+    ? `${openedContentUrl}#toolbar=1&navpanes=0&zoom=${pdfZoom}`
+    : openedContentUrl;
   const selectedSpace = identity?.spaces.find((item) => item.slug === space);
+
+  const changePdfZoom = useCallback(
+    (direction: -1 | 1) => {
+      const current = typeof pdfZoom === "number" ? pdfZoom : 100;
+      setPdfZoom(Math.min(200, Math.max(50, current + direction * 25)));
+    },
+    [pdfZoom],
+  );
+
+  useEffect(() => {
+    setPdfZoom("page-width");
+  }, [opened?.id, openedLocale]);
+
+  useEffect(() => {
+    if (!openedPdf) return;
+    const handlePdfShortcut = (event: KeyboardEvent) => {
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target instanceof HTMLSelectElement
+      )
+        return;
+      if (event.key === "+" || event.key === "=") {
+        event.preventDefault();
+        changePdfZoom(1);
+      } else if (event.key === "-") {
+        event.preventDefault();
+        changePdfZoom(-1);
+      } else if (event.key === "0") {
+        event.preventDefault();
+        setPdfZoom("page-width");
+      }
+    };
+    window.addEventListener("keydown", handlePdfShortcut);
+    return () => window.removeEventListener("keydown", handlePdfShortcut);
+  }, [openedPdf, changePdfZoom]);
 
   return (
     <div className="shell">
@@ -1281,6 +1326,61 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                 </button>
               ))}
             </div>
+            {openedPdf && opened?.permissions.preview && (
+              <div
+                className="pdf-toolbar"
+                role="toolbar"
+                aria-label={t.pdfControls}
+              >
+                <div className="pdf-zoom-controls">
+                  <button
+                    type="button"
+                    onClick={() => changePdfZoom(-1)}
+                    disabled={pdfZoom === 50}
+                    aria-label={t.zoomOut}
+                    title={`${t.zoomOut} (-)`}
+                  >
+                    −
+                  </button>
+                  <output aria-label={t.zoomLevel}>
+                    {typeof pdfZoom === "number" ? `${pdfZoom}%` : "Auto"}
+                  </output>
+                  <button
+                    type="button"
+                    onClick={() => changePdfZoom(1)}
+                    disabled={pdfZoom === 200}
+                    aria-label={t.zoomIn}
+                    title={`${t.zoomIn} (+)`}
+                  >
+                    +
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className={pdfZoom === "page-width" ? "selected" : ""}
+                  onClick={() => setPdfZoom("page-width")}
+                  aria-pressed={pdfZoom === "page-width"}
+                >
+                  {t.fitWidth}
+                </button>
+                <button
+                  type="button"
+                  className={pdfZoom === "page-fit" ? "selected" : ""}
+                  onClick={() => setPdfZoom("page-fit")}
+                  aria-pressed={pdfZoom === "page-fit"}
+                >
+                  {t.fitPage}
+                </button>
+                <a
+                  href={openedContentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={t.openNewTab}
+                >
+                  {t.openNewTab}
+                </a>
+              </div>
+            )}
             {openedVersion && opened.permissions.preview ? (
               <>
                 <div className="document-preview-frame">
@@ -1288,7 +1388,8 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                   openedVersion.storedFile.mimeType.startsWith("image/") ? (
                     <iframe
                       title={titleFor(opened, openedLocale || locale)}
-                      src={`/api/documents/${opened.id}/content?locale=${openedLocale}`}
+                      key={pdfSource}
+                      src={pdfSource}
                     />
                   ) : [wordMime, excelMime].includes(
                       openedVersion.storedFile.mimeType,
