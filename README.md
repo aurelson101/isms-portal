@@ -410,6 +410,15 @@ Microsoft est explicitement autorisé dans `docker-compose.sso.yml` ; ne pas
 également une URL front-channel Entra capable de supprimer la session locale
 avant de répondre HTTP 200.
 
+Lorsqu'un utilisateur ouvre `/` ou `/login`, le portail réutilise
+automatiquement la session Microsoft 365 déjà présente dans le navigateur. Le
+fournisseur Entra ne redemande une interaction que si aucune session compatible
+n'existe, si plusieurs comptes nécessitent un choix ou si une politique d'accès
+conditionnel l'impose. Le paramètre `return` est conservé uniquement lorsqu'il
+désigne une route locale. Le repli LDAP/LDAPS reste disponible explicitement sur
+`/login?local=1` ; après une déconnexion, `/login?loggedout=1` n'essaie pas de
+reconnecter immédiatement le même compte.
+
 ### 3. Démarrage et contrôle
 
 Valider d’abord la fusion Compose, puis démarrer le profil SSO :
