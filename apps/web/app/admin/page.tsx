@@ -2840,6 +2840,7 @@ function SettingsPanel({
   onNotice: (message: string) => void;
 }) {
   const { t } = useAdminI18n();
+  const confirmAction = useContext(ConfirmContext);
   const [key, setKey] = useState("certificates.expiry-alert-days");
   const [value, setValue] = useState('{"days":[90,60,30,15,7]}');
   const [accounts, setAccounts] = useState<
@@ -2863,6 +2864,13 @@ function SettingsPanel({
   const [directoryUsers, setDirectoryUsers] = useState<
     Array<{ username: string; displayName: string; email: string | null }>
   >([]);
+  const [adminGroups, setAdminGroups] = useState<
+    Array<{ id: string; name: string; distinguishedName: string }>
+  >([]);
+  const [adminGroupQuery, setAdminGroupQuery] = useState("");
+  const [adminGroupSuggestions, setAdminGroupSuggestions] = useState<
+    DirectoryGroupSuggestion[]
+  >([]);
   const loadAccounts = useCallback(
     () =>
       api<typeof accounts>("/api/admin/accounts")
@@ -2873,6 +2881,16 @@ function SettingsPanel({
   useEffect(() => {
     void loadAccounts();
   }, [loadAccounts]);
+  const loadAdminGroups = useCallback(
+    () =>
+      api<typeof adminGroups>("/api/admin/accounts/groups")
+        .then(setAdminGroups)
+        .catch((error) => onError(error.message)),
+    [onError],
+  );
+  useEffect(() => {
+    if (identity?.primaryAdmin) void loadAdminGroups();
+  }, [identity?.primaryAdmin, loadAdminGroups]);
   useEffect(() => {
     if (directoryQuery.trim().length < 2) {
       setDirectoryUsers([]);
@@ -2887,6 +2905,27 @@ function SettingsPanel({
     }, 350);
     return () => window.clearTimeout(timer);
   }, [directoryQuery, onError]);
+  useEffect(() => {
+    if (adminGroupQuery.trim().length < 2) {
+      setAdminGroupSuggestions([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      api<DirectoryGroupSuggestion[]>(
+        `/api/admin/accounts/directory-groups/${encodeURIComponent(adminGroupQuery)}`,
+        { signal: controller.signal },
+      )
+        .then(setAdminGroupSuggestions)
+        .catch((error) => {
+          if ((error as Error).name !== "AbortError") onError(error.message);
+        });
+    }, 350);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [adminGroupQuery, onError]);
   return (
     <>
       <h1>{t("Configuration")}</h1>
@@ -3039,8 +3078,13 @@ function SettingsPanel({
         )}
       </section>
       {identity?.primaryAdmin && (
-        <section className="admin-card">
+        <section className="admin-card administrator-management">
           <h2>{t("Comptes administrateurs")}</h2>
+          <p className="retention-note">
+            {t(
+              "Seul l’administrateur principal peut accorder ou retirer ces droits. Un utilisateur ou membre d’un groupe AD obtient tous les droits administratifs uniquement après authentification réussie.",
+            )}
+          </p>
           <div className="admin-account-list">
             {accounts.map((account) => (
               <div key={account.id}>
@@ -3065,67 +3109,154 @@ function SettingsPanel({
               </div>
             ))}
           </div>
-          <form
-            className="admin-form"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const formElement = event.currentTarget;
-              const values = Object.fromEntries(new FormData(formElement));
-              await api("/api/admin/accounts", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...values, source: "LOCAL" }),
-              })
-                .then(async () => {
-                  formElement.reset();
-                  await loadAccounts();
+          <div className="administrator-grant-grid">
+            <form
+              className="admin-form administrator-grant-card"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const formElement = event.currentTarget;
+                const values = Object.fromEntries(new FormData(formElement));
+                await api("/api/admin/accounts", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ ...values, source: "LOCAL" }),
                 })
-                .catch((error) => onError(error.message));
-            }}
-          >
-            <h3>{t("Ajouter un administrateur local")}</h3>
-            <input name="displayName" placeholder={t("Nom affiché")} required />
-            <input name="username" placeholder={t("Identifiant")} required />
-            <input
-              name="password"
-              type="password"
-              minLength={14}
-              placeholder={t("Mot de passe fort")}
-              required
-            />
-            <button className="primary">{t("Ajouter")}</button>
-          </form>
-          <label>
-            {t(
-              "Rechercher un utilisateur Active Directory",
-              "Search for an Active Directory user",
-            )}
-            <input
-              value={directoryQuery}
-              onChange={(event) => setDirectoryQuery(event.target.value)}
-              placeholder={t(
-                "Nom, identifiant ou e-mail",
-                "Name, username or email",
-              )}
-            />
-          </label>
-          <div className="directory-user-results">
-            {directoryUsers.map((user) => (
-              <button
-                key={user.username}
-                onClick={() =>
-                  api("/api/admin/accounts", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ ...user, source: "DIRECTORY" }),
+                  .then(async () => {
+                    formElement.reset();
+                    await loadAccounts();
                   })
-                    .then(loadAccounts)
-                    .catch((error) => onError(error.message))
-                }
-              >
-                {user.displayName} — {user.username}
-              </button>
-            ))}
+                  .catch((error) => onError(error.message));
+              }}
+            >
+              <h3>{t("Ajouter un administrateur local")}</h3>
+              <input
+                name="displayName"
+                placeholder={t("Nom affiché")}
+                required
+              />
+              <input name="username" placeholder={t("Identifiant")} required />
+              <input
+                name="password"
+                type="password"
+                minLength={14}
+                placeholder={t("Mot de passe fort")}
+                required
+              />
+              <button className="primary">{t("Ajouter")}</button>
+            </form>
+            <div className="administrator-grant-card">
+              <h3>{t("Ajouter un utilisateur Active Directory")}</h3>
+              <label>
+                {t(
+                  "Rechercher un utilisateur Active Directory",
+                  "Search for an Active Directory user",
+                )}
+                <input
+                  value={directoryQuery}
+                  onChange={(event) => setDirectoryQuery(event.target.value)}
+                  placeholder={t(
+                    "Nom, identifiant ou e-mail",
+                    "Name, username or email",
+                  )}
+                />
+              </label>
+              <div className="directory-user-results">
+                {directoryUsers.map((user) => (
+                  <button
+                    key={user.username}
+                    onClick={() =>
+                      api("/api/admin/accounts", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ ...user, source: "DIRECTORY" }),
+                      })
+                        .then(async () => {
+                          setDirectoryQuery("");
+                          setDirectoryUsers([]);
+                          await loadAccounts();
+                          onNotice(t("Administrateur ajouté."));
+                        })
+                        .catch((error) => onError(error.message))
+                    }
+                  >
+                    {user.displayName} — {user.username}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="administrator-grant-card">
+              <h3>{t("Ajouter un groupe Active Directory")}</h3>
+              <p className="retention-note">
+                {t(
+                  "Tous les membres détectés de ce groupe disposeront des droits administratifs complets.",
+                )}
+              </p>
+              <label>
+                {t("Rechercher un groupe AD")}
+                <input
+                  value={adminGroupQuery}
+                  onChange={(event) => setAdminGroupQuery(event.target.value)}
+                  placeholder={t("Nom du groupe")}
+                />
+              </label>
+              <div className="directory-user-results">
+                {adminGroupSuggestions.map((group) => (
+                  <button
+                    key={`${group.connectionId}:${group.distinguishedName}`}
+                    onClick={() =>
+                      api("/api/admin/accounts/groups", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          name: group.name,
+                          distinguishedName: group.distinguishedName,
+                        }),
+                      })
+                        .then(async () => {
+                          setAdminGroupQuery("");
+                          setAdminGroupSuggestions([]);
+                          await loadAdminGroups();
+                          onNotice(t("Groupe administrateur ajouté."));
+                        })
+                        .catch((error) => onError(error.message))
+                    }
+                  >
+                    <strong>{group.name}</strong>
+                    <small>{group.distinguishedName}</small>
+                  </button>
+                ))}
+              </div>
+              <div className="admin-account-list">
+                {adminGroups.map((group) => (
+                  <div key={group.id}>
+                    <span>
+                      <strong>{group.name}</strong>
+                      <small>{group.distinguishedName}</small>
+                    </span>
+                    <button
+                      className="danger"
+                      onClick={async () => {
+                        if (
+                          !(await confirmAction(
+                            t(
+                              "Retirer les droits administratifs de ce groupe AD ?",
+                            ),
+                          ))
+                        )
+                          return;
+                        await api(`/api/admin/accounts/groups/${group.id}`, {
+                          method: "DELETE",
+                        })
+                          .then(loadAdminGroups)
+                          .catch((error) => onError(error.message));
+                      }}
+                    >
+                      {t("Supprimer")}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
       )}

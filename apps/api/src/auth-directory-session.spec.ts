@@ -75,6 +75,7 @@ describe("AuthService directory sessions", () => {
         update,
       },
       adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
+      adminDirectoryGroup: { findFirst: vi.fn().mockResolvedValue(null) },
     };
     const directory = {
       resolveUserByMail: vi.fn().mockResolvedValue({
@@ -124,6 +125,7 @@ describe("AuthService directory sessions", () => {
           update,
         },
         adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
+        adminDirectoryGroup: { findFirst: vi.fn().mockResolvedValue(null) },
       } as never,
       { resolveUserByMail: vi.fn().mockResolvedValue(null) } as never,
     );
@@ -157,6 +159,7 @@ describe("AuthService directory sessions", () => {
           update,
         },
         adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
+        adminDirectoryGroup: { findFirst: vi.fn().mockResolvedValue(null) },
       } as never,
       {
         resolveUserByMail: vi.fn().mockRejectedValue(new Error("DNS outage")),
@@ -216,7 +219,12 @@ describe("AuthService directory sessions", () => {
       connectionId: "directory-1",
     });
     const service = new AuthService(
-      { adminAccount: { findFirst } } as never,
+      {
+        adminAccount: { findFirst },
+        adminDirectoryGroup: {
+          findFirst: vi.fn().mockResolvedValue(null),
+        },
+      } as never,
       { resolveUserByMail } as never,
     );
     const identity = {
@@ -250,6 +258,43 @@ describe("AuthService directory sessions", () => {
     expect(resolveUserByMail).toHaveBeenCalledTimes(2);
   });
 
+  it("grants administration only when a configured AD admin group matches", async () => {
+    const adminDirectoryGroup = {
+      findFirst: vi.fn().mockResolvedValue({ id: "admin-group-1" }),
+    };
+    const service = new AuthService(
+      {
+        adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
+        adminDirectoryGroup,
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.enrichSsoIdentity({
+        username: "alice@example.com",
+        displayName: "Alice",
+        groups: ["ISMS-Administrators"],
+        source: "directory-session",
+      }),
+    ).resolves.toMatchObject({
+      groups: ["ISMS-Administrators", "ISMS-LOCAL-ADMINS"],
+    });
+    expect(adminDirectoryGroup.findFirst).toHaveBeenCalledWith({
+      where: {
+        active: true,
+        OR: [
+          {
+            name: {
+              equals: "ISMS-Administrators",
+              mode: "insensitive",
+            },
+          },
+        ],
+      },
+    });
+  });
+
   it("coalesces concurrent LDAP enrichment for the same SSO identity", async () => {
     const resolveUserByMail = vi.fn().mockImplementation(
       () =>
@@ -267,7 +312,12 @@ describe("AuthService directory sessions", () => {
         ),
     );
     const service = new AuthService(
-      { adminAccount: { findFirst: vi.fn().mockResolvedValue(null) } } as never,
+      {
+        adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
+        adminDirectoryGroup: {
+          findFirst: vi.fn().mockResolvedValue(null),
+        },
+      } as never,
       { resolveUserByMail } as never,
     );
     const identity = {

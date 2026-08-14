@@ -240,21 +240,33 @@ export class AuthService implements OnModuleInit {
           groups: [...new Set([...identity.groups, ...profile.groups])],
         };
     }
-    const account = await this.prisma.adminAccount.findFirst({
-      where: {
-        username: {
-          equals: enrichedIdentity.username,
-          mode: "insensitive",
+    const [account, administratorGroup] = await Promise.all([
+      this.prisma.adminAccount.findFirst({
+        where: {
+          username: {
+            equals: enrichedIdentity.username,
+            mode: "insensitive",
+          },
+          source: "DIRECTORY",
+          active: true,
         },
-        source: "DIRECTORY",
-        active: true,
-      },
-    });
-    return account
+      }),
+      enrichedIdentity.groups.length
+        ? this.prisma.adminDirectoryGroup.findFirst({
+            where: {
+              active: true,
+              OR: enrichedIdentity.groups.map((name) => ({
+                name: { equals: name, mode: "insensitive" as const },
+              })),
+            },
+          })
+        : Promise.resolve(null),
+    ]);
+    return account || administratorGroup
       ? {
           ...enrichedIdentity,
-          displayName: account.displayName || enrichedIdentity.displayName,
-          profilePhoto: account.profilePhoto,
+          displayName: account?.displayName || enrichedIdentity.displayName,
+          profilePhoto: account?.profilePhoto,
           groups: [
             ...new Set([...enrichedIdentity.groups, "ISMS-LOCAL-ADMINS"]),
           ],

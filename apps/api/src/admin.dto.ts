@@ -50,6 +50,11 @@ export class CreateAdminDto {
   @IsOptional() @IsString() @MinLength(14) @MaxLength(1024) password?: string;
 }
 
+export class CreateAdminDirectoryGroupDto {
+  @IsString() @MinLength(2) @MaxLength(160) name!: string;
+  @IsString() @MinLength(3) @MaxLength(1024) distinguishedName!: string;
+}
+
 export class SpaceDto {
   @IsString()
   @MinLength(2)

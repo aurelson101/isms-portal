@@ -195,6 +195,18 @@ test("the generated administrator can sign in and manage the secure profile", as
     page.getByRole("heading", { name: "Comptes administrateurs" }),
   ).toBeVisible();
   await expect(page.getByText("Administrateur ISMS — admin")).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: "Ajouter un utilisateur Active Directory",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Ajouter un groupe Active Directory" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Add an Active Directory group" }),
+  ).toBeVisible();
 
   const setup = await page.request.post("/api/admin/accounts/me/mfa/setup");
   expect(setup.ok()).toBe(true);

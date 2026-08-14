@@ -1,4 +1,4 @@
-const catalogVersion = 1 as const;
+const catalogVersion = 2 as const;
 void catalogVersion;
 
 export const portalCatalog = {
@@ -429,6 +429,17 @@ export const adminEnglishCatalog = {
   "Groupes Active Directory": "Active Directory groups",
   "Groupes AD synchronisés": "Synchronized AD groups",
   "Compte administrateur associé": "Linked administrator account",
+  "Ajouter un utilisateur Active Directory": "Add an Active Directory user",
+  "Ajouter un groupe Active Directory": "Add an Active Directory group",
+  "Rechercher un groupe AD": "Search for an AD group",
+  "Administrateur ajouté.": "Administrator added.",
+  "Groupe administrateur ajouté.": "Administrator group added.",
+  "Retirer les droits administratifs de ce groupe AD ?":
+    "Remove administrator rights from this AD group?",
+  "Tous les membres détectés de ce groupe disposeront des droits administratifs complets.":
+    "Every detected member of this group will receive full administrator rights.",
+  "Seul l’administrateur principal peut accorder ou retirer ces droits. Un utilisateur ou membre d’un groupe AD obtient tous les droits administratifs uniquement après authentification réussie.":
+    "Only the primary administrator can grant or revoke these rights. An AD user or group member receives full administrator rights only after successful authentication.",
   "Groupes imbriqués": "Nested groups",
   "Groupes reçus": "Received groups",
   Identité: "Identity",
