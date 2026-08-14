@@ -345,6 +345,46 @@ test("administration uses live APIs and every menu opens a section", async ({
   }
 });
 
+test("document spaces provide a clear responsive content hierarchy", async ({
+  page,
+}) => {
+  await page.goto("/admin#spaces");
+  await expect(
+    page.getByRole("heading", { name: "Espaces documentaires", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Résumé du contenu" }),
+  ).toBeVisible();
+
+  const spaces = page.locator(".space-management-card");
+  await expect(spaces.first()).toBeVisible();
+  await expect(
+    spaces.first().locator(".space-management-counts"),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Nouvel espace" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Créer un espace" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Identifiant technique")).toBeVisible();
+  await page.getByRole("button", { name: "Fermer" }).click();
+
+  await spaces
+    .first()
+    .getByRole("button", { name: "Ajouter une catégorie" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Créer une catégorie" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Espace de la catégorie")).not.toHaveValue("");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator("body")).toHaveJSProperty("scrollWidth", 390);
+  await expect(
+    spaces.first().locator(".space-management-header-actions"),
+  ).toBeVisible();
+});
+
 test("administration is fully switchable between French and English", async ({
   page,
 }) => {
