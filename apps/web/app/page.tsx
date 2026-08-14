@@ -539,7 +539,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   }, []);
 
   useEffect(() => {
-    fetch("/api/me")
+    fetch("/api/me?refresh=1", { cache: "no-store" })
       .then(async (response) => {
         if (response.status === 401) {
           window.location.assign("/login?return=/");
@@ -562,7 +562,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   }, []);
 
   useEffect(() => {
-    if (!explorerMode) return;
+    if (!explorerMode || !identity) return;
     const controller = new AbortController();
     const timer = window.setTimeout(
       () => void loadDocuments(controller.signal),
@@ -572,7 +572,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [explorerMode, loadDocuments, query]);
+  }, [explorerMode, identity, loadDocuments, query]);
 
   useEffect(() => {
     if (!category && !space && !query) return;

@@ -130,7 +130,10 @@ export class AuthService implements OnModuleInit {
       .find(([cookieName]) => cookieName === name)?.[1];
   }
 
-  async sessionIdentity(request: IsmsRequest): Promise<Identity | null> {
+  async sessionIdentity(
+    request: IsmsRequest,
+    refreshDirectoryGroups = false,
+  ): Promise<Identity | null> {
     const adminIdentity = await this.adminSessionIdentity(request);
     if (adminIdentity) return adminIdentity;
     const directoryToken = this.cookie(request, directoryCookieName);
@@ -139,18 +142,52 @@ export class AuthService implements OnModuleInit {
       where: { tokenHash: hashToken(directoryToken) },
     });
     if (!session || session.expiresAt <= new Date()) return null;
+    let refreshedProfile: Awaited<
+      ReturnType<DirectoryService["resolveUserByMail"]>
+    > = null;
+    let directoryRefreshCompleted = false;
+    if (refreshDirectoryGroups) {
+      try {
+        refreshedProfile = await this.directory.resolveUserByMail(
+          session.username,
+        );
+        directoryRefreshCompleted = true;
+      } catch {
+        this.logger.warn(
+          "Directory session refresh failed; retaining the last known groups",
+        );
+      }
+    }
+    const storedGroups = Array.isArray(session.groups)
+      ? session.groups.filter(
+          (group): group is string => typeof group === "string",
+        )
+      : [];
+    const groups = refreshedProfile
+      ? refreshedProfile.groups
+      : refreshDirectoryGroups && directoryRefreshCompleted
+        ? []
+        : storedGroups;
     await this.prisma.directoryUserSession.update({
       where: { id: session.id },
-      data: { lastUsedAt: new Date() },
+      data: {
+        lastUsedAt: new Date(),
+        ...(refreshedProfile
+          ? {
+              username: refreshedProfile.username,
+              displayName: refreshedProfile.displayName,
+              groups: refreshedProfile.groups,
+              directoryConnectionId: refreshedProfile.connectionId,
+            }
+          : directoryRefreshCompleted
+            ? { groups: [] }
+            : {}),
+      },
     });
     return this.enrichSsoIdentity({
-      username: session.username,
-      displayName: session.displayName,
-      groups: Array.isArray(session.groups)
-        ? session.groups.filter(
-            (group): group is string => typeof group === "string",
-          )
-        : [],
+      username: refreshedProfile?.username || session.username,
+      displayName: refreshedProfile?.displayName || session.displayName,
+      groups,
       source: "directory-session",
       sessionExpiresAt: session.expiresAt.toISOString(),
     });
@@ -185,13 +222,16 @@ export class AuthService implements OnModuleInit {
     return null;
   }
 
-  async enrichSsoIdentity(identity: Identity) {
+  async enrichSsoIdentity(identity: Identity, forceDirectoryRefresh = false) {
     let enrichedIdentity = identity;
     if (
       identity.source === "trusted-proxy" &&
       process.env.SSO_DIRECTORY_GROUP_ENRICHMENT !== "false"
     ) {
-      const profile = await this.ssoDirectoryProfile(identity.username);
+      const profile = await this.ssoDirectoryProfile(
+        identity.username,
+        forceDirectoryRefresh,
+      );
       if (profile)
         enrichedIdentity = {
           ...identity,
@@ -248,7 +288,8 @@ export class AuthService implements OnModuleInit {
     });
   }
 
-  private async ssoDirectoryProfile(username: string) {
+  private async ssoDirectoryProfile(username: string, forceRefresh = false) {
+    if (forceRefresh) this.ssoDirectoryCache.delete(username);
     const cached = this.ssoDirectoryCache.get(username);
     if (cached && cached.expiresAt > Date.now()) {
       this.ssoDirectoryCache.delete(username);

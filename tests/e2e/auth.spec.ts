@@ -17,8 +17,11 @@ test("the main sign-in page only exposes the user credentials form", async ({
 test("the user profile lists groups recognized by the application", async ({
   page,
 }) => {
-  await page.route("**/api/me", (route) =>
-    route.fulfill({
+  let refreshRequested = false;
+  await page.route("**/api/me*", (route) => {
+    refreshRequested ||=
+      new URL(route.request().url()).searchParams.get("refresh") === "1";
+    return route.fulfill({
       json: {
         username: "alice@example.com",
         displayName: "Alice Example",
@@ -41,8 +44,8 @@ test("the user profile lists groups recognized by the application", async ({
         },
         spaces: [],
       },
-    }),
-  );
+    });
+  });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.locator(".account-button").click();
@@ -54,6 +57,7 @@ test("the user profile lists groups recognized by the application", async ({
   const recognizedGroups = page.locator(".matched-groups");
   await recognizedGroups.locator("summary").click();
   await expect(recognizedGroups.getByText("SkillsRDP")).toBeVisible();
+  expect(refreshRequested).toBe(true);
 });
 
 test("a non-admin session is redirected to the dedicated administrator sign-in", async ({
