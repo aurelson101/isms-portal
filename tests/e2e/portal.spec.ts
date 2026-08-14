@@ -177,6 +177,48 @@ test("category explorer supports window and list views with an expandable reader
   await expect(dialog).not.toHaveClass(/expanded/);
 });
 
+test("grid and list views apply to spaces and global searches", async ({
+  page,
+}) => {
+  await page.goto("/explorer?space=general");
+  await page.getByRole("button", { name: "Affichage en fenêtres" }).click();
+  await expect(page.locator(".documents")).toHaveClass(/document-grid/);
+
+  await page.getByLabel("Trier par").selectOption("popular");
+  await expect(page).toHaveURL(/sort=popular/);
+  await expect(page.getByLabel("Trier par")).toHaveValue("popular");
+
+  const search = page.getByRole("textbox", {
+    name: /Rechercher une politique/,
+  });
+  await search.fill("VPN");
+  await search.press("Enter");
+  await expect(page).toHaveURL(/q=VPN/);
+  await expect(page.locator(".documents")).toHaveClass(/document-grid/);
+  await expect(
+    page.getByRole("heading", { name: "Résultats de recherche" }),
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator(".documents")).toHaveClass(/document-grid/);
+  await expect(
+    page.getByRole("heading", { name: "Résultats de recherche" }),
+  ).toBeVisible();
+});
+
+test("slash focuses the document search without affecting form fields", async ({
+  page,
+}) => {
+  await page.goto("/explorer");
+  const search = page.getByRole("textbox", {
+    name: /Rechercher une politique/,
+  });
+  await page.keyboard.press("/");
+  await expect(search).toBeFocused();
+  await search.type("VPN/Access");
+  await expect(search).toHaveValue("VPN/Access");
+});
+
 test("document explorer paginates ten documents with next and previous controls", async ({
   page,
   request,
