@@ -2266,100 +2266,137 @@ h1 {
 }
 .incident-report-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 10px;
 }
 .incident-report-card {
-  display: grid;
-  align-content: start;
-  gap: 14px;
-}
-.incident-report-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-.incident-report-heading span,
-.incident-report-metrics span {
-  color: #60718d;
-  font-size: 0.82rem;
-}
-.incident-report-heading h2 {
-  margin: 3px 0 0;
-  font-size: 2rem;
-}
-.incident-report-metrics {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-.incident-report-metrics > div {
-  display: grid;
-  gap: 3px;
-  padding: 12px;
-  border-radius: 8px;
-  background: #f3f7fc;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #d5dfed;
+  border-radius: 10px;
+  background: white;
 }
 
 .published-incident-reports {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  gap: 10px;
   margin-top: 28px;
 }
 
 .published-incident-report,
 .incident-reports-empty {
   min-width: 0;
-  padding: 24px;
   border: 1px solid #d5dfed;
-  border-radius: 14px;
+  border-radius: 10px;
   background: white;
   box-shadow: 0 10px 28px #0b2d5c0d;
+  overflow: hidden;
 }
 
-.published-incident-report > header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: auto;
-  padding: 0 0 18px;
-  border-bottom: 1px solid #d5dfed;
+.incident-register-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 22px 0;
 }
 
-.published-incident-report > header span,
-.published-incident-report > small {
+.incident-register-summary > div {
+  display: grid;
+  gap: 5px;
+  padding: 16px;
+  border: 1px solid #d5dfed;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.incident-register-summary strong {
+  font-size: 1.55rem;
+}
+
+.incident-register-summary span,
+.annual-report-list-heading {
   color: #60718d;
+  font-size: 0.82rem;
 }
 
-.published-incident-report h2,
-.published-incident-report h3,
-.published-incident-report p {
-  margin-top: 0;
+.annual-report-list-heading,
+.annual-report-row {
+  display: grid;
+  grid-template-columns:
+    minmax(72px, 0.75fr) minmax(90px, 1fr) repeat(4, minmax(68px, 0.7fr))
+    minmax(150px, 1.35fr);
+  gap: 12px;
+  align-items: center;
 }
 
-.published-incident-report h2 {
-  margin-bottom: 0;
-  font-size: 2rem;
+.published-incident-reports > .annual-report-list-heading,
+.annual-report-row.public {
+  grid-template-columns:
+    minmax(72px, 0.8fr) repeat(4, minmax(90px, 1fr))
+    minmax(150px, 1.4fr);
 }
 
-.published-incident-report h3 {
-  margin-bottom: 8px;
+.annual-report-list-heading {
+  padding: 0 16px;
+  font-weight: 700;
+}
+
+.annual-report-row {
+  min-height: 68px;
+  padding: 12px 16px;
+}
+
+.annual-report-row h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.annual-report-row > strong {
   font-size: 1rem;
 }
 
-.published-incident-report section {
-  margin-top: 20px;
+.annual-report-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(68px, 1fr));
+  gap: 8px;
 }
 
-.published-incident-report p {
+.annual-report-details {
+  border-top: 1px solid #e3eaf3;
+}
+
+.annual-report-details summary {
+  padding: 11px 16px;
+  color: #075dcc;
+  background: #f8fbff;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.annual-report-details > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  padding: 18px 16px;
+}
+
+.annual-report-details h3,
+.annual-report-details p {
+  margin-top: 0;
+}
+
+.annual-report-details p {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  line-height: 1.6;
+  line-height: 1.55;
+}
+
+.annual-report-details small {
+  grid-column: 1 / -1;
+  color: #60718d;
 }
 
 .incident-reports-empty {
-  grid-column: 1 / -1;
+  padding: 28px;
   text-align: center;
 }
 
@@ -2367,9 +2404,6 @@ h1 {
   width: 40px;
   height: 40px;
   color: #0868e8;
-}
-.incident-report-metrics strong {
-  font-size: 1.35rem;
 }
 .administrator-grant-card h3 {
   margin-top: 0;
@@ -3257,11 +3291,36 @@ svg {
   .incident-metrics-form {
     grid-template-columns: 1fr;
   }
-  .published-incident-reports {
+  .incident-register-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .annual-report-list-heading {
+    display: none;
+  }
+  .annual-report-row,
+  .annual-report-row.public {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+  }
+  .annual-report-row h2,
+  .annual-report-row mark,
+  .annual-report-actions,
+  .annual-report-row.public .readonly-label {
+    grid-column: 1 / -1;
+  }
+  .annual-report-row > strong:not(.readonly-label)::before {
+    display: block;
+    margin-bottom: 3px;
+    color: #60718d;
+    content: attr(data-label);
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .annual-report-details > div {
     grid-template-columns: 1fr;
   }
-  .incident-report-metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .annual-report-details small {
+    grid-column: auto;
   }
   .administrator-summary {
     grid-template-columns: 1fr;

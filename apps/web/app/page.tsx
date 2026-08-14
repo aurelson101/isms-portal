@@ -895,6 +895,19 @@ export function Portal({
     ? `${openedContentUrl}#toolbar=1&navpanes=0&zoom=${pdfZoom}`
     : openedContentUrl;
   const selectedSpace = identity?.spaces.find((item) => item.slug === space);
+  const incidentReportTotals = incidentReports.reduce(
+    (result, report) => ({
+      incidents: result.incidents + report.totalIncidents,
+      critical: result.critical + report.criticalIncidents,
+      resolved: result.resolved + report.resolvedIncidents,
+    }),
+    { incidents: 0, critical: 0, resolved: 0 },
+  );
+  const incidentOverallResolution = incidentReportTotals.incidents
+    ? Math.round(
+        (incidentReportTotals.resolved / incidentReportTotals.incidents) * 100,
+      )
+    : 0;
 
   const changePdfZoom = useCallback(
     (direction: -1 | 1) => {
@@ -1317,59 +1330,86 @@ export function Portal({
                 <p>{t.noPublishedIncidentReportsHint}</p>
               </div>
             ) : (
-              incidentReports.map((report) => {
-                const resolutionRate = report.totalIncidents
-                  ? Math.round(
-                      (report.resolvedIncidents / report.totalIncidents) * 100,
-                    )
-                  : 0;
-                return (
-                  <article
-                    className="published-incident-report"
-                    key={report.id}
-                  >
-                    <header>
-                      <div>
-                        <span>{t.annualReport}</span>
+              <>
+                <div className="incident-register-summary">
+                  <div>
+                    <strong>{incidentReports.length}</strong>
+                    <span>{t.trackedYears}</span>
+                  </div>
+                  <div>
+                    <strong>{incidentReportTotals.incidents}</strong>
+                    <span>{t.cumulativeIncidents}</span>
+                  </div>
+                  <div>
+                    <strong>{incidentReportTotals.critical}</strong>
+                    <span>{t.criticalIncidents}</span>
+                  </div>
+                  <div>
+                    <strong>{incidentOverallResolution}%</strong>
+                    <span>{t.overallResolution}</span>
+                  </div>
+                </div>
+                <div className="annual-report-list-heading" aria-hidden="true">
+                  <span>{t.year}</span>
+                  <span>{t.totalIncidents}</span>
+                  <span>{t.criticalIncidents}</span>
+                  <span>{t.resolvedIncidents}</span>
+                  <span>{t.resolutionRate}</span>
+                  <span>{t.details}</span>
+                </div>
+                {incidentReports.map((report) => {
+                  const resolutionRate = report.totalIncidents
+                    ? Math.round(
+                        (report.resolvedIncidents / report.totalIncidents) *
+                          100,
+                      )
+                    : 0;
+                  return (
+                    <article
+                      className="published-incident-report"
+                      key={report.id}
+                    >
+                      <div className="annual-report-row public">
                         <h2>{report.year}</h2>
+                        <strong data-label={t.totalIncidents}>
+                          {report.totalIncidents}
+                        </strong>
+                        <strong data-label={t.criticalIncidents}>
+                          {report.criticalIncidents}
+                        </strong>
+                        <strong data-label={t.resolvedIncidents}>
+                          {report.resolvedIncidents}
+                        </strong>
+                        <strong data-label={t.resolutionRate}>
+                          {resolutionRate}%
+                        </strong>
+                        <strong className="readonly-label">{t.readonly}</strong>
                       </div>
-                      <strong className="readonly-label">{t.readonly}</strong>
-                    </header>
-                    <dl className="incident-report-metrics">
-                      <div>
-                        <dt>{t.totalIncidents}</dt>
-                        <dd>{report.totalIncidents}</dd>
-                      </div>
-                      <div>
-                        <dt>{t.criticalIncidents}</dt>
-                        <dd>{report.criticalIncidents}</dd>
-                      </div>
-                      <div>
-                        <dt>{t.resolvedIncidents}</dt>
-                        <dd>{report.resolvedIncidents}</dd>
-                      </div>
-                      <div>
-                        <dt>{t.resolutionRate}</dt>
-                        <dd>{resolutionRate}%</dd>
-                      </div>
-                    </dl>
-                    <section>
-                      <h3>{t.annualSummary}</h3>
-                      <p>{report.summary}</p>
-                    </section>
-                    {report.lessonsLearned && (
-                      <section>
-                        <h3>{t.lessonsLearned}</h3>
-                        <p>{report.lessonsLearned}</p>
-                      </section>
-                    )}
-                    <small>
-                      {t.lastUpdated}{" "}
-                      {new Date(report.updatedAt).toLocaleDateString(locale)}
-                    </small>
-                  </article>
-                );
-              })
+                      <details className="annual-report-details">
+                        <summary>{t.viewAnnualDetails}</summary>
+                        <div>
+                          <section>
+                            <h3>{t.annualSummary}</h3>
+                            <p>{report.summary}</p>
+                          </section>
+                          {report.lessonsLearned && (
+                            <section>
+                              <h3>{t.lessonsLearned}</h3>
+                              <p>{report.lessonsLearned}</p>
+                            </section>
+                          )}
+                          <small>
+                            {t.lastUpdated}{" "}
+                            {new Date(report.updatedAt).toLocaleDateString(
+                              locale,
+                            )}
+                          </small>
+                        </div>
+                      </details>
+                    </article>
+                  );
+                })}
+              </>
             )}
           </section>
         )}
