@@ -208,6 +208,12 @@ test("the generated administrator can sign in and manage the secure profile", as
   await expect(
     page.getByRole("heading", { name: "Ajouter un groupe Active Directory" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Ajouter l’utilisateur sélectionné" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Ajouter le groupe sélectionné" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Add an Active Directory group" }),
