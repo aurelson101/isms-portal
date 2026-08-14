@@ -378,6 +378,7 @@ test("slash focuses the document search without affecting form fields", async ({
   const search = page.getByRole("textbox", {
     name: /Rechercher une politique/,
   });
+  await expect(page.locator(".explorer-heading")).toBeVisible();
   await page.keyboard.press("/");
   await expect(search).toBeFocused();
   await search.type("VPN/Access");
@@ -1071,6 +1072,28 @@ test("annual incident reports can be published and read without write actions", 
     publishedReport.getByText("Consultation en lecture seule"),
   ).toBeVisible();
   await expect(publishedReport.getByRole("button")).toHaveCount(0);
+  await publishedReport
+    .getByText("Afficher la synthèse et les enseignements")
+    .click();
+  await expect(
+    publishedReport.getByText(
+      "Synthèse fonctionnelle des incidents de sécurité.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Rapports annuels d’incidents")
+      .getByText("Années publiées"),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await expect(
+    publishedReport.locator('strong[data-label="Incidents totaux"]'),
+  ).toBeVisible();
 
   await page.goto("/admin#incidents");
   const adminCard = page.locator(".incident-report-card", {

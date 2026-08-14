@@ -2836,6 +2836,17 @@ function IncidentReportsPanel({
       .toLowerCase()
       .includes(search.toLowerCase()),
   );
+  const totals = filtered.reduce(
+    (result, report) => ({
+      incidents: result.incidents + report.totalIncidents,
+      critical: result.critical + report.criticalIncidents,
+      resolved: result.resolved + report.resolvedIncidents,
+    }),
+    { incidents: 0, critical: 0, resolved: 0 },
+  );
+  const overallResolutionRate = totals.incidents
+    ? Math.round((totals.resolved / totals.incidents) * 100)
+    : 0;
   const reset = () => {
     setEditingId(null);
     setDraft(emptyDraft());
@@ -2978,6 +2989,36 @@ function IncidentReportsPanel({
           )}
         </div>
       </form>
+      <section
+        className="incident-register-summary"
+        aria-label={t("Synthèse du registre annuel")}
+      >
+        <div>
+          <strong>{filtered.length}</strong>
+          <span>{t("Années suivies")}</span>
+        </div>
+        <div>
+          <strong>{totals.incidents}</strong>
+          <span>{t("Incidents cumulés")}</span>
+        </div>
+        <div>
+          <strong>{totals.critical}</strong>
+          <span>{t("Incidents critiques")}</span>
+        </div>
+        <div>
+          <strong>{overallResolutionRate}%</strong>
+          <span>{t("Résolution globale")}</span>
+        </div>
+      </section>
+      <div className="annual-report-list-heading" aria-hidden="true">
+        <span>{t("Année")}</span>
+        <span>{t("Statut")}</span>
+        <span>{t("Total")}</span>
+        <span>{t("Critiques")}</span>
+        <span>{t("Résolus")}</span>
+        <span>{t("Résolution")}</span>
+        <span>{t("Actions")}</span>
+      </div>
       <div className="incident-report-list">
         {filtered.map((report) => {
           const resolutionRate = report.totalIncidents
@@ -2986,69 +3027,65 @@ function IncidentReportsPanel({
               )
             : 0;
           return (
-            <article
-              className="admin-card incident-report-card"
-              key={report.id}
-            >
-              <div className="incident-report-heading">
-                <div>
-                  <span>{t("Rapport annuel")}</span>
-                  <h2>{report.year}</h2>
-                </div>
+            <article className="incident-report-card" key={report.id}>
+              <div className="annual-report-row">
+                <h2>{report.year}</h2>
                 <mark>{localizedStatus(locale, report.status)}</mark>
-              </div>
-              <div className="incident-report-metrics">
-                <div>
-                  <strong>{report.totalIncidents}</strong>
-                  <span>{t("Total")}</span>
-                </div>
-                <div>
-                  <strong>{report.criticalIncidents}</strong>
-                  <span>{t("Critiques")}</span>
-                </div>
-                <div>
-                  <strong>{report.resolvedIncidents}</strong>
-                  <span>{t("Résolus")}</span>
-                </div>
-                <div>
-                  <strong>{resolutionRate}%</strong>
-                  <span>{t("Taux de résolution")}</span>
-                </div>
-              </div>
-              <p>{report.summary}</p>
-              {report.lessonsLearned && (
-                <p>
-                  <strong>{t("Enseignements")} :</strong>{" "}
-                  {report.lessonsLearned}
-                </p>
-              )}
-              <small>
-                {t("Dernière mise à jour")} :{" "}
-                {new Date(report.updatedAt).toLocaleString(locale)}
-              </small>
-              <div className="button-row">
-                <button onClick={() => edit(report)}>{t("Modifier")}</button>
-                <button
-                  className="danger"
-                  onClick={async () => {
-                    if (
-                      !(await confirmAction(t("Supprimer ce rapport annuel ?")))
-                    )
-                      return;
-                    await api(`/api/admin/incident-reports/${report.id}`, {
-                      method: "DELETE",
-                    })
-                      .then(async () => {
-                        if (editingId === report.id) reset();
-                        onNotice(t("Rapport annuel supprimé."));
-                        await onChanged();
+                <strong data-label={t("Total")}>{report.totalIncidents}</strong>
+                <strong data-label={t("Critiques")}>
+                  {report.criticalIncidents}
+                </strong>
+                <strong data-label={t("Résolus")}>
+                  {report.resolvedIncidents}
+                </strong>
+                <strong data-label={t("Résolution")}>{resolutionRate}%</strong>
+                <div className="annual-report-actions">
+                  <button onClick={() => edit(report)}>{t("Modifier")}</button>
+                  <button
+                    className="danger"
+                    onClick={async () => {
+                      if (
+                        !(await confirmAction(
+                          t("Supprimer ce rapport annuel ?"),
+                        ))
+                      )
+                        return;
+                      await api(`/api/admin/incident-reports/${report.id}`, {
+                        method: "DELETE",
                       })
-                      .catch((error) => onError(error.message));
-                  }}
-                >
-                  {t("Supprimer")}
-                </button>
+                        .then(async () => {
+                          if (editingId === report.id) reset();
+                          onNotice(t("Rapport annuel supprimé."));
+                          await onChanged();
+                        })
+                        .catch((error) => onError(error.message));
+                    }}
+                  >
+                    {t("Supprimer")}
+                  </button>
+                </div>
               </div>
+              <details className="annual-report-details">
+                <summary>
+                  {t("Afficher la synthèse et les enseignements")}
+                </summary>
+                <div>
+                  <section>
+                    <h3>{t("Synthèse annuelle")}</h3>
+                    <p>{report.summary}</p>
+                  </section>
+                  {report.lessonsLearned && (
+                    <section>
+                      <h3>{t("Enseignements")}</h3>
+                      <p>{report.lessonsLearned}</p>
+                    </section>
+                  )}
+                  <small>
+                    {t("Dernière mise à jour")} :{" "}
+                    {new Date(report.updatedAt).toLocaleString(locale)}
+                  </small>
+                </div>
+              </details>
             </article>
           );
         })}
