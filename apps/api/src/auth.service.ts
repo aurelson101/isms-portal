@@ -12,6 +12,7 @@ import {
   createHmac,
 } from "crypto";
 import { promisify } from "util";
+import { isIP } from "net";
 import type { Response } from "express";
 import { PrismaService } from "./prisma.service";
 import { DirectoryService } from "./directory.service";
@@ -379,6 +380,7 @@ export class AuthService implements OnModuleInit {
     password: string,
     mfaCode: string | undefined,
     response: Response,
+    request: IsmsRequest,
   ) {
     const account = await this.prisma.adminAccount.findUnique({
       where: { username },
@@ -424,6 +426,7 @@ export class AuthService implements OnModuleInit {
         tokenHash: hashToken(token),
         adminAccountId: account.id,
         expiresAt,
+        sourceIp: this.clientIp(request),
       },
     });
     response.cookie(adminCookieName, token, {
@@ -434,6 +437,18 @@ export class AuthService implements OnModuleInit {
       expires: expiresAt,
     });
     return { authenticated: true, mfaEnabled: account.mfaEnabled };
+  }
+
+  private clientIp(request: IsmsRequest) {
+    const realIp = request.headers["x-real-ip"];
+    const candidate =
+      (typeof realIp === "string" ? realIp.trim() : "") ||
+      request.socket.remoteAddress ||
+      "";
+    const normalized = candidate.startsWith("::ffff:")
+      ? candidate.slice(7)
+      : candidate;
+    return isIP(normalized) ? normalized : null;
   }
 
   async directoryLogin(login: string, password: string, response: Response) {
