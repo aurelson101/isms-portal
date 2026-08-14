@@ -274,6 +274,7 @@ export const portalCatalog = {
 } as const;
 
 export const adminEnglishCatalog = {
+  "Éditeur de règle": "Rule editor",
   "Afficher la navigation": "Show navigation",
   "Vue d’ensemble": "Overview",
   "Contenu et accès": "Content and access",
