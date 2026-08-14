@@ -100,6 +100,7 @@ export class AuthorizationService {
 
   async can(groups: string[], spaceId: string, permission: Permission) {
     if (isAdminIdentity(groups)) return true;
+    if (groups.length === 0) return false;
     return (
       (await this.prisma.accessRule.count({
         where: {

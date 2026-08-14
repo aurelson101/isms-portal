@@ -855,19 +855,39 @@ test("access rules can be created, updated and deleted", async ({
   let ruleId = "";
 
   try {
+    const ruleTemplate = {
+      showMenu: true,
+      read: true,
+      search: true,
+      preview: true,
+      download: false,
+      upload: false,
+      edit: false,
+      publish: false,
+      archive: false,
+    };
+    const unknownGroupResponse = await request.post("/api/admin/access-rules", {
+      data: {
+        ...ruleTemplate,
+        groupId: "11111111-1111-4111-8111-111111111111",
+        spaceId: spaces[0].id,
+      },
+    });
+    expect(unknownGroupResponse.status()).toBe(400);
+    const unknownSpaceResponse = await request.post("/api/admin/access-rules", {
+      data: {
+        ...ruleTemplate,
+        groupId: group.id,
+        spaceId: "22222222-2222-4222-8222-222222222222",
+      },
+    });
+    expect(unknownSpaceResponse.status()).toBe(400);
+
     const createdResponse = await request.post("/api/admin/access-rules", {
       data: {
+        ...ruleTemplate,
         groupId: group.id,
         spaceId: spaces[0].id,
-        showMenu: true,
-        read: true,
-        search: true,
-        preview: true,
-        download: false,
-        upload: false,
-        edit: false,
-        publish: false,
-        archive: false,
       },
     });
     expect(createdResponse.status()).toBe(201);
