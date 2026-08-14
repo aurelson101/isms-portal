@@ -1467,126 +1467,241 @@ function SpacesPanel({
     nameEn: "",
   });
   const [editedCategoryId, setEditedCategoryId] = useState("");
+  const [creationMode, setCreationMode] = useState<"space" | "category" | null>(
+    null,
+  );
+  const editorRef = useRef<HTMLDivElement>(null);
+  const categoryCount = spaces.reduce(
+    (total, space) => total + (space.categories?.length || 0),
+    0,
+  );
+  const documentCount = spaces.reduce(
+    (total, space) => total + (space._count?.documents || 0),
+    0,
+  );
   const resetCategory = () => {
     setEditedCategoryId("");
     setCategory({ spaceId: "", slug: "", nameFr: "", nameEn: "" });
+    setCreationMode(null);
   };
   return (
     <>
-      <h1>{t("Espaces documentaires")}</h1>
-      <form
-        className="admin-form inline-form"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          await api("/api/admin/spaces", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(form),
-          })
-            .then(async () => {
-              setForm({ slug: "", nameFr: "", nameEn: "" });
-              await onChanged();
-            })
-            .catch((error) => onError(error.message));
-        }}
-      >
-        <h2>{t("Créer un espace")}</h2>
-        <input
-          required
-          placeholder="slug"
-          value={form.slug}
-          onChange={(event) => setForm({ ...form, slug: event.target.value })}
-        />
-        <input
-          required
-          placeholder={t("Nom français")}
-          value={form.nameFr}
-          onChange={(event) => setForm({ ...form, nameFr: event.target.value })}
-        />
-        <input
-          required
-          placeholder={t("Nom anglais")}
-          value={form.nameEn}
-          onChange={(event) => setForm({ ...form, nameEn: event.target.value })}
-        />
-        <button className="primary">{t("Créer")}</button>
-      </form>
-      <form
-        className="admin-form inline-form"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          const url = editedCategoryId
-            ? `/api/admin/categories/${editedCategoryId}`
-            : "/api/admin/categories";
-          await api(url, {
-            method: editedCategoryId ? "PUT" : "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(category),
-          })
-            .then(async () => {
-              resetCategory();
-              await onChanged();
-            })
-            .catch((error) => onError(error.message));
-        }}
-      >
-        <h2>
-          {editedCategoryId
-            ? t("Modifier la catégorie")
-            : t("Créer une catégorie")}
-        </h2>
-        <select
-          aria-label={t("Espace de la catégorie")}
-          required
-          value={category.spaceId}
-          onChange={(event) =>
-            setCategory({ ...category, spaceId: event.target.value })
-          }
-        >
-          <option value="">{t("Espace…")}</option>
-          {spaces.map((space) => (
-            <option key={space.id} value={space.id}>
-              {locale === "fr" ? space.nameFr : space.nameEn}
-            </option>
-          ))}
-        </select>
-        <input
-          aria-label={t("Slug de la catégorie")}
-          required
-          placeholder="slug"
-          value={category.slug}
-          onChange={(event) =>
-            setCategory({ ...category, slug: event.target.value })
-          }
-        />
-        <input
-          aria-label={t("Nom français de la catégorie")}
-          required
-          placeholder={t("Nom français")}
-          value={category.nameFr}
-          onChange={(event) =>
-            setCategory({ ...category, nameFr: event.target.value })
-          }
-        />
-        <input
-          aria-label={t("Nom anglais de la catégorie")}
-          required
-          placeholder={t("Nom anglais")}
-          value={category.nameEn}
-          onChange={(event) =>
-            setCategory({ ...category, nameEn: event.target.value })
-          }
-        />
-        <button className="primary">
-          {editedCategoryId ? t("Enregistrer") : t("Créer")}
-        </button>
-        {editedCategoryId && (
-          <button type="button" onClick={resetCategory}>
-            {t("Annuler")}
+      <div className="content-management-heading">
+        <div>
+          <h1>{t("Espaces documentaires")}</h1>
+          <p className="lead">
+            {t("Organisez les documents par espace puis par catégorie.")}
+          </p>
+        </div>
+        <div className="content-management-actions">
+          <button
+            type="button"
+            onClick={() => {
+              setCreationMode("space");
+              setEditedCategoryId("");
+            }}
+          >
+            <Icon name="add" /> {t("Nouvel espace")}
           </button>
+          <button
+            type="button"
+            className="primary"
+            disabled={spaces.length === 0}
+            onClick={() => {
+              setCreationMode("category");
+              setEditedCategoryId("");
+              setCategory({ spaceId: "", slug: "", nameFr: "", nameEn: "" });
+            }}
+          >
+            <Icon name="add" /> {t("Nouvelle catégorie")}
+          </button>
+        </div>
+      </div>
+
+      <section className="content-summary" aria-label={t("Résumé du contenu")}>
+        <div>
+          <strong>{spaces.length}</strong>
+          <span>{t("espaces")}</span>
+        </div>
+        <div>
+          <strong>{categoryCount}</strong>
+          <span>{t("catégories")}</span>
+        </div>
+        <div>
+          <strong>{documentCount}</strong>
+          <span>{t("documents")}</span>
+        </div>
+      </section>
+
+      <div ref={editorRef}>
+        {creationMode === "space" && (
+          <form
+            className="admin-form content-editor"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              await api("/api/admin/spaces", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(form),
+              })
+                .then(async () => {
+                  setForm({ slug: "", nameFr: "", nameEn: "" });
+                  setCreationMode(null);
+                  await onChanged();
+                })
+                .catch((error) => onError(error.message));
+            }}
+          >
+            <div className="content-editor-heading">
+              <div>
+                <Icon name="folder" />
+                <h2>{t("Créer un espace")}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCreationMode(null)}
+                aria-label={t("Fermer")}
+              >
+                <Icon name="close" />
+              </button>
+            </div>
+            <label>
+              {t("Identifiant technique")}
+              <input
+                required
+                placeholder="ex: finance"
+                value={form.slug}
+                onChange={(event) =>
+                  setForm({ ...form, slug: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              {t("Nom français")}
+              <input
+                required
+                value={form.nameFr}
+                onChange={(event) =>
+                  setForm({ ...form, nameFr: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              {t("Nom anglais")}
+              <input
+                required
+                value={form.nameEn}
+                onChange={(event) =>
+                  setForm({ ...form, nameEn: event.target.value })
+                }
+              />
+            </label>
+            <div className="content-editor-actions">
+              <button type="button" onClick={() => setCreationMode(null)}>
+                {t("Annuler")}
+              </button>
+              <button className="primary">{t("Créer")}</button>
+            </div>
+          </form>
         )}
-      </form>
-      <div className="card-grid">
+        {creationMode === "category" && (
+          <form
+            className="admin-form content-editor category-editor"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const url = editedCategoryId
+                ? `/api/admin/categories/${editedCategoryId}`
+                : "/api/admin/categories";
+              await api(url, {
+                method: editedCategoryId ? "PUT" : "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(category),
+              })
+                .then(async () => {
+                  resetCategory();
+                  await onChanged();
+                })
+                .catch((error) => onError(error.message));
+            }}
+          >
+            <div className="content-editor-heading">
+              <div>
+                <Icon name="folder" />
+                <h2>
+                  {editedCategoryId
+                    ? t("Modifier la catégorie")
+                    : t("Créer une catégorie")}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={resetCategory}
+                aria-label={t("Fermer")}
+              >
+                <Icon name="close" />
+              </button>
+            </div>
+            <label>
+              {t("Espace de la catégorie")}
+              <select
+                required
+                value={category.spaceId}
+                onChange={(event) =>
+                  setCategory({ ...category, spaceId: event.target.value })
+                }
+              >
+                <option value="">{t("Espace…")}</option>
+                {spaces.map((space) => (
+                  <option key={space.id} value={space.id}>
+                    {locale === "fr" ? space.nameFr : space.nameEn}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("Identifiant technique")}
+              <input
+                required
+                placeholder="ex: procedures"
+                value={category.slug}
+                onChange={(event) =>
+                  setCategory({ ...category, slug: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              {t("Nom français de la catégorie")}
+              <input
+                required
+                value={category.nameFr}
+                onChange={(event) =>
+                  setCategory({ ...category, nameFr: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              {t("Nom anglais de la catégorie")}
+              <input
+                required
+                value={category.nameEn}
+                onChange={(event) =>
+                  setCategory({ ...category, nameEn: event.target.value })
+                }
+              />
+            </label>
+            <div className="content-editor-actions">
+              <button type="button" onClick={resetCategory}>
+                {t("Annuler")}
+              </button>
+              <button className="primary">
+                {editedCategoryId ? t("Enregistrer") : t("Créer")}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+
+      <div className="space-management-list">
         {spaces.length === 0 && (
           <EmptyState
             fr="Aucun espace documentaire n’est configuré."
@@ -1594,18 +1709,94 @@ function SpacesPanel({
           />
         )}
         {spaces.map((space) => (
-          <article className="admin-card" key={space.id}>
-            <h2>{locale === "fr" ? space.nameFr : space.nameEn}</h2>
-            <small>
-              {space.slug} · {space._count?.documents || 0} {t("documents")} ·{" "}
-              {space._count?.accessRules || 0} {t("règles")}
-            </small>
-            <ul>
+          <article className="space-management-card" key={space.id}>
+            <header>
+              <span className="space-management-icon">
+                <Icon name="folder" />
+              </span>
+              <div className="space-management-title">
+                <h2>{locale === "fr" ? space.nameFr : space.nameEn}</h2>
+                <code>{space.slug}</code>
+              </div>
+              <div className="space-management-counts">
+                <span>
+                  <strong>{space._count?.documents || 0}</strong>{" "}
+                  {t("documents")}
+                </span>
+                <span>
+                  <strong>{space.categories?.length || 0}</strong>{" "}
+                  {t("catégories")}
+                </span>
+                <span>
+                  <strong>{space._count?.accessRules || 0}</strong>{" "}
+                  {t("règles")}
+                </span>
+              </div>
+              <div className="space-management-header-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreationMode("category");
+                    setEditedCategoryId("");
+                    setCategory({
+                      spaceId: space.id,
+                      slug: "",
+                      nameFr: "",
+                      nameEn: "",
+                    });
+                    requestAnimationFrame(() =>
+                      editorRef.current?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                      }),
+                    );
+                  }}
+                >
+                  <Icon name="add" /> {t("Ajouter une catégorie")}
+                </button>
+                <button
+                  className="danger"
+                  onClick={async () => {
+                    if (
+                      await confirmAction(
+                        t(
+                          `Archiver ${space.nameFr} ?`,
+                          `Archive ${space.nameEn}?`,
+                        ),
+                      )
+                    )
+                      await api(`/api/admin/spaces/${space.id}`, {
+                        method: "DELETE",
+                      })
+                        .then(onChanged)
+                        .catch((error) => onError(error.message));
+                  }}
+                >
+                  <Icon name="archive" />
+                  <span>{t("Archiver")}</span>
+                </button>
+              </div>
+            </header>
+            <div className="space-category-list">
+              {!space.categories?.length && (
+                <EmptyState
+                  compact
+                  fr="Aucune catégorie dans cet espace."
+                  en="No category in this space."
+                />
+              )}
               {space.categories?.map((item) => (
-                <li key={item.id}>
-                  <span>
-                    {item.nameFr} / {item.nameEn} <small>{item.slug}</small>
+                <div className="space-category-row" key={item.id}>
+                  <span className="space-category-icon">
+                    <Icon name="folder" />
                   </span>
+                  <span className="space-category-name">
+                    <strong>
+                      {locale === "fr" ? item.nameFr : item.nameEn}
+                    </strong>
+                    <small>{locale === "fr" ? item.nameEn : item.nameFr}</small>
+                  </span>
+                  <code>{item.slug}</code>
                   <span className="button-row">
                     <button
                       type="button"
@@ -1617,7 +1808,13 @@ function SpacesPanel({
                           nameFr: item.nameFr,
                           nameEn: item.nameEn,
                         });
-                        window.scrollTo({ top: 0, behavior: "smooth" });
+                        setCreationMode("category");
+                        requestAnimationFrame(() =>
+                          editorRef.current?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "center",
+                          }),
+                        );
                       }}
                     >
                       {t("Modifier")}
@@ -1648,26 +1845,9 @@ function SpacesPanel({
                       {t("Supprimer")}
                     </button>
                   </span>
-                </li>
+                </div>
               ))}
-            </ul>
-            <button
-              className="danger"
-              onClick={async () => {
-                if (
-                  await confirmAction(
-                    t(`Archiver ${space.nameFr} ?`, `Archive ${space.nameEn}?`),
-                  )
-                )
-                  await api(`/api/admin/spaces/${space.id}`, {
-                    method: "DELETE",
-                  })
-                    .then(onChanged)
-                    .catch((error) => onError(error.message));
-              }}
-            >
-              {t("Archiver")}
-            </button>
+            </div>
           </article>
         ))}
       </div>
