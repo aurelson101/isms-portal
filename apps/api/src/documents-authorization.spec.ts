@@ -15,9 +15,9 @@ describe("DocumentsController ACL scoping", () => {
     document: { count, findMany },
     $queryRaw: queryRaw,
   } as unknown as PrismaService;
-  const permittedSpaces = vi.fn();
+  const permittedSpacesFor = vi.fn();
   const authorization = {
-    permittedSpaces,
+    permittedSpacesFor,
   } as unknown as AuthorizationService;
   const controller = new DocumentsController(
     prisma,
@@ -40,15 +40,22 @@ describe("DocumentsController ACL scoping", () => {
     count.mockClear();
     findMany.mockClear();
     queryRaw.mockReset().mockResolvedValue([]);
-    permittedSpaces.mockReset();
+    permittedSpacesFor.mockReset();
   });
 
   const grant = (
     permissions: Partial<Record<Permission, Array<typeof general>>>,
   ) => {
-    permittedSpaces.mockImplementation(
-      (_groups: string[], permission: Permission) =>
-        Promise.resolve(permissions[permission] || []),
+    permittedSpacesFor.mockImplementation(
+      (_groups: string[], requested: Permission[]) =>
+        Promise.resolve(
+          new Map(
+            requested.map((permission) => [
+              permission,
+              permissions[permission] || [],
+            ]),
+          ),
+        ),
     );
   };
 

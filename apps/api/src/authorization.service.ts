@@ -30,56 +30,30 @@ export type Permission =
 export class AuthorizationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async permittedSpaces(groups: string[], permission: Permission) {
-    if (groups.length === 0) return [];
-    if (isAdminIdentity(groups)) {
-      return this.prisma.documentSpace.findMany({
-        where: { deletedAt: null },
-        include: {
-          accessRules: true,
-          categories: {
-            where: { deletedAt: null },
-            orderBy: { slug: "asc" },
-            include: {
-              _count: {
-                select: {
-                  documents: {
-                    where: { deletedAt: null, status: "PUBLISHED" },
-                  },
-                },
-              },
-            },
-          },
-        },
-        orderBy: { slug: "asc" },
-      }) as Promise<SpaceWithRule[]>;
-    }
-    return this.prisma.documentSpace.findMany({
+  async permittedSpacesFor(
+    groups: string[],
+    permissions: readonly Permission[],
+  ) {
+    const result = new Map<Permission, SpaceWithRule[]>(
+      permissions.map((permission) => [permission, []]),
+    );
+    if (groups.length === 0 || permissions.length === 0) return result;
+    const administrator = isAdminIdentity(groups);
+    const groupFilter = {
+      active: true,
+      OR: groups.map((name) => ({
+        name: { equals: name, mode: "insensitive" as const },
+      })),
+    };
+    const spaces = (await this.prisma.documentSpace.findMany({
       where: {
         deletedAt: null,
-        accessRules: {
-          some: {
-            group: {
-              active: true,
-              OR: groups.map((name) => ({
-                name: { equals: name, mode: "insensitive" as const },
-              })),
-            },
-            [permission]: true,
-          },
-        },
+        ...(!administrator
+          ? { accessRules: { some: { group: groupFilter } } }
+          : {}),
       },
       include: {
-        accessRules: {
-          where: {
-            group: {
-              active: true,
-              OR: groups.map((name) => ({
-                name: { equals: name, mode: "insensitive" as const },
-              })),
-            },
-          },
-        },
+        accessRules: administrator ? true : { where: { group: groupFilter } },
         categories: {
           where: { deletedAt: null },
           orderBy: { slug: "asc" },
@@ -95,7 +69,24 @@ export class AuthorizationService {
         },
       },
       orderBy: { slug: "asc" },
-    }) as Promise<SpaceWithRule[]>;
+    })) as SpaceWithRule[];
+    for (const permission of permissions) {
+      result.set(
+        permission,
+        administrator
+          ? spaces
+          : spaces.filter((space) =>
+              space.accessRules.some((rule) => rule[permission]),
+            ),
+      );
+    }
+    return result;
+  }
+
+  async permittedSpaces(groups: string[], permission: Permission) {
+    return (await this.permittedSpacesFor(groups, [permission])).get(
+      permission,
+    )!;
   }
 
   async can(groups: string[], spaceId: string, permission: Permission) {
