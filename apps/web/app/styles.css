@@ -2157,6 +2157,35 @@ h1 {
 .directory-user-results button {
   text-align: left;
 }
+.administrator-grant-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+.administrator-grant-card {
+  align-content: start;
+  margin: 0;
+  padding: 18px;
+  border: 1px solid #d5deeb;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+.administrator-grant-card h3 {
+  margin-top: 0;
+}
+.directory-user-results button {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+.administrator-grant-card small,
+.admin-account-list small {
+  display: block;
+  color: #52698d;
+  overflow-wrap: anywhere;
+}
 .health-output {
   background: #061a38;
   color: #dff7ff;
@@ -2968,6 +2997,9 @@ svg {
   .admin-account-list > div {
     align-items: stretch;
     flex-direction: column;
+  }
+  .administrator-grant-grid {
+    grid-template-columns: 1fr;
   }
   .admin-account-list button {
     width: 100%;

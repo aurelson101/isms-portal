@@ -305,6 +305,17 @@ model AdminAccount {
   @@index([source, active])
 }
 
+model AdminDirectoryGroup {
+  id                String   @id @default(uuid())
+  name              String   @unique
+  distinguishedName String   @unique
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([active, name])
+}
+
 model AdminSession {
   id             String       @id @default(uuid())
   tokenHash      String       @unique

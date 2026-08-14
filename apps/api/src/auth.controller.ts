@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -21,6 +22,7 @@ import { DirectoryService } from "./directory.service";
 import type { IsmsRequest } from "./types";
 import {
   ChangePasswordDto,
+  CreateAdminDirectoryGroupDto,
   CreateAdminDto,
   DirectoryLoginDto,
   LoginDto,
@@ -101,6 +103,85 @@ export class AdminAccountsController {
   ) {
     await this.ensurePrimary(request);
     return this.directory.searchUsers(query);
+  }
+
+  @Get("directory-groups/:query")
+  async directoryGroups(
+    @Req() request: IsmsRequest,
+    @Param("query") query: string,
+  ) {
+    await this.ensurePrimary(request);
+    return this.directory.searchGroups(query);
+  }
+
+  @Get("groups")
+  async groups(@Req() request: IsmsRequest) {
+    await this.ensurePrimary(request);
+    return this.prisma.adminDirectoryGroup.findMany({
+      orderBy: { name: "asc" },
+    });
+  }
+
+  @Post("groups")
+  async addGroup(
+    @Req() request: IsmsRequest,
+    @Body() body: CreateAdminDirectoryGroupDto,
+  ) {
+    await this.ensurePrimary(request);
+    const matches = await this.directory.searchGroups(body.name);
+    const selected = matches.find(
+      (group) =>
+        group.name.toLowerCase() === body.name.trim().toLowerCase() &&
+        group.distinguishedName.toLowerCase() ===
+          body.distinguishedName.trim().toLowerCase(),
+    );
+    if (!selected)
+      throw new BadRequestException("The AD group could not be verified");
+    const existing = await this.prisma.adminDirectoryGroup.findFirst({
+      where: {
+        OR: [
+          { name: { equals: selected.name, mode: "insensitive" } },
+          {
+            distinguishedName: {
+              equals: selected.distinguishedName,
+              mode: "insensitive",
+            },
+          },
+        ],
+      },
+      select: { id: true },
+    });
+    if (existing) throw new ConflictException("AD admin group already exists");
+    const group = await this.prisma.adminDirectoryGroup.create({
+      data: {
+        name: selected.name,
+        distinguishedName: selected.distinguishedName,
+      },
+    });
+    await this.audit.record(
+      request,
+      "admin-directory-group.create",
+      `admin-directory-group:${group.id}`,
+      "success",
+    );
+    return group;
+  }
+
+  @Delete("groups/:id")
+  async removeGroup(@Req() request: IsmsRequest, @Param("id") id: string) {
+    await this.ensurePrimary(request);
+    const group = await this.prisma.adminDirectoryGroup.findUnique({
+      where: { id },
+    });
+    if (!group) throw new NotFoundException();
+    await this.prisma.adminDirectoryGroup.delete({ where: { id } });
+    await this.audit.record(
+      request,
+      "admin-directory-group.delete",
+      `admin-directory-group:${id}`,
+      "success",
+    );
+    return { deleted: true };
   }
 
   @Get()

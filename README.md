@@ -419,6 +419,18 @@ désigne une route locale. Le repli LDAP/LDAPS reste disponible explicitement su
 `/login?local=1` ; après une déconnexion, `/login?loggedout=1` n'essaie pas de
 reconnecter immédiatement le même compte.
 
+### Administrateurs issus d'Active Directory
+
+Dans **Administration → Configuration → Comptes administrateurs**, le compte
+principal peut accorder les droits complets à un utilisateur AD précis ou à un
+groupe AD. La sélection utilise uniquement la recherche du connecteur LDAP/LDAPS
+actif et le serveur revérifie l'objet avant de l'enregistrer. Un groupe ne donne
+des droits que lorsque son nom est présent dans les appartenances réellement
+résolues pour la session ; une simple valeur envoyée depuis Internet n'est
+jamais acceptée. Le retrait d'un groupe administrateur prend effet à la requête
+suivante. Conserver au moins le compte local principal avec MFA comme accès de
+secours et réserver les groupes administrateurs à un effectif très limité.
+
 ### 3. Démarrage et contrôle
 
 Valider d’abord la fusion Compose, puis démarrer le profil SSO :
