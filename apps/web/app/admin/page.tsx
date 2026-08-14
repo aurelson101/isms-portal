@@ -3032,7 +3032,8 @@ function SettingsPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...selectedDirectoryUser,
+          username: selectedDirectoryUser.username,
+          displayName: selectedDirectoryUser.displayName,
           source: "DIRECTORY",
           justification: directoryAdminJustification.trim(),
           validUntil: directoryAdminValidUntil || undefined,

@@ -275,6 +275,7 @@ test("the generated administrator can sign in and manage the secure profile", as
     source: "DIRECTORY",
     justification: "Recette fonctionnelle",
   });
+  expect(userCreationPayload).not.toHaveProperty("email");
   await page.route(
     "**/api/admin/accounts/directory-groups/**",
     async (route) => {
