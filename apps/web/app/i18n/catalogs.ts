@@ -436,6 +436,19 @@ export const adminEnglishCatalog = {
   "Groupe administrateur ajouté.": "Administrator group added.",
   "Retirer les droits administratifs de ce groupe AD ?":
     "Remove administrator rights from this AD group?",
+  "Résumé des administrateurs": "Administrator summary",
+  "Comptes locaux": "Local accounts",
+  "Utilisateurs AD": "AD users",
+  "Groupes AD administrateurs": "AD administrator groups",
+  "Filtrer les administrateurs": "Filter administrators",
+  "Nom, identifiant ou source": "Name, identifier, or source",
+  "Compte local": "Local account",
+  "Utilisateur AD": "AD user",
+  Principal: "Primary",
+  Administrateur: "Administrator",
+  "MFA géré par l’identité": "MFA managed by identity provider",
+  "Supprimer cet administrateur ?": "Delete this administrator?",
+  "Aucun administrateur correspondant.": "No matching administrator.",
   "Tous les membres détectés de ce groupe disposeront des droits administratifs complets.":
     "Every detected member of this group will receive full administrator rights.",
   "Seul l’administrateur principal peut accorder ou retirer ces droits. Un utilisateur ou membre d’un groupe AD obtient tous les droits administratifs uniquement après authentification réussie.":

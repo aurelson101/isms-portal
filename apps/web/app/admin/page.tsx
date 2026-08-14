@@ -2871,6 +2871,22 @@ function SettingsPanel({
   const [adminGroupSuggestions, setAdminGroupSuggestions] = useState<
     DirectoryGroupSuggestion[]
   >([]);
+  const [administratorFilter, setAdministratorFilter] = useState("");
+  const filteredAccounts = useMemo(() => {
+    const query = administratorFilter.trim().toLowerCase();
+    if (!query) return accounts;
+    return accounts.filter((account) =>
+      `${account.displayName} ${account.username} ${account.source}`
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [accounts, administratorFilter]);
+  const localAdministratorCount = accounts.filter(
+    (account) => account.source === "LOCAL",
+  ).length;
+  const directoryAdministratorCount = accounts.filter(
+    (account) => account.source === "DIRECTORY",
+  ).length;
   const loadAccounts = useCallback(
     () =>
       api<typeof accounts>("/api/admin/accounts")
@@ -3085,29 +3101,81 @@ function SettingsPanel({
               "Seul l’administrateur principal peut accorder ou retirer ces droits. Un utilisateur ou membre d’un groupe AD obtient tous les droits administratifs uniquement après authentification réussie.",
             )}
           </p>
+          <div
+            className="administrator-summary"
+            aria-label={t("Résumé des administrateurs")}
+          >
+            <div>
+              <strong>{localAdministratorCount}</strong>
+              <span>{t("Comptes locaux")}</span>
+            </div>
+            <div>
+              <strong>{directoryAdministratorCount}</strong>
+              <span>{t("Utilisateurs AD")}</span>
+            </div>
+            <div>
+              <strong>{adminGroups.length}</strong>
+              <span>{t("Groupes AD administrateurs")}</span>
+            </div>
+          </div>
+          <label className="administrator-filter">
+            {t("Filtrer les administrateurs")}
+            <input
+              type="search"
+              value={administratorFilter}
+              onChange={(event) => setAdministratorFilter(event.target.value)}
+              placeholder={t("Nom, identifiant ou source")}
+            />
+          </label>
           <div className="admin-account-list">
-            {accounts.map((account) => (
+            {filteredAccounts.map((account) => (
               <div key={account.id}>
                 <span>
-                  <strong>{account.displayName}</strong> — {account.username} ·{" "}
-                  {account.source} · MFA {account.mfaEnabled ? "✓" : "—"}
+                  <strong>{account.displayName}</strong>
+                  <small>{account.username}</small>
+                  <span className="administrator-badges">
+                    <span>
+                      {account.source === "LOCAL"
+                        ? t("Compte local")
+                        : t("Utilisateur AD")}
+                    </span>
+                    <span>
+                      {account.primary ? t("Principal") : t("Administrateur")}
+                    </span>
+                    <span>
+                      {account.source === "LOCAL"
+                        ? `MFA ${account.mfaEnabled ? "✓" : "—"}`
+                        : t("MFA géré par l’identité")}
+                    </span>
+                  </span>
                 </span>
                 {!account.primary && (
                   <button
                     className="danger"
-                    onClick={() =>
-                      api(`/api/admin/accounts/${account.id}`, {
+                    onClick={async () => {
+                      if (
+                        !(await confirmAction(
+                          t("Supprimer cet administrateur ?"),
+                        ))
+                      )
+                        return;
+                      await api(`/api/admin/accounts/${account.id}`, {
                         method: "DELETE",
                       })
                         .then(loadAccounts)
-                        .catch((error) => onError(error.message))
-                    }
+                        .catch((error) => onError(error.message));
+                    }}
                   >
                     {t("Supprimer")}
                   </button>
                 )}
               </div>
             ))}
+            {!filteredAccounts.length && (
+              <p className="admin-empty compact">
+                {t("Aucun administrateur correspondant.")}
+              </p>
+            )}
           </div>
           <div className="administrator-grant-grid">
             <form

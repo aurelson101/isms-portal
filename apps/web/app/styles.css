@@ -2163,6 +2163,44 @@ h1 {
   gap: 16px;
   margin-top: 18px;
 }
+.administrator-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+.administrator-summary > div {
+  display: grid;
+  gap: 3px;
+  padding: 14px;
+  border: 1px solid #d5deeb;
+  border-radius: 9px;
+  background: #f8fbff;
+}
+.administrator-summary strong {
+  color: #062855;
+  font-size: 1.5rem;
+}
+.administrator-summary span {
+  color: #52698d;
+}
+.administrator-filter {
+  max-width: 520px;
+}
+.administrator-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+.administrator-badges > span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #e8f2ff;
+  color: #075bbd;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
 .administrator-grant-card {
   align-content: start;
   margin: 0;
@@ -2999,6 +3037,9 @@ svg {
     flex-direction: column;
   }
   .administrator-grant-grid {
+    grid-template-columns: 1fr;
+  }
+  .administrator-summary {
     grid-template-columns: 1fr;
   }
   .admin-account-list button {
