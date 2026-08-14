@@ -67,6 +67,7 @@ type Tab =
   | "rules"
   | "spaces"
   | "documents"
+  | "incidents"
   | "directory"
   | "certificates"
   | "audit"
@@ -199,6 +200,17 @@ type Audit = {
   result: string;
   correlationId: string;
 };
+type AnnualIncidentReport = {
+  id: string;
+  year: number;
+  totalIncidents: number;
+  criticalIncidents: number;
+  resolvedIncidents: number;
+  summary: string;
+  lessonsLearned: string | null;
+  status: "DRAFT" | "PUBLISHED";
+  updatedAt: string;
+};
 
 const tabs: Array<[Tab, IconName, string, string]> = [
   ["dashboard", "home", "Tableau de bord", "Dashboard"],
@@ -206,6 +218,7 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["rules", "rules", "Règles d’accès", "Access rules"],
   ["spaces", "folder", "Espaces documentaires", "Document spaces"],
   ["documents", "documents", "Documents", "Documents"],
+  ["incidents", "audit", "Rapports d’incidents", "Incident reports"],
   ["directory", "sync", "Synchronisation LDAP", "LDAP synchronization"],
   ["certificates", "certificate", "Certificats CA", "CA certificates"],
   ["audit", "audit", "Journal d’audit", "Audit log"],
@@ -302,6 +315,9 @@ export default function Admin() {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [connections, setConnections] = useState<DirectoryConnection[]>([]);
   const [documents, setDocuments] = useState<AdminDocument[]>([]);
+  const [incidentReports, setIncidentReports] = useState<
+    AnnualIncidentReport[]
+  >([]);
   const [audit, setAudit] = useState<Audit[]>([]);
   const [health, setHealth] = useState<Record<string, unknown> | null>(null);
   const [selectedRule, setSelectedRule] = useState<Rule | null>(null);
@@ -380,6 +396,7 @@ export default function Admin() {
         certificatesResult,
         connectionsResult,
         documentsResult,
+        incidentReportsResult,
         auditResult,
         healthResult,
       ] = await Promise.all([
@@ -390,6 +407,7 @@ export default function Admin() {
         api<Certificate[]>("/api/admin/certificates"),
         api<DirectoryConnection[]>("/api/admin/directory-connections"),
         api<AdminDocument[]>("/api/admin/documents"),
+        api<AnnualIncidentReport[]>("/api/admin/incident-reports"),
         api<{ items: Audit[] }>("/api/admin/audit?limit=100"),
         api<Record<string, unknown>>("/api/health/details"),
       ]);
@@ -400,6 +418,7 @@ export default function Admin() {
       setCertificates(certificatesResult);
       setConnections(connectionsResult);
       setDocuments(documentsResult);
+      setIncidentReports(incidentReportsResult);
       setAudit(auditResult.items);
       setHealth(healthResult);
     } catch (currentError) {
@@ -574,9 +593,9 @@ export default function Admin() {
             <nav id="admin-navigation" aria-label="Administration">
               {[
                 [t("Vue d’ensemble"), tabs.slice(0, 1)],
-                [t("Contenu et accès"), tabs.slice(1, 5)],
-                [t("Infrastructure"), tabs.slice(5, 8)],
-                [t("Système"), tabs.slice(8)],
+                [t("Contenu et accès"), tabs.slice(1, 6)],
+                [t("Infrastructure"), tabs.slice(6, 9)],
+                [t("Système"), tabs.slice(9)],
               ].map(([groupLabel, groupTabs]) => (
                 <div
                   className="admin-navigation-group"
@@ -806,6 +825,15 @@ export default function Admin() {
                     spaces={spaces}
                     onChanged={refresh}
                     onError={setError}
+                  />
+                )}
+                {tab === "incidents" && (
+                  <IncidentReportsPanel
+                    reports={incidentReports}
+                    search={search}
+                    onChanged={refresh}
+                    onError={setError}
+                    onNotice={setNotice}
                   />
                 )}
                 {tab === "directory" && (
@@ -2773,6 +2801,262 @@ function CertificatesPanel({
         ))}
       </div>
     </>
+  );
+}
+
+function IncidentReportsPanel({
+  reports,
+  search,
+  onChanged,
+  onError,
+  onNotice,
+}: {
+  reports: AnnualIncidentReport[];
+  search: string;
+  onChanged: () => Promise<void>;
+  onError: (message: string) => void;
+  onNotice: (message: string) => void;
+}) {
+  const { locale, t } = useAdminI18n();
+  const confirmAction = useContext(ConfirmContext);
+  const emptyDraft = (): Omit<AnnualIncidentReport, "id" | "updatedAt"> => ({
+    year: new Date().getFullYear(),
+    totalIncidents: 0,
+    criticalIncidents: 0,
+    resolvedIncidents: 0,
+    summary: "",
+    lessonsLearned: "",
+    status: "DRAFT",
+  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState(emptyDraft);
+  const [saving, setSaving] = useState(false);
+  const filtered = reports.filter((report) =>
+    `${report.year} ${report.summary} ${report.lessonsLearned || ""}`
+      .toLowerCase()
+      .includes(search.toLowerCase()),
+  );
+  const reset = () => {
+    setEditingId(null);
+    setDraft(emptyDraft());
+  };
+  const edit = (report: AnnualIncidentReport) => {
+    setEditingId(report.id);
+    setDraft({
+      year: report.year,
+      totalIncidents: report.totalIncidents,
+      criticalIncidents: report.criticalIncidents,
+      resolvedIncidents: report.resolvedIncidents,
+      summary: report.summary,
+      lessonsLearned: report.lessonsLearned || "",
+      status: report.status,
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api(
+        editingId
+          ? `/api/admin/incident-reports/${editingId}`
+          : "/api/admin/incident-reports",
+        {
+          method: editingId ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(draft),
+        },
+      );
+      onNotice(
+        editingId ? t("Rapport annuel mis à jour.") : t("Rapport annuel créé."),
+      );
+      reset();
+      await onChanged();
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="incident-reports-panel">
+      <h1>{t("Rapports d’incidents annuels")}</h1>
+      <p className="lead">
+        {t(
+          "Consolidez les incidents, leur résolution et les enseignements de chaque année.",
+        )}
+      </p>
+      <form
+        className="admin-form incident-report-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save();
+        }}
+      >
+        <h2>
+          {editingId ? t("Modifier le rapport") : t("Nouveau rapport annuel")}
+        </h2>
+        <div className="incident-metrics-form">
+          <label>
+            {t("Année")}
+            <input
+              type="number"
+              min="2000"
+              max="2100"
+              value={draft.year}
+              onChange={(event) =>
+                setDraft({ ...draft, year: Number(event.target.value) })
+              }
+              required
+            />
+          </label>
+          {[
+            ["totalIncidents", t("Incidents totaux")],
+            ["criticalIncidents", t("Incidents critiques")],
+            ["resolvedIncidents", t("Incidents résolus")],
+          ].map(([key, label]) => (
+            <label key={key}>
+              {label}
+              <input
+                type="number"
+                min="0"
+                max="1000000"
+                value={draft[key as keyof typeof draft] as number}
+                onChange={(event) =>
+                  setDraft({ ...draft, [key]: Number(event.target.value) })
+                }
+                required
+              />
+            </label>
+          ))}
+          <label>
+            {t("Statut")}
+            <select
+              value={draft.status}
+              onChange={(event) =>
+                setDraft({
+                  ...draft,
+                  status: event.target.value as "DRAFT" | "PUBLISHED",
+                })
+              }
+            >
+              <option value="DRAFT">{t("Brouillon")}</option>
+              <option value="PUBLISHED">{t("Publié")}</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          {t("Synthèse annuelle")}
+          <textarea
+            minLength={3}
+            maxLength={10000}
+            value={draft.summary}
+            onChange={(event) =>
+              setDraft({ ...draft, summary: event.target.value })
+            }
+            required
+          />
+        </label>
+        <label>
+          {t("Enseignements et actions d’amélioration")}
+          <textarea
+            maxLength={10000}
+            value={draft.lessonsLearned || ""}
+            onChange={(event) =>
+              setDraft({ ...draft, lessonsLearned: event.target.value })
+            }
+          />
+        </label>
+        <div className="button-row">
+          <button className="primary" disabled={saving}>
+            {saving ? t("Enregistrement…") : t("Enregistrer le rapport")}
+          </button>
+          {editingId && (
+            <button type="button" onClick={reset}>
+              {t("Annuler")}
+            </button>
+          )}
+        </div>
+      </form>
+      <div className="incident-report-list">
+        {filtered.map((report) => {
+          const resolutionRate = report.totalIncidents
+            ? Math.round(
+                (report.resolvedIncidents / report.totalIncidents) * 100,
+              )
+            : 0;
+          return (
+            <article
+              className="admin-card incident-report-card"
+              key={report.id}
+            >
+              <div className="incident-report-heading">
+                <div>
+                  <span>{t("Rapport annuel")}</span>
+                  <h2>{report.year}</h2>
+                </div>
+                <mark>{localizedStatus(locale, report.status)}</mark>
+              </div>
+              <div className="incident-report-metrics">
+                <div>
+                  <strong>{report.totalIncidents}</strong>
+                  <span>{t("Total")}</span>
+                </div>
+                <div>
+                  <strong>{report.criticalIncidents}</strong>
+                  <span>{t("Critiques")}</span>
+                </div>
+                <div>
+                  <strong>{report.resolvedIncidents}</strong>
+                  <span>{t("Résolus")}</span>
+                </div>
+                <div>
+                  <strong>{resolutionRate}%</strong>
+                  <span>{t("Taux de résolution")}</span>
+                </div>
+              </div>
+              <p>{report.summary}</p>
+              {report.lessonsLearned && (
+                <p>
+                  <strong>{t("Enseignements")} :</strong>{" "}
+                  {report.lessonsLearned}
+                </p>
+              )}
+              <small>
+                {t("Dernière mise à jour")} :{" "}
+                {new Date(report.updatedAt).toLocaleString(locale)}
+              </small>
+              <div className="button-row">
+                <button onClick={() => edit(report)}>{t("Modifier")}</button>
+                <button
+                  className="danger"
+                  onClick={async () => {
+                    if (
+                      !(await confirmAction(t("Supprimer ce rapport annuel ?")))
+                    )
+                      return;
+                    await api(`/api/admin/incident-reports/${report.id}`, {
+                      method: "DELETE",
+                    })
+                      .then(async () => {
+                        if (editingId === report.id) reset();
+                        onNotice(t("Rapport annuel supprimé."));
+                        await onChanged();
+                      })
+                      .catch((error) => onError(error.message));
+                  }}
+                >
+                  {t("Supprimer")}
+                </button>
+              </div>
+            </article>
+          );
+        })}
+        {!filtered.length && (
+          <p className="admin-empty">{t("Aucun rapport annuel.")}</p>
+        )}
+      </div>
+    </div>
   );
 }
 

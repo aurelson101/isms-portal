@@ -340,6 +340,21 @@ model AdminSession {
   @@index([expiresAt])
 }
 
+model AnnualIncidentReport {
+  id                 String   @id @default(uuid())
+  year               Int      @unique
+  totalIncidents     Int
+  criticalIncidents  Int
+  resolvedIncidents  Int
+  summary            String
+  lessonsLearned     String?
+  status             String   @default("DRAFT")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([status, year])
+}
+
 model AntivirusScan {
   id           String     @id @default(uuid())
   storedFileId String

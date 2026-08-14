@@ -274,6 +274,32 @@ export const portalCatalog = {
 } as const;
 
 export const adminEnglishCatalog = {
+  "Rapports d’incidents annuels": "Annual incident reports",
+  "Consolidez les incidents, leur résolution et les enseignements de chaque année.":
+    "Consolidate incidents, resolutions, and lessons learned for each year.",
+  "Modifier le rapport": "Edit report",
+  "Nouveau rapport annuel": "New annual report",
+  Année: "Year",
+  "Incidents totaux": "Total incidents",
+  "Incidents critiques": "Critical incidents",
+  "Incidents résolus": "Resolved incidents",
+  "Synthèse annuelle": "Annual summary",
+  "Enseignements et actions d’amélioration":
+    "Lessons learned and improvement actions",
+  "Enregistrer le rapport": "Save report",
+  "Rapport annuel": "Annual report",
+  Total: "Total",
+  Critiques: "Critical",
+  Résolus: "Resolved",
+  "Taux de résolution": "Resolution rate",
+  Enseignements: "Lessons learned",
+  "Dernière mise à jour": "Last updated",
+  "Supprimer ce rapport annuel ?": "Delete this annual report?",
+  "Rapport annuel créé.": "Annual report created.",
+  "Rapport annuel mis à jour.": "Annual report updated.",
+  "Rapport annuel supprimé.": "Annual report deleted.",
+  "Aucun rapport annuel.": "No annual report.",
+  "Enregistrement…": "Saving…",
   "Éditeur de règle": "Rule editor",
   "Motif de cet accès administrateur": "Reason for this administrator access",
   "Ajouter l’utilisateur sélectionné": "Add selected user",

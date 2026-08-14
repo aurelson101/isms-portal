@@ -96,6 +96,16 @@ export class AccessRuleDto {
   @IsBoolean() archive!: boolean;
 }
 
+export class AnnualIncidentReportDto {
+  @IsInt() @Min(2000) @Max(2100) year!: number;
+  @IsInt() @Min(0) @Max(1000000) totalIncidents!: number;
+  @IsInt() @Min(0) @Max(1000000) criticalIncidents!: number;
+  @IsInt() @Min(0) @Max(1000000) resolvedIncidents!: number;
+  @IsString() @MinLength(3) @MaxLength(10000) summary!: string;
+  @IsOptional() @IsString() @MaxLength(10000) lessonsLearned?: string;
+  @IsIn(["DRAFT", "PUBLISHED"]) status!: "DRAFT" | "PUBLISHED";
+}
+
 export class DocumentMetadataDto {
   @IsIn(["fr", "en"])
   locale!: "fr" | "en";
