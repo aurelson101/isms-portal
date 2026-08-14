@@ -48,6 +48,9 @@ for (const viewport of viewports) {
       .locator("header")
       .getByRole("button", { name: "FR", exact: true })
       .click();
+    if (viewport.width <= 900) {
+      await page.getByRole("button", { name: "Ouvrir la navigation" }).click();
+    }
     await page
       .locator("aside .category-submenu")
       .first()

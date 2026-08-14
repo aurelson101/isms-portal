@@ -325,6 +325,7 @@ export default function Admin() {
   } | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [navigationOpen, setNavigationOpen] = useState(false);
   const t = (fr: string, en?: string) =>
     locale === "fr"
       ? fr
@@ -424,6 +425,13 @@ export default function Admin() {
     void refresh();
   }, [refresh]);
   useEffect(() => {
+    const closeNavigation = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNavigationOpen(false);
+    };
+    window.addEventListener("keydown", closeNavigation);
+    return () => window.removeEventListener("keydown", closeNavigation);
+  }, []);
+  useEffect(() => {
     const checkSession = async () => {
       const response = await fetch("/api/admin/check", {
         cache: "no-store",
@@ -450,6 +458,7 @@ export default function Admin() {
   }, []);
   const selectTab = (next: Tab) => {
     setTab(next);
+    setNavigationOpen(false);
     setError("");
     setNotice("");
     window.history.replaceState(null, "", `/admin#${next}`);
@@ -528,28 +537,55 @@ export default function Admin() {
     <AdminLocaleContext.Provider value={locale}>
       <ConfirmContext.Provider value={confirmAction}>
         <div className="admin-shell">
-          <aside>
-            <div className="brand">
-              <div className="shield">
-                <Icon name="shield" />
+          <aside className={navigationOpen ? "navigation-open" : ""}>
+            <div className="sidebar-heading">
+              <div className="brand">
+                <div className="shield">
+                  <Icon name="shield" />
+                </div>
+                <div>
+                  <strong>ISMS Portal</strong>
+                  <small>{t("Administration sécurisée")}</small>
+                </div>
               </div>
-              <div>
-                <strong>ISMS Portal</strong>
-                <small>{t("Administration sécurisée")}</small>
-              </div>
+              <button
+                type="button"
+                className="navigation-toggle"
+                aria-controls="admin-navigation"
+                aria-expanded={navigationOpen}
+                aria-label={t("Afficher la navigation")}
+                onClick={() => setNavigationOpen((current) => !current)}
+              >
+                <Icon name={navigationOpen ? "close" : "menu"} />
+              </button>
             </div>
-            <nav aria-label="Administration">
-              {tabs.map(([key, icon, labelFr, labelEn]) => (
-                <button
-                  type="button"
-                  aria-current={tab === key ? "page" : undefined}
-                  className={tab === key ? "active" : ""}
-                  key={key}
-                  onClick={() => selectTab(key)}
+            <nav id="admin-navigation" aria-label="Administration">
+              {[
+                [t("Vue d’ensemble"), tabs.slice(0, 1)],
+                [t("Contenu et accès"), tabs.slice(1, 5)],
+                [t("Infrastructure"), tabs.slice(5, 8)],
+                [t("Système"), tabs.slice(8)],
+              ].map(([groupLabel, groupTabs]) => (
+                <div
+                  className="admin-navigation-group"
+                  key={groupLabel as string}
                 >
-                  <Icon name={icon} />{" "}
-                  <span>{locale === "fr" ? labelFr : labelEn}</span>
-                </button>
+                  <strong>{groupLabel as string}</strong>
+                  {(groupTabs as typeof tabs).map(
+                    ([key, icon, labelFr, labelEn]) => (
+                      <button
+                        type="button"
+                        aria-current={tab === key ? "page" : undefined}
+                        className={tab === key ? "active" : ""}
+                        key={key}
+                        onClick={() => selectTab(key)}
+                      >
+                        <Icon name={icon} />{" "}
+                        <span>{locale === "fr" ? labelFr : labelEn}</span>
+                      </button>
+                    ),
+                  )}
+                </div>
               ))}
             </nav>
             <a className="back-link" href="/">
@@ -719,7 +755,10 @@ export default function Admin() {
             ) : (
               <>
                 {tab === "dashboard" && (
-                  <DashboardPanel dashboard={dashboard} />
+                  <DashboardPanel
+                    dashboard={dashboard}
+                    onNavigate={selectTab}
+                  />
                 )}
                 {tab === "groups" && (
                   <GroupsPanel
@@ -1008,7 +1047,13 @@ function EmptyState({
   );
 }
 
-function DashboardPanel({ dashboard }: { dashboard: Dashboard | null }) {
+function DashboardPanel({
+  dashboard,
+  onNavigate,
+}: {
+  dashboard: Dashboard | null;
+  onNavigate: (tab: Tab) => void;
+}) {
   const { t } = useAdminI18n();
   const stats = [
     [t("Groupes AD synchronisés"), dashboard?.groups ?? 0],
@@ -1029,6 +1074,26 @@ function DashboardPanel({ dashboard }: { dashboard: Dashboard | null }) {
           </article>
         ))}
       </div>
+      <section
+        className="dashboard-shortcuts"
+        aria-labelledby="shortcuts-title"
+      >
+        <div>
+          <h2 id="shortcuts-title">{t("Actions fréquentes")}</h2>
+          <p>{t("Accédez directement aux principales gestions ISMS.")}</p>
+        </div>
+        <div>
+          <button type="button" onClick={() => onNavigate("documents")}>
+            <Icon name="documents" /> {t("Gérer les documents")}
+          </button>
+          <button type="button" onClick={() => onNavigate("rules")}>
+            <Icon name="rules" /> {t("Gérer les accès")}
+          </button>
+          <button type="button" onClick={() => onNavigate("directory")}>
+            <Icon name="sync" /> {t("Synchroniser l’annuaire")}
+          </button>
+        </div>
+      </section>
     </>
   );
 }

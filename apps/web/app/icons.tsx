@@ -26,7 +26,10 @@ export type IconName =
   | "publish"
   | "archive"
   | "restore"
-  | "delete";
+  | "delete"
+  | "menu"
+  | "close"
+  | "chevron";
 
 export function Icon({
   name,
@@ -181,6 +184,17 @@ export function Icon({
         <path d="M10 11v6M14 11v6" />
       </>
     ),
+    menu: (
+      <>
+        <path d="M4 7h16M4 12h16M4 17h16" />
+      </>
+    ),
+    close: (
+      <>
+        <path d="m6 6 12 12M18 6 6 18" />
+      </>
+    ),
+    chevron: <path d="m9 18 6-6-6-6" />,
   };
   return (
     <svg

@@ -24,7 +24,11 @@
     "node": ">=22"
   },
   "overrides": {
-    "postcss": "8.5.18",
+    "@nestjs/swagger@11.4.6": {
+      "js-yaml": "5.3.0"
+    },
+    "nanoid": "3.3.18",
+    "postcss": "8.5.26",
     "sharp": "0.35.0"
   },
   "knip": {

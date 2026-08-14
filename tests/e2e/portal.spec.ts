@@ -75,6 +75,50 @@ test("navigation, filtering, search and languages are functional", async ({
   ).toBeVisible();
 });
 
+test("mobile navigation stays compact and remains fully usable", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const navigation = page.getByRole("navigation", {
+    name: "Navigation principale",
+  });
+  await expect(navigation).toBeHidden();
+  await page.getByRole("button", { name: "Ouvrir la navigation" }).click();
+  await expect(navigation).toBeVisible();
+  await expect(
+    navigation.getByRole("button", { name: "Accueil", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(navigation).toBeHidden();
+});
+
+test("explorer exposes its active context and can reset all filters", async ({
+  page,
+}) => {
+  await page.goto("/explorer?space=general");
+  const context = page.getByLabel("Filtres actifs");
+  await expect(context).toContainText("Documents généraux");
+  await page.getByRole("button", { name: "Tout afficher" }).click();
+  await expect(page).toHaveURL(/\/explorer$/);
+  await expect(context).toHaveCount(0);
+});
+
+test("admin mobile navigation is grouped and collapsible", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/admin");
+  const navigation = page.getByRole("navigation", { name: "Administration" });
+  await expect(navigation).toBeHidden();
+  await page.getByRole("button", { name: "Afficher la navigation" }).click();
+  await expect(navigation).toBeVisible();
+  await expect(navigation.getByText("Contenu et accès")).toBeVisible();
+  await navigation.getByRole("button", { name: /Documents$/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Documents", exact: true }),
+  ).toBeVisible();
+  await expect(navigation).toBeHidden();
+});
+
 test("document preview and binary download work", async ({ page, request }) => {
   await page.goto("/explorer?category=policies");
   await page
@@ -674,6 +718,7 @@ test("an administrator can search and select a live AD group", async ({
 test("portal and administration remain usable on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
+  await page.getByRole("button", { name: "Ouvrir la navigation" }).click();
   await expect(page.locator("aside nav")).toBeVisible();
   await expect(page.locator("aside nav svg")).toHaveCount(9);
   await page
@@ -693,6 +738,7 @@ test("portal and administration remain usable on mobile", async ({ page }) => {
 
   await page.goto("/admin");
   await expect(page.locator(".admin-shell > aside")).toBeVisible();
+  await page.getByRole("button", { name: "Afficher la navigation" }).click();
   await page.locator("aside").getByText("Documents", { exact: true }).click();
   await expect(page).toHaveURL(/#documents/);
   expect(

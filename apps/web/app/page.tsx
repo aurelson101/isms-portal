@@ -279,7 +279,14 @@ function DocumentRows({
   viewMode?: ViewMode;
 }) {
   const t = copy[locale];
-  if (documents.length === 0) return <p className="empty-state">{t.empty}</p>;
+  if (documents.length === 0)
+    return (
+      <div className="empty-state" role="status">
+        <Icon name="folder" />
+        <strong>{t.empty}</strong>
+        <span>{t.emptyHint}</span>
+      </div>
+    );
   return (
     <section
       className={`documents ${viewMode === "grid" ? "document-grid" : "document-list"}`}
@@ -324,66 +331,70 @@ function DocumentRows({
                 </button>
               ))}
             </span>
-            <button
-              onClick={() => onOpen(document)}
-              disabled={!document.permissions.preview}
-            >
-              {t.open}
-            </button>
-            {selected && document.permissions.download ? (
-              <a
-                className="download"
-                href={`/api/documents/${document.id}/download?locale=${selected}`}
-                aria-label={t.download}
+            <span className="document-row-actions">
+              <button
+                className="document-open"
+                onClick={() => onOpen(document)}
+                disabled={!document.permissions.preview}
               >
-                <Icon name="download" />
-              </a>
-            ) : (
-              <button className="download" disabled>
-                <Icon name="download" />
+                {t.open}
               </button>
-            )}
-            {(document.permissions.edit ||
-              document.permissions.publish ||
-              document.permissions.archive) && (
-              <span
-                className="document-manage-actions"
-                aria-label={t.permissionsGranted}
-              >
-                {document.permissions.edit && (
-                  <button type="button" onClick={() => onEdit(document)}>
-                    {t.edit}
-                  </button>
-                )}
-                {document.permissions.publish &&
-                  document.status !== "PUBLISHED" && (
-                    <button
-                      type="button"
-                      onClick={() => onTransition(document, "publish")}
-                    >
-                      {t.publish}
+              {selected && document.permissions.download ? (
+                <a
+                  className="download"
+                  href={`/api/documents/${document.id}/download?locale=${selected}`}
+                  aria-label={t.download}
+                  title={t.download}
+                >
+                  <Icon name="download" />
+                </a>
+              ) : (
+                <button className="download" disabled aria-label={t.download}>
+                  <Icon name="download" />
+                </button>
+              )}
+              {(document.permissions.edit ||
+                document.permissions.publish ||
+                document.permissions.archive) && (
+                <span
+                  className="document-manage-actions"
+                  aria-label={t.permissionsGranted}
+                >
+                  {document.permissions.edit && (
+                    <button type="button" onClick={() => onEdit(document)}>
+                      {t.edit}
                     </button>
                   )}
-                {document.permissions.archive &&
-                  document.status !== "ARCHIVED" && (
-                    <button
-                      type="button"
-                      onClick={() => onTransition(document, "archive")}
-                    >
-                      {t.archive}
-                    </button>
-                  )}
-                {document.permissions.archive &&
-                  document.status === "ARCHIVED" && (
-                    <button
-                      type="button"
-                      onClick={() => onTransition(document, "restore")}
-                    >
-                      {t.restore}
-                    </button>
-                  )}
-              </span>
-            )}
+                  {document.permissions.publish &&
+                    document.status !== "PUBLISHED" && (
+                      <button
+                        type="button"
+                        onClick={() => onTransition(document, "publish")}
+                      >
+                        {t.publish}
+                      </button>
+                    )}
+                  {document.permissions.archive &&
+                    document.status !== "ARCHIVED" && (
+                      <button
+                        type="button"
+                        onClick={() => onTransition(document, "archive")}
+                      >
+                        {t.archive}
+                      </button>
+                    )}
+                  {document.permissions.archive &&
+                    document.status === "ARCHIVED" && (
+                      <button
+                        type="button"
+                        onClick={() => onTransition(document, "restore")}
+                      >
+                        {t.restore}
+                      </button>
+                    )}
+                </span>
+              )}
+            </span>
             {!available.includes(locale) && <small>{t.unavailable}</small>}
           </div>
         );
@@ -416,6 +427,7 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [viewerExpanded, setViewerExpanded] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [navigationOpen, setNavigationOpen] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const loadDocuments = useCallback(
@@ -484,6 +496,14 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
     }
     const savedView = localStorage.getItem("isms-document-view");
     if (savedView === "grid" || savedView === "list") setViewMode(savedView);
+  }, []);
+
+  useEffect(() => {
+    const closeNavigation = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNavigationOpen(false);
+    };
+    window.addEventListener("keydown", closeNavigation);
+    return () => window.removeEventListener("keydown", closeNavigation);
   }, []);
 
   useEffect(() => {
@@ -615,6 +635,13 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
   const selectHome = () => {
     window.location.assign("/");
   };
+  const clearFilters = () => {
+    setQuery("");
+    setCategory("");
+    setSpace("");
+    setPage(1);
+    window.history.replaceState(null, "", "/explorer");
+  };
   const changePage = (next: number) => {
     const target = Math.min(Math.max(1, next), Math.max(1, totalPages));
     setPage(target);
@@ -658,17 +685,29 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
 
   return (
     <div className="shell">
-      <aside>
-        <div className="brand">
-          <div className="shield">
-            <Icon name="shield" />
+      <aside className={navigationOpen ? "navigation-open" : ""}>
+        <div className="sidebar-heading">
+          <div className="brand">
+            <div className="shield">
+              <Icon name="shield" />
+            </div>
+            <div>
+              <strong>ISMS Portal</strong>
+              <small>{t.systemName}</small>
+            </div>
           </div>
-          <div>
-            <strong>ISMS Portal</strong>
-            <small>{t.systemName}</small>
-          </div>
+          <button
+            type="button"
+            className="navigation-toggle"
+            aria-controls="portal-navigation"
+            aria-expanded={navigationOpen}
+            aria-label={navigationOpen ? t.closeNavigation : t.openNavigation}
+            onClick={() => setNavigationOpen((current) => !current)}
+          >
+            <Icon name={navigationOpen ? "close" : "menu"} />
+          </button>
         </div>
-        <nav aria-label={t.navigation}>
+        <nav id="portal-navigation" aria-label={t.navigation}>
           <button
             type="button"
             className={!explorerMode ? "active" : ""}
@@ -876,54 +915,86 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
             placeholder={t.search}
             aria-label={t.search}
           />
+          {query && (
+            <button
+              className="search-clear"
+              aria-label={t.clearSearch}
+              title={t.clearSearch}
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setPage(1);
+              }}
+            >
+              <Icon name="close" />
+            </button>
+          )}
           <button aria-label={t.search} type="submit">
             <Icon name="search" />
           </button>
         </form>
+        {explorerMode && (query || space || category) && (
+          <div className="active-context" aria-label={t.activeFilters}>
+            <div>
+              <span>{t.currentSelection}</span>
+              <strong>
+                {query
+                  ? `“${query}”`
+                  : category
+                    ? categoryLabel
+                    : selectedSpace
+                      ? locale === "fr"
+                        ? selectedSpace.nameFr
+                        : selectedSpace.nameEn
+                      : t.explorer}
+              </strong>
+            </div>
+            <button type="button" onClick={clearFilters}>
+              {t.clearFilters}
+            </button>
+          </div>
+        )}
         {!explorerMode && (
           <section className="cards" aria-label={t.spaces}>
-            {identity?.spaces.flatMap((item) =>
-              populatedCategories(item).map((itemCategory) => (
-                <article key={itemCategory.id}>
-                  <div className="card-icon">
-                    <Icon name="folder" />
-                  </div>
-                  <h2>
-                    {locale === "fr"
-                      ? itemCategory.nameFr
-                      : itemCategory.nameEn}
-                  </h2>
-                  <p>
-                    {locale === "fr"
-                      ? "Documents autorisés dans cette catégorie"
-                      : "Authorized documents in this category"}
-                  </p>
-                  <button
-                    onClick={() => selectCategory(item.slug, itemCategory.id)}
-                  >
-                    {t.consult}
-                  </button>
-                </article>
-              )),
-            )}
-            {identity?.spaces
-              .filter((item) => item.slug !== "general")
-              .map((item) => (
-                <article className="access" key={item.id}>
+            {identity?.spaces.map((item) => {
+              const categories = populatedCategories(item);
+              const count = categories.reduce(
+                (sum, itemCategory) => sum + (itemCategory.documentCount || 0),
+                0,
+              );
+              return (
+                <article className="space-card" key={item.id}>
                   <div className="card-icon">
                     <Icon name="folder" />
                   </div>
                   <h2>{locale === "fr" ? item.nameFr : item.nameEn}</h2>
-                  <p>
-                    {locale === "fr"
-                      ? "Accessible selon vos autorisations"
-                      : "Available through your permissions"}
+                  <p className="space-card-count">
+                    {count} {count === 1 ? t.documentCountOne : t.documentCount}
                   </p>
+                  {categories.length > 0 && (
+                    <div className="category-links">
+                      {categories.slice(0, 4).map((itemCategory) => (
+                        <button
+                          type="button"
+                          key={itemCategory.id}
+                          onClick={() =>
+                            selectCategory(item.slug, itemCategory.id)
+                          }
+                        >
+                          {locale === "fr"
+                            ? itemCategory.nameFr
+                            : itemCategory.nameEn}
+                          <span>{itemCategory.documentCount || 0}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <button type="button" onClick={() => selectSpace(item.slug)}>
-                    {t.consult}
+                    {t.browseSpace} <Icon name="chevron" />
                   </button>
                 </article>
-              ))}
+              );
+            })}
           </section>
         )}
         {explorerMode && (
@@ -1018,25 +1089,30 @@ export function Portal({ explorerMode = false }: { explorerMode?: boolean }) {
                     {actionError}
                   </p>
                 )}
-                <nav className="document-pagination" aria-label={t.pagination}>
-                  <button
-                    type="button"
-                    disabled={page <= 1}
-                    onClick={() => changePage(page - 1)}
+                {totalPages > 1 && (
+                  <nav
+                    className="document-pagination"
+                    aria-label={t.pagination}
                   >
-                    ← {t.previous}
-                  </button>
-                  <span aria-live="polite">
-                    {t.page} {page} {t.of} {Math.max(1, totalPages)}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={page >= totalPages}
-                    onClick={() => changePage(page + 1)}
-                  >
-                    {t.next} →
-                  </button>
-                </nav>
+                    <button
+                      type="button"
+                      disabled={page <= 1}
+                      onClick={() => changePage(page - 1)}
+                    >
+                      ← {t.previous}
+                    </button>
+                    <span aria-live="polite">
+                      {t.page} {page} {t.of} {Math.max(1, totalPages)}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={page >= totalPages}
+                      onClick={() => changePage(page + 1)}
+                    >
+                      {t.next} →
+                    </button>
+                  </nav>
+                )}
               </>
             )}
           </div>
