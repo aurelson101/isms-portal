@@ -96,6 +96,18 @@ export class AdminAccountsController {
       );
   }
 
+  private lifecycle(validUntil?: string) {
+    const expiry = validUntil ? new Date(validUntil) : null;
+    if (expiry && expiry <= new Date())
+      throw new BadRequestException("Privilege expiry must be in the future");
+    const reviewedAt = new Date();
+    return {
+      validUntil: expiry,
+      lastReviewedAt: reviewedAt,
+      reviewDueAt: new Date(reviewedAt.getTime() + 180 * 24 * 60 * 60 * 1000),
+    };
+  }
+
   @Get("directory-users/:query")
   async directoryUsers(
     @Req() request: IsmsRequest,
@@ -156,6 +168,8 @@ export class AdminAccountsController {
       data: {
         name: selected.name,
         distinguishedName: selected.distinguishedName,
+        justification: body.justification.trim(),
+        ...this.lifecycle(body.validUntil),
       },
     });
     await this.audit.record(
@@ -184,6 +198,26 @@ export class AdminAccountsController {
     return { deleted: true };
   }
 
+  @Put("groups/:id/review")
+  async reviewGroup(@Req() request: IsmsRequest, @Param("id") id: string) {
+    await this.ensurePrimary(request);
+    const reviewedAt = new Date();
+    const group = await this.prisma.adminDirectoryGroup.update({
+      where: { id },
+      data: {
+        lastReviewedAt: reviewedAt,
+        reviewDueAt: new Date(reviewedAt.getTime() + 180 * 24 * 60 * 60 * 1000),
+      },
+    });
+    await this.audit.record(
+      request,
+      "admin-directory-group.review",
+      `admin-directory-group:${id}`,
+      "success",
+    );
+    return group;
+  }
+
   @Get()
   list() {
     return this.prisma.adminAccount.findMany({
@@ -196,6 +230,11 @@ export class AdminAccountsController {
         mfaEnabled: true,
         active: true,
         primary: true,
+        justification: true,
+        validUntil: true,
+        lastAuthorizedAt: true,
+        lastReviewedAt: true,
+        reviewDueAt: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -213,6 +252,8 @@ export class AdminAccountsController {
         username: body.username.trim(),
         displayName: body.displayName.trim(),
         source: body.source,
+        justification: body.justification.trim(),
+        ...this.lifecycle(body.validUntil),
         passwordHash:
           body.source === "LOCAL"
             ? await this.auth.hashPassword(body.password!)
@@ -235,6 +276,62 @@ export class AdminAccountsController {
       "success",
     );
     return account;
+  }
+
+  @Put(":id/review")
+  async reviewAccount(@Req() request: IsmsRequest, @Param("id") id: string) {
+    await this.ensurePrimary(request);
+    const reviewedAt = new Date();
+    const account = await this.prisma.adminAccount.update({
+      where: { id },
+      data: {
+        lastReviewedAt: reviewedAt,
+        reviewDueAt: new Date(reviewedAt.getTime() + 180 * 24 * 60 * 60 * 1000),
+      },
+    });
+    await this.audit.record(
+      request,
+      "admin-account.review",
+      `admin:${id}`,
+      "success",
+    );
+    return account;
+  }
+
+  @Get("sessions/active")
+  async sessions(@Req() request: IsmsRequest) {
+    await this.ensurePrimary(request);
+    return this.prisma.adminSession.findMany({
+      where: { expiresAt: { gt: new Date() } },
+      select: {
+        id: true,
+        createdAt: true,
+        lastUsedAt: true,
+        expiresAt: true,
+        adminAccount: {
+          select: { username: true, displayName: true, source: true },
+        },
+      },
+      orderBy: { lastUsedAt: "desc" },
+    });
+  }
+
+  @Delete("sessions/:id")
+  async revokeSession(@Req() request: IsmsRequest, @Param("id") id: string) {
+    await this.ensurePrimary(request);
+    const session = await this.prisma.adminSession.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!session) throw new NotFoundException();
+    await this.prisma.adminSession.delete({ where: { id } });
+    await this.audit.record(
+      request,
+      "admin-session.revoke",
+      `admin-session:${id}`,
+      "success",
+    );
+    return { revoked: true };
   }
 
   @Put("me/profile")

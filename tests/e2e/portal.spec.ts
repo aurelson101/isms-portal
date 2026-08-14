@@ -626,11 +626,16 @@ test("successful asynchronous forms reset without losing their element", async (
     await accountForm
       .locator('input[name="password"]')
       .fill(`Aa9!reset-${suffix}-Strong`);
+    await accountForm
+      .locator('textarea[name="justification"]')
+      .fill("Functional test administrator");
     await accountForm.getByRole("button", { name: "Ajouter" }).click();
     await expect(accountForm.locator('input[name="username"]')).toHaveValue("");
     await expect(
-      page.getByText(`${adminDisplayName} — ${adminUsername}`),
-    ).toBeVisible();
+      page
+        .locator(".admin-account-list > div")
+        .filter({ hasText: adminDisplayName }),
+    ).toContainText(adminUsername);
   } finally {
     const accounts = (await (
       await request.get("/api/admin/accounts")

@@ -261,6 +261,7 @@ describe("AuthService directory sessions", () => {
   it("grants administration only when a configured AD admin group matches", async () => {
     const adminDirectoryGroup = {
       findFirst: vi.fn().mockResolvedValue({ id: "admin-group-1" }),
+      update: vi.fn().mockResolvedValue({ id: "admin-group-1" }),
     };
     const service = new AuthService(
       {
@@ -283,6 +284,14 @@ describe("AuthService directory sessions", () => {
     expect(adminDirectoryGroup.findFirst).toHaveBeenCalledWith({
       where: {
         active: true,
+        AND: [
+          {
+            OR: [
+              { validUntil: null },
+              { validUntil: { gt: expect.any(Date) } },
+            ],
+          },
+        ],
         OR: [
           {
             name: {

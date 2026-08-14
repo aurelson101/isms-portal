@@ -61,6 +61,16 @@ const totp = (secret: string, timestamp = Date.now()) => {
 
 @Injectable()
 export class AuthService implements OnModuleInit {
+  private readonly authorizationTouchIntervalMs = 5 * 60 * 1000;
+
+  private authorizationTouchDue(lastAuthorizedAt?: Date | null) {
+    return (
+      !lastAuthorizedAt ||
+      Date.now() - lastAuthorizedAt.getTime() >=
+        this.authorizationTouchIntervalMs
+    );
+  }
+
   private readonly logger = new Logger(AuthService.name);
   private readonly ssoDirectoryCache = new Map<
     string,
@@ -203,12 +213,22 @@ export class AuthService implements OnModuleInit {
       if (
         session &&
         session.expiresAt > new Date() &&
-        session.adminAccount.active
+        session.adminAccount.active &&
+        (!session.adminAccount.validUntil ||
+          session.adminAccount.validUntil > new Date())
       ) {
-        await this.prisma.adminSession.update({
-          where: { id: session.id },
-          data: { lastUsedAt: new Date() },
-        });
+        await Promise.all([
+          this.prisma.adminSession.update({
+            where: { id: session.id },
+            data: { lastUsedAt: new Date() },
+          }),
+          this.authorizationTouchDue(session.adminAccount.lastAuthorizedAt)
+            ? this.prisma.adminAccount.update({
+                where: { id: session.adminAccount.id },
+                data: { lastAuthorizedAt: new Date() },
+              })
+            : Promise.resolve(),
+        ]);
         return {
           username: session.adminAccount.username,
           displayName: session.adminAccount.displayName,
@@ -249,12 +269,21 @@ export class AuthService implements OnModuleInit {
           },
           source: "DIRECTORY",
           active: true,
+          OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
         },
       }),
       enrichedIdentity.groups.length
         ? this.prisma.adminDirectoryGroup.findFirst({
             where: {
               active: true,
+              AND: [
+                {
+                  OR: [
+                    { validUntil: null },
+                    { validUntil: { gt: new Date() } },
+                  ],
+                },
+              ],
               OR: enrichedIdentity.groups.map((name) => ({
                 name: { equals: name, mode: "insensitive" as const },
               })),
@@ -262,6 +291,23 @@ export class AuthService implements OnModuleInit {
           })
         : Promise.resolve(null),
     ]);
+    if (account || administratorGroup) {
+      await Promise.all([
+        account && this.authorizationTouchDue(account.lastAuthorizedAt)
+          ? this.prisma.adminAccount.update({
+              where: { id: account.id },
+              data: { lastAuthorizedAt: new Date() },
+            })
+          : Promise.resolve(),
+        administratorGroup &&
+        this.authorizationTouchDue(administratorGroup.lastAuthorizedAt)
+          ? this.prisma.adminDirectoryGroup.update({
+              where: { id: administratorGroup.id },
+              data: { lastAuthorizedAt: new Date() },
+            })
+          : Promise.resolve(),
+      ]);
+    }
     return account || administratorGroup
       ? {
           ...enrichedIdentity,
@@ -342,6 +388,7 @@ export class AuthService implements OnModuleInit {
     const valid =
       account?.source === "LOCAL" &&
       account.active &&
+      (!account.validUntil || account.validUntil > new Date()) &&
       (await this.verifyPassword(password, account.passwordHash));
     if (!valid) {
       if (account) {
