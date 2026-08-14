@@ -2764,7 +2764,7 @@ function AuditPanel({ events }: { events: Audit[] }) {
           <h1>{t("Journal d’audit")}</h1>
           <p className="lead">{t("Événements UTC sans secrets.")}</p>
           <small className="retention-note">
-            {t("Conservation automatique des 20 événements les plus récents.")}
+            {t("Conservation automatique des 50 événements les plus récents.")}
           </small>
         </div>
         <a href="/api/admin/audit/export?format=csv">{t("Exporter CSV")}</a>
