@@ -14,6 +14,56 @@ test("the main sign-in page only exposes the user credentials form", async ({
   await expect(page.getByText("Compte Active Directory")).toHaveCount(0);
 });
 
+test("the user sign-in page automatically detects an existing SSO session", async ({
+  page,
+}) => {
+  await page.route("**/api/auth/config", (route) =>
+    route.fulfill({
+      json: {
+        directoryLoginEnabled: true,
+        ssoEnabled: true,
+        ssoLoginUrl: "/oauth2/start?rd=/",
+      },
+    }),
+  );
+  const ssoRequest = page.waitForRequest((request) =>
+    request.url().includes("/oauth2/start"),
+  );
+  await page.goto("/login?return=/explorer");
+  expect(new URL((await ssoRequest).url()).searchParams.get("rd")).toBe(
+    "/explorer",
+  );
+});
+
+test("local sign-in and signed-out pages do not immediately restart SSO", async ({
+  page,
+}) => {
+  await page.route("**/api/auth/config", (route) =>
+    route.fulfill({
+      json: {
+        directoryLoginEnabled: true,
+        ssoEnabled: true,
+        ssoLoginUrl: "/oauth2/start?rd=/",
+      },
+    }),
+  );
+  let ssoRequests = 0;
+  await page.route("**/oauth2/start**", (route) => {
+    ssoRequests += 1;
+    return route.abort();
+  });
+
+  await page.goto("/login?local=1");
+  await page.getByRole("button", { name: "FR", exact: true }).click();
+  await expect(page.getByLabel("Identifiant", { exact: true })).toBeVisible();
+  await page.goto("/login?loggedout=1");
+  await page.getByRole("button", { name: "FR", exact: true }).click();
+  await expect(
+    page.getByText("Vous êtes maintenant déconnecté."),
+  ).toBeVisible();
+  expect(ssoRequests).toBe(0);
+});
+
 test("the user profile lists groups recognized by the application", async ({
   page,
 }) => {
