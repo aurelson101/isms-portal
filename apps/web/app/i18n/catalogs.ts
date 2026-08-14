@@ -136,6 +136,23 @@ export const portalCatalog = {
     file: "Fichier",
     acceptedFiles:
       "Formats acceptés : PDF, Word (.docx) et Excel (.xlsx), 50 Mo maximum.",
+    incidentReports: "Rapports d’incidents",
+    annualIncidentReports: "Rapports annuels d’incidents",
+    incidentReportsIntro:
+      "Consultez les rapports annuels publiés par votre administrateur.",
+    incidentReportsError:
+      "Les rapports d’incidents sont temporairement indisponibles.",
+    noPublishedIncidentReports: "Aucun rapport publié",
+    noPublishedIncidentReportsHint:
+      "Les rapports apparaîtront ici après leur publication par un administrateur.",
+    annualReport: "Rapport annuel",
+    totalIncidents: "Incidents totaux",
+    criticalIncidents: "Incidents critiques",
+    resolvedIncidents: "Incidents résolus",
+    resolutionRate: "Taux de résolution",
+    annualSummary: "Synthèse annuelle",
+    lessonsLearned: "Leçons apprises",
+    lastUpdated: "Mis à jour le",
   },
   en: {
     welcome: "Welcome",
@@ -270,6 +287,22 @@ export const portalCatalog = {
     file: "File",
     acceptedFiles:
       "Accepted formats: PDF, Word (.docx), and Excel (.xlsx), up to 50 MB.",
+    incidentReports: "Incident reports",
+    annualIncidentReports: "Annual incident reports",
+    incidentReportsIntro:
+      "View annual reports published by your administrator.",
+    incidentReportsError: "Incident reports are temporarily unavailable.",
+    noPublishedIncidentReports: "No published report",
+    noPublishedIncidentReportsHint:
+      "Reports will appear here after an administrator publishes them.",
+    annualReport: "Annual report",
+    totalIncidents: "Total incidents",
+    criticalIncidents: "Critical incidents",
+    resolvedIncidents: "Resolved incidents",
+    resolutionRate: "Resolution rate",
+    annualSummary: "Annual summary",
+    lessonsLearned: "Lessons learned",
+    lastUpdated: "Last updated on",
   },
 } as const;
 

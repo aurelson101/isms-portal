@@ -8,6 +8,7 @@ import {
   DocumentsController,
   HealthController,
   IdentityController,
+  IncidentReportsController,
 } from "./controllers";
 import { IdentityMiddleware } from "./identity.middleware";
 import { AdminGuard } from "./security";
@@ -28,6 +29,7 @@ import { ObservabilityService } from "./observability.service";
     HealthController,
     IdentityController,
     DocumentsController,
+    IncidentReportsController,
     AdminController,
     DocumentAdminController,
     DirectoryController,

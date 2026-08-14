@@ -941,6 +941,30 @@ export class DocumentsController {
   }
 }
 
+@ApiTags("incident-reports")
+@Controller("incident-reports")
+export class IncidentReportsController {
+  constructor(private readonly prisma: PrismaService) {}
+
+  @Get()
+  publishedReports() {
+    return this.prisma.annualIncidentReport.findMany({
+      where: { status: "PUBLISHED" },
+      select: {
+        id: true,
+        year: true,
+        totalIncidents: true,
+        criticalIncidents: true,
+        resolvedIncidents: true,
+        summary: true,
+        lessonsLearned: true,
+        updatedAt: true,
+      },
+      orderBy: { year: "desc" },
+    });
+  }
+}
+
 @ApiTags("administration")
 @AdminOnly()
 @Controller("admin")
