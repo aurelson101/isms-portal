@@ -305,6 +305,7 @@ export default function Admin() {
   const [audit, setAudit] = useState<Audit[]>([]);
   const [health, setHealth] = useState<Record<string, unknown> | null>(null);
   const [selectedRule, setSelectedRule] = useState<Rule | null>(null);
+  const [ruleEditorOpen, setRuleEditorOpen] = useState(false);
   const [ruleDraft, setRuleDraft] = useState(emptyRule());
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -466,6 +467,7 @@ export default function Admin() {
   };
   const selectRule = (rule: Rule) => {
     setSelectedRule(rule);
+    setRuleEditorOpen(true);
     setRuleDraft(
       permissionKeys.reduce((draft, key) => ({ ...draft, [key]: rule[key] }), {
         groupId: rule.groupId,
@@ -513,6 +515,7 @@ export default function Admin() {
       );
       setSelectedRule(null);
       setRuleDraft(emptyRule());
+      setRuleEditorOpen(false);
       await refresh();
     } catch (currentError) {
       setError((currentError as Error).message);
@@ -777,6 +780,7 @@ export default function Admin() {
                     onNew={() => {
                       setSelectedRule(null);
                       setRuleDraft(emptyRule());
+                      setRuleEditorOpen(true);
                     }}
                   />
                 )}
@@ -824,8 +828,8 @@ export default function Admin() {
               </>
             )}
           </main>
-          {tab === "rules" && (
-            <section className="drawer">
+          {tab === "rules" && ruleEditorOpen && (
+            <section className="drawer" aria-label={t("Éditeur de règle")}>
               <h2>
                 {selectedRule
                   ? `Règle ${selectedRule.group.name} → ${selectedRule.space.nameFr}`
@@ -834,6 +838,7 @@ export default function Admin() {
               <label>
                 {t("Groupe AD")}
                 <select
+                  autoFocus
                   value={ruleDraft.groupId}
                   onChange={(event) =>
                     setRuleDraft({ ...ruleDraft, groupId: event.target.value })
@@ -895,7 +900,12 @@ export default function Admin() {
                       await api(`/api/admin/access-rules/${selectedRule.id}`, {
                         method: "DELETE",
                       })
-                        .then(refresh)
+                        .then(async () => {
+                          setSelectedRule(null);
+                          setRuleDraft(emptyRule());
+                          setRuleEditorOpen(false);
+                          await refresh();
+                        })
                         .catch((currentError) =>
                           setError((currentError as Error).message),
                         );
@@ -908,6 +918,7 @@ export default function Admin() {
                   onClick={() => {
                     setSelectedRule(null);
                     setRuleDraft(emptyRule());
+                    setRuleEditorOpen(false);
                   }}
                 >
                   {t("Annuler")}
@@ -1394,7 +1405,7 @@ function RulesPanel({
       <section className="matrix">
         <div className="matrix-heading">
           <h2>{t("Matrice des autorisations")}</h2>
-          <button className="primary" onClick={onNew}>
+          <button type="button" className="primary" onClick={onNew}>
             <Icon name="add" /> {t("Ajouter une règle")}
           </button>
         </div>

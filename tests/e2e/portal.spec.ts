@@ -700,6 +700,15 @@ test("administration uses accessible confirmations and edits an existing directo
   await expect(
     page.getByRole("heading", { name: "Gestion des droits d’accès" }),
   ).toBeVisible();
+  await expect(page.locator(".drawer")).toBeHidden();
+  await page.getByRole("button", { name: "Ajouter une règle" }).click();
+  await expect(page.locator(".drawer")).toBeVisible();
+  await expect(page.locator(".drawer select").first()).toBeFocused();
+  await page
+    .locator(".drawer")
+    .getByRole("button", { name: "Annuler" })
+    .click();
+  await expect(page.locator(".drawer")).toBeHidden();
   await page.locator(".matrix tbody tr").first().click();
   await page
     .locator(".drawer")
