@@ -20,12 +20,27 @@ describe("AuthorizationService", () => {
     findMany.mockResolvedValue([
       { id: "space-it", slug: "it", accessRules: [] },
     ]);
-    await expect(
-      service.can(["ISMS-LOCAL-ADMINS"], "space-it", "archive"),
-    ).resolves.toBe(true);
-    await expect(
-      service.permittedSpaces(["ISMS-LOCAL-ADMINS"], "upload"),
-    ).resolves.toHaveLength(1);
+    const permissions = [
+      "showMenu",
+      "read",
+      "search",
+      "preview",
+      "download",
+      "upload",
+      "edit",
+      "publish",
+      "archive",
+    ] as const;
+    for (const permission of permissions)
+      await expect(
+        service.can(["ISMS-LOCAL-ADMINS"], "space-it", permission),
+      ).resolves.toBe(true);
+    const permitted = await service.permittedSpacesFor(
+      ["ISMS-LOCAL-ADMINS"],
+      permissions,
+    );
+    for (const permission of permissions)
+      expect(permitted.get(permission)).toHaveLength(1);
     expect(count).not.toHaveBeenCalled();
   });
 
