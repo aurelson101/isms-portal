@@ -85,17 +85,6 @@ export class AdminAccountsController {
     private readonly directory: DirectoryService,
   ) {}
 
-  private async ensurePrimary(request: IsmsRequest) {
-    const account = await this.prisma.adminAccount.findUnique({
-      where: { username: request.identity.username },
-      select: { primary: true },
-    });
-    if (!account?.primary)
-      throw new BadRequestException(
-        "Only the primary administrator can manage administrators",
-      );
-  }
-
   private lifecycle(validUntil?: string) {
     const expiry = validUntil ? new Date(validUntil) : null;
     if (expiry && expiry <= new Date())
@@ -109,26 +98,17 @@ export class AdminAccountsController {
   }
 
   @Get("directory-users/:query")
-  async directoryUsers(
-    @Req() request: IsmsRequest,
-    @Param("query") query: string,
-  ) {
-    await this.ensurePrimary(request);
+  async directoryUsers(@Param("query") query: string) {
     return this.directory.searchUsers(query);
   }
 
   @Get("directory-groups/:query")
-  async directoryGroups(
-    @Req() request: IsmsRequest,
-    @Param("query") query: string,
-  ) {
-    await this.ensurePrimary(request);
+  async directoryGroups(@Param("query") query: string) {
     return this.directory.searchGroups(query);
   }
 
   @Get("groups")
-  async groups(@Req() request: IsmsRequest) {
-    await this.ensurePrimary(request);
+  async groups() {
     return this.prisma.adminDirectoryGroup.findMany({
       orderBy: { name: "asc" },
     });
@@ -139,7 +119,6 @@ export class AdminAccountsController {
     @Req() request: IsmsRequest,
     @Body() body: CreateAdminDirectoryGroupDto,
   ) {
-    await this.ensurePrimary(request);
     const matches = await this.directory.searchGroups(body.name);
     const selected = matches.find(
       (group) =>
@@ -183,7 +162,6 @@ export class AdminAccountsController {
 
   @Delete("groups/:id")
   async removeGroup(@Req() request: IsmsRequest, @Param("id") id: string) {
-    await this.ensurePrimary(request);
     const group = await this.prisma.adminDirectoryGroup.findUnique({
       where: { id },
     });
@@ -200,7 +178,6 @@ export class AdminAccountsController {
 
   @Put("groups/:id/review")
   async reviewGroup(@Req() request: IsmsRequest, @Param("id") id: string) {
-    await this.ensurePrimary(request);
     const reviewedAt = new Date();
     const group = await this.prisma.adminDirectoryGroup.update({
       where: { id },
@@ -244,7 +221,6 @@ export class AdminAccountsController {
 
   @Post()
   async create(@Req() req: IsmsRequest, @Body() body: CreateAdminDto) {
-    await this.ensurePrimary(req);
     if (body.source === "LOCAL" && !body.password)
       throw new BadRequestException("A password is required for a local admin");
     const account = await this.prisma.adminAccount.create({
@@ -280,7 +256,6 @@ export class AdminAccountsController {
 
   @Put(":id/review")
   async reviewAccount(@Req() request: IsmsRequest, @Param("id") id: string) {
-    await this.ensurePrimary(request);
     const reviewedAt = new Date();
     const account = await this.prisma.adminAccount.update({
       where: { id },
@@ -299,8 +274,7 @@ export class AdminAccountsController {
   }
 
   @Get("sessions/active")
-  async sessions(@Req() request: IsmsRequest) {
-    await this.ensurePrimary(request);
+  async sessions() {
     return this.prisma.adminSession.findMany({
       where: { expiresAt: { gt: new Date() } },
       select: {
@@ -318,7 +292,6 @@ export class AdminAccountsController {
 
   @Delete("sessions/:id")
   async revokeSession(@Req() request: IsmsRequest, @Param("id") id: string) {
-    await this.ensurePrimary(request);
     const session = await this.prisma.adminSession.findUnique({
       where: { id },
       select: { id: true },
@@ -444,7 +417,6 @@ export class AdminAccountsController {
 
   @Delete(":id")
   async remove(@Req() req: IsmsRequest, @Param("id") id: string) {
-    await this.ensurePrimary(req);
     const account = await this.prisma.adminAccount.findUnique({
       where: { id },
     });

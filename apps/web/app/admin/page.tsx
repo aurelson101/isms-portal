@@ -3286,13 +3286,13 @@ function SettingsPanel({
     [onError],
   );
   useEffect(() => {
-    if (identity?.primaryAdmin) {
+    if (identity) {
       void loadAdminGroups();
       void api<typeof adminSessions>("/api/admin/accounts/sessions/active")
         .then(setAdminSessions)
         .catch((error) => onError(error.message));
     }
-  }, [identity?.primaryAdmin, loadAdminGroups, onError]);
+  }, [identity, loadAdminGroups, onError]);
   useEffect(() => {
     setSelectedDirectoryUser(null);
     if (directoryQuery.trim().length < 2) {
@@ -3574,12 +3574,13 @@ function SettingsPanel({
           </div>
         )}
       </section>
-      {identity?.primaryAdmin && (
+      {identity && (
         <section className="admin-card administrator-management">
           <h2>{t("Comptes administrateurs")}</h2>
           <p className="retention-note">
             {t(
-              "Seul l’administrateur principal peut accorder ou retirer ces droits. Un utilisateur ou membre d’un groupe AD obtient tous les droits administratifs uniquement après authentification réussie.",
+              "Tous les administrateurs peuvent accorder ou retirer ces droits. Le compte principal reste protégé contre la suppression.",
+              "All administrators can grant or revoke these rights. The primary account remains protected against deletion.",
             )}
           </p>
           <div
