@@ -3250,6 +3250,7 @@ function SettingsPanel({
       createdAt: string;
       lastUsedAt: string;
       expiresAt: string;
+      sourceIp: string | null;
       adminAccount: { username: string; displayName: string; source: string };
     }>
   >([]);
@@ -3969,8 +3970,8 @@ function SettingsPanel({
                 <span>
                   <strong>{session.adminAccount.displayName}</strong>
                   <small>
-                    {session.adminAccount.username} ·{" "}
-                    {t("Dernière utilisation")}:{" "}
+                    {session.adminAccount.username} · {t("Adresse IP")}:{" "}
+                    {session.sourceIp || "—"} · {t("Dernière utilisation")}:{" "}
                     {new Date(session.lastUsedAt).toLocaleString()} ·{" "}
                     {t("Expiration")}:{" "}
                     {new Date(session.expiresAt).toLocaleString()}

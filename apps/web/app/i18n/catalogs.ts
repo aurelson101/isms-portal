@@ -543,6 +543,7 @@ export const adminEnglishCatalog = {
   "Aucun administrateur correspondant.": "No matching administrator.",
   "Aucune justification": "No justification",
   "Dernière utilisation": "Last use",
+  "Adresse IP": "IP address",
   "Revue avant": "Review due",
   Expiration: "Expiry",
   "Sans expiration": "No expiry",

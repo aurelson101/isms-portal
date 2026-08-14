@@ -346,6 +346,12 @@ test("the generated administrator can sign in and manage the secure profile", as
       .filter({ hasText: "Administrateur ISMS" })
       .first(),
   ).toBeVisible();
+  await expect(
+    page
+      .locator(".administrator-sessions")
+      .getByText(/IP address: (?!—)/)
+      .first(),
+  ).toBeVisible();
 
   const setup = await page.request.post("/api/admin/accounts/me/mfa/setup");
   expect(setup.ok()).toBe(true);

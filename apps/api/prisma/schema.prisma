@@ -335,6 +335,7 @@ model AdminSession {
   expiresAt      DateTime
   createdAt      DateTime     @default(now())
   lastUsedAt     DateTime     @default(now())
+  sourceIp       String?
 
   @@index([adminAccountId])
   @@index([expiresAt])
