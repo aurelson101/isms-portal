@@ -31,6 +31,12 @@ describe("AuthorizationService", () => {
     ).resolves.toBe(false);
   });
 
+  it("denies an anonymous identity without querying access rules", async () => {
+    count.mockClear();
+    await expect(service.can([], "space-it", "read")).resolves.toBe(false);
+    expect(count).not.toHaveBeenCalled();
+  });
+
   it("matches standard user groups case-insensitively", async () => {
     findMany.mockResolvedValue([]);
     await service.permittedSpaces(["ITAD"], "search");

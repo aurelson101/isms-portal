@@ -279,44 +279,56 @@ export class DocumentsController {
       req.identity.groups,
       q ? "search" : "read",
     );
-    const permissionNames: Permission[] = [
+    const permissionNames = [
       "preview",
       "download",
       "upload",
       "edit",
       "publish",
       "archive",
-    ];
+    ] as const satisfies readonly Permission[];
     const permissionEntries = await Promise.all(
       permissionNames.map(
         async (permission) =>
           [
             permission,
-            new Set(
-              (
-                await this.authorization.permittedSpaces(
-                  req.identity.groups,
-                  permission,
-                )
-              ).map((item) => item.id),
+            await this.authorization.permittedSpaces(
+              req.identity.groups,
+              permission,
             ),
           ] as const,
       ),
     );
-    const permissionSpaces = Object.fromEntries(permissionEntries) as Record<
-      (typeof permissionNames)[number],
-      Set<string>
-    >;
-    const readableSpaceIds = spaces
-      .filter((item) => !space || item.slug === space)
-      .map((item) => item.id);
-    const managedSpaceIds = [
-      ...new Set(
-        ["edit", "publish", "archive"].flatMap((permission) => [
-          ...permissionSpaces[permission as keyof typeof permissionSpaces],
-        ]),
+    const permissionSpaces = permissionEntries.reduce(
+      (result, [permission, records]) => {
+        result[permission] = new Set(records.map((item) => item.id));
+        return result;
+      },
+      {} as Record<(typeof permissionNames)[number], Set<string>>,
+    );
+    const knownSpaces = new Map(
+      [...spaces, ...permissionEntries.flatMap(([, records]) => records)].map(
+        (item) => [item.id, item],
       ),
-    ];
+    );
+    const requestedSpaceIds = new Set(
+      [...knownSpaces.values()]
+        .filter((item) => !space || item.slug === space)
+        .map((item) => item.id),
+    );
+    const readableSpaceIds = spaces
+      .filter((item) => requestedSpaceIds.has(item.id))
+      .map((item) => item.id);
+    const manageableSpaceIds = new Set(
+      ["edit", "publish", "archive"].flatMap((permission) => [
+        ...permissionSpaces[permission as keyof typeof permissionSpaces],
+      ]),
+    );
+    const managedSpaceIds = [...manageableSpaceIds].filter(
+      (spaceId) =>
+        requestedSpaceIds.has(spaceId) &&
+        (!q || readableSpaceIds.includes(spaceId)),
+    );
     const visibleSpaceIds = [
       ...new Set([...readableSpaceIds, ...managedSpaceIds]),
     ];
@@ -329,7 +341,11 @@ export class DocumentsController {
         ),
     );
     if (categoryIdIsUuid) {
-      categoryWhere = { id: categoryId, deletedAt: null };
+      categoryWhere = {
+        id: categoryId,
+        deletedAt: null,
+        spaceId: { in: visibleSpaceIds },
+      };
     } else if (category || categoryId) {
       // Legacy links used a slug alone. A slug is only unique within a space,
       // therefore reject ambiguous requests instead of mixing categories.
@@ -867,6 +883,23 @@ export class AdminController {
     private readonly directory: DirectoryService,
   ) {}
 
+  private async validateAccessRuleTargets(body: AccessRuleDto) {
+    const [group, space] = await Promise.all([
+      this.prisma.directoryGroup.findFirst({
+        where: { id: body.groupId, active: true },
+        select: { id: true },
+      }),
+      this.prisma.documentSpace.findFirst({
+        where: { id: body.spaceId, deletedAt: null },
+        select: { id: true },
+      }),
+    ]);
+    if (!group)
+      throw new BadRequestException("Access rules require an active AD group");
+    if (!space)
+      throw new BadRequestException("Access rules require an active space");
+  }
+
   @Get("check")
   async check(@Req() req: IsmsRequest) {
     const [preference, account, mappedSpaceCount] = await Promise.all([
@@ -1082,6 +1115,7 @@ export class AdminController {
 
   @Post("access-rules")
   async createRule(@Req() req: IsmsRequest, @Body() body: AccessRuleDto) {
+    await this.validateAccessRuleTargets(body);
     try {
       const rule = await this.prisma.accessRule.create({
         data: body,
@@ -1095,10 +1129,15 @@ export class AdminController {
         { groupId: body.groupId, spaceId: body.spaceId },
       );
       return rule;
-    } catch {
-      throw new ConflictException(
-        "A rule already exists for this group and space",
-      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      )
+        throw new ConflictException(
+          "A rule already exists for this group and space",
+        );
+      throw error;
     }
   }
 
@@ -1110,11 +1149,24 @@ export class AdminController {
   ) {
     const existing = await this.prisma.accessRule.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException();
-    const rule = await this.prisma.accessRule.update({
-      where: { id },
-      data: body,
-      include: { group: true, space: true },
-    });
+    await this.validateAccessRuleTargets(body);
+    let rule;
+    try {
+      rule = await this.prisma.accessRule.update({
+        where: { id },
+        data: body,
+        include: { group: true, space: true },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      )
+        throw new ConflictException(
+          "A rule already exists for this group and space",
+        );
+      throw error;
+    }
     await this.audit.record(
       req,
       "access-rule.update",
