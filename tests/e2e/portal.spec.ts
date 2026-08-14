@@ -1017,6 +1017,56 @@ test("admin deep links stay synchronized with browser navigation", async ({
   ).toBeVisible();
 });
 
+test("annual incident reports can be created, updated and deleted", async ({
+  page,
+  request,
+}) => {
+  const year = 2098;
+  const existing = (await (
+    await request.get("/api/admin/incident-reports")
+  ).json()) as Array<{ id: string; year: number }>;
+  for (const report of existing.filter((item) => item.year === year))
+    await request.delete(`/api/admin/incident-reports/${report.id}`);
+
+  await page.goto("/admin#incidents");
+  await page.getByRole("button", { name: "FR", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Rapports d’incidents annuels" }),
+  ).toBeVisible();
+  await page.getByLabel("Année").fill(String(year));
+  await page.getByLabel("Incidents totaux").fill("12");
+  await page.getByLabel("Incidents critiques").fill("2");
+  await page.getByLabel("Incidents résolus").fill("10");
+  await page
+    .getByLabel("Synthèse annuelle")
+    .fill("Synthèse fonctionnelle des incidents de sécurité.");
+  await page
+    .getByLabel("Enseignements et actions d’amélioration")
+    .fill("Renforcer les exercices et le suivi des actions.");
+  await page.getByRole("button", { name: "Enregistrer le rapport" }).click();
+  await expect(page.getByText("Rapport annuel créé.")).toBeVisible();
+  const card = page.locator(".incident-report-card", {
+    has: page.getByRole("heading", { name: String(year) }),
+  });
+  await expect(card.getByText("83%")).toBeVisible();
+
+  await card.getByRole("button", { name: "Modifier" }).click();
+  await page.getByLabel("Incidents résolus").fill("12");
+  await page.getByLabel("Statut").selectOption("PUBLISHED");
+  await page.getByRole("button", { name: "Enregistrer le rapport" }).click();
+  await expect(page.getByText("Rapport annuel mis à jour.")).toBeVisible();
+  await expect(card.getByText("100%")).toBeVisible();
+  await expect(card.getByText("Publié")).toBeVisible();
+
+  await card.getByRole("button", { name: "Supprimer" }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Confirmer", exact: true })
+    .click();
+  await expect(page.getByText("Rapport annuel supprimé.")).toBeVisible();
+  await expect(card).toHaveCount(0);
+});
+
 test("portal and administration remain usable on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");

@@ -2251,6 +2251,57 @@ h1 {
   border-radius: 10px;
   background: #f8fbff;
 }
+.incident-report-form h2 {
+  margin: 0;
+}
+.incident-metrics-form,
+.incident-report-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+.incident-metrics-form label {
+  display: grid;
+  gap: 6px;
+}
+.incident-report-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.incident-report-card {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+.incident-report-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.incident-report-heading span,
+.incident-report-metrics span {
+  color: #60718d;
+  font-size: 0.82rem;
+}
+.incident-report-heading h2 {
+  margin: 3px 0 0;
+  font-size: 2rem;
+}
+.incident-report-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.incident-report-metrics > div {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f3f7fc;
+}
+.incident-report-metrics strong {
+  font-size: 1.35rem;
+}
 .administrator-grant-card h3 {
   margin-top: 0;
 }
@@ -3132,6 +3183,13 @@ svg {
   }
   .administrator-grant-grid {
     grid-template-columns: 1fr;
+  }
+  .incident-report-list,
+  .incident-metrics-form {
+    grid-template-columns: 1fr;
+  }
+  .incident-report-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .administrator-summary {
     grid-template-columns: 1fr;

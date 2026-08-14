@@ -31,6 +31,7 @@ import { AuthorizationService, type Permission } from "./authorization.service";
 import { ImportCertificateDto } from "./certificate.dto";
 import {
   AccessRuleDto,
+  AnnualIncidentReportDto,
   CategoryDto,
   DirectoryConnectionDto,
   DirectoryGroupDto,
@@ -966,6 +967,110 @@ export class AdminController {
       throw new BadRequestException("Access rules require an active AD group");
     if (!space)
       throw new BadRequestException("Access rules require an active space");
+  }
+
+  private validateIncidentReportCounts(body: AnnualIncidentReportDto) {
+    if (
+      body.criticalIncidents > body.totalIncidents ||
+      body.resolvedIncidents > body.totalIncidents
+    )
+      throw new BadRequestException(
+        "Critical and resolved incidents cannot exceed the total",
+      );
+  }
+
+  @Get("incident-reports")
+  incidentReports() {
+    return this.prisma.annualIncidentReport.findMany({
+      orderBy: { year: "desc" },
+    });
+  }
+
+  @Post("incident-reports")
+  async createIncidentReport(
+    @Req() req: IsmsRequest,
+    @Body() body: AnnualIncidentReportDto,
+  ) {
+    this.validateIncidentReportCounts(body);
+    try {
+      const report = await this.prisma.annualIncidentReport.create({
+        data: { ...body, lessonsLearned: body.lessonsLearned || null },
+      });
+      await this.audit.record(
+        req,
+        "incident-report.create",
+        `incident-report:${report.id}`,
+        "success",
+        { year: report.year, status: report.status },
+      );
+      return report;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      )
+        throw new ConflictException("A report already exists for this year");
+      throw error;
+    }
+  }
+
+  @Put("incident-reports/:id")
+  async updateIncidentReport(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: AnnualIncidentReportDto,
+  ) {
+    this.validateIncidentReportCounts(body);
+    try {
+      const report = await this.prisma.annualIncidentReport.update({
+        where: { id },
+        data: { ...body, lessonsLearned: body.lessonsLearned || null },
+      });
+      await this.audit.record(
+        req,
+        "incident-report.update",
+        `incident-report:${id}`,
+        "success",
+        { year: report.year, status: report.status },
+      );
+      return report;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      )
+        throw new ConflictException("A report already exists for this year");
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      )
+        throw new NotFoundException();
+      throw error;
+    }
+  }
+
+  @Delete("incident-reports/:id")
+  async deleteIncidentReport(@Req() req: IsmsRequest, @Param("id") id: string) {
+    try {
+      const report = await this.prisma.annualIncidentReport.delete({
+        where: { id },
+      });
+      await this.audit.record(
+        req,
+        "incident-report.delete",
+        `incident-report:${id}`,
+        "success",
+        { year: report.year },
+      );
+      return { deleted: true };
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      )
+        throw new NotFoundException();
+      throw error;
+    }
   }
 
   @Get("check")
