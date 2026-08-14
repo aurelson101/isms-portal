@@ -2185,7 +2185,19 @@ h1 {
   color: #52698d;
 }
 .administrator-filter {
+  display: grid;
+  gap: 6px;
   max-width: 520px;
+  color: #40516d;
+  font-weight: 650;
+}
+.administrator-filter input {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px;
+  border: 1px solid #becce0;
+  border-radius: 6px;
+  background: white;
 }
 .administrator-badges {
   display: flex;
@@ -2218,6 +2230,18 @@ h1 {
   gap: 12px;
   padding: 10px 0;
   border-bottom: 1px solid #e5ebf3;
+}
+.administrator-row-actions button,
+.administrator-sessions button,
+.sso-diagnostic button {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #7892b8;
+  border-radius: 7px;
+  color: #24436f;
+  background: white;
+  font-weight: 650;
+  line-height: 1.2;
 }
 .administrator-grant-card {
   align-content: start;
@@ -3000,7 +3024,7 @@ svg {
   }
   .admin-identity strong {
     display: block;
-    max-width: 190px;
+    max-width: 145px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -3113,6 +3137,13 @@ svg {
     grid-template-columns: 1fr;
   }
   .admin-account-list button {
+    width: 100%;
+  }
+  .administrator-sessions > div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .administrator-sessions button {
     width: 100%;
   }
   .admin-table-wrap td button {
@@ -3337,7 +3368,14 @@ svg {
 
 .advanced-document-filters select {
   min-width: 9rem;
+  min-height: 42px;
   max-width: 13rem;
+  padding: 8px 34px 8px 11px;
+  border: 1px solid #bdcbe0;
+  border-radius: 9px;
+  color: #17345f;
+  background: white;
+  font-size: 14px;
 }
 
 @media (max-width: 700px) {

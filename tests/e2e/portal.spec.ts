@@ -989,6 +989,34 @@ test("an administrator can search and select a live AD group", async ({
   });
 });
 
+test("admin deep links stay synchronized with browser navigation", async ({
+  page,
+}) => {
+  await page.goto("/admin#dashboard");
+  await expect(
+    page.getByRole("heading", { name: "Tableau de bord" }),
+  ).toBeVisible();
+
+  await page.evaluate(() => {
+    window.location.hash = "groups";
+  });
+  await expect(
+    page.getByRole("heading", { name: "Groupes Active Directory" }),
+  ).toBeVisible();
+
+  await page.evaluate(() => {
+    window.location.hash = "spaces";
+  });
+  await expect(
+    page.getByRole("heading", { name: "Espaces documentaires" }),
+  ).toBeVisible();
+
+  await page.goBack();
+  await expect(
+    page.getByRole("heading", { name: "Groupes Active Directory" }),
+  ).toBeVisible();
+});
+
 test("portal and administration remain usable on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
