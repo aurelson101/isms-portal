@@ -194,7 +194,12 @@ test("the generated administrator can sign in and manage the secure profile", as
   await expect(
     page.getByRole("heading", { name: "Comptes administrateurs" }),
   ).toBeVisible();
-  await expect(page.getByText("Administrateur ISMS — admin")).toBeVisible();
+  await expect(
+    page
+      .locator(".admin-account-list > div")
+      .filter({ hasText: "Administrateur ISMS" })
+      .first(),
+  ).toContainText("admin");
   await expect(
     page.getByRole("heading", {
       name: "Ajouter un utilisateur Active Directory",
@@ -206,6 +211,19 @@ test("the generated administrator can sign in and manage the secure profile", as
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Add an Active Directory group" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Administrator summary")).toContainText(
+    "Local accounts",
+  );
+  const administratorFilter = page.getByLabel("Filter administrators");
+  await administratorFilter.fill("missing administrator");
+  await expect(page.getByText("No matching administrator.")).toBeVisible();
+  await administratorFilter.fill("admin");
+  await expect(
+    page
+      .locator(".admin-account-list > div")
+      .filter({ hasText: "Administrateur ISMS" })
+      .first(),
   ).toBeVisible();
 
   const setup = await page.request.post("/api/admin/accounts/me/mfa/setup");
