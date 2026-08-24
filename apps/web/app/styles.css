@@ -4715,6 +4715,40 @@ svg {
   color: #526780;
 }
 
+.review-actor-selected {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #8bc9a5;
+  border-radius: 0.65rem;
+  background: #ecfbf2;
+}
+
+.review-actor-selected > div {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+  overflow-wrap: anywhere;
+}
+
+.review-actor-selected span {
+  color: #12633a;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.review-actor-selected small {
+  color: #405f50;
+}
+
+.review-actor-selected button {
+  flex: 0 0 auto;
+}
+
 .governance-form h2,
 .governance-list h2 {
   margin: 0;
@@ -4870,6 +4904,15 @@ svg {
 
   .review-actor-modes {
     grid-template-columns: 1fr;
+  }
+
+  .review-actor-selected {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .review-actor-selected button {
+    width: 100%;
   }
 }
 

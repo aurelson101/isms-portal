@@ -474,7 +474,9 @@ function ReviewsSection({
                   : t("Approbateur", "Approver")
             }
             value={draft[key]}
-            onChange={(value) => setDraft({ ...draft, [key]: value })}
+            onChange={(value) =>
+              setDraft((current) => ({ ...current, [key]: value }))
+            }
           />
         ))}
         <label>
@@ -649,7 +651,25 @@ function ReviewActorPicker({
           {t("Saisie manuelle", "Manual entry")}
         </button>
       </div>
-      {mode === "directory" ? (
+      {mode === "directory" && selected ? (
+        <div className="review-actor-selected" role="status">
+          <div>
+            <span>{t("Utilisateur AD sélectionné", "Selected AD user")}</span>
+            <strong>{selected.displayName}</strong>
+            <small>{selected.email || selected.username}</small>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setSelected(null);
+              setQuery("");
+              onChange("");
+            }}
+          >
+            {t("Modifier", "Change")}
+          </button>
+        </div>
+      ) : mode === "directory" ? (
         <>
           <label>
             {t("Rechercher dans l’annuaire", "Search directory")}
@@ -680,6 +700,7 @@ function ReviewActorPicker({
                 aria-pressed={selected?.username === user.username}
                 onClick={() => {
                   setSelected(user);
+                  setUsers([]);
                   onChange(user.username);
                 }}
               >
@@ -691,15 +712,13 @@ function ReviewActorPicker({
           <p className="directory-search-status" aria-live="polite">
             {searching
               ? t("Recherche en cours…", "Searching…")
-              : selected
-                ? t("Utilisateur AD sélectionné.", "AD user selected.")
-                : directoryMessage ||
-                  (query.trim().length < 2
-                    ? t(
-                        "Saisissez au moins deux caractères.",
-                        "Enter at least two characters.",
-                      )
-                    : "")}
+              : directoryMessage ||
+                (query.trim().length < 2
+                  ? t(
+                      "Saisissez au moins deux caractères.",
+                      "Enter at least two characters.",
+                    )
+                  : "")}
           </p>
         </>
       ) : (

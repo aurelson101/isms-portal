@@ -1598,7 +1598,7 @@ test("governance workflows support lifetime access, reviews, SoA, retention, ide
   await ownerPicker.getByLabel("Rechercher dans l’annuaire").fill("alice");
   await ownerPicker.getByRole("button", { name: /Alice Annuaire/ }).click();
   await expect(
-    ownerPicker.getByText("Utilisateur AD sélectionné."),
+    ownerPicker.getByText("Utilisateur AD sélectionné"),
   ).toBeVisible();
 
   const reviewerPicker = page.getByRole("group", { name: "Relecteur" });
@@ -1610,6 +1610,20 @@ test("governance workflows support lifetime access, reviews, SoA, retention, ide
   const approverPicker = page.getByRole("group", { name: "Approbateur" });
   await approverPicker.getByLabel("Rechercher dans l’annuaire").fill("bob");
   await approverPicker.getByRole("button", { name: /Bob Annuaire/ }).click();
+  const reviewForm = page
+    .getByRole("heading", { name: "Planifier une revue" })
+    .locator("..");
+  await reviewForm.getByLabel("Document").selectOption({ index: 1 });
+  await reviewForm
+    .getByLabel("Échéance")
+    .fill(new Date(Date.now() + 8 * 86400000).toISOString().slice(0, 16));
+  await expect(
+    reviewForm.getByRole("button", { name: "Créer la revue" }),
+  ).toBeEnabled();
+  await reviewForm.getByRole("button", { name: "Créer la revue" }).click();
+  await expect(
+    page.getByText("alice.ad → prestataire@example.test → bob.ad"),
+  ).toBeVisible();
 
   const reviewsTab = page.getByRole("tab", { name: /Revues/ });
   await reviewsTab.focus();
