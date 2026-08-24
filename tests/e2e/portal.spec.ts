@@ -1572,11 +1572,45 @@ test("governance workflows support lifetime access, reviews, SoA, retention, ide
   expect(health.ok()).toBeTruthy();
   expect(await health.json()).toMatchObject({ dormantDays: 90 });
 
+  await page.route("**/api/admin/accounts/directory-users/*", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          username: "alice.ad",
+          displayName: "Alice Annuaire",
+          email: "alice@example.test",
+        },
+        {
+          username: "bob.ad",
+          displayName: "Bob Annuaire",
+          email: "bob@example.test",
+        },
+      ]),
+    });
+  });
   await page.goto("/admin#governance");
   await expect(
     page.getByRole("heading", { name: "Gouvernance ISMS" }),
   ).toBeVisible();
   await expect(page.getByRole("tab", { name: /Accès lifetime/ })).toBeVisible();
+  const ownerPicker = page.getByRole("group", { name: "Propriétaire" });
+  await ownerPicker.getByLabel("Rechercher dans l’annuaire").fill("alice");
+  await ownerPicker.getByRole("button", { name: /Alice Annuaire/ }).click();
+  await expect(
+    ownerPicker.getByText("Utilisateur AD sélectionné."),
+  ).toBeVisible();
+
+  const reviewerPicker = page.getByRole("group", { name: "Relecteur" });
+  await reviewerPicker.getByRole("button", { name: "Saisie manuelle" }).click();
+  await reviewerPicker
+    .getByLabel("Nom ou identifiant manuel")
+    .fill("prestataire@example.test");
+
+  const approverPicker = page.getByRole("group", { name: "Approbateur" });
+  await approverPicker.getByLabel("Rechercher dans l’annuaire").fill("bob");
+  await approverPicker.getByRole("button", { name: /Bob Annuaire/ }).click();
+
   const reviewsTab = page.getByRole("tab", { name: /Revues/ });
   await reviewsTab.focus();
   await reviewsTab.press("ArrowRight");
