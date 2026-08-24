@@ -22,6 +22,9 @@ type Review = {
   approver: string;
   status: string;
   dueAt: string;
+  decisionComment: string | null;
+  decidedBy: string | null;
+  decidedAt: string | null;
   document: DocumentItem;
 };
 type Control = {
@@ -426,6 +429,11 @@ function ReviewsSection({
     approver: "",
     dueAt: "",
   });
+  const [decision, setDecision] = useState<{
+    id: string;
+    status: "APPROVED" | "REJECTED";
+    comment: string;
+  } | null>(null);
   const create = async (event: FormEvent) => {
     event.preventDefault();
     await submit("/api/admin/governance/reviews", {
@@ -443,6 +451,7 @@ function ReviewsSection({
   return (
     <div className="governance-grid">
       <form
+        id="governance-review-form"
         className="admin-form governance-form"
         onSubmit={(event) => void create(event)}
       >
@@ -519,14 +528,11 @@ function ReviewsSection({
                 <button
                   type="button"
                   onClick={() =>
-                    void submit(
-                      `/api/admin/governance/reviews/${review.id}/decision`,
-                      {
-                        status: "APPROVED",
-                        comment: t("Revue approuvée", "Review approved"),
-                      },
-                      "PUT",
-                    )
+                    setDecision({
+                      id: review.id,
+                      status: "APPROVED",
+                      comment: "",
+                    })
                   }
                 >
                   {t("Approuver", "Approve")}
@@ -535,23 +541,118 @@ function ReviewsSection({
                   className="danger"
                   type="button"
                   onClick={() =>
-                    void submit(
-                      `/api/admin/governance/reviews/${review.id}/decision`,
-                      {
-                        status: "REJECTED",
-                        comment: t("Revue refusée", "Review rejected"),
-                      },
-                      "PUT",
-                    )
+                    setDecision({
+                      id: review.id,
+                      status: "REJECTED",
+                      comment: "",
+                    })
                   }
                 >
                   {t("Refuser", "Reject")}
                 </button>
               </div>
             )}
+            {["APPROVED", "REJECTED", "CANCELLED"].includes(review.status) && (
+              <div className="governance-decision-proof">
+                <strong>{t("Preuve de décision", "Decision evidence")}</strong>
+                <p>{review.decisionComment}</p>
+                <small>
+                  {review.decidedBy || "—"}
+                  {review.decidedAt
+                    ? ` · ${new Date(review.decidedAt).toLocaleString(locale)}`
+                    : ""}
+                </small>
+                {review.status === "APPROVED" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new Date();
+                      next.setFullYear(next.getFullYear() + 1);
+                      setDraft({
+                        documentId: review.document.id,
+                        owner: review.owner,
+                        reviewer: review.reviewer,
+                        approver: review.approver,
+                        dueAt: next.toISOString().slice(0, 16),
+                      });
+                      document
+                        .getElementById("governance-review-form")
+                        ?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        });
+                    }}
+                  >
+                    {t(
+                      "Planifier la prochaine revue dans un an",
+                      "Schedule the next review in one year",
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
           </article>
         ))}
       </div>
+      {decision && (
+        <div className="confirmation-backdrop" role="presentation">
+          <form
+            className="confirmation-dialog governance-decision-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="review-decision-title"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submit(
+                `/api/admin/governance/reviews/${decision.id}/decision`,
+                { status: decision.status, comment: decision.comment },
+                "PUT",
+              ).then(() => setDecision(null));
+            }}
+          >
+            <h2 id="review-decision-title">
+              {decision.status === "APPROVED"
+                ? t("Justifier l’approbation", "Justify approval")
+                : t("Motiver le refus", "Explain rejection")}
+            </h2>
+            <p>
+              {t(
+                "Cette justification sera conservée avec l’auteur et la date de décision.",
+                "This justification will be retained with the decision author and date.",
+              )}
+            </p>
+            <label>
+              {t("Commentaire de décision", "Decision comment")}
+              <textarea
+                required
+                minLength={3}
+                maxLength={2000}
+                autoFocus
+                value={decision.comment}
+                onChange={(event) =>
+                  setDecision({ ...decision, comment: event.target.value })
+                }
+              />
+            </label>
+            <div className="confirmation-actions">
+              <button type="button" onClick={() => setDecision(null)}>
+                {t("Annuler", "Cancel")}
+              </button>
+              <button
+                className={
+                  decision.status === "REJECTED" ? "solid-danger" : "primary"
+                }
+                type="submit"
+                disabled={decision.comment.trim().length < 3}
+              >
+                {decision.status === "APPROVED"
+                  ? t("Confirmer l’approbation", "Confirm approval")
+                  : t("Confirmer le refus", "Confirm rejection")}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
