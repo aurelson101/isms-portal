@@ -12,6 +12,7 @@ import {
 } from "react";
 import { Icon, type IconName } from "../icons";
 import { adminEnglishCatalog } from "../i18n/catalogs";
+import { GovernancePanel } from "./governance-panel";
 
 type Locale = "fr" | "en";
 type Authentication = {
@@ -74,6 +75,7 @@ type Tab =
   | "documents"
   | "incidents"
   | "requests"
+  | "governance"
   | "directory"
   | "certificates"
   | "audit"
@@ -131,6 +133,7 @@ type Rule = {
   archive: boolean;
   validFrom?: string | null;
   validUntil?: string | null;
+  lifetime?: boolean;
   justification?: string | null;
 };
 type RuleTemplate = Omit<
@@ -203,7 +206,7 @@ type AdminDocument = {
   translations: Array<{ locale: string; title: string }>;
   space: Space;
   category?: Category;
-  versions: Array<{ locale: string; version: number }>;
+  versions: Array<{ id?: string; locale: string; version: number }>;
 };
 type Dashboard = {
   groups: number;
@@ -241,6 +244,7 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["documents", "documents", "Documents", "Documents"],
   ["incidents", "audit", "Rapports d’incidents", "Incident reports"],
   ["requests", "rules", "Demandes utilisateurs", "User requests"],
+  ["governance", "shield", "Gouvernance ISMS", "ISMS governance"],
   ["directory", "sync", "Synchronisation LDAP", "LDAP synchronization"],
   ["certificates", "certificate", "Certificats CA", "CA certificates"],
   ["audit", "audit", "Journal d’audit", "Audit log"],
@@ -291,6 +295,7 @@ const emptyRule = (
   archive: false,
   validFrom: null,
   validUntil: null,
+  lifetime: true,
   justification: "",
 });
 
@@ -403,9 +408,9 @@ export default function Admin() {
     const activeGroup =
       tabs.findIndex(([key]) => key === tab) === 0
         ? "overview"
-        : tabs.findIndex(([key]) => key === tab) < 7
+        : tabs.findIndex(([key]) => key === tab) < 8
           ? "content"
-          : tabs.findIndex(([key]) => key === tab) < 10
+          : tabs.findIndex(([key]) => key === tab) < 11
             ? "infrastructure"
             : "system";
     setExpandedNavigationGroups((current) =>
@@ -570,6 +575,7 @@ export default function Admin() {
         spaceId: rule.spaceId,
         validFrom: rule.validFrom || null,
         validUntil: rule.validUntil || null,
+        lifetime: rule.lifetime !== false,
         justification: rule.justification || "",
       }) as Omit<Rule, "id" | "group" | "space">,
     );
@@ -680,9 +686,9 @@ export default function Admin() {
             <nav id="admin-navigation" aria-label="Administration">
               {[
                 ["overview", t("Vue d’ensemble"), tabs.slice(0, 1)],
-                ["content", t("Contenu et accès"), tabs.slice(1, 7)],
-                ["infrastructure", t("Infrastructure"), tabs.slice(7, 10)],
-                ["system", t("Système"), tabs.slice(10)],
+                ["content", t("Contenu et accès"), tabs.slice(1, 8)],
+                ["infrastructure", t("Infrastructure"), tabs.slice(8, 11)],
+                ["system", t("Système"), tabs.slice(11)],
               ].map(([groupId, groupLabel, groupTabs]) => (
                 <div
                   className={`admin-navigation-group ${expandedNavigationGroups.has(groupId as string) ? "expanded" : ""}`}
@@ -956,6 +962,16 @@ export default function Admin() {
                 {tab === "requests" && (
                   <RequestsPanel onError={setError} onNotice={setNotice} />
                 )}
+                {tab === "governance" && (
+                  <GovernancePanel
+                    locale={locale}
+                    documents={documents}
+                    rules={rules}
+                    onChanged={refresh}
+                    onError={setError}
+                    onNotice={setNotice}
+                  />
+                )}
                 {tab === "directory" && (
                   <DirectoryPanel
                     connections={connections}
@@ -1078,9 +1094,33 @@ export default function Admin() {
                 />
               </label>
               <label>
+                <span>{t("Durée d’accès")}</span>
+                <select
+                  value={ruleDraft.lifetime === false ? "DATED" : "LIFETIME"}
+                  onChange={(event) =>
+                    setRuleDraft({
+                      ...ruleDraft,
+                      lifetime: event.target.value === "LIFETIME",
+                      validUntil:
+                        event.target.value === "LIFETIME"
+                          ? null
+                          : ruleDraft.validUntil,
+                    })
+                  }
+                >
+                  <option value="LIFETIME">
+                    {t("Lifetime — sans expiration")}
+                  </option>
+                  <option value="DATED">
+                    {t("Temporaire — avec expiration")}
+                  </option>
+                </select>
+              </label>
+              <label>
                 {t("Expiration")}
                 <input
                   type="datetime-local"
+                  disabled={ruleDraft.lifetime !== false}
                   value={ruleDraft.validUntil?.slice(0, 16) || ""}
                   onChange={(event) =>
                     setRuleDraft({

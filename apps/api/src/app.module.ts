@@ -27,6 +27,7 @@ import {
   OperationsController,
   UserToolsController,
 } from "./user-tools.controller";
+import { GovernanceController } from "./governance.controller";
 
 @Module({
   controllers: [
@@ -42,6 +43,7 @@ import {
     AdminAccountsController,
     UserToolsController,
     OperationsController,
+    GovernanceController,
   ],
   providers: [
     PrismaService,
