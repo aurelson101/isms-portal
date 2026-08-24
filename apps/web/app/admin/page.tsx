@@ -56,6 +56,11 @@ const localizedStatus = (locale: Locale, value: string) => {
     ERROR: ["Erreur", "Error"],
     VALID: ["Valide", "Valid"],
     EXPIRED: ["Expiré", "Expired"],
+    PENDING: ["En attente", "Pending"],
+    OPEN: ["Ouvert", "Open"],
+    APPROVED: ["Approuvée", "Approved"],
+    REJECTED: ["Refusée", "Rejected"],
+    RESOLVED: ["Traité", "Resolved"],
   };
   const label = labels[value.toUpperCase()];
   return label ? label[locale === "fr" ? 0 : 1] : value;
@@ -68,6 +73,7 @@ type Tab =
   | "spaces"
   | "documents"
   | "incidents"
+  | "requests"
   | "directory"
   | "certificates"
   | "audit"
@@ -234,6 +240,7 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["spaces", "folder", "Espaces documentaires", "Document spaces"],
   ["documents", "documents", "Documents", "Documents"],
   ["incidents", "audit", "Rapports d’incidents", "Incident reports"],
+  ["requests", "rules", "Demandes utilisateurs", "User requests"],
   ["directory", "sync", "Synchronisation LDAP", "LDAP synchronization"],
   ["certificates", "certificate", "Certificats CA", "CA certificates"],
   ["audit", "audit", "Journal d’audit", "Audit log"],
@@ -375,9 +382,9 @@ export default function Admin() {
     const activeGroup =
       tabs.findIndex(([key]) => key === tab) === 0
         ? "overview"
-        : tabs.findIndex(([key]) => key === tab) < 6
+        : tabs.findIndex(([key]) => key === tab) < 7
           ? "content"
-          : tabs.findIndex(([key]) => key === tab) < 9
+          : tabs.findIndex(([key]) => key === tab) < 10
             ? "infrastructure"
             : "system";
     setExpandedNavigationGroups((current) =>
@@ -652,9 +659,9 @@ export default function Admin() {
             <nav id="admin-navigation" aria-label="Administration">
               {[
                 ["overview", t("Vue d’ensemble"), tabs.slice(0, 1)],
-                ["content", t("Contenu et accès"), tabs.slice(1, 6)],
-                ["infrastructure", t("Infrastructure"), tabs.slice(6, 9)],
-                ["system", t("Système"), tabs.slice(9)],
+                ["content", t("Contenu et accès"), tabs.slice(1, 7)],
+                ["infrastructure", t("Infrastructure"), tabs.slice(7, 10)],
+                ["system", t("Système"), tabs.slice(10)],
               ].map(([groupId, groupLabel, groupTabs]) => (
                 <div
                   className={`admin-navigation-group ${expandedNavigationGroups.has(groupId as string) ? "expanded" : ""}`}
@@ -924,6 +931,9 @@ export default function Admin() {
                     onError={setError}
                     onNotice={setNotice}
                   />
+                )}
+                {tab === "requests" && (
+                  <RequestsPanel onError={setError} onNotice={setNotice} />
                 )}
                 {tab === "directory" && (
                   <DirectoryPanel
@@ -3816,6 +3826,216 @@ function IncidentReportsPanel({
         )}
       </div>
     </div>
+  );
+}
+
+type OperationsWorkItems = {
+  accessRequests: Array<{
+    id: string;
+    identity: string;
+    justification: string;
+    status: string;
+    createdAt?: string;
+  }>;
+  reports: Array<{
+    id: string;
+    identity: string;
+    reason: string;
+    message?: string | null;
+    status: string;
+    createdAt?: string;
+    document?: { translations?: Array<{ locale: string; title: string }> };
+  }>;
+};
+
+function RequestsPanel({
+  onError,
+  onNotice,
+}: {
+  onError: (message: string) => void;
+  onNotice: (message: string) => void;
+}) {
+  const { locale, t } = useAdminI18n();
+  const [items, setItems] = useState<OperationsWorkItems>({
+    accessRequests: [],
+    reports: [],
+  });
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState("");
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/admin/operations/work-items", {
+        cache: "no-store",
+      });
+      if (!response.ok)
+        throw new Error(
+          locale === "fr"
+            ? "Impossible de charger les demandes."
+            : "Unable to load requests.",
+        );
+      setItems(await response.json());
+    } catch (error) {
+      onError(
+        error instanceof Error
+          ? error.message
+          : locale === "fr"
+            ? "Erreur inattendue."
+            : "Unexpected error.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [locale, onError]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  const pendingRequests = items.accessRequests.filter(
+    (item) => item.status === "PENDING",
+  );
+  const openReports = items.reports.filter((item) => item.status === "OPEN");
+  const update = async (
+    kind: "access" | "report",
+    id: string,
+    status: string,
+  ) => {
+    setProcessing(id);
+    try {
+      const endpoint =
+        kind === "access"
+          ? `/api/admin/operations/access-requests/${id}`
+          : `/api/admin/operations/document-reports/${id}`;
+      const response = await fetch(endpoint, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!response.ok) throw new Error(t("La mise à jour a échoué."));
+      onNotice(t("La demande a été mise à jour."));
+      await load();
+    } catch (error) {
+      onError(error instanceof Error ? error.message : t("Erreur inattendue."));
+    } finally {
+      setProcessing("");
+    }
+  };
+
+  return (
+    <section className="requests-panel">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">{t("Validation et suivi")}</span>
+          <h1>{t("Demandes utilisateurs")}</h1>
+          <p>
+            {t(
+              "Traitez les demandes d’accès et les signalements sans quitter cette page.",
+            )}
+          </p>
+        </div>
+        <button type="button" onClick={() => void load()} disabled={loading}>
+          <Icon name="sync" /> {t("Actualiser")}
+        </button>
+      </div>
+      <div className="summary-grid">
+        <article>
+          <strong>{pendingRequests.length}</strong>
+          <span>{t("demandes d’accès en attente")}</span>
+        </article>
+        <article>
+          <strong>{openReports.length}</strong>
+          <span>{t("signalements ouverts")}</span>
+        </article>
+      </div>
+      {loading ? (
+        <AdminSkeleton label={t("Chargement des demandes…")} />
+      ) : pendingRequests.length + openReports.length === 0 ? (
+        <p className="admin-empty">{t("Aucune demande à traiter.")}</p>
+      ) : (
+        <div className="request-work-list">
+          {pendingRequests.map((item) => (
+            <article className="request-work-card" key={item.id}>
+              <header>
+                <span className="status-pill warning">
+                  {localizedStatus(locale, item.status)}
+                </span>
+                <strong>{t("Demande d’accès")}</strong>
+              </header>
+              <dl>
+                <div>
+                  <dt>{t("Utilisateur")}</dt>
+                  <dd>{item.identity}</dd>
+                </div>
+                <div>
+                  <dt>{t("Motif")}</dt>
+                  <dd>{item.justification}</dd>
+                </div>
+                {item.createdAt && (
+                  <div>
+                    <dt>{t("Reçue le")}</dt>
+                    <dd>{new Date(item.createdAt).toLocaleString(locale)}</dd>
+                  </div>
+                )}
+              </dl>
+              <footer>
+                <button
+                  disabled={processing === item.id}
+                  onClick={() => void update("access", item.id, "APPROVED")}
+                >
+                  {t("Approuver")}
+                </button>
+                <button
+                  className="danger"
+                  disabled={processing === item.id}
+                  onClick={() => void update("access", item.id, "REJECTED")}
+                >
+                  {t("Refuser")}
+                </button>
+              </footer>
+            </article>
+          ))}
+          {openReports.map((item) => (
+            <article className="request-work-card" key={item.id}>
+              <header>
+                <span className="status-pill warning">
+                  {localizedStatus(locale, item.status)}
+                </span>
+                <strong>{t("Signalement documentaire")}</strong>
+              </header>
+              <dl>
+                <div>
+                  <dt>{t("Utilisateur")}</dt>
+                  <dd>{item.identity}</dd>
+                </div>
+                <div>
+                  <dt>{t("Motif")}</dt>
+                  <dd>{item.reason}</dd>
+                </div>
+                {item.message && (
+                  <div>
+                    <dt>{t("Détail")}</dt>
+                    <dd>{item.message}</dd>
+                  </div>
+                )}
+                {item.createdAt && (
+                  <div>
+                    <dt>{t("Reçu le")}</dt>
+                    <dd>{new Date(item.createdAt).toLocaleString(locale)}</dd>
+                  </div>
+                )}
+              </dl>
+              <footer>
+                <button
+                  disabled={processing === item.id}
+                  onClick={() => void update("report", item.id, "RESOLVED")}
+                >
+                  {t("Marquer traité")}
+                </button>
+              </footer>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

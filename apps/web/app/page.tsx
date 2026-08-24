@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
+  getCachedPortalIdentity,
   getPortalIdentity,
   loginDestination,
   SessionError,
@@ -297,6 +299,16 @@ function OfficePreview({
   );
 }
 
+function PortalContentSkeleton({ label }: { label: string }) {
+  return (
+    <div className="portal-content-skeleton" role="status" aria-label={label}>
+      <span />
+      <span />
+      <span />
+    </div>
+  );
+}
+
 const titleFor = (document: PortalDocument, locale: Locale) =>
   document.translations.find((translation) => translation.locale === locale)
     ?.title ||
@@ -471,8 +483,11 @@ export function Portal({
   explorerMode?: boolean;
   reportsMode?: boolean;
 }) {
+  const router = useRouter();
   const [locale, setLocale] = useState<Locale>("fr");
-  const [identity, setIdentity] = useState<Identity | null>(null);
+  const [identity, setIdentity] = useState<Identity | null>(() =>
+    getCachedPortalIdentity<Identity>(),
+  );
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [space, setSpace] = useState("");
@@ -506,6 +521,9 @@ export function Portal({
   const [accessRefreshMessage, setAccessRefreshMessage] = useState("");
   const [accountOpen, setAccountOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [personalSection, setPersonalSection] = useState<
+    "recent" | "searches" | "access" | "notifications" | "preferences"
+  >("recent");
   const [activities, setActivities] = useState<UserActivity[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
@@ -790,7 +808,7 @@ export function Portal({
 
   const selectCategory = (spaceSlug: string, categoryId: string) => {
     if (!explorerMode) {
-      window.location.assign(
+      router.push(
         `/explorer?space=${encodeURIComponent(spaceSlug)}&categoryId=${encodeURIComponent(categoryId)}`,
       );
       return;
@@ -890,7 +908,7 @@ export function Portal({
   };
   const selectSpace = (next: string) => {
     if (!explorerMode) {
-      window.location.assign(`/explorer?space=${encodeURIComponent(next)}`);
+      router.push(`/explorer?space=${encodeURIComponent(next)}`);
       return;
     }
     setQuery("");
@@ -908,12 +926,12 @@ export function Portal({
     );
   };
   const selectHome = () => {
-    window.location.assign("/");
+    router.push("/");
   };
   const selectFavorites = () => {
     setHelpOpen(false);
     if (!explorerMode) {
-      window.location.assign("/explorer?favorites=true");
+      router.push("/explorer?favorites=true");
       return;
     }
     setQuery("");
@@ -1162,7 +1180,7 @@ export function Portal({
           <button
             type="button"
             className={reportsMode ? "active" : ""}
-            onClick={() => window.location.assign("/incident-reports")}
+            onClick={() => router.push("/incident-reports")}
           >
             <Icon name="audit" /> <span>{t.incidentReports}</span>
           </button>
@@ -1552,7 +1570,7 @@ export function Portal({
                 {t.incidentReportsError}
               </p>
             ) : loading ? (
-              <p className="loading-state">{t.loading}</p>
+              <PortalContentSkeleton label={t.loading} />
             ) : incidentReports.length === 0 ? (
               <div className="incident-reports-empty">
                 <Icon name="audit" />
@@ -1651,7 +1669,7 @@ export function Portal({
               </p>
             )}
             {loading ? (
-              <p className="loading-state">{t.loading}</p>
+              <PortalContentSkeleton label={t.loading} />
             ) : (
               <>
                 <section
@@ -2001,181 +2019,252 @@ export function Portal({
                 </p>
               </div>
             </header>
+            <nav
+              className="personal-tools-tabs"
+              aria-label={
+                locale === "fr"
+                  ? "Rubriques de mon espace personnel"
+                  : "Personal workspace sections"
+              }
+            >
+              {[
+                [
+                  "recent",
+                  locale === "fr" ? "Récents" : "Recent",
+                  activities.length,
+                ],
+                [
+                  "searches",
+                  locale === "fr" ? "Recherches" : "Searches",
+                  savedSearches.length,
+                ],
+                [
+                  "access",
+                  locale === "fr" ? "Demandes" : "Requests",
+                  accessRequests.length,
+                ],
+                [
+                  "notifications",
+                  locale === "fr" ? "Notifications" : "Notifications",
+                  notifications.length,
+                ],
+                [
+                  "preferences",
+                  locale === "fr" ? "Affichage" : "Display",
+                  null,
+                ],
+              ].map(([key, label, count]) => (
+                <button
+                  type="button"
+                  className={personalSection === key ? "active" : ""}
+                  aria-pressed={personalSection === key}
+                  key={key}
+                  onClick={() =>
+                    setPersonalSection(key as typeof personalSection)
+                  }
+                >
+                  <span>{label}</span>
+                  {typeof count === "number" && <small>{count}</small>}
+                </button>
+              ))}
+            </nav>
             <div className="personal-tools-grid">
-              <section>
-                <h3>
-                  <Icon name="documents" />{" "}
-                  {locale === "fr" ? "Consultés récemment" : "Recently viewed"}
-                </h3>
-                {activities.length ? (
-                  <ul>
-                    {activities.map((activity) => (
-                      <li key={`${activity.document.id}-${activity.action}`}>
-                        <a
-                          className="personal-tools-link"
-                          href={`/explorer?q=${encodeURIComponent(
-                            activity.document.translations.find(
+              {personalSection === "recent" && (
+                <section>
+                  <h3>
+                    <Icon name="documents" />{" "}
+                    {locale === "fr"
+                      ? "Consultés récemment"
+                      : "Recently viewed"}
+                  </h3>
+                  {activities.length ? (
+                    <ul>
+                      {activities.map((activity) => (
+                        <li key={`${activity.document.id}-${activity.action}`}>
+                          <a
+                            className="personal-tools-link"
+                            href={`/explorer?q=${encodeURIComponent(
+                              activity.document.translations.find(
+                                (item) => item.locale === locale,
+                              )?.title ||
+                                activity.document.translations[0]?.title ||
+                                activity.document.id,
+                            )}`}
+                          >
+                            {activity.document.translations.find(
                               (item) => item.locale === locale,
                             )?.title ||
                               activity.document.translations[0]?.title ||
-                              activity.document.id,
-                          )}`}
-                        >
-                          {activity.document.translations.find(
-                            (item) => item.locale === locale,
-                          )?.title ||
-                            activity.document.translations[0]?.title ||
-                            activity.document.id}
-                        </a>
-                        <small>
-                          {new Date(activity.occurredAt).toLocaleString(locale)}
-                        </small>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>
-                    {locale === "fr" ? "Aucune consultation." : "No activity."}
-                  </p>
-                )}
-              </section>
-              <section>
-                <h3>
-                  <Icon name="search" />
-                  {locale === "fr"
-                    ? "Recherches sauvegardées"
-                    : "Saved searches"}
-                </h3>
-                {savedSearches.length ? (
-                  <ul>
-                    {savedSearches.map((search) => (
-                      <li key={search.id}>
-                        <a
-                          className="personal-tools-link"
-                          href={`/explorer?${new URLSearchParams(search.filters)}`}
-                        >
-                          {search.name}
-                        </a>
-                        <button
-                          type="button"
-                          className="personal-tools-action danger"
-                          onClick={async () => {
-                            await fetch(
-                              `/api/user-tools/saved-searches/${search.id}`,
-                              { method: "DELETE" },
-                            );
-                            await loadUserTools();
-                          }}
-                        >
-                          <Icon name="delete" />
-                          <span>
-                            {locale === "fr" ? "Supprimer" : "Delete"}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>
-                    {locale === "fr" ? "Aucune recherche." : "No saved search."}
-                  </p>
-                )}
-              </section>
-              <section>
-                <h3>
-                  <Icon name="rules" />
-                  {locale === "fr" ? "Demandes d’accès" : "Access requests"}
-                </h3>
-                {accessRequests.length ? (
-                  <ul>
-                    {accessRequests.map((request) => (
-                      <li key={request.id}>
-                        <strong>{request.status}</strong> —{" "}
-                        {request.justification}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>{locale === "fr" ? "Aucune demande." : "No request."}</p>
-                )}
-              </section>
-              <section>
-                <h3>
-                  <Icon name="audit" />{" "}
-                  {locale === "fr" ? "Notifications" : "Notifications"}
-                </h3>
-                {notifications.length ? (
-                  <ul>
-                    {notifications.map((notification) => (
-                      <li
-                        className={notification.readAt ? "" : "unread"}
-                        key={notification.id}
-                      >
-                        <strong>{notification.title}</strong>
-                        <span>{notification.message}</span>
-                        <button
-                          type="button"
-                          className="personal-tools-action"
-                          onClick={async () => {
-                            await fetch(
-                              `/api/user-tools/notifications/${notification.id}/${notification.mandatory ? "acknowledge" : "read"}`,
-                              { method: "PUT" },
-                            );
-                            await loadUserTools();
-                          }}
-                        >
-                          <Icon name="publish" />
-                          {notification.mandatory
-                            ? locale === "fr"
-                              ? "Accuser réception"
-                              : "Acknowledge"
-                            : locale === "fr"
-                              ? "Marquer comme lu"
-                              : "Mark as read"}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>
+                              activity.document.id}
+                          </a>
+                          <small>
+                            {new Date(activity.occurredAt).toLocaleString(
+                              locale,
+                            )}
+                          </small>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>
+                      {locale === "fr"
+                        ? "Aucune consultation."
+                        : "No activity."}
+                    </p>
+                  )}
+                </section>
+              )}
+              {personalSection === "searches" && (
+                <section>
+                  <h3>
+                    <Icon name="search" />
                     {locale === "fr"
-                      ? "Aucune notification."
-                      : "No notification."}
-                  </p>
-                )}
-              </section>
+                      ? "Recherches sauvegardées"
+                      : "Saved searches"}
+                  </h3>
+                  {savedSearches.length ? (
+                    <ul>
+                      {savedSearches.map((search) => (
+                        <li key={search.id}>
+                          <a
+                            className="personal-tools-link"
+                            href={`/explorer?${new URLSearchParams(search.filters)}`}
+                          >
+                            {search.name}
+                          </a>
+                          <button
+                            type="button"
+                            className="personal-tools-action danger"
+                            onClick={async () => {
+                              await fetch(
+                                `/api/user-tools/saved-searches/${search.id}`,
+                                { method: "DELETE" },
+                              );
+                              await loadUserTools();
+                            }}
+                          >
+                            <Icon name="delete" />
+                            <span>
+                              {locale === "fr" ? "Supprimer" : "Delete"}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>
+                      {locale === "fr"
+                        ? "Aucune recherche."
+                        : "No saved search."}
+                    </p>
+                  )}
+                </section>
+              )}
+              {personalSection === "access" && (
+                <section>
+                  <h3>
+                    <Icon name="rules" />
+                    {locale === "fr" ? "Demandes d’accès" : "Access requests"}
+                  </h3>
+                  {accessRequests.length ? (
+                    <ul>
+                      {accessRequests.map((request) => (
+                        <li key={request.id}>
+                          <strong>{request.status}</strong> —{" "}
+                          {request.justification}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>{locale === "fr" ? "Aucune demande." : "No request."}</p>
+                  )}
+                </section>
+              )}
+              {personalSection === "notifications" && (
+                <section>
+                  <h3>
+                    <Icon name="audit" />{" "}
+                    {locale === "fr" ? "Notifications" : "Notifications"}
+                  </h3>
+                  {notifications.length ? (
+                    <ul>
+                      {notifications.map((notification) => (
+                        <li
+                          className={notification.readAt ? "" : "unread"}
+                          key={notification.id}
+                        >
+                          <strong>{notification.title}</strong>
+                          <span>{notification.message}</span>
+                          <button
+                            type="button"
+                            className="personal-tools-action"
+                            onClick={async () => {
+                              await fetch(
+                                `/api/user-tools/notifications/${notification.id}/${notification.mandatory ? "acknowledge" : "read"}`,
+                                { method: "PUT" },
+                              );
+                              await loadUserTools();
+                            }}
+                          >
+                            <Icon name="publish" />
+                            {notification.mandatory
+                              ? locale === "fr"
+                                ? "Accuser réception"
+                                : "Acknowledge"
+                              : locale === "fr"
+                                ? "Marquer comme lu"
+                                : "Mark as read"}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>
+                      {locale === "fr"
+                        ? "Aucune notification."
+                        : "No notification."}
+                    </p>
+                  )}
+                </section>
+              )}
             </div>
-            <fieldset className="personal-tools-preferences">
-              <legend>
-                {locale === "fr"
-                  ? "Préférences d’affichage"
-                  : "Display preferences"}
-              </legend>
-              <label>
-                {locale === "fr" ? "Densité" : "Density"}
-                <select
-                  value={density}
-                  onChange={(event) => {
-                    const next = event.target.value as
-                      | "comfortable"
-                      | "compact";
-                    setDensity(next);
-                    void fetch("/api/user-tools/preferences", {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ locale, viewMode, density: next }),
-                    });
-                  }}
-                >
-                  <option value="comfortable">
-                    {locale === "fr" ? "Confortable" : "Comfortable"}
-                  </option>
-                  <option value="compact">
-                    {locale === "fr" ? "Compacte" : "Compact"}
-                  </option>
-                </select>
-              </label>
-            </fieldset>
+            {personalSection === "preferences" && (
+              <fieldset className="personal-tools-preferences">
+                <legend>
+                  {locale === "fr"
+                    ? "Préférences d’affichage"
+                    : "Display preferences"}
+                </legend>
+                <label>
+                  {locale === "fr" ? "Densité" : "Density"}
+                  <select
+                    value={density}
+                    onChange={(event) => {
+                      const next = event.target.value as
+                        | "comfortable"
+                        | "compact";
+                      setDensity(next);
+                      void fetch("/api/user-tools/preferences", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          locale,
+                          viewMode,
+                          density: next,
+                        }),
+                      });
+                    }}
+                  >
+                    <option value="comfortable">
+                      {locale === "fr" ? "Confortable" : "Comfortable"}
+                    </option>
+                    <option value="compact">
+                      {locale === "fr" ? "Compacte" : "Compact"}
+                    </option>
+                  </select>
+                </label>
+              </fieldset>
+            )}
             <footer className="personal-tools-footer">
               <button type="button" onClick={() => setToolsOpen(false)}>
                 {locale === "fr" ? "Fermer mon espace" : "Close my workspace"}
