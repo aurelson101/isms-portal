@@ -2085,6 +2085,7 @@ export function Portal({
         >
           <section
             className="modal personal-tools-modal"
+            data-personal-section={personalSection}
             role="dialog"
             aria-modal="true"
             aria-labelledby="personal-tools-title"

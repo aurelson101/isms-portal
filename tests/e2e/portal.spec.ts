@@ -1794,6 +1794,20 @@ test("personal tools persist searches, preferences, access requests and reports"
     ),
   ).not.toBe("rgb(255, 255, 255)");
   await workspace.getByRole("button", { name: /Recherches/ }).click();
+  const personalColors = await workspace.evaluate((element) => {
+    const section = element.querySelector<HTMLElement>(
+      ".personal-tools-grid > section",
+    );
+    const item = element.querySelector<HTMLElement>(".personal-tools-grid li");
+    const tab = element.querySelector<HTMLElement>(
+      ".personal-tools-tabs button:not(.active)",
+    );
+    return [section, item, tab].map((node) =>
+      node ? getComputedStyle(node).backgroundColor : null,
+    );
+  });
+  expect(personalColors).not.toContain("rgb(255, 255, 255)");
+  expect(new Set(personalColors.filter(Boolean)).size).toBeGreaterThan(1);
   const deleteButton = workspace.getByRole("button", { name: "Supprimer" });
   await expect(deleteButton).toBeVisible();
   const deleteButtonBox = await deleteButton.boundingBox();
