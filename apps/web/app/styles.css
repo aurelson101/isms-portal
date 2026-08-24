@@ -4085,15 +4085,17 @@ svg {
   max-height: min(88vh, 900px);
   overflow: auto;
   padding: 0;
-  border: 1px solid #d7e2ef;
-  background: #f3f7fc;
+  border: 1px solid #9fb6d2;
+  background: #dce8f4;
   box-shadow: 0 24px 70px #10284638;
 }
 
 .personal-tools-tabs {
   display: flex;
   gap: 0.45rem;
-  padding: 0.85rem 1.25rem 0;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid #b5c8de;
+  background: #cfdeed;
   overflow-x: auto;
   scrollbar-width: thin;
 }
@@ -4105,10 +4107,10 @@ svg {
   align-items: center;
   gap: 0.45rem;
   padding: 0.55rem 0.8rem;
-  border: 1px solid #c5d3e5;
+  border: 1px solid #9eb5d0;
   border-radius: 999px;
-  background: #eaf1f9;
-  color: #40536e;
+  background: #dbe7f3;
+  color: #294766;
   font-weight: 700;
 }
 
@@ -4116,6 +4118,7 @@ svg {
   border-color: #0768ea;
   background: #0768ea;
   color: #fff;
+  box-shadow: 0 3px 10px #064b9f33;
 }
 
 .personal-tools-tabs small {
@@ -4139,7 +4142,7 @@ svg {
   place-items: center;
   border: 1px solid #c8d5e5;
   border-radius: 50%;
-  background: #fff;
+  background: #d8e6f4;
   color: #24436f;
   z-index: 1;
 }
@@ -4154,8 +4157,8 @@ svg {
   align-items: center;
   gap: 1rem;
   padding: 1.5rem 4.5rem 1.25rem 1.5rem;
-  border-bottom: 1px solid #dce5f0;
-  background: linear-gradient(135deg, #e8f2ff, #f3f7fc);
+  border-bottom: 1px solid #b5c8de;
+  background: linear-gradient(135deg, #cfe2f6, #dde9f5);
 }
 
 .personal-tools-heading > span {
@@ -4196,10 +4199,10 @@ svg {
 .personal-tools-grid > section {
   min-width: 0;
   padding: 1rem;
-  border: 1px solid #dce3ea;
+  border: 1px solid #a9bfd8;
   border-radius: 0.9rem;
-  background: #fafdff;
-  box-shadow: 0 5px 18px #17365f0a;
+  background: #e8f0f8;
+  box-shadow: 0 5px 18px #17365f14;
 }
 
 .personal-tools-grid h3 {
@@ -4207,7 +4210,7 @@ svg {
   align-items: center;
   gap: 0.55rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid #edf1f6;
+  border-bottom: 1px solid #b9cce0;
   color: #17345f;
   font-size: 1rem;
 }
@@ -4232,7 +4235,8 @@ svg {
   gap: 0.4rem;
   padding: 0.75rem;
   border-radius: 0.65rem;
-  background: #f7f9fc;
+  border: 1px solid #b9cce0;
+  background: #d9e6f3;
   overflow-wrap: anywhere;
 }
 
@@ -4243,7 +4247,7 @@ svg {
 
 .personal-tools-grid li.unread {
   border-left: 3px solid #0b6bcb;
-  background: #eef6ff;
+  background: #cfe4f8;
 }
 
 .personal-request-status {
@@ -4289,7 +4293,7 @@ svg {
   padding: 0.55rem 0.85rem;
   border: 1px solid #9bb5d6;
   border-radius: 0.6rem;
-  background: #fff;
+  background: #d7e6f4;
   color: #0759bd;
   font-weight: 700;
 }
@@ -4325,9 +4329,9 @@ svg {
 .personal-tools-preferences {
   margin: 0 1.25rem 1.25rem;
   padding: 1rem;
-  border: 1px solid #dce3ea;
+  border: 1px solid #a9bfd8;
   border-radius: 0.9rem;
-  background: #fafdff;
+  background: #e4edf7;
 }
 
 .personal-tools-preferences legend {
@@ -4350,7 +4354,7 @@ svg {
   padding: 0.55rem 2.25rem 0.55rem 0.75rem;
   border: 1px solid #9aabc3;
   border-radius: 0.6rem;
-  background: #fff;
+  background: #d6e4f2;
   color: #17345f;
 }
 
@@ -4358,8 +4362,8 @@ svg {
   display: flex;
   justify-content: flex-end;
   padding: 1rem 1.25rem;
-  border-top: 1px solid #dce5f0;
-  background: #eaf1f9;
+  border-top: 1px solid #b5c8de;
+  background: #cbdced;
 }
 
 .explorer-controls > button:not(.primary) {

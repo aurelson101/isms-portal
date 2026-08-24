@@ -753,10 +753,23 @@ export class GovernanceController {
         throw new BadRequestException("Invalid incident status");
       const targets = await this.prisma.incidentCase.findMany({
         where: { id: { in: ids } },
-        select: { id: true, reference: true, title: true, status: true },
+        select: {
+          id: true,
+          reference: true,
+          title: true,
+          status: true,
+          rootCause: true,
+        },
       });
       if (targets.length !== ids.length)
         throw new NotFoundException("One or more incidents do not exist");
+      if (
+        ["RESOLVED", "CLOSED"].includes(body.value) &&
+        targets.some((target) => !clean(target.rootCause || undefined))
+      )
+        throw new BadRequestException(
+          "Every resolved incident requires a root cause",
+        );
       return {
         kind: body.kind,
         value: body.value,

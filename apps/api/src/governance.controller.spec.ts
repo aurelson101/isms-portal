@@ -169,4 +169,24 @@ describe("GovernanceController", () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it("does not bypass the root cause requirement in bulk", async () => {
+    const { controller, prisma } = setup();
+    prisma.incidentCase.findMany.mockResolvedValue([
+      {
+        id: "00000000-0000-4000-8000-000000000001",
+        reference: "INC-1",
+        title: "Security incident",
+        status: "INVESTIGATING",
+        rootCause: null,
+      },
+    ]);
+    await expect(
+      controller.bulkPreview({
+        kind: "INCIDENT_STATUS",
+        ids: ["00000000-0000-4000-8000-000000000001"],
+        value: "CLOSED",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
 });
