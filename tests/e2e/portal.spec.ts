@@ -1499,6 +1499,14 @@ test("personal tools persist searches, preferences, access requests and reports"
         document.documentElement.clientWidth,
     ),
   ).toBe(true);
+  await workspace.getByRole("button", { name: "Affichage" }).click();
+  await expect(workspace.locator(".personal-tools-grid")).toHaveCount(0);
+  expect(
+    await workspace.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    ),
+  ).not.toBe("rgb(255, 255, 255)");
+  await workspace.getByRole("button", { name: /Recherches/ }).click();
   const deleteButton = workspace.getByRole("button", { name: "Supprimer" });
   await expect(deleteButton).toBeVisible();
   const deleteButtonBox = await deleteButton.boundingBox();
