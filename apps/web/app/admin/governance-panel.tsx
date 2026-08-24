@@ -66,6 +66,11 @@ type SavedView = {
   name: string;
   config: Record<string, unknown>;
 };
+type DirectoryUser = {
+  username: string;
+  displayName: string;
+  email: string | null;
+};
 
 const jsonApi = async <T,>(url: string, options?: RequestInit): Promise<T> => {
   const response = await fetch(url, options);
@@ -458,20 +463,19 @@ function ReviewsSection({
           </select>
         </label>
         {(["owner", "reviewer", "approver"] as const).map((key) => (
-          <label key={key}>
-            {key === "owner"
-              ? t("Propriétaire", "Owner")
-              : key === "reviewer"
-                ? t("Relecteur", "Reviewer")
-                : t("Approbateur", "Approver")}
-            <input
-              required
-              minLength={2}
-              maxLength={160}
-              value={draft[key]}
-              onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
-            />
-          </label>
+          <ReviewActorPicker
+            key={key}
+            locale={locale}
+            label={
+              key === "owner"
+                ? t("Propriétaire", "Owner")
+                : key === "reviewer"
+                  ? t("Relecteur", "Reviewer")
+                  : t("Approbateur", "Approver")
+            }
+            value={draft[key]}
+            onChange={(value) => setDraft({ ...draft, [key]: value })}
+          />
         ))}
         <label>
           {t("Échéance", "Due date")}
@@ -482,7 +486,17 @@ function ReviewsSection({
             onChange={(e) => setDraft({ ...draft, dueAt: e.target.value })}
           />
         </label>
-        <button className="primary" type="submit">
+        <button
+          className="primary"
+          type="submit"
+          disabled={
+            !draft.documentId ||
+            !draft.owner ||
+            !draft.reviewer ||
+            !draft.approver ||
+            !draft.dueAt
+          }
+        >
           {t("Créer la revue", "Create review")}
         </button>
       </form>
@@ -537,6 +551,174 @@ function ReviewsSection({
         ))}
       </div>
     </div>
+  );
+}
+
+function ReviewActorPicker({
+  locale,
+  label,
+  value,
+  onChange,
+}: {
+  locale: Locale;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const [mode, setMode] = useState<"directory" | "manual">("directory");
+  const [query, setQuery] = useState("");
+  const [users, setUsers] = useState<DirectoryUser[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [directoryMessage, setDirectoryMessage] = useState("");
+  const [selected, setSelected] = useState<DirectoryUser | null>(null);
+
+  useEffect(() => {
+    if (!value) setSelected(null);
+  }, [value]);
+
+  useEffect(() => {
+    if (mode !== "directory" || query.trim().length < 2) {
+      setUsers([]);
+      setSearching(false);
+      setDirectoryMessage("");
+      return;
+    }
+    const controller = new AbortController();
+    setSearching(true);
+    setDirectoryMessage("");
+    const timer = window.setTimeout(() => {
+      jsonApi<DirectoryUser[]>(
+        `/api/admin/accounts/directory-users/${encodeURIComponent(query.trim())}`,
+        { signal: controller.signal },
+      )
+        .then((matches) => {
+          setUsers(matches);
+          if (!matches.length)
+            setDirectoryMessage(
+              locale === "fr"
+                ? "Aucun utilisateur AD trouvé."
+                : "No AD user found.",
+            );
+        })
+        .catch((error) => {
+          if ((error as Error).name !== "AbortError") {
+            setUsers([]);
+            setDirectoryMessage(
+              locale === "fr"
+                ? "Annuaire indisponible. Utilisez la saisie manuelle."
+                : "Directory unavailable. Use manual entry.",
+            );
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSearching(false);
+        });
+    }, 350);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [locale, mode, query]);
+
+  return (
+    <fieldset className="review-actor-picker">
+      <legend>{label}</legend>
+      <div className="review-actor-modes">
+        <button
+          type="button"
+          className={mode === "directory" ? "active" : ""}
+          aria-pressed={mode === "directory"}
+          onClick={() => {
+            setMode("directory");
+            onChange("");
+          }}
+        >
+          {t("Utilisateur AD", "AD user")}
+        </button>
+        <button
+          type="button"
+          className={mode === "manual" ? "active" : ""}
+          aria-pressed={mode === "manual"}
+          onClick={() => {
+            setMode("manual");
+            setSelected(null);
+            onChange("");
+          }}
+        >
+          {t("Saisie manuelle", "Manual entry")}
+        </button>
+      </div>
+      {mode === "directory" ? (
+        <>
+          <label>
+            {t("Rechercher dans l’annuaire", "Search directory")}
+            <input
+              value={query}
+              minLength={2}
+              maxLength={120}
+              autoComplete="off"
+              placeholder={t(
+                "Nom, identifiant ou e-mail",
+                "Name, username or email",
+              )}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setSelected(null);
+                onChange("");
+              }}
+            />
+          </label>
+          <div className="review-actor-results">
+            {users.map((user) => (
+              <button
+                type="button"
+                key={user.username}
+                className={
+                  selected?.username === user.username ? "selected" : ""
+                }
+                aria-pressed={selected?.username === user.username}
+                onClick={() => {
+                  setSelected(user);
+                  onChange(user.username);
+                }}
+              >
+                <strong>{user.displayName}</strong>
+                <small>{user.email || user.username}</small>
+              </button>
+            ))}
+          </div>
+          <p className="directory-search-status" aria-live="polite">
+            {searching
+              ? t("Recherche en cours…", "Searching…")
+              : selected
+                ? t("Utilisateur AD sélectionné.", "AD user selected.")
+                : directoryMessage ||
+                  (query.trim().length < 2
+                    ? t(
+                        "Saisissez au moins deux caractères.",
+                        "Enter at least two characters.",
+                      )
+                    : "")}
+          </p>
+        </>
+      ) : (
+        <label>
+          {t("Nom ou identifiant manuel", "Manual name or identifier")}
+          <input
+            required
+            minLength={2}
+            maxLength={160}
+            value={value}
+            placeholder={t(
+              "Ex. prestataire@example.com",
+              "E.g. contractor@example.com",
+            )}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        </label>
+      )}
+    </fieldset>
   );
 }
 
