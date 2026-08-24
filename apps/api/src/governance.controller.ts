@@ -125,6 +125,18 @@ export class GovernanceController {
         dueAt: new Date(body.dueAt),
       },
     });
+    await this.prisma.userNotification.createMany({
+      data: [...new Set([review.owner, review.reviewer, review.approver])].map(
+        (identity) => ({
+          identity,
+          title: "Revue documentaire assignée",
+          message: `Une revue documentaire vous a été assignée avec une échéance au ${review.dueAt.toISOString()}.`,
+          resourceType: "document-review",
+          resourceId: review.id,
+          mandatory: true,
+        }),
+      ),
+    });
     await this.audit.record(
       req,
       "document-review.create",
@@ -161,6 +173,22 @@ export class GovernanceController {
         decidedAt: closed ? new Date() : null,
       },
     });
+    if (closed)
+      await this.prisma.userNotification.createMany({
+        data: [
+          ...new Set([existing.owner, existing.reviewer, existing.approver]),
+        ].map((identity) => ({
+          identity,
+          title:
+            review.status === "APPROVED"
+              ? "Revue documentaire approuvée"
+              : "Revue documentaire refusée",
+          message: review.decisionComment || "Décision enregistrée",
+          resourceType: "document-review",
+          resourceId: review.id,
+          mandatory: review.status === "REJECTED",
+        })),
+      });
     await this.audit.record(
       req,
       "document-review.decision",

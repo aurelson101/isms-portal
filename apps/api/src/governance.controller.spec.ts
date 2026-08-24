@@ -26,6 +26,7 @@ const setup = (overrides: Record<string, unknown> = {}) => {
     accessRule: { findUnique: vi.fn(), update: vi.fn() },
     retentionPolicy: { findUnique: vi.fn(), update: vi.fn() },
     incidentCase: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
+    userNotification: { createMany: vi.fn() },
     adminSavedView: { deleteMany: vi.fn() },
     ...overrides,
   };

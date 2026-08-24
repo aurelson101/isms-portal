@@ -1624,6 +1624,33 @@ test("governance workflows support lifetime access, reviews, SoA, retention, ide
   await expect(
     page.getByText("alice.ad → prestataire@example.test → bob.ad"),
   ).toBeVisible();
+  const createdReview = page
+    .locator(".governance-card")
+    .filter({ hasText: "alice.ad → prestataire@example.test → bob.ad" });
+  await createdReview.getByRole("button", { name: "Approuver" }).click();
+  const decisionDialog = page.getByRole("dialog", {
+    name: "Justifier l’approbation",
+  });
+  await expect(
+    decisionDialog.getByRole("button", { name: "Confirmer l’approbation" }),
+  ).toBeDisabled();
+  await decisionDialog
+    .getByLabel("Commentaire de décision")
+    .fill("Contenu relu, preuves contrôlées et version validée.");
+  await decisionDialog
+    .getByRole("button", { name: "Confirmer l’approbation" })
+    .click();
+  await expect(createdReview.getByText("Preuve de décision")).toBeVisible();
+  await expect(
+    createdReview.getByText(
+      "Contenu relu, preuves contrôlées et version validée.",
+    ),
+  ).toBeVisible();
+  await createdReview
+    .getByRole("button", { name: "Planifier la prochaine revue dans un an" })
+    .click();
+  await expect(reviewForm.getByLabel("Document")).not.toHaveValue("");
+  await expect(reviewForm.getByLabel("Échéance")).not.toHaveValue("");
 
   const reviewsTab = page.getByRole("tab", { name: /Revues/ });
   await reviewsTab.focus();
