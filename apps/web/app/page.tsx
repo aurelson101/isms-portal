@@ -315,6 +315,16 @@ const titleFor = (document: PortalDocument, locale: Locale) =>
   document.translations[0]?.title ||
   document.id;
 
+const accessRequestStatus = (status: string, locale: Locale) => {
+  const labels: Record<string, [string, string]> = {
+    PENDING: ["En attente", "Pending"],
+    APPROVED: ["Approuvée", "Approved"],
+    REJECTED: ["Refusée", "Rejected"],
+  };
+  const label = labels[status.toUpperCase()];
+  return label ? label[locale === "fr" ? 0 : 1] : status;
+};
+
 function DocumentRows({
   documents,
   locale,
@@ -549,6 +559,90 @@ export function Portal({
   const resultsRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const documentsLoadedRef = useRef(false);
+
+  useEffect(() => {
+    const modalOpen = Boolean(
+      helpOpen ||
+        sessionExpired ||
+        toolsOpen ||
+        opened ||
+        reporting ||
+        editing ||
+        depositOpen,
+    );
+    if (!modalOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const frame = window.requestAnimationFrame(() => {
+      const dialogs = document.querySelectorAll<HTMLElement>(
+        '[role="dialog"], [role="alertdialog"]',
+      );
+      const dialog = dialogs.item(dialogs.length - 1);
+      const firstControl = dialog?.querySelector<HTMLElement>(
+        'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      );
+      firstControl?.focus();
+    });
+    const onKeyDown = (event: KeyboardEvent) => {
+      const dialogs = document.querySelectorAll<HTMLElement>(
+        '[role="dialog"], [role="alertdialog"]',
+      );
+      const dialog = dialogs.item(dialogs.length - 1);
+      if (!dialog) return;
+      if (event.key === "Escape" && !sessionExpired) {
+        event.preventDefault();
+        if (reporting) setReporting(null);
+        else if (editing) setEditing(null);
+        else if (depositOpen) setDepositOpen(false);
+        else if (opened) {
+          setOpened(null);
+          setViewerExpanded(false);
+        } else if (toolsOpen) setToolsOpen(false);
+        else if (helpOpen) setHelpOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const controls = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((control) => control.getClientRects().length > 0);
+      if (!controls.length) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", onKeyDown);
+      window.requestAnimationFrame(() => {
+        if (
+          previousFocus?.isConnected &&
+          previousFocus !== document.body &&
+          previousFocus.tabIndex >= 0 &&
+          previousFocus.getClientRects().length > 0
+        ) {
+          previousFocus.focus();
+        } else {
+          document.querySelector<HTMLElement>(".account-button")?.focus();
+        }
+      });
+    };
+  }, [
+    depositOpen,
+    editing,
+    helpOpen,
+    opened,
+    reporting,
+    sessionExpired,
+    toolsOpen,
+  ]);
 
   useEffect(() => {
     if (!space) return;
@@ -2173,8 +2267,12 @@ export function Portal({
                       <ul>
                         {accessRequests.map((request) => (
                           <li key={request.id}>
-                            <strong>{request.status}</strong> —{" "}
-                            {request.justification}
+                            <strong
+                              className={`personal-request-status ${request.status.toLowerCase()}`}
+                            >
+                              {accessRequestStatus(request.status, locale)}
+                            </strong>{" "}
+                            — {request.justification}
                           </li>
                         ))}
                       </ul>

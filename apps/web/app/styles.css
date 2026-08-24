@@ -10,10 +10,9 @@ body {
   margin: 0;
 }
 .version-footer {
-  position: fixed;
-  right: 12px;
-  bottom: 8px;
-  z-index: 50;
+  position: relative;
+  width: fit-content;
+  margin: 8px 12px 8px auto;
   padding: 4px 8px;
   border: 1px solid #cbd7e7;
   border-radius: 999px;
@@ -69,6 +68,8 @@ body {
   gap: 4px;
 }
 .login-language button {
+  min-width: 44px;
+  min-height: 44px;
   border: 1px solid #c7d3e4;
   border-radius: 6px;
   padding: 6px 9px;
@@ -182,6 +183,7 @@ a {
     transform 0.15s;
 }
 button {
+  min-height: 44px;
   cursor: pointer;
 }
 button:disabled {
@@ -191,7 +193,7 @@ button:disabled {
 .admin-form button,
 .admin-table-wrap button,
 .account-menu button {
-  min-height: 40px;
+  min-height: 44px;
   padding: 8px 12px;
   border: 1px solid #7892b8;
   border-radius: 7px;
@@ -1299,7 +1301,8 @@ h1 {
   overflow: hidden;
 }
 .admin-language button {
-  min-height: 40px;
+  min-width: 44px;
+  min-height: 44px;
   border: 0;
   border-radius: 0;
   padding: 8px 10px;
@@ -3610,7 +3613,7 @@ svg {
   margin-bottom: 18px;
 }
 .cards .category-links button {
-  min-height: 38px;
+  min-height: 44px;
   margin: 0;
   padding: 8px 10px;
   border-color: #d4deeb;
@@ -3754,7 +3757,8 @@ svg {
 }
 .document-row-actions .download {
   width: 42px;
-  min-height: 40px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 8px;
 }
 .document-manage-actions {
@@ -4242,6 +4246,31 @@ svg {
   background: #eef6ff;
 }
 
+.personal-request-status {
+  display: inline-flex !important;
+  width: fit-content;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #40536e;
+  font-size: 0.78rem;
+}
+
+.personal-request-status.pending {
+  background: #fff4d6;
+  color: #795200;
+}
+
+.personal-request-status.approved {
+  background: #ddf7e8;
+  color: #12633a;
+}
+
+.personal-request-status.rejected {
+  background: #ffe8e8;
+  color: #932323;
+}
+
 .personal-tools-link {
   color: #0759bd;
   font-weight: 700;
@@ -4435,6 +4464,117 @@ svg {
   display: grid;
   gap: 0.75rem;
   padding: 1rem;
+}
+
+/* Consistent touch targets across portal and administration. */
+.login-card > .button-link,
+.login-card > .login-back,
+.view-switcher button,
+.document-grid .document > button,
+.pdf-toolbar button,
+.pdf-toolbar a,
+.admin-shell header button,
+.primary,
+.document-pagination button,
+.confirmation-actions button,
+.content-editor-actions button,
+.space-management-header-actions button,
+.space-category-row button,
+.content-editor-heading > button,
+.administrator-row-actions button,
+.administrator-sessions button,
+.sso-diagnostic button,
+.admin-table-wrap td button,
+.navigation-toggle,
+.dashboard-shortcuts button,
+.personal-tools-tabs button,
+.personal-tools-action,
+.personal-tools-footer button,
+.explorer-controls > button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media (max-width: 600px) {
+  .admin-table-wrap {
+    max-width: 100%;
+    overflow: visible;
+    box-shadow: none;
+  }
+
+  .admin-table-wrap table,
+  .admin-table-wrap tbody,
+  .admin-table-wrap tr,
+  .admin-table-wrap td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-table-wrap thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .admin-table-wrap tbody {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .admin-table-wrap tr {
+    padding: 0.35rem 0.85rem;
+    border: 1px solid #d7e2ef;
+    border-radius: 0.8rem;
+    background: #fff;
+    box-shadow: 0 4px 14px #17365f0a;
+  }
+
+  .admin-table-wrap td,
+  .admin-table-wrap td:first-child,
+  .admin-actions-table td:last-child {
+    position: static;
+    display: grid;
+    grid-template-columns: minmax(7.5rem, 40%) minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 0.65rem 0;
+    border: 0;
+    border-bottom: 1px solid #edf1f6;
+    background: transparent;
+    box-shadow: none;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-table-wrap td:last-child {
+    border-bottom: 0;
+  }
+
+  .admin-table-wrap td::before {
+    content: attr(data-label);
+    color: #526783;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .admin-table-wrap td[colspan] {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-table-wrap td[colspan]::before,
+  .admin-table-wrap td:empty::before {
+    display: none;
+  }
+
+  .admin-table-wrap .document-actions,
+  .admin-table-wrap .document-row-actions,
+  .admin-table-wrap .administrator-row-actions {
+    min-width: 0;
+  }
 }
 
 .integration-card h2,

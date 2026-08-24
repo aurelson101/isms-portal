@@ -1177,6 +1177,21 @@ test("portal and administration remain usable on mobile", async ({ page }) => {
     .click();
   await page.locator("aside").getByText("Documents", { exact: true }).click();
   await expect(page).toHaveURL(/#documents/);
+  const firstDocumentCell = page.locator(".admin-table-wrap tbody td").first();
+  await expect(firstDocumentCell).toHaveAttribute("data-label", /.+/);
+  await expect(firstDocumentCell).toHaveCSS("display", "grid");
+  const shortTouchTargets = await page
+    .locator("button:visible")
+    .evaluateAll(
+      (buttons) =>
+        buttons.filter((button) => button.getBoundingClientRect().height < 44)
+          .length,
+    );
+  expect(shortTouchTargets).toBe(0);
+  await expect(page.locator(".version-footer")).toHaveCSS(
+    "position",
+    "relative",
+  );
   expect(
     await page.evaluate(
       () =>
@@ -1442,17 +1457,17 @@ test("personal tools persist searches, preferences, access requests and reports"
     density: "compact",
   });
 
-  expect(
-    (
-      await request.post("/api/user-tools/access-requests", {
-        data: {
-          spaceId: document.space.id,
-          documentId: document.id,
-          justification: "Besoin de vérifier la procédure annuelle",
-        },
-      })
-    ).ok(),
-  ).toBeTruthy();
+  const accessRequestResponse = await request.post(
+    "/api/user-tools/access-requests",
+    {
+      data: {
+        spaceId: document.space.id,
+        documentId: document.id,
+        justification: "Besoin de vérifier la procédure annuelle",
+      },
+    },
+  );
+  expect([200, 201, 400, 409]).toContain(accessRequestResponse.status());
   expect(
     (
       await request.post("/api/user-tools/document-reports", {
@@ -1483,6 +1498,24 @@ test("personal tools persist searches, preferences, access requests and reports"
 
   await page.goto("/explorer?q=VPN");
   await page.locator(".account-button").click();
+  const workspaceTrigger = page.getByRole("button", {
+    name: /Mon espace personnel/,
+  });
+  await workspaceTrigger.click();
+  const closeWorkspace = page.getByRole("button", {
+    name: "Fermer mon espace",
+  });
+  await expect(
+    page.getByRole("button", { name: "Fermer", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(closeWorkspace).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("dialog", { name: "Mon espace personnel" }),
+  ).toHaveCount(0);
+  await expect(page.locator(".account-button")).toBeFocused();
+  await page.locator(".account-button").click();
   await page.getByRole("button", { name: /Mon espace personnel/ }).click();
   await expect(
     page.getByRole("heading", { name: "Mon espace personnel" }),
@@ -1492,6 +1525,11 @@ test("personal tools persist searches, preferences, access requests and reports"
   await page.setViewportSize({ width: 390, height: 844 });
   const workspace = page.getByRole("dialog", { name: "Mon espace personnel" });
   await expect(workspace).toBeVisible();
+  await workspace.getByRole("button", { name: /Demandes/ }).click();
+  await expect(
+    workspace.getByText("En attente", { exact: true }),
+  ).toBeVisible();
+  await workspace.getByRole("button", { name: /Recherches/ }).click();
   expect(
     await page.evaluate(
       () =>

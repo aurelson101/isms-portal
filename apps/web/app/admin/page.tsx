@@ -374,6 +374,27 @@ export default function Admin() {
     Set<string>
   >(() => new Set(["overview"]));
   const adminLoadedRef = useRef(false);
+  useEffect(() => {
+    const annotateTables = () => {
+      document
+        .querySelectorAll<HTMLTableElement>(".admin-table-wrap table")
+        .forEach((table) => {
+          const labels = Array.from(table.querySelectorAll("thead th")).map(
+            (header) => header.textContent?.trim() || "",
+          );
+          table.querySelectorAll("tbody tr").forEach((row) => {
+            Array.from(row.children).forEach((cell, index) => {
+              if (cell instanceof HTMLTableCellElement)
+                cell.dataset.label = labels[index] || "";
+            });
+          });
+        });
+    };
+    annotateTables();
+    const observer = new MutationObserver(annotateTables);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
   const t = (fr: string, en?: string) =>
     locale === "fr"
       ? fr
@@ -1174,12 +1195,38 @@ function ConfirmationDialog({
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
+    const previousFocus = document.activeElement as HTMLElement | null;
     cancelRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose(false);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose(false);
+      }
+      if (event.key !== "Tab") return;
+      const dialog = cancelRef.current?.closest<HTMLElement>(
+        '[role="alertdialog"]',
+      );
+      const controls = dialog
+        ? Array.from(
+            dialog.querySelectorAll<HTMLElement>("button:not(:disabled)"),
+          )
+        : [];
+      if (!controls.length) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
   }, [onClose]);
   return (
     <div
