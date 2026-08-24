@@ -191,20 +191,23 @@ export class GovernanceController {
   ) {
     const existing = await this.prisma.accessRule.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException();
-    if (!body.lifetime && !body.certificationDueAt)
+    if (!body.lifetime && (!body.certificationDueAt || !body.validUntil))
       throw new BadRequestException(
-        "Expiring access requires a certification due date",
+        "Expiring access requires an expiry and certification due date",
       );
     const dueAt = body.lifetime ? null : new Date(body.certificationDueAt!);
+    const validUntil = body.lifetime ? null : new Date(body.validUntil!);
     if (dueAt && dueAt <= new Date())
       throw new BadRequestException(
         "Certification due date must be in the future",
       );
+    if (validUntil && validUntil <= new Date())
+      throw new BadRequestException("Access expiry date must be in the future");
     const rule = await this.prisma.accessRule.update({
       where: { id },
       data: {
         lifetime: body.lifetime,
-        validUntil: body.lifetime ? null : existing.validUntil,
+        validUntil,
         lastCertifiedAt: new Date(),
         lastCertifiedBy: req.identity.username,
         certificationDueAt: dueAt,

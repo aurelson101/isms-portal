@@ -4587,6 +4587,13 @@ svg {
   gap: 1rem;
 }
 
+.governance-refreshing {
+  width: fit-content;
+  color: #526780;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
 .governance-tabs {
   display: flex;
   gap: 0.5rem;
@@ -4734,6 +4741,54 @@ svg {
   overflow: auto;
 }
 
+.identity-health {
+  display: grid;
+  gap: 1rem;
+}
+
+.identity-health-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.identity-health-grid section {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid #d7e2ef;
+  border-radius: 0.85rem;
+  background: #fff;
+  box-shadow: 0 4px 14px #17365f0a;
+}
+
+.identity-health-grid h2,
+.identity-health-grid p {
+  margin: 0;
+}
+
+.identity-health-grid ul {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.identity-health-grid li {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border-radius: 0.65rem;
+  background: #f5f8fc;
+  overflow-wrap: anywhere;
+}
+
+.identity-health-grid li span,
+.identity-health-grid li small {
+  color: #526780;
+}
+
 @media (max-width: 760px) {
   .governance-grid {
     grid-template-columns: 1fr;
@@ -4746,6 +4801,10 @@ svg {
   .governance-card .actions > button,
   .governance-form > button {
     width: 100%;
+  }
+
+  .identity-health-grid {
+    grid-template-columns: 1fr;
   }
 }
 
