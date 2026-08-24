@@ -1411,6 +1411,162 @@ test("observability center proposes private integrations without exposing metric
   ).toBeVisible();
 });
 
+test("governance workflows support lifetime access, reviews, SoA, retention, identity, CAPA and private views", async ({
+  page,
+  request,
+}) => {
+  const documents = (await (
+    await request.get("/api/admin/documents")
+  ).json()) as Array<{ id: string }>;
+  const rules = (await (
+    await request.get("/api/admin/access-rules")
+  ).json()) as Array<{ id: string }>;
+  expect(documents.length).toBeGreaterThan(0);
+  expect(rules.length).toBeGreaterThan(0);
+  const documentId = documents[0].id;
+
+  const certification = await request.put(
+    `/api/admin/governance/access-certifications/${rules[0].id}`,
+    {
+      data: {
+        lifetime: true,
+        justification: "Accès permanent validé par la recette",
+      },
+    },
+  );
+  expect(certification.ok()).toBeTruthy();
+  expect(await certification.json()).toMatchObject({
+    lifetime: true,
+    validUntil: null,
+    certificationDueAt: null,
+  });
+
+  const review = await request.post("/api/admin/governance/reviews", {
+    data: {
+      documentId,
+      owner: "proprietaire@example.test",
+      reviewer: "relecteur@example.test",
+      approver: "approbateur@example.test",
+      dueAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+    },
+  });
+  expect(review.status(), await review.text()).toBe(201);
+
+  const control = await request.post("/api/admin/governance/controls", {
+    data: {
+      framework: "ISO 27001",
+      reference: "A.5.TEST",
+      title: "Contrôle de recette gouvernance",
+      applicability: "APPLICABLE",
+      implementationStatus: "IMPLEMENTED",
+      owner: "RSSI",
+      justification: "Preuve liée au document de recette",
+      evidenceDocumentId: documentId,
+    },
+  });
+  expect(control.status()).toBe(201);
+
+  const retention = await request.put("/api/admin/governance/retention", {
+    data: {
+      documentId,
+      legalHold: true,
+      reason: "Gel réglementaire de recette",
+    },
+  });
+  expect(retention.ok()).toBeTruthy();
+  const retentionBody = (await retention.json()) as { id: string };
+  expect(
+    (
+      await request.put(
+        `/api/admin/governance/retention/${retentionBody.id}/destruction`,
+        { data: { action: "REQUEST", reason: "Tentative interdite" } },
+      )
+    ).status(),
+  ).toBe(409);
+
+  const incident = await request.post("/api/admin/governance/incidents", {
+    data: {
+      reference: "INC-E2E-001",
+      title: "Incident de recette gouvernance",
+      severity: "HIGH",
+      status: "OPEN",
+      owner: "SOC",
+      occurredAt: new Date().toISOString(),
+    },
+  });
+  expect(incident.status()).toBe(201);
+  const incidentBody = (await incident.json()) as { id: string };
+  expect(
+    (
+      await request.post(
+        `/api/admin/governance/incidents/${incidentBody.id}/actions`,
+        {
+          data: {
+            description: "Corriger la cause racine",
+            owner: "SOC",
+            dueAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+            status: "OPEN",
+          },
+        },
+      )
+    ).status(),
+  ).toBe(201);
+  const preview = await request.post("/api/admin/governance/bulk/preview", {
+    data: {
+      kind: "INCIDENT_STATUS",
+      ids: [incidentBody.id],
+      value: "INVESTIGATING",
+    },
+  });
+  expect(await preview.json()).toMatchObject({ count: 1 });
+  expect(
+    (
+      await request.post("/api/admin/governance/bulk/apply", {
+        data: {
+          kind: "INCIDENT_STATUS",
+          ids: [incidentBody.id],
+          value: "INVESTIGATING",
+          confirmed: true,
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+
+  const savedView = await request.post("/api/admin/governance/saved-views", {
+    data: {
+      section: "incidents",
+      name: "Incidents en enquête",
+      config: { status: "INVESTIGATING" },
+    },
+  });
+  expect(savedView.status()).toBe(201);
+  expect(
+    (
+      await request.delete(
+        "/api/admin/governance/saved-views/00000000-0000-4000-8000-000000000099",
+      )
+    ).status(),
+  ).toBe(404);
+
+  const health = await request.get(
+    "/api/admin/governance/identity-health?dormantDays=90",
+  );
+  expect(health.ok()).toBeTruthy();
+  expect(await health.json()).toMatchObject({ dormantDays: 90 });
+
+  await page.goto("/admin#governance");
+  await expect(
+    page.getByRole("heading", { name: "Gouvernance ISMS" }),
+  ).toBeVisible();
+  await expect(page.getByRole("tab", { name: /Accès lifetime/ })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
+});
+
 test("personal tools persist searches, preferences, access requests and reports", async ({
   page,
   request,
@@ -1887,7 +2043,7 @@ test("the audit journal automatically retains at most 50 events", async ({
 test("portal and administration have no serious accessibility violations", async ({
   page,
 }) => {
-  for (const route of ["/", "/admin"]) {
+  for (const route of ["/", "/admin", "/admin#governance"]) {
     await page.goto(route);
     await page.waitForLoadState("networkidle");
     const results = await new AxeBuilder({ page }).analyze();

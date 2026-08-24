@@ -100,6 +100,7 @@ export class AccessRuleDto {
   @IsBoolean() archive!: boolean;
   @IsOptional() @IsDateString() validFrom?: string;
   @IsOptional() @IsDateString() validUntil?: string;
+  @IsOptional() @IsBoolean() lifetime?: boolean;
   @IsOptional() @IsString() @MaxLength(500) justification?: string;
 }
 

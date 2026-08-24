@@ -181,6 +181,9 @@ model Document {
   activities        UserDocumentActivity[]
   accessRequests    AccessRequest[]
   reports           DocumentReport[]
+  reviews           DocumentReview[]
+  retentionPolicy   RetentionPolicy?
+  evidenceControls  ComplianceControl[]
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
   deletedAt         DateTime?
@@ -291,16 +294,17 @@ model DocumentTranslation {
 }
 
 model DocumentVersion {
-  id                      String      @id @default(uuid())
+  id                      String           @id @default(uuid())
   documentId              String
-  document                Document    @relation(fields: [documentId], references: [id])
+  document                Document         @relation(fields: [documentId], references: [id])
   locale                  String
   version                 Int
   storedFileId            String
-  storedFile              StoredFile  @relation("SourceDocumentVersion", fields: [storedFileId], references: [id])
+  storedFile              StoredFile       @relation("SourceDocumentVersion", fields: [storedFileId], references: [id])
   distributedStoredFileId String?
-  distributedStoredFile   StoredFile? @relation("DistributedDocumentVersion", fields: [distributedStoredFileId], references: [id])
-  createdAt               DateTime    @default(now())
+  distributedStoredFile   StoredFile?      @relation("DistributedDocumentVersion", fields: [distributedStoredFileId], references: [id])
+  createdAt               DateTime         @default(now())
+  reviews                 DocumentReview[]
 
   @@unique([documentId, locale, version])
   @@index([storedFileId])
@@ -321,29 +325,140 @@ model StoredFile {
 }
 
 model AccessRule {
-  id            String         @id @default(uuid())
-  groupId       String
-  group         DirectoryGroup @relation(fields: [groupId], references: [id])
-  spaceId       String
-  space         DocumentSpace  @relation(fields: [spaceId], references: [id])
-  showMenu      Boolean        @default(false)
-  read          Boolean        @default(false)
-  search        Boolean        @default(false)
-  preview       Boolean        @default(false)
-  download      Boolean        @default(false)
-  upload        Boolean        @default(false)
-  edit          Boolean        @default(false)
-  publish       Boolean        @default(false)
-  archive       Boolean        @default(false)
-  validFrom     DateTime?
-  validUntil    DateTime?
-  justification String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                 String         @id @default(uuid())
+  groupId            String
+  group              DirectoryGroup @relation(fields: [groupId], references: [id])
+  spaceId            String
+  space              DocumentSpace  @relation(fields: [spaceId], references: [id])
+  showMenu           Boolean        @default(false)
+  read               Boolean        @default(false)
+  search             Boolean        @default(false)
+  preview            Boolean        @default(false)
+  download           Boolean        @default(false)
+  upload             Boolean        @default(false)
+  edit               Boolean        @default(false)
+  publish            Boolean        @default(false)
+  archive            Boolean        @default(false)
+  validFrom          DateTime?
+  validUntil         DateTime?
+  lifetime           Boolean        @default(true)
+  lastCertifiedAt    DateTime?
+  lastCertifiedBy    String?
+  certificationDueAt DateTime?
+  justification      String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   @@unique([groupId, spaceId])
   @@index([spaceId])
   @@index([validFrom, validUntil])
+  @@index([lifetime, certificationDueAt])
+}
+
+model DocumentReview {
+  id              String           @id @default(uuid())
+  documentId      String
+  document        Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  versionId       String?
+  version         DocumentVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+  owner           String
+  reviewer        String
+  approver        String
+  status          String           @default("PENDING")
+  dueAt           DateTime
+  decisionComment String?
+  decidedBy       String?
+  decidedAt       DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([status, dueAt])
+  @@index([documentId, createdAt])
+  @@index([versionId])
+}
+
+model ComplianceControl {
+  id                   String    @id @default(uuid())
+  framework            String
+  reference            String
+  title                String
+  applicability        String    @default("APPLICABLE")
+  implementationStatus String    @default("PLANNED")
+  owner                String
+  justification        String?
+  evidenceDocumentId   String?
+  evidenceDocument     Document? @relation(fields: [evidenceDocumentId], references: [id], onDelete: SetNull)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@unique([framework, reference])
+  @@index([applicability, implementationStatus])
+  @@index([evidenceDocumentId])
+}
+
+model RetentionPolicy {
+  id                String    @id @default(uuid())
+  documentId        String    @unique
+  document          Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  retentionUntil    DateTime?
+  legalHold         Boolean   @default(false)
+  reason            String
+  destructionStatus String    @default("NONE")
+  requestedBy       String?
+  requestedAt       DateTime?
+  approvedBy        String?
+  approvedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([legalHold, retentionUntil])
+  @@index([destructionStatus])
+}
+
+model IncidentCase {
+  id                String             @id @default(uuid())
+  reference         String             @unique
+  title             String
+  severity          String
+  status            String             @default("OPEN")
+  owner             String
+  occurredAt        DateTime
+  rootCause         String?
+  lessonsLearned    String?
+  correctiveActions CorrectiveAction[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([status, severity, occurredAt])
+}
+
+model CorrectiveAction {
+  id          String       @id @default(uuid())
+  incidentId  String
+  incident    IncidentCase @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  description String
+  owner       String
+  dueAt       DateTime
+  status      String       @default("OPEN")
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([incidentId, status])
+  @@index([status, dueAt])
+}
+
+model AdminSavedView {
+  id        String   @id @default(uuid())
+  identity  String
+  section   String
+  name      String
+  config    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([identity, section, name])
+  @@index([identity, section, updatedAt])
 }
 
 model AccessRuleTemplate {

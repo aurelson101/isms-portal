@@ -108,7 +108,11 @@ const accessRuleData = (body: AccessRuleDto) => ({
   spaceId: body.spaceId,
   ...Object.fromEntries(accessPermissionKeys.map((key) => [key, body[key]])),
   validFrom: body.validFrom ? new Date(body.validFrom) : null,
-  validUntil: body.validUntil ? new Date(body.validUntil) : null,
+  lifetime: body.lifetime ?? !body.validUntil,
+  validUntil:
+    (body.lifetime ?? !body.validUntil) || !body.validUntil
+      ? null
+      : new Date(body.validUntil),
   justification: body.justification?.trim() || null,
 });
 
@@ -1093,6 +1097,8 @@ export class AdminController {
       throw new BadRequestException("Access rules require an active space");
     const validFrom = body.validFrom ? new Date(body.validFrom) : null;
     const validUntil = body.validUntil ? new Date(body.validUntil) : null;
+    if (body.lifetime && validUntil)
+      throw new BadRequestException("Lifetime access cannot have an expiry");
     if (validFrom && validUntil && validUntil <= validFrom)
       throw new BadRequestException("Access rule expiry must follow its start");
   }
