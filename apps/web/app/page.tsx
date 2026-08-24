@@ -2068,166 +2068,172 @@ export function Portal({
                 </button>
               ))}
             </nav>
-            <div className="personal-tools-grid">
-              {personalSection === "recent" && (
-                <section>
-                  <h3>
-                    <Icon name="documents" />{" "}
-                    {locale === "fr"
-                      ? "Consultés récemment"
-                      : "Recently viewed"}
-                  </h3>
-                  {activities.length ? (
-                    <ul>
-                      {activities.map((activity) => (
-                        <li key={`${activity.document.id}-${activity.action}`}>
-                          <a
-                            className="personal-tools-link"
-                            href={`/explorer?q=${encodeURIComponent(
-                              activity.document.translations.find(
+            {personalSection !== "preferences" && (
+              <div className="personal-tools-grid">
+                {personalSection === "recent" && (
+                  <section>
+                    <h3>
+                      <Icon name="documents" />{" "}
+                      {locale === "fr"
+                        ? "Consultés récemment"
+                        : "Recently viewed"}
+                    </h3>
+                    {activities.length ? (
+                      <ul>
+                        {activities.map((activity) => (
+                          <li
+                            key={`${activity.document.id}-${activity.action}`}
+                          >
+                            <a
+                              className="personal-tools-link"
+                              href={`/explorer?q=${encodeURIComponent(
+                                activity.document.translations.find(
+                                  (item) => item.locale === locale,
+                                )?.title ||
+                                  activity.document.translations[0]?.title ||
+                                  activity.document.id,
+                              )}`}
+                            >
+                              {activity.document.translations.find(
                                 (item) => item.locale === locale,
                               )?.title ||
                                 activity.document.translations[0]?.title ||
-                                activity.document.id,
-                            )}`}
-                          >
-                            {activity.document.translations.find(
-                              (item) => item.locale === locale,
-                            )?.title ||
-                              activity.document.translations[0]?.title ||
-                              activity.document.id}
-                          </a>
-                          <small>
-                            {new Date(activity.occurredAt).toLocaleString(
-                              locale,
-                            )}
-                          </small>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>
+                                activity.document.id}
+                            </a>
+                            <small>
+                              {new Date(activity.occurredAt).toLocaleString(
+                                locale,
+                              )}
+                            </small>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>
+                        {locale === "fr"
+                          ? "Aucune consultation."
+                          : "No activity."}
+                      </p>
+                    )}
+                  </section>
+                )}
+                {personalSection === "searches" && (
+                  <section>
+                    <h3>
+                      <Icon name="search" />
                       {locale === "fr"
-                        ? "Aucune consultation."
-                        : "No activity."}
-                    </p>
-                  )}
-                </section>
-              )}
-              {personalSection === "searches" && (
-                <section>
-                  <h3>
-                    <Icon name="search" />
-                    {locale === "fr"
-                      ? "Recherches sauvegardées"
-                      : "Saved searches"}
-                  </h3>
-                  {savedSearches.length ? (
-                    <ul>
-                      {savedSearches.map((search) => (
-                        <li key={search.id}>
-                          <a
-                            className="personal-tools-link"
-                            href={`/explorer?${new URLSearchParams(search.filters)}`}
+                        ? "Recherches sauvegardées"
+                        : "Saved searches"}
+                    </h3>
+                    {savedSearches.length ? (
+                      <ul>
+                        {savedSearches.map((search) => (
+                          <li key={search.id}>
+                            <a
+                              className="personal-tools-link"
+                              href={`/explorer?${new URLSearchParams(search.filters)}`}
+                            >
+                              {search.name}
+                            </a>
+                            <button
+                              type="button"
+                              className="personal-tools-action danger"
+                              onClick={async () => {
+                                await fetch(
+                                  `/api/user-tools/saved-searches/${search.id}`,
+                                  { method: "DELETE" },
+                                );
+                                await loadUserTools();
+                              }}
+                            >
+                              <Icon name="delete" />
+                              <span>
+                                {locale === "fr" ? "Supprimer" : "Delete"}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>
+                        {locale === "fr"
+                          ? "Aucune recherche."
+                          : "No saved search."}
+                      </p>
+                    )}
+                  </section>
+                )}
+                {personalSection === "access" && (
+                  <section>
+                    <h3>
+                      <Icon name="rules" />
+                      {locale === "fr" ? "Demandes d’accès" : "Access requests"}
+                    </h3>
+                    {accessRequests.length ? (
+                      <ul>
+                        {accessRequests.map((request) => (
+                          <li key={request.id}>
+                            <strong>{request.status}</strong> —{" "}
+                            {request.justification}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>
+                        {locale === "fr" ? "Aucune demande." : "No request."}
+                      </p>
+                    )}
+                  </section>
+                )}
+                {personalSection === "notifications" && (
+                  <section>
+                    <h3>
+                      <Icon name="audit" />{" "}
+                      {locale === "fr" ? "Notifications" : "Notifications"}
+                    </h3>
+                    {notifications.length ? (
+                      <ul>
+                        {notifications.map((notification) => (
+                          <li
+                            className={notification.readAt ? "" : "unread"}
+                            key={notification.id}
                           >
-                            {search.name}
-                          </a>
-                          <button
-                            type="button"
-                            className="personal-tools-action danger"
-                            onClick={async () => {
-                              await fetch(
-                                `/api/user-tools/saved-searches/${search.id}`,
-                                { method: "DELETE" },
-                              );
-                              await loadUserTools();
-                            }}
-                          >
-                            <Icon name="delete" />
-                            <span>
-                              {locale === "fr" ? "Supprimer" : "Delete"}
-                            </span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>
-                      {locale === "fr"
-                        ? "Aucune recherche."
-                        : "No saved search."}
-                    </p>
-                  )}
-                </section>
-              )}
-              {personalSection === "access" && (
-                <section>
-                  <h3>
-                    <Icon name="rules" />
-                    {locale === "fr" ? "Demandes d’accès" : "Access requests"}
-                  </h3>
-                  {accessRequests.length ? (
-                    <ul>
-                      {accessRequests.map((request) => (
-                        <li key={request.id}>
-                          <strong>{request.status}</strong> —{" "}
-                          {request.justification}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>{locale === "fr" ? "Aucune demande." : "No request."}</p>
-                  )}
-                </section>
-              )}
-              {personalSection === "notifications" && (
-                <section>
-                  <h3>
-                    <Icon name="audit" />{" "}
-                    {locale === "fr" ? "Notifications" : "Notifications"}
-                  </h3>
-                  {notifications.length ? (
-                    <ul>
-                      {notifications.map((notification) => (
-                        <li
-                          className={notification.readAt ? "" : "unread"}
-                          key={notification.id}
-                        >
-                          <strong>{notification.title}</strong>
-                          <span>{notification.message}</span>
-                          <button
-                            type="button"
-                            className="personal-tools-action"
-                            onClick={async () => {
-                              await fetch(
-                                `/api/user-tools/notifications/${notification.id}/${notification.mandatory ? "acknowledge" : "read"}`,
-                                { method: "PUT" },
-                              );
-                              await loadUserTools();
-                            }}
-                          >
-                            <Icon name="publish" />
-                            {notification.mandatory
-                              ? locale === "fr"
-                                ? "Accuser réception"
-                                : "Acknowledge"
-                              : locale === "fr"
-                                ? "Marquer comme lu"
-                                : "Mark as read"}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>
-                      {locale === "fr"
-                        ? "Aucune notification."
-                        : "No notification."}
-                    </p>
-                  )}
-                </section>
-              )}
-            </div>
+                            <strong>{notification.title}</strong>
+                            <span>{notification.message}</span>
+                            <button
+                              type="button"
+                              className="personal-tools-action"
+                              onClick={async () => {
+                                await fetch(
+                                  `/api/user-tools/notifications/${notification.id}/${notification.mandatory ? "acknowledge" : "read"}`,
+                                  { method: "PUT" },
+                                );
+                                await loadUserTools();
+                              }}
+                            >
+                              <Icon name="publish" />
+                              {notification.mandatory
+                                ? locale === "fr"
+                                  ? "Accuser réception"
+                                  : "Acknowledge"
+                                : locale === "fr"
+                                  ? "Marquer comme lu"
+                                  : "Mark as read"}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>
+                        {locale === "fr"
+                          ? "Aucune notification."
+                          : "No notification."}
+                      </p>
+                    )}
+                  </section>
+                )}
+              </div>
+            )}
             {personalSection === "preferences" && (
               <fieldset className="personal-tools-preferences">
                 <legend>

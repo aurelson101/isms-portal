@@ -4082,6 +4082,8 @@ svg {
   overflow: auto;
   padding: 0;
   border: 1px solid #d7e2ef;
+  background: #f3f7fc;
+  box-shadow: 0 24px 70px #10284638;
 }
 
 .personal-tools-tabs {
@@ -4101,7 +4103,7 @@ svg {
   padding: 0.55rem 0.8rem;
   border: 1px solid #c5d3e5;
   border-radius: 999px;
-  background: #fff;
+  background: #eaf1f9;
   color: #40536e;
   font-weight: 700;
 }
@@ -4149,7 +4151,7 @@ svg {
   gap: 1rem;
   padding: 1.5rem 4.5rem 1.25rem 1.5rem;
   border-bottom: 1px solid #dce5f0;
-  background: linear-gradient(135deg, #f3f8ff, #fff);
+  background: linear-gradient(135deg, #e8f2ff, #f3f7fc);
 }
 
 .personal-tools-heading > span {
@@ -4192,7 +4194,7 @@ svg {
   padding: 1rem;
   border: 1px solid #dce3ea;
   border-radius: 0.9rem;
-  background: #fff;
+  background: #fafdff;
   box-shadow: 0 5px 18px #17365f0a;
 }
 
@@ -4296,7 +4298,7 @@ svg {
   padding: 1rem;
   border: 1px solid #dce3ea;
   border-radius: 0.9rem;
-  background: #f8fafc;
+  background: #fafdff;
 }
 
 .personal-tools-preferences legend {
@@ -4328,7 +4330,7 @@ svg {
   justify-content: flex-end;
   padding: 1rem 1.25rem;
   border-top: 1px solid #dce5f0;
-  background: #f8fafc;
+  background: #eaf1f9;
 }
 
 .explorer-controls > button:not(.primary) {
