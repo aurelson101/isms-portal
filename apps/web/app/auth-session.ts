@@ -11,6 +11,7 @@ export class SessionError extends Error {
 }
 
 let pendingIdentity: Promise<unknown> | null = null;
+let cachedIdentity: { value: unknown; expiresAt: number } | null = null;
 
 function fetchIdentity(timeoutMs: number) {
   const controller = new AbortController();
@@ -30,7 +31,10 @@ function fetchIdentity(timeoutMs: number) {
       if (response.status === 401) throw new SessionError("unauthorized");
       if (response.status === 403) throw new SessionError("forbidden");
       if (!response.ok) throw new SessionError("unavailable");
-      return response.json();
+      return response.json().then((value) => {
+        cachedIdentity = { value, expiresAt: Date.now() + 60_000 };
+        return value;
+      });
     })
     .catch((error: unknown) => {
       if (error instanceof SessionError) throw error;
@@ -65,6 +69,15 @@ export function getPortalIdentity<T>(options?: {
   signal?: AbortSignal;
   timeoutMs?: number;
 }) {
+  if (
+    !options?.force &&
+    cachedIdentity?.expiresAt &&
+    cachedIdentity.expiresAt > Date.now()
+  )
+    return waitForCaller<T>(
+      Promise.resolve(cachedIdentity.value),
+      options?.signal,
+    );
   if (!pendingIdentity || options?.force) {
     const request = fetchIdentity(options?.timeoutMs ?? 8_000);
     pendingIdentity = request;
@@ -74,6 +87,12 @@ export function getPortalIdentity<T>(options?: {
     void request.then(clearPending, clearPending);
   }
   return waitForCaller<T>(pendingIdentity, options?.signal);
+}
+
+export function getCachedPortalIdentity<T>() {
+  return cachedIdentity?.expiresAt && cachedIdentity.expiresAt > Date.now()
+    ? (cachedIdentity.value as T)
+    : null;
 }
 
 function currentProtectedDestination() {

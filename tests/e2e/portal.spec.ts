@@ -477,6 +477,7 @@ test("administration uses live APIs and every menu opens a section", async ({
     "Gestion des droits d’accès",
     "Espaces documentaires",
     "Documents",
+    "Demandes utilisateurs",
     "Synchronisation LDAP/LDAPS",
     "Certificats CA",
     "Journal d’audit",
@@ -1216,6 +1217,21 @@ test("menu navigation keeps the authenticated page visible while data refreshes"
   );
 });
 
+test("cross-page menu navigation reuses the authenticated session without loading text", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".shell")).toBeVisible();
+  await page.route("**/api/incident-reports**", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await route.continue();
+  });
+  await page.getByRole("button", { name: /Rapports d’incidents/ }).click();
+  await expect(page).toHaveURL(/\/incident-reports/);
+  await expect(page.locator(".loading-state")).toHaveCount(0);
+  await expect(page.locator(".shell")).toBeVisible();
+});
+
 test("AD groups can be added, suggested in search and deleted", async ({
   page,
   request,
@@ -1454,12 +1470,24 @@ test("personal tools persist searches, preferences, access requests and reports"
   expect(workItems.accessRequests.length).toBeGreaterThan(0);
   expect(workItems.reports.length).toBeGreaterThan(0);
 
+  await page.goto("/admin#requests");
+  await expect(
+    page.getByRole("heading", { name: "Demandes utilisateurs", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Besoin de vérifier la procédure annuelle"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Approuver" }).first(),
+  ).toBeVisible();
+
   await page.goto("/explorer?q=VPN");
   await page.locator(".account-button").click();
   await page.getByRole("button", { name: /Mon espace personnel/ }).click();
   await expect(
     page.getByRole("heading", { name: "Mon espace personnel" }),
   ).toBeVisible();
+  await page.getByRole("button", { name: /Recherches/ }).click();
   await expect(page.getByText("Contrôle VPN")).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   const workspace = page.getByRole("dialog", { name: "Mon espace personnel" });
