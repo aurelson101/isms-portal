@@ -3,8 +3,8 @@ import AxeBuilder from "@axe-core/playwright";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 
 test.beforeEach(async ({ page }) => {
-  const response = await page.request.put("/api/me/preferences", {
-    data: { locale: "fr" },
+  const response = await page.request.put("/api/user-tools/preferences", {
+    data: { locale: "fr", viewMode: "list", density: "comfortable" },
   });
   expect(response.ok()).toBe(true);
 });
@@ -35,6 +35,10 @@ test("navigation, filtering, search and languages are functional", async ({
 
   await page
     .locator("aside")
+    .getByRole("button", { name: /Documents généraux.*sous-menus/ })
+    .click();
+  await page
+    .locator("aside")
     .getByText("Politiques", { exact: true })
     .first()
     .click();
@@ -46,15 +50,27 @@ test("navigation, filtering, search and languages are functional", async ({
     page.getByText("Politique de sécurité de l’information").first(),
   ).toBeVisible();
 
-  for (const label of ["Procédures", "Guides"] as const) {
-    await page
-      .locator("aside")
-      .getByText(label, { exact: true })
-      .first()
-      .click();
-    await expect(page).toHaveURL(/categoryId=/);
-  }
-  await page.locator("aside").getByText("IT", { exact: true }).click();
+  await page
+    .locator("aside")
+    .getByText("Procédures", { exact: true })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/categoryId=/);
+  await page
+    .locator("aside")
+    .getByRole("button", { name: /IT.*sous-menus/ })
+    .click();
+  await page
+    .locator("aside")
+    .getByText("Guides", { exact: true })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/categoryId=/);
+  await page
+    .locator("aside")
+    .getByRole("button", { name: "Tous les documents de l’espace" })
+    .last()
+    .click();
   await expect(page).toHaveURL(/space=it/);
 
   const search = page.getByRole("textbox", {
@@ -218,6 +234,9 @@ test("admin mobile navigation is grouped and collapsible", async ({ page }) => {
   await page.getByRole("button", { name: "Afficher la navigation" }).click();
   await expect(navigation).toBeVisible();
   await expect(navigation.getByText("Contenu et accès")).toBeVisible();
+  await navigation
+    .getByRole("button", { name: "Contenu et accès", exact: true })
+    .click();
   await navigation.getByRole("button", { name: /Documents$/ }).click();
   await expect(
     page.getByRole("heading", { name: "Documents", exact: true }),
@@ -251,6 +270,10 @@ test("category explorer supports window and list views with an expandable reader
   await page
     .locator("header")
     .getByRole("button", { name: "FR", exact: true })
+    .click();
+  await page
+    .locator("aside")
+    .getByRole("button", { name: /Documents généraux.*sous-menus/ })
     .click();
   await page
     .locator("aside")
@@ -446,6 +469,9 @@ test("administration uses live APIs and every menu opens a section", async ({
   ).toBeVisible();
   await expect(page.getByText("Groupes AD synchronisés")).toBeVisible();
 
+  for (const group of ["Contenu et accès", "Infrastructure", "Système"])
+    await page.getByRole("button", { name: group, exact: true }).click();
+
   for (const heading of [
     "Groupes Active Directory",
     "Gestion des droits d’accès",
@@ -530,6 +556,8 @@ test("administration is fully switchable between French and English", async ({
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
+  await page.getByRole("button", { name: "Content and access" }).click();
+
   for (const [menu, heading] of [
     ["Active Directory groups", "Active Directory groups"],
     ["Access rules", "Access rights management"],
@@ -541,6 +569,10 @@ test("administration is fully switchable between French and English", async ({
     ["Service health", "Service health"],
     ["Settings", "Settings"],
   ] as const) {
+    if (menu === "LDAP synchronization")
+      await page.getByRole("button", { name: "Infrastructure" }).click();
+    if (menu === "Service health")
+      await page.getByRole("button", { name: "System" }).click();
     await page.getByRole("button", { name: menu, exact: true }).click();
     await expect(
       page.getByRole("heading", { name: heading, exact: true }).first(),
@@ -612,6 +644,7 @@ test("successful asynchronous forms reset without losing their element", async (
     await expect(uploadForm.locator('input[name="title"]')).toHaveValue("");
     await expect(uploadForm.locator('input[name="file"]')).toHaveValue("");
 
+    await page.getByRole("button", { name: "Système" }).click();
     await page
       .getByRole("button", { name: "Configuration", exact: true })
       .click();
@@ -776,6 +809,10 @@ test("administration uses accessible confirmations and edits an existing directo
   );
 
   await page.getByRole("button", { name: "Actualiser" }).click();
+  await page
+    .locator("aside")
+    .getByRole("button", { name: "Infrastructure" })
+    .click();
   await page
     .locator("aside")
     .getByRole("button", { name: "Synchronisation LDAP" })
@@ -1114,7 +1151,7 @@ test("portal and administration remain usable on mobile", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Ouvrir la navigation" }).click();
   await expect(page.locator("aside nav")).toBeVisible();
-  await expect(page.locator("aside nav svg")).toHaveCount(10);
+  await page.locator("aside .space-menu[aria-controls]").first().click();
   await page
     .locator("aside .category-submenu")
     .first()
@@ -1133,6 +1170,10 @@ test("portal and administration remain usable on mobile", async ({ page }) => {
   await page.goto("/admin");
   await expect(page.locator(".admin-shell > aside")).toBeVisible();
   await page.getByRole("button", { name: "Afficher la navigation" }).click();
+  await page
+    .getByRole("navigation", { name: "Administration" })
+    .getByRole("button", { name: "Contenu et accès", exact: true })
+    .click();
   await page.locator("aside").getByText("Documents", { exact: true }).click();
   await expect(page).toHaveURL(/#documents/);
   expect(
@@ -1142,6 +1183,37 @@ test("portal and administration remain usable on mobile", async ({ page }) => {
         document.documentElement.clientWidth,
     ),
   ).toBe(true);
+});
+
+test("menu navigation keeps the authenticated page visible while data refreshes", async ({
+  page,
+}) => {
+  await page.goto("/explorer");
+  const visibleDocument = page.locator(".document").first();
+  await expect(visibleDocument).toBeVisible();
+
+  await page.route("**/api/documents?**", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 750));
+    await route.continue();
+  });
+  await page.locator("aside .space-menu[aria-controls]").first().click();
+  await page
+    .locator("aside .category-submenu")
+    .first()
+    .getByRole("button")
+    .first()
+    .click();
+
+  await expect(page.locator(".loading-state")).toHaveCount(0);
+  await expect(visibleDocument).toBeVisible();
+  await expect(page.locator(".explorer-heading")).toHaveAttribute(
+    "aria-busy",
+    "true",
+  );
+  await expect(page.locator(".explorer-heading")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
 });
 
 test("AD groups can be added, suggested in search and deleted", async ({
@@ -1274,6 +1346,183 @@ test("access rules can be created, updated and deleted", async ({
       (await request.delete(`/api/admin/groups/${group.id}`)).ok(),
     ).toBeTruthy();
   }
+});
+
+test("observability center proposes private integrations without exposing metrics", async ({
+  page,
+}) => {
+  await page.goto("/admin#observability");
+  await expect(
+    page.getByRole("heading", { name: "Observabilité", exact: true }),
+  ).toBeVisible();
+  for (const integration of [
+    "Prometheus / Grafana",
+    "Syslog / rsyslog",
+    "Wazuh",
+    "Zabbix",
+  ])
+    await expect(
+      page.getByRole("heading", { name: integration }),
+    ).toBeVisible();
+  await expect(page.getByText(/réseau privé de l’API/)).toBeVisible();
+  await expect(page.locator('a[href="/api/metrics"]')).toHaveCount(0);
+  await expect(page.getByText(/isms-portal_observability/)).toBeVisible();
+  await expect(
+    page.getByText("Adresse du portail détectée automatiquement", {
+      exact: false,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(new URL(page.url()).origin).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Activer cette intégration optionnelle").first(),
+  ).toBeVisible();
+});
+
+test("personal tools persist searches, preferences, access requests and reports", async ({
+  page,
+  request,
+}) => {
+  const documentsResponse = await request.get("/api/documents?limit=10");
+  expect(documentsResponse.ok()).toBeTruthy();
+  const documents = (await documentsResponse.json()) as Array<{
+    id: string;
+    space: { id: string };
+  }>;
+  expect(documents.length).toBeGreaterThan(0);
+  const document = documents[0];
+
+  expect(
+    (
+      await request.post("/api/user-tools/saved-searches", {
+        data: {
+          name: "Contrôle VPN",
+          filters: { q: "VPN", format: "pdf", forbidden: "ignored" },
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  const searchesResponse = await request.get("/api/user-tools/saved-searches");
+  const searches = (await searchesResponse.json()) as Array<{
+    id: string;
+    filters: Record<string, string>;
+  }>;
+  expect(searches[0].filters).toMatchObject({ q: "VPN", format: "pdf" });
+  expect(searches[0].filters).not.toHaveProperty("forbidden");
+
+  expect(
+    (
+      await request.put("/api/user-tools/preferences", {
+        data: { locale: "fr", viewMode: "grid", density: "compact" },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  const identity = (await (await request.get("/api/me")).json()) as {
+    preferences: { viewMode: string; density: string };
+  };
+  expect(identity.preferences).toEqual({
+    viewMode: "grid",
+    density: "compact",
+  });
+
+  expect(
+    (
+      await request.post("/api/user-tools/access-requests", {
+        data: {
+          spaceId: document.space.id,
+          documentId: document.id,
+          justification: "Besoin de vérifier la procédure annuelle",
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  expect(
+    (
+      await request.post("/api/user-tools/document-reports", {
+        data: {
+          documentId: document.id,
+          reason: "OUTDATED",
+          message: "Contrôle fonctionnel",
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  const workItems = (await (
+    await request.get("/api/admin/operations/work-items")
+  ).json()) as { accessRequests: unknown[]; reports: unknown[] };
+  expect(workItems.accessRequests.length).toBeGreaterThan(0);
+  expect(workItems.reports.length).toBeGreaterThan(0);
+
+  await page.goto("/explorer?q=VPN");
+  await page.locator(".account-button").click();
+  await page.getByRole("button", { name: /Mon espace personnel/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Mon espace personnel" }),
+  ).toBeVisible();
+  await expect(page.getByText("Contrôle VPN")).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const workspace = page.getByRole("dialog", { name: "Mon espace personnel" });
+  await expect(workspace).toBeVisible();
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
+  const deleteButton = workspace.getByRole("button", { name: "Supprimer" });
+  await expect(deleteButton).toBeVisible();
+  const deleteButtonBox = await deleteButton.boundingBox();
+  expect(deleteButtonBox).not.toBeNull();
+  expect(deleteButtonBox!.height).toBeGreaterThanOrEqual(42);
+  expect(deleteButtonBox!.width).toBeGreaterThan(300);
+  await expect(
+    workspace.getByRole("button", { name: "Fermer mon espace" }),
+  ).toBeVisible();
+
+  expect(
+    (
+      await request.delete(`/api/user-tools/saved-searches/${searches[0].id}`)
+    ).ok(),
+  ).toBeTruthy();
+  expect(
+    (
+      await request.put("/api/user-tools/preferences", {
+        data: { locale: "fr", viewMode: "list", density: "comfortable" },
+      })
+    ).ok(),
+  ).toBeTruthy();
+});
+
+test("a user can report a document from the accessible form", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/explorer");
+  await page.getByRole("button", { name: "Ouvrir" }).first().click();
+  await page.getByRole("button", { name: "Signaler un problème" }).click();
+  const dialog = page.getByRole("dialog", { name: "Signaler un problème" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("Type de problème").selectOption("INCORRECT");
+  await dialog
+    .getByLabel("Commentaire")
+    .fill("Le numéro de version indiqué dans le document est incorrect.");
+  await dialog.getByRole("button", { name: "Envoyer le signalement" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(
+    page.getByText("Signalement envoyé à l’équipe ISMS."),
+  ).toBeVisible();
+
+  const workItems = (await (
+    await request.get("/api/admin/operations/work-items")
+  ).json()) as { reports: Array<{ reason: string; message: string | null }> };
+  expect(workItems.reports).toContainEqual(
+    expect.objectContaining({
+      reason: "INCORRECT",
+      message: "Le numéro de version indiqué dans le document est incorrect.",
+    }),
+  );
 });
 
 test("public and administration routes respond and document capabilities are explicit", async ({

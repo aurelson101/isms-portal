@@ -6,8 +6,7 @@ describe("AuthorizationService", () => {
   const findMany = vi.fn();
   const count = vi.fn();
   const prisma = {
-    documentSpace: { findMany },
-    accessRule: { count },
+    documentSpace: { findMany, count },
   } as unknown as PrismaService;
   const service = new AuthorizationService(prisma);
 
@@ -63,14 +62,18 @@ describe("AuthorizationService", () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          accessRules: {
-            some: expect.objectContaining({
-              group: {
-                active: true,
-                OR: [{ name: { equals: "ITAD", mode: "insensitive" } }],
+          OR: expect.arrayContaining([
+            expect.objectContaining({
+              accessRules: {
+                some: expect.objectContaining({
+                  group: {
+                    active: true,
+                    OR: [{ name: { equals: "ITAD", mode: "insensitive" } }],
+                  },
+                }),
               },
             }),
-          },
+          ]),
         }),
       }),
     );
@@ -117,8 +120,40 @@ describe("AuthorizationService", () => {
     ).resolves.toBe(true);
     expect(count).toHaveBeenCalledWith({
       where: expect.objectContaining({
-        spaceId: "space-it",
-        [permission]: true,
+        id: "space-it",
+        OR: expect.arrayContaining([
+          expect.objectContaining({
+            accessRules: {
+              some: expect.objectContaining({ [permission]: true }),
+            },
+          }),
+        ]),
+      }),
+    });
+  });
+
+  it("grants every permission to the active owner group of a space", async () => {
+    count.mockResolvedValue(1);
+    await expect(
+      service.can(["Owners-IT"], "space-it", "archive"),
+    ).resolves.toBe(true);
+    expect(count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        OR: expect.arrayContaining([
+          {
+            ownerGroup: {
+              active: true,
+              OR: [
+                {
+                  name: {
+                    equals: "Owners-IT",
+                    mode: "insensitive",
+                  },
+                },
+              ],
+            },
+          },
+        ]),
       }),
     });
   });

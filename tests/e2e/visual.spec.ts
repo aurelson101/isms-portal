@@ -51,6 +51,7 @@ for (const viewport of viewports) {
     if (viewport.width <= 900) {
       await page.getByRole("button", { name: "Ouvrir la navigation" }).click();
     }
+    await page.locator("aside .space-menu[aria-controls]").first().click();
     await page
       .locator("aside .category-submenu")
       .first()

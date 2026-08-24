@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsArray,
   IsDateString,
   IsIn,
   IsInt,
@@ -12,7 +13,9 @@ import {
   Min,
   MinLength,
   ValidateIf,
+  ValidateNested,
 } from "class-validator";
+import { Type } from "class-transformer";
 
 export class LocalePreferenceDto {
   @IsIn(["fr", "en"])
@@ -28,6 +31,7 @@ export class LoginDto {
 export class DirectoryLoginDto {
   @IsString() @MinLength(1) @MaxLength(128) login!: string;
   @IsString() @MinLength(1) @MaxLength(1024) password!: string;
+  @IsOptional() @IsBoolean() rememberDevice?: boolean;
 }
 
 export class ProfileDto {
@@ -94,6 +98,46 @@ export class AccessRuleDto {
   @IsBoolean() edit!: boolean;
   @IsBoolean() publish!: boolean;
   @IsBoolean() archive!: boolean;
+  @IsOptional() @IsDateString() validFrom?: string;
+  @IsOptional() @IsDateString() validUntil?: string;
+  @IsOptional() @IsString() @MaxLength(500) justification?: string;
+}
+
+export class AccessRuleTemplateDto {
+  @IsString() @MinLength(2) @MaxLength(120) name!: string;
+  @IsOptional() @IsString() @MaxLength(500) description?: string;
+  @IsBoolean() showMenu!: boolean;
+  @IsBoolean() read!: boolean;
+  @IsBoolean() search!: boolean;
+  @IsBoolean() preview!: boolean;
+  @IsBoolean() download!: boolean;
+  @IsBoolean() upload!: boolean;
+  @IsBoolean() edit!: boolean;
+  @IsBoolean() publish!: boolean;
+  @IsBoolean() archive!: boolean;
+}
+
+export class AccessRuleBulkDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AccessRuleDto)
+  rules!: AccessRuleDto[];
+}
+
+export class AccessSimulationDto {
+  @IsOptional() @IsString() @MaxLength(255) identity?: string;
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(255, { each: true })
+  groups!: string[];
+}
+
+export class SpaceOwnerDto {
+  @IsOptional() @IsUUID() groupId?: string;
+}
+
+export class AccessSnapshotDto {
+  @IsString() @MinLength(2) @MaxLength(120) label!: string;
 }
 
 export class AnnualIncidentReportDto {

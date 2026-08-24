@@ -45,6 +45,22 @@ export class AuditService {
           where: { id: { in: obsolete.map((item) => item.id) } },
         });
       }
+      // Keep the SIEM event deliberately smaller than the database record:
+      // `details` can contain business data and must not leak to stdout.
+      process.stdout.write(
+        `${JSON.stringify({
+          level: result === "success" ? "info" : "warning",
+          service: "api",
+          event: "audit",
+          identity: event.identity,
+          ipAddress: event.ipAddress,
+          action: event.action,
+          resource: event.resource,
+          result: event.result,
+          correlationId: event.correlationId,
+          occurredAt: event.occurredAt.toISOString(),
+        })}\n`,
+      );
       return event;
     });
   }

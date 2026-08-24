@@ -29,6 +29,7 @@ import {
   MfaConfirmDto,
   ProfileDto,
 } from "./admin.dto";
+import { safeSsoPath } from "./http-security";
 
 @Controller("auth")
 export class AuthController {
@@ -36,9 +37,10 @@ export class AuthController {
 
   @Get("config")
   async config() {
+    const ssoLoginUrl = safeSsoPath(process.env.SSO_LOGIN_URL);
     return {
-      ssoEnabled: Boolean(process.env.SSO_LOGIN_URL),
-      ssoLoginUrl: process.env.SSO_LOGIN_URL || null,
+      ssoEnabled: Boolean(ssoLoginUrl),
+      ssoLoginUrl,
       directoryLoginEnabled: await this.auth.directoryLoginEnabled(),
       localAdminEnabled: true,
     };
@@ -49,7 +51,12 @@ export class AuthController {
     @Body() body: DirectoryLoginDto,
     @Res({ passthrough: true }) response: Response,
   ) {
-    return this.auth.directoryLogin(body.login, body.password, response);
+    return this.auth.directoryLogin(
+      body.login,
+      body.password,
+      response,
+      body.rememberDevice,
+    );
   }
 
   @Post("login")

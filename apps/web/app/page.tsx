@@ -1,6 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  getPortalIdentity,
+  loginDestination,
+  SessionError,
+  type SessionFailure,
+} from "./auth-session";
 import { Icon } from "./icons";
 import { portalCatalog as copy } from "./i18n/catalogs";
 
@@ -27,6 +33,7 @@ type Space = {
   nameEn: string;
   permissions?: SpacePermissions;
   categories: Category[];
+  accessExplanation?: { type: string; groups: string[] };
 };
 type Category = {
   id: string;
@@ -93,6 +100,7 @@ type Identity = {
   username: string;
   isAdmin: boolean;
   locale: Locale | null;
+  preferences?: { viewMode: ViewMode; density: "comfortable" | "compact" };
   authentication: {
     source: string;
     ssoConnected: boolean;
@@ -108,6 +116,32 @@ type Identity = {
     };
   };
   spaces: Space[];
+};
+type UserActivity = {
+  action: string;
+  occurredAt: string;
+  document: { id: string; translations: Translation[] };
+};
+type SavedSearch = {
+  id: string;
+  name: string;
+  filters: Record<string, string>;
+};
+type UserNotification = {
+  id: string;
+  title: string;
+  message: string;
+  mandatory: boolean;
+  readAt: string | null;
+  acknowledgedAt: string | null;
+  createdAt: string;
+};
+type UserAccessRequest = {
+  id: string;
+  spaceId: string;
+  status: string;
+  justification: string;
+  createdAt: string;
 };
 
 const wordMime =
@@ -451,11 +485,19 @@ export function Portal({
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [selectedLocales, setSelectedLocales] = useState<
     Record<string, Locale>
   >({});
   const [opened, setOpened] = useState<PortalDocument | null>(null);
+  const [reporting, setReporting] = useState<PortalDocument | null>(null);
+  const [reportReason, setReportReason] = useState<
+    "OUTDATED" | "INCORRECT" | "SENSITIVE" | "OTHER"
+  >("OUTDATED");
+  const [reportMessage, setReportMessage] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportFeedback, setReportFeedback] = useState("");
   const [editing, setEditing] = useState<PortalDocument | null>(null);
   const [depositOpen, setDepositOpen] = useState(false);
   const [actionError, setActionError] = useState("");
@@ -463,21 +505,45 @@ export function Portal({
   const [accessRefreshing, setAccessRefreshing] = useState(false);
   const [accessRefreshMessage, setAccessRefreshMessage] = useState("");
   const [accountOpen, setAccountOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [activities, setActivities] = useState<UserActivity[]>([]);
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
+  const [accessRequests, setAccessRequests] = useState<UserAccessRequest[]>([]);
+  const [density, setDensity] = useState<"comfortable" | "compact">(
+    "comfortable",
+  );
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [documentSort, setDocumentSort] = useState<DocumentSort>("recent");
   const [viewerExpanded, setViewerExpanded] = useState(false);
   const [pdfZoom, setPdfZoom] = useState<PdfZoom>("page-width");
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [authenticationFailure, setAuthenticationFailure] =
+    useState<SessionFailure | null>(null);
+  const [authenticationAttempt, setAuthenticationAttempt] = useState(0);
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const [expandedSpaces, setExpandedSpaces] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [incidentReports, setIncidentReports] = useState<
     PublishedIncidentReport[]
   >([]);
   const resultsRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const documentsLoadedRef = useRef(false);
+
+  useEffect(() => {
+    if (!space) return;
+    setExpandedSpaces((current) => {
+      if (current.has(space)) return current;
+      return new Set([...current, space]);
+    });
+  }, [space]);
 
   const loadDocuments = useCallback(
     async (signal?: AbortSignal) => {
-      setLoading(true);
+      if (documentsLoadedRef.current) setRefreshing(true);
+      else setLoading(true);
       setLoadError(false);
       const parameters = new URLSearchParams();
       if (query.trim()) parameters.set("q", query.trim());
@@ -514,7 +580,11 @@ export function Portal({
       } catch (error) {
         if ((error as Error).name !== "AbortError") setLoadError(true);
       } finally {
-        if (!signal?.aborted) setLoading(false);
+        if (!signal?.aborted) {
+          documentsLoadedRef.current = true;
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     },
     [
@@ -606,25 +676,16 @@ export function Portal({
   }, []);
 
   useEffect(() => {
-    fetch("/api/me?refresh=1", { cache: "no-store" })
-      .then(async (response) => {
-        if (response.status === 401) {
-          window.location.assign(
-            `/login?return=${encodeURIComponent(
-              reportsMode
-                ? "/incident-reports"
-                : explorerMode
-                  ? "/explorer"
-                  : "/",
-            )}`,
-          );
-          throw new Error("authentication-required");
-        }
-        if (!response.ok) throw new Error("identity");
-        return response.json() as Promise<Identity>;
-      })
+    const controller = new AbortController();
+    setAuthenticationFailure(null);
+    getPortalIdentity<Identity>({
+      force: authenticationAttempt > 0,
+      signal: controller.signal,
+    })
       .then((currentIdentity) => {
         setIdentity(currentIdentity);
+        setViewMode(currentIdentity.preferences?.viewMode || "list");
+        setDensity(currentIdentity.preferences?.density || "comfortable");
         const saved =
           currentIdentity.locale ||
           (localStorage.getItem("isms-locale") as Locale | null);
@@ -633,8 +694,18 @@ export function Portal({
         setLocale(preferred);
         document.documentElement.lang = preferred;
       })
-      .catch(() => setLoadError(true));
-  }, [explorerMode, reportsMode]);
+      .catch((error: unknown) => {
+        if ((error as Error).name === "AbortError") return;
+        const reason =
+          error instanceof SessionError ? error.reason : "unavailable";
+        if (reason === "unauthorized") {
+          window.location.replace(loginDestination());
+          return;
+        }
+        setAuthenticationFailure(reason);
+      });
+    return () => controller.abort();
+  }, [authenticationAttempt]);
 
   useEffect(() => {
     if (!explorerMode || !identity) return;
@@ -672,6 +743,27 @@ export function Portal({
       });
     return () => controller.abort();
   }, [identity, reportsMode]);
+
+  const loadUserTools = useCallback(async () => {
+    const responses = await Promise.all([
+      fetch("/api/user-tools/recent", { cache: "no-store" }),
+      fetch("/api/user-tools/saved-searches", { cache: "no-store" }),
+      fetch("/api/user-tools/notifications", { cache: "no-store" }),
+      fetch("/api/user-tools/access-requests", { cache: "no-store" }),
+    ]);
+    if (responses.some((response) => !response.ok)) return;
+    const [recent, searches, notices, requests] = await Promise.all(
+      responses.map((response) => response.json()),
+    );
+    setActivities(recent as UserActivity[]);
+    setSavedSearches(searches as SavedSearch[]);
+    setNotifications(notices as UserNotification[]);
+    setAccessRequests(requests as UserAccessRequest[]);
+  }, []);
+
+  useEffect(() => {
+    if (toolsOpen) void loadUserTools();
+  }, [toolsOpen, loadUserTools]);
 
   useEffect(() => {
     if (!category && !space && !query) return;
@@ -720,6 +812,53 @@ export function Portal({
   const changeViewMode = (next: ViewMode) => {
     setViewMode(next);
     localStorage.setItem("isms-document-view", next);
+    if (identity)
+      void fetch("/api/user-tools/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locale, viewMode: next, density }),
+      });
+  };
+  const saveCurrentSearch = async () => {
+    const name = window.prompt(
+      locale === "fr" ? "Nom de la recherche" : "Search name",
+    );
+    if (!name?.trim()) return;
+    const filters = Object.fromEntries(
+      new URLSearchParams(window.location.search).entries(),
+    );
+    const response = await fetch("/api/user-tools/saved-searches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim(), filters }),
+    });
+    if (response.ok) await loadUserTools();
+  };
+  const requestSpaceAccess = async () => {
+    if (!selectedSpace) return;
+    const justification = window.prompt(
+      locale === "fr"
+        ? "Justification de la demande d’accès"
+        : "Access request justification",
+    );
+    if (!justification?.trim()) return;
+    const response = await fetch("/api/user-tools/access-requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        spaceId: selectedSpace.id,
+        justification: justification.trim(),
+      }),
+    });
+    setAccessRefreshMessage(
+      response.ok
+        ? locale === "fr"
+          ? "Demande envoyée."
+          : "Request sent."
+        : locale === "fr"
+          ? "La demande n’a pas pu être envoyée."
+          : "The request could not be sent.",
+    );
   };
   const changeDocumentSort = (next: DocumentSort) => {
     setDocumentSort(next);
@@ -868,6 +1007,7 @@ export function Portal({
       ? selectedCategory.nameFr
       : selectedCategory.nameEn
     : category;
+
   const initials = useMemo(
     () =>
       (identity?.displayName || "ISMS")
@@ -945,8 +1085,50 @@ export function Portal({
     return () => window.removeEventListener("keydown", handlePdfShortcut);
   }, [openedPdf, changePdfZoom]);
 
+  if (!identity) {
+    const authenticationMessage =
+      locale === "fr"
+        ? authenticationFailure === "timeout"
+          ? "La vérification de session prend trop de temps."
+          : authenticationFailure === "forbidden"
+            ? "Votre session ne permet pas d’accéder à cette page."
+            : "Le service d’authentification est temporairement indisponible."
+        : authenticationFailure === "timeout"
+          ? "The session check is taking too long."
+          : authenticationFailure === "forbidden"
+            ? "Your session cannot access this page."
+            : "The authentication service is temporarily unavailable.";
+    return (
+      <main className="login-shell" aria-busy={!authenticationFailure}>
+        <section className="login-card" aria-live="polite">
+          <div className="login-brand">
+            <span aria-hidden="true">🛡️</span>
+            <div>
+              <strong>ISMS Portal</strong>
+              <small>{t.systemName}</small>
+            </div>
+          </div>
+          <p
+            className={authenticationFailure ? "error-state" : "loading-state"}
+          >
+            {authenticationFailure ? authenticationMessage : t.loading}
+          </p>
+          {authenticationFailure && (
+            <button
+              type="button"
+              className="primary"
+              onClick={() => setAuthenticationAttempt((attempt) => attempt + 1)}
+            >
+              {locale === "fr" ? "Réessayer" : "Retry"}
+            </button>
+          )}
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <div className="shell">
+    <div className={`shell density-${density}`}>
       <aside className={navigationOpen ? "navigation-open" : ""}>
         <div className="sidebar-heading">
           <div className="brand">
@@ -994,37 +1176,76 @@ export function Portal({
             </span>
             <span>{t.favorites}</span>
           </button>
-          {identity?.spaces.map((item) => (
-            <div className="navigation-space" key={item.id}>
-              <button
-                type="button"
-                className={`space-menu ${space === item.slug && !category ? "active" : ""}`}
-                onClick={() => selectSpace(item.slug)}
+          {identity?.spaces.map((item) => {
+            const categories = populatedCategories(item);
+            const expanded = expandedSpaces.has(item.slug);
+            const submenuId = `space-submenu-${item.id}`;
+            return (
+              <div
+                className={`navigation-space ${expanded ? "expanded" : ""}`}
+                key={item.id}
               >
-                <Icon name="folder" />{" "}
-                <span>{locale === "fr" ? item.nameFr : item.nameEn}</span>
-              </button>
-              {populatedCategories(item).length > 0 && (
-                <div className="category-submenu">
-                  {populatedCategories(item).map((itemCategory) => (
+                <button
+                  type="button"
+                  className={`space-menu ${space === item.slug && !category ? "active" : ""}`}
+                  aria-controls={categories.length ? submenuId : undefined}
+                  aria-expanded={categories.length ? expanded : undefined}
+                  aria-label={
+                    categories.length
+                      ? `${locale === "fr" ? item.nameFr : item.nameEn} — ${expanded ? t.hideSubmenus : t.showSubmenus}`
+                      : undefined
+                  }
+                  onClick={() => {
+                    if (!categories.length) {
+                      selectSpace(item.slug);
+                      return;
+                    }
+                    setExpandedSpaces((current) => {
+                      const next = new Set(current);
+                      if (next.has(item.slug)) next.delete(item.slug);
+                      else next.add(item.slug);
+                      return next;
+                    });
+                  }}
+                >
+                  <Icon name="folder" />{" "}
+                  <span>{locale === "fr" ? item.nameFr : item.nameEn}</span>
+                  {categories.length > 0 && (
+                    <Icon className="submenu-chevron" name="chevron" />
+                  )}
+                </button>
+                {categories.length > 0 && expanded && (
+                  <div className="category-submenu" id={submenuId}>
                     <button
                       type="button"
-                      className={`category-menu ${category === itemCategory.id ? "active" : ""}`}
-                      onClick={() => selectCategory(item.slug, itemCategory.id)}
-                      key={itemCategory.id}
+                      className={`category-menu ${space === item.slug && !category ? "active" : ""}`}
+                      onClick={() => selectSpace(item.slug)}
                     >
-                      <Icon name="folder" />{" "}
-                      <span>
-                        {locale === "fr"
-                          ? itemCategory.nameFr
-                          : itemCategory.nameEn}
-                      </span>
+                      <Icon name="documents" />{" "}
+                      <span>{t.allSpaceDocuments}</span>
                     </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                    {categories.map((itemCategory) => (
+                      <button
+                        type="button"
+                        className={`category-menu ${category === itemCategory.id ? "active" : ""}`}
+                        onClick={() =>
+                          selectCategory(item.slug, itemCategory.id)
+                        }
+                        key={itemCategory.id}
+                      >
+                        <Icon name="folder" />{" "}
+                        <span>
+                          {locale === "fr"
+                            ? itemCategory.nameFr
+                            : itemCategory.nameEn}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
         <div className="secure">
           ✓ <span>{t.secured}</span>
@@ -1084,6 +1305,15 @@ export function Portal({
                     : t.localAdminSession}
               </span>
               {identity?.isAdmin && <a href="/admin">{t.administration}</a>}
+              <button
+                type="button"
+                onClick={() => {
+                  setAccountOpen(false);
+                  setToolsOpen(true);
+                }}
+              >
+                {locale === "fr" ? "Mon espace personnel" : "My workspace"}
+              </button>
               {identity && (
                 <dl className="session-diagnostics">
                   {!identity.isAdmin && (
@@ -1427,6 +1657,7 @@ export function Portal({
                 <section
                   className="explorer-heading"
                   aria-labelledby="explorer-title"
+                  aria-busy={refreshing}
                 >
                   <div>
                     <span>{t.explorer}</span>
@@ -1499,6 +1730,24 @@ export function Portal({
                         <option value="false">{t.standardOnly}</option>
                       </select>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => void saveCurrentSearch()}
+                    >
+                      {locale === "fr"
+                        ? "Sauvegarder la recherche"
+                        : "Save search"}
+                    </button>
+                    {selectedSpace && (
+                      <button
+                        type="button"
+                        onClick={() => void requestSpaceAccess()}
+                      >
+                        {locale === "fr"
+                          ? "Demander un accès complémentaire"
+                          : "Request additional access"}
+                      </button>
+                    )}
                     <label className="document-sort">
                       <span>{t.sortBy}</span>
                       <select
@@ -1649,6 +1898,21 @@ export function Portal({
                   <dd>
                     {identity?.authentication.diagnostics.mappedSpaceCount ?? 0}
                   </dd>
+                  <dt>
+                    {locale === "fr" ? "Origine des droits" : "Access source"}
+                  </dt>
+                  <dd>
+                    {identity?.spaces.length
+                      ? identity.spaces
+                          .map((item) => {
+                            const label =
+                              locale === "fr" ? item.nameFr : item.nameEn;
+                            const source = item.accessExplanation;
+                            return `${label}: ${source?.type || "rule"}${source?.groups.length ? ` (${source.groups.join(", ")})` : ""}`;
+                          })
+                          .join(" · ")
+                      : "—"}
+                  </dd>
                 </dl>
               </div>
               <div className="help-actions">
@@ -1698,6 +1962,225 @@ export function Portal({
             >
               {t.reconnect}
             </button>
+          </section>
+        </div>
+      )}
+      {toolsOpen && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={() => setToolsOpen(false)}
+        >
+          <section
+            className="modal personal-tools-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="personal-tools-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              className="modal-close"
+              type="button"
+              onClick={() => setToolsOpen(false)}
+              aria-label={t.close}
+            >
+              <Icon name="close" />
+            </button>
+            <header className="personal-tools-heading">
+              <span aria-hidden="true">
+                <Icon name="home" />
+              </span>
+              <div>
+                <h2 id="personal-tools-title">
+                  {locale === "fr" ? "Mon espace personnel" : "My workspace"}
+                </h2>
+                <p>
+                  {locale === "fr"
+                    ? "Retrouvez vos documents, demandes et préférences."
+                    : "Find your documents, requests and preferences."}
+                </p>
+              </div>
+            </header>
+            <div className="personal-tools-grid">
+              <section>
+                <h3>
+                  <Icon name="documents" />{" "}
+                  {locale === "fr" ? "Consultés récemment" : "Recently viewed"}
+                </h3>
+                {activities.length ? (
+                  <ul>
+                    {activities.map((activity) => (
+                      <li key={`${activity.document.id}-${activity.action}`}>
+                        <a
+                          className="personal-tools-link"
+                          href={`/explorer?q=${encodeURIComponent(
+                            activity.document.translations.find(
+                              (item) => item.locale === locale,
+                            )?.title ||
+                              activity.document.translations[0]?.title ||
+                              activity.document.id,
+                          )}`}
+                        >
+                          {activity.document.translations.find(
+                            (item) => item.locale === locale,
+                          )?.title ||
+                            activity.document.translations[0]?.title ||
+                            activity.document.id}
+                        </a>
+                        <small>
+                          {new Date(activity.occurredAt).toLocaleString(locale)}
+                        </small>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>
+                    {locale === "fr" ? "Aucune consultation." : "No activity."}
+                  </p>
+                )}
+              </section>
+              <section>
+                <h3>
+                  <Icon name="search" />
+                  {locale === "fr"
+                    ? "Recherches sauvegardées"
+                    : "Saved searches"}
+                </h3>
+                {savedSearches.length ? (
+                  <ul>
+                    {savedSearches.map((search) => (
+                      <li key={search.id}>
+                        <a
+                          className="personal-tools-link"
+                          href={`/explorer?${new URLSearchParams(search.filters)}`}
+                        >
+                          {search.name}
+                        </a>
+                        <button
+                          type="button"
+                          className="personal-tools-action danger"
+                          onClick={async () => {
+                            await fetch(
+                              `/api/user-tools/saved-searches/${search.id}`,
+                              { method: "DELETE" },
+                            );
+                            await loadUserTools();
+                          }}
+                        >
+                          <Icon name="delete" />
+                          <span>
+                            {locale === "fr" ? "Supprimer" : "Delete"}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>
+                    {locale === "fr" ? "Aucune recherche." : "No saved search."}
+                  </p>
+                )}
+              </section>
+              <section>
+                <h3>
+                  <Icon name="rules" />
+                  {locale === "fr" ? "Demandes d’accès" : "Access requests"}
+                </h3>
+                {accessRequests.length ? (
+                  <ul>
+                    {accessRequests.map((request) => (
+                      <li key={request.id}>
+                        <strong>{request.status}</strong> —{" "}
+                        {request.justification}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>{locale === "fr" ? "Aucune demande." : "No request."}</p>
+                )}
+              </section>
+              <section>
+                <h3>
+                  <Icon name="audit" />{" "}
+                  {locale === "fr" ? "Notifications" : "Notifications"}
+                </h3>
+                {notifications.length ? (
+                  <ul>
+                    {notifications.map((notification) => (
+                      <li
+                        className={notification.readAt ? "" : "unread"}
+                        key={notification.id}
+                      >
+                        <strong>{notification.title}</strong>
+                        <span>{notification.message}</span>
+                        <button
+                          type="button"
+                          className="personal-tools-action"
+                          onClick={async () => {
+                            await fetch(
+                              `/api/user-tools/notifications/${notification.id}/${notification.mandatory ? "acknowledge" : "read"}`,
+                              { method: "PUT" },
+                            );
+                            await loadUserTools();
+                          }}
+                        >
+                          <Icon name="publish" />
+                          {notification.mandatory
+                            ? locale === "fr"
+                              ? "Accuser réception"
+                              : "Acknowledge"
+                            : locale === "fr"
+                              ? "Marquer comme lu"
+                              : "Mark as read"}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>
+                    {locale === "fr"
+                      ? "Aucune notification."
+                      : "No notification."}
+                  </p>
+                )}
+              </section>
+            </div>
+            <fieldset className="personal-tools-preferences">
+              <legend>
+                {locale === "fr"
+                  ? "Préférences d’affichage"
+                  : "Display preferences"}
+              </legend>
+              <label>
+                {locale === "fr" ? "Densité" : "Density"}
+                <select
+                  value={density}
+                  onChange={(event) => {
+                    const next = event.target.value as
+                      | "comfortable"
+                      | "compact";
+                    setDensity(next);
+                    void fetch("/api/user-tools/preferences", {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ locale, viewMode, density: next }),
+                    });
+                  }}
+                >
+                  <option value="comfortable">
+                    {locale === "fr" ? "Confortable" : "Comfortable"}
+                  </option>
+                  <option value="compact">
+                    {locale === "fr" ? "Compacte" : "Compact"}
+                  </option>
+                </select>
+              </label>
+            </fieldset>
+            <footer className="personal-tools-footer">
+              <button type="button" onClick={() => setToolsOpen(false)}>
+                {locale === "fr" ? "Fermer mon espace" : "Close my workspace"}
+              </button>
+            </footer>
           </section>
         </div>
       )}
@@ -1843,15 +2326,38 @@ export function Portal({
                     <SensitiveWatermark position={opened.watermarkPosition} />
                   )}
                 </div>
-                {opened.permissions.download ? (
-                  <a
-                    className="primary-link"
-                    href={`/api/documents/${opened.id}/download?locale=${openedLocale}`}
+                <div className="document-viewer-footer">
+                  {opened.permissions.download ? (
+                    <a
+                      className="primary-link"
+                      href={`/api/documents/${opened.id}/download?locale=${openedLocale}`}
+                    >
+                      <Icon name="download" /> {t.download}
+                    </a>
+                  ) : (
+                    <strong className="readonly-label">{t.readonly}</strong>
+                  )}
+                  <button
+                    className="report-document-button"
+                    type="button"
+                    onClick={() => {
+                      setReportReason("OUTDATED");
+                      setReportMessage("");
+                      setReportFeedback("");
+                      setActionError("");
+                      setReporting(opened);
+                    }}
                   >
-                    {t.download}
-                  </a>
-                ) : (
-                  <strong className="readonly-label">{t.readonly}</strong>
+                    <Icon name="audit" />
+                    {locale === "fr"
+                      ? "Signaler un problème"
+                      : "Report an issue"}
+                  </button>
+                </div>
+                {reportFeedback && (
+                  <p className="success-text" role="status">
+                    {reportFeedback}
+                  </p>
                 )}
               </>
             ) : openedVersion ? (
@@ -1859,6 +2365,144 @@ export function Portal({
             ) : (
               <p>{t.fileUnavailable}</p>
             )}
+          </section>
+        </div>
+      )}
+      {reporting && (
+        <div
+          className="modal-backdrop report-modal-backdrop"
+          role="presentation"
+          onMouseDown={() => setReporting(null)}
+        >
+          <section
+            className="modal small-modal report-document-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="report-document-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              className="modal-close"
+              type="button"
+              onClick={() => setReporting(null)}
+              aria-label={t.close}
+            >
+              ×
+            </button>
+            <span className="report-modal-icon" aria-hidden="true">
+              <Icon name="audit" />
+            </span>
+            <h2 id="report-document-title">
+              {locale === "fr" ? "Signaler un problème" : "Report an issue"}
+            </h2>
+            <p>
+              {locale === "fr"
+                ? `Document : ${titleFor(reporting, locale)}`
+                : `Document: ${titleFor(reporting, locale)}`}
+            </p>
+            <form
+              className="report-document-form"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                setReportSubmitting(true);
+                setActionError("");
+                const response = await fetch(
+                  "/api/user-tools/document-reports",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      documentId: reporting.id,
+                      reason: reportReason,
+                      message: reportMessage.trim() || undefined,
+                    }),
+                  },
+                ).catch(() => null);
+                setReportSubmitting(false);
+                if (!response?.ok) {
+                  setActionError(
+                    locale === "fr"
+                      ? "Le signalement n’a pas pu être envoyé. Réessayez."
+                      : "The report could not be sent. Please try again.",
+                  );
+                  return;
+                }
+                setReportFeedback(
+                  locale === "fr"
+                    ? "Signalement envoyé à l’équipe ISMS."
+                    : "Report sent to the ISMS team.",
+                );
+                setReporting(null);
+              }}
+            >
+              <label>
+                {locale === "fr" ? "Type de problème" : "Issue type"}
+                <select
+                  value={reportReason}
+                  onChange={(event) =>
+                    setReportReason(event.target.value as typeof reportReason)
+                  }
+                >
+                  <option value="OUTDATED">
+                    {locale === "fr"
+                      ? "Document obsolète"
+                      : "Outdated document"}
+                  </option>
+                  <option value="INCORRECT">
+                    {locale === "fr"
+                      ? "Information incorrecte"
+                      : "Incorrect information"}
+                  </option>
+                  <option value="SENSITIVE">
+                    {locale === "fr" ? "Contenu sensible" : "Sensitive content"}
+                  </option>
+                  <option value="OTHER">
+                    {locale === "fr" ? "Autre problème" : "Other issue"}
+                  </option>
+                </select>
+              </label>
+              <label>
+                {locale === "fr" ? "Commentaire" : "Comment"}
+                <textarea
+                  maxLength={2000}
+                  rows={5}
+                  value={reportMessage}
+                  onChange={(event) => setReportMessage(event.target.value)}
+                  placeholder={
+                    locale === "fr"
+                      ? "Décrivez brièvement le problème constaté…"
+                      : "Briefly describe the issue…"
+                  }
+                />
+              </label>
+              {actionError && (
+                <p className="error-state" role="alert">
+                  {actionError}
+                </p>
+              )}
+              <div className="report-document-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setReporting(null)}
+                >
+                  {t.cancel}
+                </button>
+                <button
+                  type="submit"
+                  className="primary"
+                  disabled={reportSubmitting}
+                >
+                  {reportSubmitting
+                    ? locale === "fr"
+                      ? "Envoi…"
+                      : "Sending…"
+                    : locale === "fr"
+                      ? "Envoyer le signalement"
+                      : "Send report"}
+                </button>
+              </div>
+            </form>
           </section>
         </div>
       )}

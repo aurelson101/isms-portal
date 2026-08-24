@@ -1,4 +1,5 @@
 import "./styles.css";
+import { VersionFooter } from "./version-footer";
 export const metadata = {
   title: "ISMS Portal",
   description: "Information Security Management System portal",
@@ -8,7 +9,10 @@ export default function Layout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="fr">
-      <body>{children}</body>
+      <body>
+        {children}
+        <VersionFooter />
+      </body>
     </html>
   );
 }

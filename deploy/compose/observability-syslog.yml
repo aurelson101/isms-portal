@@ -1,0 +1,30 @@
+# Apply with: docker compose -f docker-compose.yml -f deploy/compose/observability-syslog.yml up -d
+# SYSLOG_ADDRESS must use a private collector, preferably tcp+tls://host:6514.
+services:
+  api:
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "${SYSLOG_ADDRESS:-tcp://127.0.0.1:514}"
+        syslog-format: rfc5424micro
+        tag: "isms-portal/api/{{.ID}}"
+        cache-max-size: "20m"
+        cache-max-file: "5"
+  worker:
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "${SYSLOG_ADDRESS:-tcp://127.0.0.1:514}"
+        syslog-format: rfc5424micro
+        tag: "isms-portal/worker/{{.ID}}"
+        cache-max-size: "20m"
+        cache-max-file: "5"
+  reverse-proxy:
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "${SYSLOG_ADDRESS:-tcp://127.0.0.1:514}"
+        syslog-format: rfc5424micro
+        tag: "isms-portal/reverse-proxy/{{.ID}}"
+        cache-max-size: "20m"
+        cache-max-file: "5"

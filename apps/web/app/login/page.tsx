@@ -23,6 +23,7 @@ const copy = {
     loggedOut: "Vous êtes maintenant déconnecté.",
     detecting: "Détection de votre session Microsoft en cours…",
     useCredentials: "Utiliser mes identifiants",
+    rememberDevice: "Reconnaître cet équipement pendant 14 jours",
     ssoUnavailable:
       "La connexion automatique n’a pas pu être démarrée. Utilisez vos identifiants.",
   },
@@ -39,6 +40,7 @@ const copy = {
     loggedOut: "You are now signed out.",
     detecting: "Detecting your Microsoft session…",
     useCredentials: "Use my credentials",
+    rememberDevice: "Remember this device for 14 days",
     ssoUnavailable:
       "Automatic sign-in could not be started. Use your credentials.",
   },
@@ -101,7 +103,11 @@ export default function LoginPage() {
     const response = await fetch("/api/auth/directory-login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
+      body: JSON.stringify({
+        login: values.login,
+        password: values.password,
+        rememberDevice: values.rememberDevice === "on",
+      }),
     }).catch(() => null);
     setBusy(false);
     if (!response?.ok) {
@@ -109,7 +115,7 @@ export default function LoginPage() {
       return;
     }
     const requested = new URLSearchParams(window.location.search).get("return");
-    window.location.assign(
+    window.location.replace(
       requested?.startsWith("/") && !requested.startsWith("//")
         ? requested
         : "/",
@@ -171,6 +177,10 @@ export default function LoginPage() {
               required
               autoComplete="current-password"
             />
+          </label>
+          <label className="remember-device">
+            <input name="rememberDevice" type="checkbox" />
+            <span>{t.rememberDevice}</span>
           </label>
           {error && (
             <p className="error-message" role="alert">

@@ -1,0 +1,40 @@
+zabbix_export:
+  version: "7.0"
+  template_groups:
+    - uuid: 696d7369706f7274616c000000000001
+      name: Templates/Applications
+  templates:
+    - uuid: 696d7369706f7274616c000000000002
+      template: ISMS Portal
+      name: ISMS Portal
+      groups:
+        - name: Templates/Applications
+      macros:
+        - macro: "{$ISMS.URL}"
+          value: "http://reverse-proxy:8080"
+        - macro: "{$ISMS.METRICS.URL}"
+          value: "http://api:3001/metrics"
+      httptests:
+        - uuid: 696d7369706f7274616c000000000003
+          name: ISMS Portal readiness
+          delay: 1m
+          steps:
+            - name: Ready endpoint
+              url: "{$ISMS.URL}/api/health/ready"
+              status_codes: "200"
+              no: "1"
+      items:
+        - uuid: 696d7369706f7274616c000000000004
+          name: ISMS Portal private metrics availability
+          type: HTTP_AGENT
+          key: isms.metrics.get
+          delay: 1m
+          history: 1h
+          value_type: TEXT
+          url: "{$ISMS.METRICS.URL}"
+          retrieve_mode: BODY
+          triggers:
+            - uuid: 696d7369706f7274616c000000000005
+              expression: "nodata(/ISMS Portal/isms.metrics.get,5m)=1"
+              name: ISMS Portal private metrics are unavailable
+              priority: HIGH

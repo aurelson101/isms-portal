@@ -45,7 +45,7 @@ for service in reverse-proxy frontend api worker postgres redis clamav; do
   fi
 done
 
-check_status / 200
+check_status / 302
 check_status /admin 302
 check_status /api/health/live 200
 check_status /api/health/ready 200

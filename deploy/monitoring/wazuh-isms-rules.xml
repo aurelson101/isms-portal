@@ -1,0 +1,29 @@
+<group name="isms_portal,application,">
+  <rule id="110100" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="service" type="pcre2">^(api|worker)$</field>
+    <description>ISMS Portal application event</description>
+  </rule>
+
+  <rule id="110101" level="10">
+    <if_sid>110100</if_sid>
+    <field name="statusCode" type="pcre2">^5\d\d$</field>
+    <description>ISMS Portal API server error</description>
+    <group>availability,error,</group>
+  </rule>
+
+  <rule id="110102" level="8">
+    <if_sid>110100</if_sid>
+    <field name="statusCode" type="pcre2">^(401|403)$</field>
+    <description>ISMS Portal access rejected</description>
+    <group>authentication_failed,access_denied,</group>
+  </rule>
+
+  <rule id="110103" level="9">
+    <if_sid>110100</if_sid>
+    <field name="event">audit</field>
+    <field name="result" type="pcre2">^(failure|denied)$</field>
+    <description>ISMS Portal sensitive action failed or was denied</description>
+    <group>audit,access_denied,</group>
+  </rule>
+</group>

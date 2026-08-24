@@ -1,4 +1,4 @@
-const catalogVersion = 2 as const;
+const catalogVersion = 3 as const;
 void catalogVersion;
 
 export const portalCatalog = {
@@ -110,6 +110,9 @@ export const portalCatalog = {
     interfaceLanguage: "Langue de l’interface",
     openNavigation: "Ouvrir la navigation",
     closeNavigation: "Fermer la navigation",
+    showSubmenus: "Afficher les sous-menus",
+    hideSubmenus: "Masquer les sous-menus",
+    allSpaceDocuments: "Tous les documents de l’espace",
     clearSearch: "Effacer la recherche",
     activeFilters: "Filtres actifs",
     currentSelection: "Sélection actuelle",
@@ -267,6 +270,9 @@ export const portalCatalog = {
     interfaceLanguage: "Interface language",
     openNavigation: "Open navigation",
     closeNavigation: "Close navigation",
+    showSubmenus: "Show submenus",
+    hideSubmenus: "Hide submenus",
+    allSpaceDocuments: "All documents in this space",
     clearSearch: "Clear search",
     activeFilters: "Active filters",
     currentSelection: "Current selection",
@@ -319,6 +325,35 @@ export const portalCatalog = {
 } as const;
 
 export const adminEnglishCatalog = {
+  "Début de validité": "Valid from",
+  "Gouvernance des accès": "Access governance",
+  "éléments à examiner": "items to review",
+  "alertes prioritaires": "high-priority alerts",
+  "espaces sans propriétaire": "spaces without owner",
+  "Simuler les droits effectifs": "Simulate effective access",
+  "Identité utilisateur": "User identity",
+  "Groupes séparés par des virgules": "Comma-separated groups",
+  Simuler: "Simulate",
+  "Modèles de permissions": "Permission templates",
+  "Nom du modèle": "Template name",
+  "Créer le modèle": "Create template",
+  droits: "permissions",
+  "Matrice modifiable et aperçu": "Editable matrix and preview",
+  "Prévisualiser les changements": "Preview changes",
+  "Matrice enregistrée.": "Matrix saved.",
+  "Enregistrer en lot": "Save in bulk",
+  "règle(s) modifiée(s)": "changed rule(s)",
+  "Propriétaires d’espace": "Space owners",
+  "Sans propriétaire": "No owner",
+  "Historique signé des droits": "Signed access history",
+  "Libellé de l’instantané": "Snapshot label",
+  "Créer un instantané": "Create snapshot",
+  "État initial": "Initial state",
+  "État final": "Final state",
+  Comparer: "Compare",
+  "Les droits ont changé.": "Access changed.",
+  "Aucun changement.": "No change.",
+  "Anomalies détectées": "Detected anomalies",
   "Rapports d’incidents annuels": "Annual incident reports",
   "Consolidez les incidents, leur résolution et les enseignements de chaque année.":
     "Consolidate incidents, resolutions, and lessons learned for each year.",
@@ -509,6 +544,7 @@ export const adminEnglishCatalog = {
   Expire: "Expires",
   "Exporter CSV": "Export CSV",
   "Exporter JSON": "Export JSON",
+  "Exporter l’instantané signé": "Export signed snapshot",
   Fermer: "Close",
   Fichier: "File",
   "Filtre groupes": "Group filter",
@@ -574,6 +610,10 @@ export const adminEnglishCatalog = {
   Membres: "Members",
   "Métriques Prometheus disponibles sur le réseau API privé.":
     "Prometheus metrics are available on the private API network.",
+  "Adresse du portail détectée automatiquement":
+    "Portal address detected automatically",
+  "adresse IP du serveur": "server IP address",
+  "domaine publié par Nginx": "domain published by Nginx",
   "Mon profil": "My profile",
   Modifier: "Edit",
   "Modifier la catégorie": "Edit category",

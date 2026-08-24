@@ -82,7 +82,7 @@ export default function AdminLoginPage() {
       return;
     }
     const requested = new URLSearchParams(window.location.search).get("return");
-    window.location.assign(
+    window.location.replace(
       requested?.startsWith("/admin") ? requested : "/admin",
     );
   };

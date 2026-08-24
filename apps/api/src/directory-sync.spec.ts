@@ -33,11 +33,14 @@ describe("DirectoryService selected group synchronization", () => {
       update: vi.fn().mockResolvedValue(undefined),
       create: vi.fn(),
     };
+    const directorySyncJob = {
+      create: vi.fn().mockResolvedValue({ id: "job-1" }),
+      update: vi.fn().mockResolvedValue(undefined),
+      findMany: vi.fn().mockResolvedValue([{ id: "obsolete-job" }]),
+      deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+    };
     const prisma = {
-      directorySyncJob: {
-        create: vi.fn().mockResolvedValue({ id: "job-1" }),
-        update: vi.fn().mockResolvedValue(undefined),
-      },
+      directorySyncJob,
       directoryGroup,
     };
     const service = new DirectoryService(prisma as never, {} as never);
@@ -61,5 +64,14 @@ describe("DirectoryService selected group synchronization", () => {
       expect.objectContaining({ where: { id: selected.id } }),
     );
     expect(directoryGroup.create).not.toHaveBeenCalled();
+    expect(directorySyncJob.findMany).toHaveBeenCalledWith({
+      where: { connectionId: connection.id },
+      orderBy: [{ startedAt: "desc" }, { id: "desc" }],
+      skip: 100,
+      select: { id: true },
+    });
+    expect(directorySyncJob.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["obsolete-job"] } },
+    });
   });
 });
