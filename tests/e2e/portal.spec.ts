@@ -1415,6 +1415,7 @@ test("governance workflows support lifetime access, reviews, SoA, retention, ide
   page,
   request,
 }) => {
+  const governanceRun = Date.now().toString(36).toUpperCase();
   const documents = (await (
     await request.get("/api/admin/documents")
   ).json()) as Array<{ id: string }>;
@@ -1440,6 +1441,23 @@ test("governance workflows support lifetime access, reviews, SoA, retention, ide
     validUntil: null,
     certificationDueAt: null,
   });
+  const temporaryExpiry = new Date(Date.now() + 365 * 86400000).toISOString();
+  const temporaryCertification = await request.put(
+    `/api/admin/governance/access-certifications/${rules[0].id}`,
+    {
+      data: {
+        lifetime: false,
+        validUntil: temporaryExpiry,
+        certificationDueAt: temporaryExpiry,
+        justification: "Accès temporaire validé par la recette",
+      },
+    },
+  );
+  expect(temporaryCertification.ok()).toBeTruthy();
+  expect(await temporaryCertification.json()).toMatchObject({
+    lifetime: false,
+    validUntil: temporaryExpiry,
+  });
 
   const review = await request.post("/api/admin/governance/reviews", {
     data: {
@@ -1455,7 +1473,7 @@ test("governance workflows support lifetime access, reviews, SoA, retention, ide
   const control = await request.post("/api/admin/governance/controls", {
     data: {
       framework: "ISO 27001",
-      reference: "A.5.TEST",
+      reference: `A.5.${governanceRun}`,
       title: "Contrôle de recette gouvernance",
       applicability: "APPLICABLE",
       implementationStatus: "IMPLEMENTED",
@@ -1486,7 +1504,7 @@ test("governance workflows support lifetime access, reviews, SoA, retention, ide
 
   const incident = await request.post("/api/admin/governance/incidents", {
     data: {
-      reference: "INC-E2E-001",
+      reference: `INC-E2E-${governanceRun}`,
       title: "Incident de recette gouvernance",
       severity: "HIGH",
       status: "OPEN",
@@ -1559,6 +1577,33 @@ test("governance workflows support lifetime access, reviews, SoA, retention, ide
     page.getByRole("heading", { name: "Gouvernance ISMS" }),
   ).toBeVisible();
   await expect(page.getByRole("tab", { name: /Accès lifetime/ })).toBeVisible();
+  const reviewsTab = page.getByRole("tab", { name: /Revues/ });
+  await reviewsTab.focus();
+  await reviewsTab.press("ArrowRight");
+  await expect(page.getByRole("tab", { name: /Accès lifetime/ })).toBeFocused();
+  await expect(
+    page.getByRole("tabpanel", { name: /Accès lifetime/ }),
+  ).toBeVisible();
+
+  await page.getByRole("tab", { name: /Santé identité/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "État des connecteurs" }),
+  ).toBeVisible();
+  await expect(page.locator(".health-json")).toHaveCount(0);
+
+  await page.route("**/api/admin/governance/summary", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await route.continue();
+  });
+  await page
+    .locator(".governance-panel")
+    .getByRole("button", { name: "Actualiser", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "État des connecteurs" }),
+  ).toBeVisible();
+  await expect(page.locator(".admin-skeleton")).toHaveCount(0);
+  await expect(page.getByText("Actualisation en arrière-plan…")).toBeHidden();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page.evaluate(

@@ -29,6 +29,7 @@ export class ReviewDecisionDto {
 
 export class AccessCertificationDto {
   @IsBoolean() lifetime!: boolean;
+  @IsOptional() @IsDateString() validUntil?: string;
   @IsOptional() @IsDateString() certificationDueAt?: string;
   @IsString() @MinLength(3) @MaxLength(500) justification!: string;
 }

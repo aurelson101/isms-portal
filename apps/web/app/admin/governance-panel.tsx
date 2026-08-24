@@ -87,6 +87,59 @@ const titleFor = (document: DocumentItem, locale: Locale) =>
   document.translations[0]?.title ||
   document.id;
 
+const statusLabels: Record<string, [string, string]> = {
+  APPROVED: ["Approuvée", "Approved"],
+  REJECTED: ["Refusée", "Rejected"],
+  CANCELLED: ["Annulée", "Cancelled"],
+  IN_REVIEW: ["En cours de revue", "In review"],
+  PENDING: ["En attente", "Pending"],
+  APPLICABLE: ["Applicable", "Applicable"],
+  NOT_APPLICABLE: ["Non applicable", "Not applicable"],
+  PLANNED: ["Planifié", "Planned"],
+  PARTIAL: ["Partiellement réalisé", "Partially implemented"],
+  IMPLEMENTED: ["Mis en œuvre", "Implemented"],
+  NOT_IMPLEMENTED: ["Non mis en œuvre", "Not implemented"],
+  LOW: ["Faible", "Low"],
+  MEDIUM: ["Moyenne", "Medium"],
+  HIGH: ["Élevée", "High"],
+  CRITICAL: ["Critique", "Critical"],
+  OPEN: ["Ouvert", "Open"],
+  INVESTIGATING: ["En investigation", "Investigating"],
+  CONTAINED: ["Contenu", "Contained"],
+  RESOLVED: ["Résolu", "Resolved"],
+  CLOSED: ["Clôturé", "Closed"],
+  IN_PROGRESS: ["En cours", "In progress"],
+  DONE: ["Terminée", "Done"],
+  NONE: ["Aucune demande", "No request"],
+  REQUESTED: ["Destruction demandée", "Destruction requested"],
+};
+
+const statusLabel = (locale: Locale, value: string) =>
+  statusLabels[value]?.[locale === "fr" ? 0 : 1] || value;
+
+const sectionsForErrors = (locale: Locale) =>
+  locale === "fr"
+    ? [
+        "synthèse",
+        "revues",
+        "accès",
+        "contrôles",
+        "rétention",
+        "incidents",
+        "identités",
+        "vues",
+      ]
+    : [
+        "summary",
+        "reviews",
+        "access",
+        "controls",
+        "retention",
+        "incidents",
+        "identities",
+        "views",
+      ];
+
 export function GovernancePanel({
   locale,
   documents,
@@ -119,46 +172,50 @@ export function GovernancePanel({
     count: number;
     value: string;
   } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [
-        summaryData,
-        reviewData,
-        certificationData,
-        controlData,
-        retentionData,
-        incidentData,
-        healthData,
-        viewData,
-      ] = await Promise.all([
-        jsonApi<Record<string, number>>("/api/admin/governance/summary"),
-        jsonApi<Review[]>("/api/admin/governance/reviews"),
-        jsonApi<RuleItem[]>("/api/admin/governance/access-certifications"),
-        jsonApi<Control[]>("/api/admin/governance/controls"),
-        jsonApi<Retention[]>("/api/admin/governance/retention"),
-        jsonApi<Incident[]>("/api/admin/governance/incidents"),
-        jsonApi<Record<string, unknown>>(
-          "/api/admin/governance/identity-health?dormantDays=90",
-        ),
-        jsonApi<SavedView[]>("/api/admin/governance/saved-views"),
-      ]);
-      setSummary(summaryData);
-      setReviews(reviewData);
-      setCertifications(certificationData);
-      setControls(controlData);
-      setRetentions(retentionData);
-      setIncidents(incidentData);
-      setIdentityHealth(healthData);
-      setSavedViews(viewData);
-    } catch (error) {
-      onError((error as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [onError]);
+    setRefreshing(true);
+    const requests = [
+      jsonApi<Record<string, number>>("/api/admin/governance/summary"),
+      jsonApi<Review[]>("/api/admin/governance/reviews"),
+      jsonApi<RuleItem[]>("/api/admin/governance/access-certifications"),
+      jsonApi<Control[]>("/api/admin/governance/controls"),
+      jsonApi<Retention[]>("/api/admin/governance/retention"),
+      jsonApi<Incident[]>("/api/admin/governance/incidents"),
+      jsonApi<Record<string, unknown>>(
+        "/api/admin/governance/identity-health?dormantDays=90",
+      ),
+      jsonApi<SavedView[]>("/api/admin/governance/saved-views"),
+    ] as const;
+    const results = await Promise.allSettled(requests);
+    const setters = [
+      setSummary,
+      setReviews,
+      setCertifications,
+      setControls,
+      setRetentions,
+      setIncidents,
+      setIdentityHealth,
+      setSavedViews,
+    ] as const;
+    const failed: string[] = [];
+    const names = sectionsForErrors(locale);
+    results.forEach((result, index) => {
+      if (result.status === "fulfilled") {
+        (setters[index] as (value: unknown) => void)(result.value);
+      } else failed.push(names[index]);
+    });
+    if (failed.length)
+      onError(
+        (locale === "fr"
+          ? "Impossible d’actualiser : "
+          : "Could not refresh: ") + failed.join(", "),
+      );
+    setInitialLoading(false);
+    setRefreshing(false);
+  }, [locale, onError]);
 
   useEffect(() => void refresh(), [refresh]);
 
@@ -174,7 +231,8 @@ export function GovernancePanel({
         body: JSON.stringify(body),
       });
       onNotice(t("Enregistrement effectué.", "Saved successfully."));
-      await Promise.all([refresh(), onChanged()]);
+      await refresh();
+      if (url.includes("/access-certifications/")) await onChanged();
     } catch (error) {
       onError((error as Error).message);
       throw error;
@@ -202,7 +260,7 @@ export function GovernancePanel({
   ] as const;
 
   return (
-    <section className="governance-panel">
+    <section className="governance-panel" aria-busy={refreshing}>
       <div className="section-heading">
         <div>
           <h1>{t("Gouvernance ISMS", "ISMS governance")}</h1>
@@ -217,27 +275,67 @@ export function GovernancePanel({
           {t("Actualiser", "Refresh")}
         </button>
       </div>
-      <div className="governance-tabs" role="tablist">
+      {refreshing && (
+        <span className="governance-refreshing" role="status">
+          {t("Actualisation en arrière-plan…", "Refreshing in background…")}
+        </span>
+      )}
+      <div
+        className="governance-tabs"
+        role="tablist"
+        aria-label={t("Rubriques de gouvernance", "Governance sections")}
+      >
         {sections.map(([key, fr, en, count]) => (
           <button
             type="button"
             role="tab"
+            id={`governance-tab-${key}`}
+            data-section={key}
+            aria-controls={`governance-panel-${key}`}
             aria-selected={section === key}
+            tabIndex={section === key ? 0 : -1}
             className={section === key ? "active" : ""}
             onClick={() => setSection(key)}
+            onKeyDown={(event) => {
+              const tabs = Array.from(
+                event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+                  '[role="tab"]',
+                ) || [],
+              );
+              const current = tabs.indexOf(event.currentTarget);
+              const target =
+                event.key === "Home"
+                  ? tabs[0]
+                  : event.key === "End"
+                    ? tabs.at(-1)
+                    : event.key === "ArrowRight"
+                      ? tabs[(current + 1) % tabs.length]
+                      : event.key === "ArrowLeft"
+                        ? tabs[(current - 1 + tabs.length) % tabs.length]
+                        : null;
+              if (!target) return;
+              event.preventDefault();
+              setSection(target.dataset.section || "reviews");
+              target.focus();
+            }}
             key={key}
           >
             {locale === "fr" ? fr : en} <span>{count}</span>
           </button>
         ))}
       </div>
-      {loading ? (
+      {initialLoading ? (
         <div
           className="admin-skeleton"
           aria-label={t("Actualisation", "Refreshing")}
         />
       ) : (
-        <>
+        <div
+          role="tabpanel"
+          id={`governance-panel-${section}`}
+          aria-labelledby={`governance-tab-${section}`}
+          tabIndex={0}
+        >
           {section === "reviews" && (
             <ReviewsSection
               locale={locale}
@@ -294,7 +392,7 @@ export function GovernancePanel({
               onNotice={onNotice}
             />
           )}
-        </>
+        </div>
       )}
     </section>
   );
@@ -394,7 +492,7 @@ function ReviewsSection({
           <article className="governance-card" key={review.id}>
             <strong>{titleFor(review.document, locale)}</strong>
             <span className={`status ${review.status.toLowerCase()}`}>
-              {review.status}
+              {statusLabel(locale, review.status)}
             </span>
             <p>
               {review.owner} → {review.reviewer} → {review.approver}
@@ -496,22 +594,24 @@ function AccessSection({
             </button>
             <button
               type="button"
-              onClick={() =>
+              onClick={() => {
+                const expiry = new Date(
+                  Date.now() + 365 * 86400000,
+                ).toISOString();
                 void submit(
                   `/api/admin/governance/access-certifications/${rule.id}`,
                   {
                     lifetime: false,
-                    certificationDueAt: new Date(
-                      Date.now() + 365 * 86400000,
-                    ).toISOString(),
+                    validUntil: expiry,
+                    certificationDueAt: expiry,
                     justification: t(
                       "Recertification annuelle",
                       "Annual recertification",
                     ),
                   },
                   "PUT",
-                )
-              }
+                );
+              }}
             >
               {t("Recertifier dans 1 an", "Recertify in 1 year")}
             </button>
@@ -568,7 +668,14 @@ function ControlsSection({
         <h2>{t("Ajouter un contrôle", "Add a control")}</h2>
         {(["framework", "reference", "title", "owner"] as const).map((key) => (
           <label key={key}>
-            {key}
+            {
+              {
+                framework: t("Référentiel", "Framework"),
+                reference: t("Référence", "Reference"),
+                title: t("Intitulé", "Title"),
+                owner: t("Responsable", "Owner"),
+              }[key]
+            }
             <input
               required
               value={draft[key]}
@@ -647,7 +754,8 @@ function ControlsSection({
             </strong>
             <p>{control.title}</p>
             <span className="status">
-              {control.applicability} · {control.implementationStatus}
+              {statusLabel(locale, control.applicability)} ·{" "}
+              {statusLabel(locale, control.implementationStatus)}
             </span>
             <small>{control.owner}</small>
           </article>
@@ -755,7 +863,7 @@ function RetentionSection({
             >
               {policy.legalHold
                 ? t("Gel actif", "Legal hold")
-                : policy.destructionStatus}
+                : statusLabel(locale, policy.destructionStatus)}
             </span>
             <p>{policy.reason}</p>
             <small>
@@ -844,35 +952,113 @@ function IdentitySection({
     (data.connections as Array<Record<string, unknown>> | undefined) || [];
   const certificates =
     (data.certificates as Array<Record<string, unknown>> | undefined) || [];
+  const formatDate = (value: unknown) =>
+    typeof value === "string" || value instanceof Date
+      ? new Date(value).toLocaleString(locale)
+      : t("Jamais", "Never");
   return (
-    <div className="governance-metrics">
-      <article>
-        <strong>{connections.length}</strong>
-        <span>{t("Connecteurs", "Connectors")}</span>
-      </article>
-      <article>
-        <strong>{certificates.length}</strong>
-        <span>{t("Certificats", "Certificates")}</span>
-      </article>
-      <article>
-        <strong>{dormant.length}</strong>
-        <span>{t("Comptes dormants (90 j)", "Dormant accounts (90d)")}</span>
-      </article>
-      <article>
-        <strong>{stale.length}</strong>
-        <span>{t("Groupes non synchronisés", "Stale groups")}</span>
-      </article>
-      <article>
-        <strong>{String(data.activeSessions || 0)}</strong>
-        <span>{t("Sessions admin actives", "Active admin sessions")}</span>
-      </article>
-      <pre className="health-json">
-        {JSON.stringify(
-          { connections, dormantAccounts: dormant, staleGroups: stale },
-          null,
-          2,
-        )}
-      </pre>
+    <div className="identity-health">
+      <div className="governance-metrics">
+        {[
+          [connections.length, t("Connecteurs", "Connectors")],
+          [certificates.length, t("Certificats", "Certificates")],
+          [
+            dormant.length,
+            t("Comptes dormants (90 j)", "Dormant accounts (90d)"),
+          ],
+          [stale.length, t("Groupes non synchronisés", "Stale groups")],
+          [
+            data.activeSessions || 0,
+            t("Sessions admin actives", "Active sessions"),
+          ],
+        ].map(([value, label]) => (
+          <article key={String(label)}>
+            <strong>{String(value)}</strong>
+            <span>{String(label)}</span>
+          </article>
+        ))}
+      </div>
+      <div className="identity-health-grid">
+        <section>
+          <h2>{t("État des connecteurs", "Connector status")}</h2>
+          {connections.length ? (
+            <ul>
+              {connections.map((connection) => (
+                <li key={String(connection.id)}>
+                  <strong>{String(connection.name)}</strong>
+                  <span>
+                    {String(connection.protocol)} ·{" "}
+                    {connection.enabled
+                      ? t("Activé", "Enabled")
+                      : t("Désactivé", "Disabled")}
+                  </span>
+                  <small>
+                    {t("Dernier test : ", "Last test: ")}
+                    {String(
+                      connection.lastTestStatus || t("Inconnu", "Unknown"),
+                    )}
+                    {" · "}
+                    {formatDate(connection.lastTestAt)}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>{t("Aucun connecteur.", "No connector.")}</p>
+          )}
+        </section>
+        <section>
+          <h2>{t("Comptes dormants", "Dormant accounts")}</h2>
+          {dormant.length ? (
+            <ul>
+              {dormant.map((account) => (
+                <li key={String(account.id)}>
+                  <strong>{String(account.username)}</strong>
+                  <span>{String(account.source)}</span>
+                  <small>{formatDate(account.lastAuthorizedAt)}</small>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>{t("Aucun compte dormant.", "No dormant account.")}</p>
+          )}
+        </section>
+        <section>
+          <h2>{t("Groupes à resynchroniser", "Groups to resynchronize")}</h2>
+          {stale.length ? (
+            <ul>
+              {stale.map((group) => (
+                <li key={String(group.id)}>
+                  <strong>{String(group.name)}</strong>
+                  <small>{formatDate(group.lastSyncedAt)}</small>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>
+              {t("Tous les groupes sont à jour.", "All groups are current.")}
+            </p>
+          )}
+        </section>
+        <section>
+          <h2>{t("Certificats de confiance", "Trusted certificates")}</h2>
+          {certificates.length ? (
+            <ul>
+              {certificates.map((certificate) => (
+                <li key={String(certificate.id)}>
+                  <strong>{String(certificate.name)}</strong>
+                  <small>
+                    {t("Expire le ", "Expires ")}
+                    {formatDate(certificate.validTo)}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>{t("Aucun certificat.", "No certificate.")}</p>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
@@ -928,7 +1114,13 @@ function IncidentsSection({
         <h2>{t("Ouvrir un incident", "Open an incident")}</h2>
         {(["reference", "title", "owner"] as const).map((key) => (
           <label key={key}>
-            {key}
+            {
+              {
+                reference: t("Référence", "Reference"),
+                title: t("Intitulé", "Title"),
+                owner: t("Responsable", "Owner"),
+              }[key]
+            }
             <input
               required
               value={draft[key]}
@@ -943,7 +1135,9 @@ function IncidentsSection({
             onChange={(e) => setDraft({ ...draft, severity: e.target.value })}
           >
             {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((value) => (
-              <option key={value}>{value}</option>
+              <option key={value} value={value}>
+                {statusLabel(locale, value)}
+              </option>
             ))}
           </select>
         </label>
@@ -979,7 +1173,8 @@ function IncidentsSection({
               {incident.reference} · {incident.title}
             </strong>
             <span className={`status ${incident.severity.toLowerCase()}`}>
-              {incident.severity} · {incident.status}
+              {statusLabel(locale, incident.severity)} ·{" "}
+              {statusLabel(locale, incident.status)}
             </span>
             <p>
               {incident.owner} ·{" "}
@@ -987,7 +1182,8 @@ function IncidentsSection({
             </p>
             {incident.correctiveActions.map((action) => (
               <small key={action.id}>
-                CAPA: {action.description} — {action.owner} — {action.status}
+                CAPA: {action.description} — {action.owner} —{" "}
+                {statusLabel(locale, action.status)}
               </small>
             ))}
             <button
@@ -1122,7 +1318,9 @@ function ViewsSection({
           >
             {["OPEN", "INVESTIGATING", "CONTAINED", "RESOLVED", "CLOSED"].map(
               (value) => (
-                <option key={value}>{value}</option>
+                <option key={value} value={value}>
+                  {statusLabel(locale, value)}
+                </option>
               ),
             )}
           </select>

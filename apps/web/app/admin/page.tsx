@@ -501,6 +501,10 @@ export default function Admin() {
     }
   }, []);
 
+  const refreshAccessRules = useCallback(async () => {
+    setRules(await api<Rule[]>("/api/admin/access-rules"));
+  }, []);
+
   const changeLocale = async (next: Locale) => {
     setLocale(next);
     localStorage.setItem("isms-locale", next);
@@ -967,7 +971,7 @@ export default function Admin() {
                     locale={locale}
                     documents={documents}
                     rules={rules}
-                    onChanged={refresh}
+                    onChanged={refreshAccessRules}
                     onError={setError}
                     onNotice={setNotice}
                   />

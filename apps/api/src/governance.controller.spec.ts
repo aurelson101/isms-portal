@@ -69,6 +69,35 @@ describe("GovernanceController", () => {
     expect(result.certificationDueAt).toBeNull();
   });
 
+  it("requires and stores an expiry when lifetime access becomes temporary", async () => {
+    const { controller, prisma } = setup();
+    prisma.accessRule.findUnique.mockResolvedValue({
+      id: "rule",
+      lifetime: true,
+      validUntil: null,
+    });
+    prisma.accessRule.update.mockImplementation(({ data }) =>
+      Promise.resolve({ id: "rule", group: {}, space: {}, ...data }),
+    );
+    await expect(
+      controller.certifyAccess(request, "rule", {
+        lifetime: false,
+        certificationDueAt: new Date(Date.now() + 86400000).toISOString(),
+        justification: "Temporary access",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    const expiry = new Date(Date.now() + 365 * 86400000).toISOString();
+    const result = await controller.certifyAccess(request, "rule", {
+      lifetime: false,
+      validUntil: expiry,
+      certificationDueAt: expiry,
+      justification: "Temporary access",
+    });
+    expect(result.lifetime).toBe(false);
+    expect(result.validUntil).toEqual(new Date(expiry));
+  });
+
   it("blocks every destruction decision while a legal hold is active", async () => {
     const { controller, prisma } = setup();
     prisma.retentionPolicy.findUnique.mockResolvedValue({
