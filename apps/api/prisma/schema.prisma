@@ -110,6 +110,7 @@ model DirectoryGroup {
   directoryConnectionId String?
   directoryConnection   DirectoryConnection? @relation(fields: [directoryConnectionId], references: [id])
   accessRules           AccessRule[]
+  ownedSpaces           DocumentSpace[]      @relation("SpaceOwnerGroup")
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
 
@@ -130,16 +131,20 @@ model DirectorySyncJob {
 }
 
 model DocumentSpace {
-  id          String             @id @default(uuid())
-  slug        String             @unique
-  nameFr      String
-  nameEn      String
-  categories  DocumentCategory[]
-  documents   Document[]
-  accessRules AccessRule[]
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  deletedAt   DateTime?
+  id           String             @id @default(uuid())
+  slug         String             @unique
+  nameFr       String
+  nameEn       String
+  categories   DocumentCategory[]
+  documents    Document[]
+  accessRules  AccessRule[]
+  ownerGroupId String?
+  ownerGroup   DirectoryGroup?    @relation("SpaceOwnerGroup", fields: [ownerGroupId], references: [id], onDelete: SetNull)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  deletedAt    DateTime?
+
+  @@index([ownerGroupId])
 }
 
 model DocumentCategory {
@@ -159,22 +164,25 @@ model DocumentCategory {
 }
 
 model Document {
-  id                String                @id @default(uuid())
+  id                String                 @id @default(uuid())
   spaceId           String
-  space             DocumentSpace         @relation(fields: [spaceId], references: [id])
+  space             DocumentSpace          @relation(fields: [spaceId], references: [id])
   categoryId        String?
-  category          DocumentCategory?     @relation(fields: [categoryId], references: [id])
-  status            DocumentStatus        @default(DRAFT)
-  sensitive         Boolean               @default(false)
-  watermarkPosition WatermarkPosition     @default(CENTER)
-  viewCount         Int                   @default(0)
-  downloadCount     Int                   @default(0)
+  category          DocumentCategory?      @relation(fields: [categoryId], references: [id])
+  status            DocumentStatus         @default(DRAFT)
+  sensitive         Boolean                @default(false)
+  watermarkPosition WatermarkPosition      @default(CENTER)
+  viewCount         Int                    @default(0)
+  downloadCount     Int                    @default(0)
   publishedAt       DateTime?
   translations      DocumentTranslation[]
   versions          DocumentVersion[]
   favorites         UserFavorite[]
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  activities        UserDocumentActivity[]
+  accessRequests    AccessRequest[]
+  reports           DocumentReport[]
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
   deletedAt         DateTime?
 
   @@index([spaceId, status])
@@ -191,6 +199,83 @@ model UserFavorite {
   @@id([identity, documentId])
   @@index([identity, createdAt])
   @@index([documentId])
+}
+
+model UserDocumentActivity {
+  identity   String
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  action     String
+  occurredAt DateTime @updatedAt
+
+  @@id([identity, documentId, action])
+  @@index([identity, occurredAt])
+  @@index([documentId, occurredAt])
+}
+
+model SavedSearch {
+  id        String   @id @default(uuid())
+  identity  String
+  name      String
+  filters   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([identity, name])
+  @@index([identity, updatedAt])
+}
+
+model AccessRequest {
+  id            String    @id @default(uuid())
+  identity      String
+  documentId    String?
+  document      Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  spaceId       String
+  justification String
+  status        String    @default("PENDING")
+  decision      String?
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([identity, createdAt])
+  @@index([status, createdAt])
+  @@index([spaceId])
+}
+
+model DocumentReport {
+  id         String    @id @default(uuid())
+  identity   String
+  documentId String
+  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  reason     String
+  message    String?
+  status     String    @default("OPEN")
+  resolvedBy String?
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([identity, createdAt])
+  @@index([status, createdAt])
+  @@index([documentId])
+}
+
+model UserNotification {
+  id             String    @id @default(uuid())
+  identity       String
+  title          String
+  message        String
+  resourceType   String?
+  resourceId     String?
+  mandatory      Boolean   @default(false)
+  readAt         DateTime?
+  acknowledgedAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([identity, createdAt])
+  @@index([identity, readAt])
 }
 
 model DocumentTranslation {
@@ -236,25 +321,58 @@ model StoredFile {
 }
 
 model AccessRule {
-  id        String         @id @default(uuid())
-  groupId   String
-  group     DirectoryGroup @relation(fields: [groupId], references: [id])
-  spaceId   String
-  space     DocumentSpace  @relation(fields: [spaceId], references: [id])
-  showMenu  Boolean        @default(false)
-  read      Boolean        @default(false)
-  search    Boolean        @default(false)
-  preview   Boolean        @default(false)
-  download  Boolean        @default(false)
-  upload    Boolean        @default(false)
-  edit      Boolean        @default(false)
-  publish   Boolean        @default(false)
-  archive   Boolean        @default(false)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id            String         @id @default(uuid())
+  groupId       String
+  group         DirectoryGroup @relation(fields: [groupId], references: [id])
+  spaceId       String
+  space         DocumentSpace  @relation(fields: [spaceId], references: [id])
+  showMenu      Boolean        @default(false)
+  read          Boolean        @default(false)
+  search        Boolean        @default(false)
+  preview       Boolean        @default(false)
+  download      Boolean        @default(false)
+  upload        Boolean        @default(false)
+  edit          Boolean        @default(false)
+  publish       Boolean        @default(false)
+  archive       Boolean        @default(false)
+  validFrom     DateTime?
+  validUntil    DateTime?
+  justification String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   @@unique([groupId, spaceId])
   @@index([spaceId])
+  @@index([validFrom, validUntil])
+}
+
+model AccessRuleTemplate {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  showMenu    Boolean  @default(false)
+  read        Boolean  @default(false)
+  search      Boolean  @default(false)
+  preview     Boolean  @default(false)
+  download    Boolean  @default(false)
+  upload      Boolean  @default(false)
+  edit        Boolean  @default(false)
+  publish     Boolean  @default(false)
+  archive     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AccessSnapshot {
+  id        String   @id @default(uuid())
+  label     String
+  state     Json
+  sha256    String
+  signature String
+  identity  String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 model AuditEvent {
@@ -282,6 +400,8 @@ model ApplicationSetting {
 model UserPreference {
   identity  String   @id
   locale    String   @default("fr")
+  viewMode  String   @default("list")
+  density   String   @default("comfortable")
   updatedAt DateTime @updatedAt
 }
 
@@ -311,17 +431,17 @@ model AdminAccount {
 }
 
 model AdminDirectoryGroup {
-  id                String   @id @default(uuid())
-  name              String   @unique
-  distinguishedName String   @unique
-  active            Boolean  @default(true)
+  id                String    @id @default(uuid())
+  name              String    @unique
+  distinguishedName String    @unique
+  active            Boolean   @default(true)
   justification     String
   validUntil        DateTime?
   lastAuthorizedAt  DateTime?
   lastReviewedAt    DateTime?
   reviewDueAt       DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([active, name])
   @@index([active, validUntil])
@@ -342,16 +462,16 @@ model AdminSession {
 }
 
 model AnnualIncidentReport {
-  id                 String   @id @default(uuid())
-  year               Int      @unique
-  totalIncidents     Int
-  criticalIncidents  Int
-  resolvedIncidents  Int
-  summary            String
-  lessonsLearned     String?
-  status             String   @default("DRAFT")
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(uuid())
+  year              Int      @unique
+  totalIncidents    Int
+  criticalIncidents Int
+  resolvedIncidents Int
+  summary           String
+  lessonsLearned    String?
+  status            String   @default("DRAFT")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([status, year])
 }

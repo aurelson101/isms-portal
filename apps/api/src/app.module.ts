@@ -23,6 +23,10 @@ import { AuthService } from "./auth.service";
 import { AuthController, AdminAccountsController } from "./auth.controller";
 import { WatermarkService } from "./watermark.service";
 import { ObservabilityService } from "./observability.service";
+import {
+  OperationsController,
+  UserToolsController,
+} from "./user-tools.controller";
 
 @Module({
   controllers: [
@@ -36,6 +40,8 @@ import { ObservabilityService } from "./observability.service";
     CertificatesController,
     AuthController,
     AdminAccountsController,
+    UserToolsController,
+    OperationsController,
   ],
   providers: [
     PrismaService,

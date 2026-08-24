@@ -1,8 +1,10 @@
 import { expect, test } from "./test";
+import { APP_VERSION } from "../../apps/web/app/version";
 
 test("the main sign-in page only exposes the user credentials form", async ({
   page,
 }) => {
+  await page.context().clearCookies();
   await page.goto("/login");
   await page.getByRole("button", { name: "FR", exact: true }).click();
   await expect(
@@ -34,6 +36,36 @@ test("the user sign-in page automatically detects an existing SSO session", asyn
     "/explorer",
   );
 });
+
+for (const protectedRoute of [
+  "/",
+  "/explorer?q=iso&page=2",
+  "/incident-reports",
+]) {
+  test(`protected content stays hidden while authentication is checked on ${protectedRoute}`, async ({
+    page,
+  }) => {
+    let finishIdentityCheck: (() => void) | undefined;
+    const identityCheckMayFinish = new Promise<void>((resolve) => {
+      finishIdentityCheck = resolve;
+    });
+    await page.route("**/api/me?refresh=1", async (route) => {
+      await identityCheckMayFinish;
+      await route.fulfill({ status: 401, json: { message: "Unauthorized" } });
+    });
+
+    await page.goto(protectedRoute);
+    await expect(page.locator(".login-shell")).toBeVisible();
+    await expect(page.locator(".shell")).toHaveCount(0);
+    await expect(page.locator(".version-footer")).toHaveText(
+      `Version ${APP_VERSION}`,
+    );
+
+    finishIdentityCheck?.();
+    await expect(page).toHaveURL(/\/login\?return=/);
+    expect(new URL(page.url()).searchParams.get("return")).toBe(protectedRoute);
+  });
+}
 
 test("local sign-in and signed-out pages do not immediately restart SSO", async ({
   page,

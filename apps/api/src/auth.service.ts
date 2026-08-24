@@ -62,13 +62,12 @@ const totp = (secret: string, timestamp = Date.now()) => {
 
 @Injectable()
 export class AuthService implements OnModuleInit {
-  private readonly authorizationTouchIntervalMs = 5 * 60 * 1000;
+  private readonly activityTouchIntervalMs = 5 * 60 * 1000;
 
-  private authorizationTouchDue(lastAuthorizedAt?: Date | null) {
+  private activityTouchDue(lastActivityAt?: Date | null) {
     return (
-      !lastAuthorizedAt ||
-      Date.now() - lastAuthorizedAt.getTime() >=
-        this.authorizationTouchIntervalMs
+      !lastActivityAt ||
+      Date.now() - lastActivityAt.getTime() >= this.activityTouchIntervalMs
     );
   }
 
@@ -91,6 +90,14 @@ export class AuthService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    await Promise.all([
+      this.prisma.directoryUserSession.deleteMany({
+        where: { expiresAt: { lte: new Date() } },
+      }),
+      this.prisma.adminSession.deleteMany({
+        where: { expiresAt: { lte: new Date() } },
+      }),
+    ]);
     const username = process.env.INITIAL_ADMIN_USERNAME?.trim();
     const password = process.env.INITIAL_ADMIN_PASSWORD;
     if (!username || !password) return;
@@ -179,22 +186,24 @@ export class AuthService implements OnModuleInit {
       : refreshDirectoryGroups && directoryRefreshCompleted
         ? []
         : storedGroups;
-    await this.prisma.directoryUserSession.update({
-      where: { id: session.id },
-      data: {
-        lastUsedAt: new Date(),
-        ...(refreshedProfile
-          ? {
-              username: refreshedProfile.username,
-              displayName: refreshedProfile.displayName,
-              groups: refreshedProfile.groups,
-              directoryConnectionId: refreshedProfile.connectionId,
-            }
-          : directoryRefreshCompleted
-            ? { groups: [] }
-            : {}),
-      },
-    });
+    if (refreshDirectoryGroups || this.activityTouchDue(session.lastUsedAt)) {
+      await this.prisma.directoryUserSession.update({
+        where: { id: session.id },
+        data: {
+          lastUsedAt: new Date(),
+          ...(refreshedProfile
+            ? {
+                username: refreshedProfile.username,
+                displayName: refreshedProfile.displayName,
+                groups: refreshedProfile.groups,
+                directoryConnectionId: refreshedProfile.connectionId,
+              }
+            : directoryRefreshCompleted
+              ? { groups: [] }
+              : {}),
+        },
+      });
+    }
     return this.enrichSsoIdentity({
       username: refreshedProfile?.username || session.username,
       displayName: refreshedProfile?.displayName || session.displayName,
@@ -223,7 +232,7 @@ export class AuthService implements OnModuleInit {
             where: { id: session.id },
             data: { lastUsedAt: new Date() },
           }),
-          this.authorizationTouchDue(session.adminAccount.lastAuthorizedAt)
+          this.activityTouchDue(session.adminAccount.lastAuthorizedAt)
             ? this.prisma.adminAccount.update({
                 where: { id: session.adminAccount.id },
                 data: { lastAuthorizedAt: new Date() },
@@ -294,14 +303,14 @@ export class AuthService implements OnModuleInit {
     ]);
     if (account || administratorGroup) {
       await Promise.all([
-        account && this.authorizationTouchDue(account.lastAuthorizedAt)
+        account && this.activityTouchDue(account.lastAuthorizedAt)
           ? this.prisma.adminAccount.update({
               where: { id: account.id },
               data: { lastAuthorizedAt: new Date() },
             })
           : Promise.resolve(),
         administratorGroup &&
-        this.authorizationTouchDue(administratorGroup.lastAuthorizedAt)
+        this.activityTouchDue(administratorGroup.lastAuthorizedAt)
           ? this.prisma.adminDirectoryGroup.update({
               where: { id: administratorGroup.id },
               data: { lastAuthorizedAt: new Date() },
@@ -451,14 +460,22 @@ export class AuthService implements OnModuleInit {
     return isIP(normalized) ? normalized : null;
   }
 
-  async directoryLogin(login: string, password: string, response: Response) {
+  async directoryLogin(
+    login: string,
+    password: string,
+    response: Response,
+    rememberDevice = false,
+  ) {
     const identity = await this.directory.authenticateUser(login, password);
     await this.reconcileDirectoryAdministratorIdentity(
       login,
       identity.username,
     );
     const token = randomBytes(32).toString("base64url");
-    const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    const expiresAt = new Date(
+      Date.now() +
+        (rememberDevice ? 14 * 24 * 60 * 60 * 1000 : 8 * 60 * 60 * 1000),
+    );
     await this.prisma.directoryUserSession.create({
       data: {
         tokenHash: hashToken(token),

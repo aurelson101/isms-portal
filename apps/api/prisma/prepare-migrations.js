@@ -5,11 +5,11 @@ const prisma = new PrismaClient();
 const baseline = "20260730000000_initial";
 
 async function main() {
-  const rows = await prisma.$queryRawUnsafe(`
+  const rows = await prisma.$queryRaw`
     SELECT
       to_regclass('public."DirectoryGroup"') IS NOT NULL AS "hasSchema",
       to_regclass('public."_prisma_migrations"') IS NOT NULL AS "hasMigrations"
-  `);
+  `;
   const state = rows[0];
   if (state.hasSchema && !state.hasMigrations) {
     console.warn(

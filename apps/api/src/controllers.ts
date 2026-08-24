@@ -17,7 +17,7 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { createHash, randomUUID } from "crypto";
+import { createHash, createHmac, randomUUID } from "crypto";
 import { basename, extname } from "path";
 import { createConnection } from "net";
 import { ApiConsumes, ApiTags } from "@nestjs/swagger";
@@ -31,6 +31,10 @@ import { AuthorizationService, type Permission } from "./authorization.service";
 import { ImportCertificateDto } from "./certificate.dto";
 import {
   AccessRuleDto,
+  AccessRuleBulkDto,
+  AccessRuleTemplateDto,
+  AccessSimulationDto,
+  AccessSnapshotDto,
   AnnualIncidentReportDto,
   CategoryDto,
   DirectoryConnectionDto,
@@ -39,6 +43,7 @@ import {
   ImportDirectoryGroupDto,
   LocalePreferenceDto,
   SpaceDto,
+  SpaceOwnerDto,
 } from "./admin.dto";
 import { AuditService } from "./audit.service";
 import { StorageService } from "./storage.service";
@@ -49,6 +54,7 @@ import { parseCaCertificates } from "./certificate.parser";
 import { validateDirectoryHosts } from "./directory-host";
 import { WatermarkService } from "./watermark.service";
 import { ObservabilityService } from "./observability.service";
+import { safeSsoPath } from "./http-security";
 
 const tcpCheck = (host: string, port: number, timeout = 1200) =>
   new Promise<boolean>((resolve) => {
@@ -84,6 +90,27 @@ const certificateSelection = {
   createdAt: true,
   updatedAt: true,
 } as const;
+
+const accessPermissionKeys = [
+  "showMenu",
+  "read",
+  "search",
+  "preview",
+  "download",
+  "upload",
+  "edit",
+  "publish",
+  "archive",
+] as const;
+
+const accessRuleData = (body: AccessRuleDto) => ({
+  groupId: body.groupId,
+  spaceId: body.spaceId,
+  ...Object.fromEntries(accessPermissionKeys.map((key) => [key, body[key]])),
+  validFrom: body.validFrom ? new Date(body.validFrom) : null,
+  validUntil: body.validUntil ? new Date(body.validUntil) : null,
+  justification: body.justification?.trim() || null,
+});
 
 @Controller()
 export class HealthController {
@@ -205,12 +232,16 @@ export class IdentityController {
       isAdmin: administrator,
       primaryAdmin: adminAccount?.primary || false,
       locale: preference?.locale || null,
+      preferences: {
+        viewMode: preference?.viewMode || "list",
+        density: preference?.density || "comfortable",
+      },
       authentication: {
         source: req.identity.source,
         ssoConnected: req.identity.source === "trusted-proxy",
         sessionExpiresAt: req.identity.sessionExpiresAt || null,
-        loginUrl: process.env.SSO_LOGIN_URL || null,
-        logoutUrl: process.env.SSO_LOGOUT_URL || null,
+        loginUrl: safeSsoPath(process.env.SSO_LOGIN_URL),
+        logoutUrl: safeSsoPath(process.env.SSO_LOGOUT_URL),
         diagnostics: {
           groupCount: req.identity.groups.length,
           matchedGroups: matchedGroups.map((group) => group.name),
@@ -232,6 +263,25 @@ export class IdentityController {
               accessRules.some((rule) => Boolean(rule[permission])),
           ]),
         ),
+        accessExplanation: administrator
+          ? { type: "administrator", groups: [] }
+          : space.ownerGroup &&
+              space.ownerGroup.active &&
+              req.identity.groups.some(
+                (name) =>
+                  name.toLowerCase() === space.ownerGroup!.name.toLowerCase(),
+              )
+            ? { type: "owner", groups: [space.ownerGroup.name] }
+            : {
+                type: "rule",
+                groups: [
+                  ...new Set(
+                    accessRules
+                      .map((rule) => rule.group?.name)
+                      .filter((name): name is string => Boolean(name)),
+                  ),
+                ],
+              },
       })),
     };
   }
@@ -739,6 +789,8 @@ export class DocumentsController {
       where: { id, deletedAt: null },
       include: {
         versions: { include: { storedFile: { include: { scans: true } } } },
+        favorites: { select: { identity: true } },
+        translations: { select: { title: true, locale: true } },
       },
     });
     if (
@@ -779,6 +831,21 @@ export class DocumentsController {
       "success",
       distributedFiles.length ? { distributedFiles } : undefined,
     );
+    if (status === "PUBLISHED" && document.favorites.length > 0) {
+      const title =
+        document.translations.find((item) => item.locale === "fr")?.title ||
+        document.translations[0]?.title ||
+        id;
+      await this.prisma.userNotification.createMany({
+        data: document.favorites.map(({ identity }) => ({
+          identity,
+          title: "Document publié ou mis à jour",
+          message: title,
+          resourceType: "document",
+          resourceId: id,
+        })),
+      });
+    }
     return updated;
   }
 
@@ -817,10 +884,27 @@ export class DocumentsController {
         .catch(() => undefined);
       throw new NotFoundException();
     }
-    await this.prisma.document.update({
-      where: { id },
-      data: { viewCount: { increment: 1 } },
-    });
+    await this.prisma.$transaction([
+      this.prisma.document.update({
+        where: { id },
+        data: { viewCount: { increment: 1 } },
+      }),
+      this.prisma.userDocumentActivity.upsert({
+        where: {
+          identity_documentId_action: {
+            identity: req.identity.username,
+            documentId: id,
+            action: "view",
+          },
+        },
+        update: { occurredAt: new Date() },
+        create: {
+          identity: req.identity.username,
+          documentId: id,
+          action: "view",
+        },
+      }),
+    ]);
     const [preview, download] = await Promise.all([
       this.authorization.can(req.identity.groups, document.spaceId, "preview"),
       this.authorization.can(req.identity.groups, document.spaceId, "download"),
@@ -909,6 +993,21 @@ export class DocumentsController {
     }
     if (!storedFile)
       throw new NotFoundException("Translation has no downloadable version");
+    await this.prisma.userDocumentActivity.upsert({
+      where: {
+        identity_documentId_action: {
+          identity: req.identity.username,
+          documentId: id,
+          action: permission,
+        },
+      },
+      update: { occurredAt: new Date() },
+      create: {
+        identity: req.identity.username,
+        documentId: id,
+        action: permission,
+      },
+    });
     const safeName = basename(storedFile.originalName).replace(/[\r\n"]/g, "_");
     response.setHeader("Content-Type", storedFile.mimeType);
     response.setHeader("Content-Length", storedFile.size.toString());
@@ -971,6 +1070,7 @@ export class IncidentReportsController {
 export class AdminController {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly authorization: AuthorizationService,
     private readonly audit: AuditService,
     private readonly crypto: CryptoService,
     private readonly directory: DirectoryService,
@@ -991,6 +1091,10 @@ export class AdminController {
       throw new BadRequestException("Access rules require an active AD group");
     if (!space)
       throw new BadRequestException("Access rules require an active space");
+    const validFrom = body.validFrom ? new Date(body.validFrom) : null;
+    const validUntil = body.validUntil ? new Date(body.validUntil) : null;
+    if (validFrom && validUntil && validUntil <= validFrom)
+      throw new BadRequestException("Access rule expiry must follow its start");
   }
 
   private validateIncidentReportCounts(body: AnnualIncidentReportDto) {
@@ -1121,8 +1225,8 @@ export class AdminController {
         source: req.identity.source,
         ssoConnected: req.identity.source === "trusted-proxy",
         sessionExpiresAt: req.identity.sessionExpiresAt || null,
-        loginUrl: process.env.SSO_LOGIN_URL || null,
-        logoutUrl: process.env.SSO_LOGOUT_URL || null,
+        loginUrl: safeSsoPath(process.env.SSO_LOGIN_URL),
+        logoutUrl: safeSsoPath(process.env.SSO_LOGOUT_URL),
         diagnostics: {
           groupCount: req.identity.groups.length,
           mappedSpaceCount,
@@ -1315,7 +1419,7 @@ export class AdminController {
     await this.validateAccessRuleTargets(body);
     try {
       const rule = await this.prisma.accessRule.create({
-        data: body,
+        data: accessRuleData(body),
         include: { group: true, space: true },
       });
       await this.audit.record(
@@ -1351,7 +1455,7 @@ export class AdminController {
     try {
       rule = await this.prisma.accessRule.update({
         where: { id },
-        data: body,
+        data: accessRuleData(body),
         include: { group: true, space: true },
       });
     } catch (error) {
@@ -1389,12 +1493,437 @@ export class AdminController {
     return { deleted: true };
   }
 
+  @Post("access-rules/simulate")
+  async simulateAccess(@Body() body: AccessSimulationDto) {
+    const session = body.identity
+      ? await this.prisma.directoryUserSession.findFirst({
+          where: { username: { equals: body.identity, mode: "insensitive" } },
+          orderBy: { lastUsedAt: "desc" },
+          select: { username: true, displayName: true, groups: true },
+        })
+      : null;
+    const groups = [
+      ...new Set([
+        ...body.groups.map((group) => group.trim()).filter(Boolean),
+        ...((session?.groups as string[] | undefined) || []),
+      ]),
+    ].slice(0, 512);
+    const permissions = await this.authorization.permittedSpacesFor(
+      groups,
+      accessPermissionKeys,
+    );
+    const spaces = await this.prisma.documentSpace.findMany({
+      where: { deletedAt: null },
+      select: { id: true, slug: true, nameFr: true, nameEn: true },
+      orderBy: { slug: "asc" },
+    });
+    return {
+      identity: session
+        ? { username: session.username, displayName: session.displayName }
+        : null,
+      groups,
+      spaces: spaces.map((space) => ({
+        ...space,
+        permissions: Object.fromEntries(
+          accessPermissionKeys.map((permission) => [
+            permission,
+            permissions
+              .get(permission)!
+              .some((permitted) => permitted.id === space.id),
+          ]),
+        ),
+      })),
+    };
+  }
+
+  @Get("access-rules/anomalies")
+  async accessAnomalies() {
+    const now = new Date();
+    const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const rules = await this.prisma.accessRule.findMany({
+      include: { group: true, space: true },
+      orderBy: { updatedAt: "desc" },
+    });
+    return rules.flatMap((rule) => {
+      const permissions = accessPermissionKeys.filter((key) => rule[key]);
+      const anomalies: Array<{
+        type: string;
+        severity: string;
+        message: string;
+      }> = [];
+      if (!rule.group.active)
+        anomalies.push({
+          type: "INACTIVE_GROUP",
+          severity: "high",
+          message: "Rule targets an inactive group",
+        });
+      if (rule.validUntil && rule.validUntil <= now)
+        anomalies.push({
+          type: "EXPIRED",
+          severity: "high",
+          message: "Rule has expired",
+        });
+      else if (rule.validUntil && rule.validUntil <= soon)
+        anomalies.push({
+          type: "EXPIRING",
+          severity: "medium",
+          message: "Rule expires within 30 days",
+        });
+      if (permissions.length === 0)
+        anomalies.push({
+          type: "EMPTY",
+          severity: "medium",
+          message: "Rule grants no permission",
+        });
+      if (permissions.length === accessPermissionKeys.length)
+        anomalies.push({
+          type: "BROAD",
+          severity: "low",
+          message: "Rule grants every document permission",
+        });
+      if (!rule.justification)
+        anomalies.push({
+          type: "NO_JUSTIFICATION",
+          severity: "low",
+          message: "Rule has no justification",
+        });
+      return anomalies.map((anomaly) => ({
+        ...anomaly,
+        ruleId: rule.id,
+        group: rule.group.name,
+        space: rule.space.slug,
+      }));
+    });
+  }
+
+  @Post("access-rules/bulk")
+  async bulkAccessRules(
+    @Req() req: IsmsRequest,
+    @Body() body: AccessRuleBulkDto,
+  ) {
+    for (const rule of body.rules) await this.validateAccessRuleTargets(rule);
+    const saved = await this.prisma.$transaction(
+      body.rules.map((rule) =>
+        this.prisma.accessRule.upsert({
+          where: {
+            groupId_spaceId: { groupId: rule.groupId, spaceId: rule.spaceId },
+          },
+          update: accessRuleData(rule),
+          create: accessRuleData(rule),
+          include: { group: true, space: true },
+        }),
+      ),
+    );
+    await this.audit.record(
+      req,
+      "access-rule.bulk",
+      "access-rules",
+      "success",
+      {
+        count: saved.length,
+      },
+    );
+    return saved;
+  }
+
+  @Post("access-rules/diff")
+  async accessRuleDiff(@Body() body: AccessRuleBulkDto) {
+    const existing = await this.prisma.accessRule.findMany();
+    const byKey = new Map(
+      existing.map((rule) => [`${rule.groupId}:${rule.spaceId}`, rule]),
+    );
+    return body.rules
+      .map((rule) => {
+        const current = byKey.get(`${rule.groupId}:${rule.spaceId}`);
+        const changes = accessPermissionKeys
+          .filter((key) => Boolean(current?.[key]) !== rule[key])
+          .map((key) => ({
+            permission: key,
+            before: Boolean(current?.[key]),
+            after: rule[key],
+          }));
+        return {
+          groupId: rule.groupId,
+          spaceId: rule.spaceId,
+          newRule: !current,
+          changes,
+        };
+      })
+      .filter((entry) => entry.newRule || entry.changes.length > 0);
+  }
+
+  @Get("access-rule-templates")
+  accessRuleTemplates() {
+    return this.prisma.accessRuleTemplate.findMany({
+      orderBy: { name: "asc" },
+    });
+  }
+
+  @Post("access-rule-templates")
+  async createAccessRuleTemplate(
+    @Req() req: IsmsRequest,
+    @Body() body: AccessRuleTemplateDto,
+  ) {
+    const template = await this.prisma.accessRuleTemplate.create({
+      data: {
+        ...body,
+        name: body.name.trim(),
+        description: body.description?.trim() || null,
+      },
+    });
+    await this.audit.record(
+      req,
+      "access-template.create",
+      `access-template:${template.id}`,
+      "success",
+    );
+    return template;
+  }
+
+  @Delete("access-rule-templates/:id")
+  async deleteAccessRuleTemplate(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+  ) {
+    await this.prisma.accessRuleTemplate.delete({ where: { id } });
+    await this.audit.record(
+      req,
+      "access-template.delete",
+      `access-template:${id}`,
+      "success",
+    );
+    return { deleted: true };
+  }
+
+  @Put("spaces/:id/owner")
+  async setSpaceOwner(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: SpaceOwnerDto,
+  ) {
+    if (body.groupId) {
+      const group = await this.prisma.directoryGroup.findFirst({
+        where: { id: body.groupId, active: true },
+        select: { id: true },
+      });
+      if (!group)
+        throw new BadRequestException("Space owner must be an active group");
+    }
+    const space = await this.prisma.documentSpace.update({
+      where: { id },
+      data: { ownerGroupId: body.groupId || null },
+      include: { ownerGroup: true },
+    });
+    await this.audit.record(
+      req,
+      "space.owner.update",
+      `space:${id}`,
+      "success",
+      {
+        ownerGroupId: body.groupId || null,
+      },
+    );
+    return space;
+  }
+
+  private async accessState() {
+    const [rules, spaces] = await Promise.all([
+      this.prisma.accessRule.findMany({
+        include: {
+          group: { select: { name: true } },
+          space: { select: { slug: true } },
+        },
+        orderBy: [{ groupId: "asc" }, { spaceId: "asc" }],
+      }),
+      this.prisma.documentSpace.findMany({
+        where: { deletedAt: null },
+        select: { id: true, slug: true, ownerGroupId: true },
+        orderBy: { id: "asc" },
+      }),
+    ]);
+    return { rules, spaces };
+  }
+
+  @Get("access-snapshots")
+  accessSnapshots() {
+    return this.prisma.accessSnapshot.findMany({
+      select: {
+        id: true,
+        label: true,
+        sha256: true,
+        signature: true,
+        identity: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+  }
+
+  @Post("access-snapshots")
+  async createAccessSnapshot(
+    @Req() req: IsmsRequest,
+    @Body() body: AccessSnapshotDto,
+  ) {
+    const state = await this.accessState();
+    const serialized = JSON.stringify(state);
+    const sha256 = createHash("sha256").update(serialized).digest("hex");
+    const signatureKey = process.env.ENCRYPTION_KEY;
+    if (!signatureKey)
+      throw new ServiceUnavailableException(
+        "ENCRYPTION_KEY is required to sign access snapshots",
+      );
+    const signature = createHmac("sha256", signatureKey)
+      .update(sha256)
+      .digest("hex");
+    const snapshot = await this.prisma.accessSnapshot.create({
+      data: {
+        label: body.label.trim(),
+        state,
+        sha256,
+        signature,
+        identity: req.identity.username,
+      },
+    });
+    await this.audit.record(
+      req,
+      "access-snapshot.create",
+      `access-snapshot:${snapshot.id}`,
+      "success",
+      { sha256 },
+    );
+    return snapshot;
+  }
+
+  @Get("access-snapshots/compare")
+  async compareAccessSnapshots(
+    @Query("from") from: string,
+    @Query("to") to: string,
+  ) {
+    const snapshots = await this.prisma.accessSnapshot.findMany({
+      where: { id: { in: [from, to] } },
+    });
+    const left = snapshots.find((snapshot) => snapshot.id === from);
+    const right = snapshots.find((snapshot) => snapshot.id === to);
+    if (!left || !right) throw new NotFoundException();
+    type SnapshotRule = Record<string, unknown> & {
+      groupId: string;
+      spaceId: string;
+    };
+    type SnapshotSpace = {
+      id: string;
+      ownerGroupId: string | null;
+    };
+    type SnapshotState = { rules: SnapshotRule[]; spaces: SnapshotSpace[] };
+    const normalize = (value: Prisma.JsonValue) => value as SnapshotState;
+    const leftState = normalize(left.state);
+    const rightState = normalize(right.state);
+    const leftRules = new Map(
+      leftState.rules.map((rule) => [`${rule.groupId}:${rule.spaceId}`, rule]),
+    );
+    const rightRules = new Map(
+      rightState.rules.map((rule) => [`${rule.groupId}:${rule.spaceId}`, rule]),
+    );
+    const ruleKeys = new Set([...leftRules.keys(), ...rightRules.keys()]);
+    const rules: Array<{
+      key: string;
+      change: "added" | "removed" | "updated";
+      permissions?: Permission[];
+      validityChanged?: boolean;
+    }> = [];
+    for (const key of ruleKeys) {
+      const before = leftRules.get(key);
+      const after = rightRules.get(key);
+      if (!before) {
+        rules.push({ key, change: "added" });
+        continue;
+      }
+      if (!after) {
+        rules.push({ key, change: "removed" });
+        continue;
+      }
+      const permissions = accessPermissionKeys.filter(
+        (permission) =>
+          Boolean(before[permission]) !== Boolean(after[permission]),
+      );
+      const validityChanged =
+        before.validFrom !== after.validFrom ||
+        before.validUntil !== after.validUntil;
+      if (permissions.length > 0 || validityChanged)
+        rules.push({ key, change: "updated", permissions, validityChanged });
+    }
+    const leftSpaces = new Map(
+      leftState.spaces.map((space) => [space.id, space]),
+    );
+    const owners = rightState.spaces.flatMap((space) => {
+      const before = leftSpaces.get(space.id)?.ownerGroupId || null;
+      const after = space.ownerGroupId || null;
+      return before === after ? [] : [{ spaceId: space.id, before, after }];
+    });
+    return {
+      from: { id: left.id, label: left.label, sha256: left.sha256 },
+      to: { id: right.id, label: right.label, sha256: right.sha256 },
+      changed: left.sha256 !== right.sha256,
+      rules,
+      owners,
+      summary: {
+        ruleChanges: rules.length,
+        ownerChanges: owners.length,
+      },
+    };
+  }
+
+  @Get("access-snapshots/:id/export")
+  async exportAccessSnapshot(
+    @Param("id") id: string,
+    @Res() response: Response,
+  ) {
+    const snapshot = await this.prisma.accessSnapshot.findUnique({
+      where: { id },
+    });
+    if (!snapshot) throw new NotFoundException();
+    response.setHeader("Content-Type", "application/json; charset=utf-8");
+    response.setHeader(
+      "Content-Disposition",
+      `attachment; filename="access-snapshot-${snapshot.id}.json"`,
+    );
+    response.json({
+      format: "isms-access-snapshot-v1",
+      id: snapshot.id,
+      label: snapshot.label,
+      createdAt: snapshot.createdAt,
+      identity: snapshot.identity,
+      sha256: snapshot.sha256,
+      signature: snapshot.signature,
+      state: snapshot.state,
+    });
+  }
+
+  @Get("access-attention")
+  async accessAttention() {
+    const [anomalies, ownersMissing, snapshots] = await Promise.all([
+      this.accessAnomalies(),
+      this.prisma.documentSpace.count({
+        where: { deletedAt: null, ownerGroupId: null },
+      }),
+      this.prisma.accessSnapshot.count(),
+    ]);
+    return {
+      total: anomalies.length + ownersMissing + Number(snapshots === 0),
+      high: anomalies.filter((item) => item.severity === "high").length,
+      anomalies: anomalies.length,
+      spacesWithoutOwner: ownersMissing,
+      snapshotMissing: snapshots === 0,
+    };
+  }
+
   @Get("spaces")
   spaces() {
     return this.prisma.documentSpace.findMany({
       where: { deletedAt: null },
       include: {
         categories: { where: { deletedAt: null } },
+        ownerGroup: { select: { id: true, name: true, active: true } },
         _count: { select: { documents: true, accessRules: true } },
       },
       orderBy: { slug: "asc" },
@@ -1781,6 +2310,17 @@ export class DocumentAdminController {
       throw new BadRequestException("spaceId and title are required");
     const sensitive = body.sensitive === "true";
     const watermarkPosition = parseWatermarkPosition(body.watermarkPosition);
+    const existing = body.documentId
+      ? await this.prisma.document.findFirst({
+          where: { id: body.documentId, deletedAt: null },
+          select: { id: true, spaceId: true },
+        })
+      : null;
+    if (body.documentId && !existing) throw new NotFoundException();
+    if (existing && existing.spaceId !== body.spaceId)
+      throw new BadRequestException(
+        "A version must remain in its document space",
+      );
     const extension = extname(file.originalname).toLowerCase();
     if (
       !allowedExtensions[extension]?.includes(file.mimetype) ||
@@ -1807,7 +2347,7 @@ export class DocumentAdminController {
     if (!space || (body.categoryId && !category))
       throw new BadRequestException("Invalid space or category");
     const scan = await this.antivirus.scan(file.buffer);
-    const documentId = body.documentId || randomUUID();
+    const documentId = existing?.id || randomUUID();
     const objectKey = `${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${randomUUID()}${extension}`;
     await this.storage.putObject(objectKey, file.buffer, {
       "Content-Type": file.mimetype,
@@ -1816,8 +2356,8 @@ export class DocumentAdminController {
         .digest("hex"),
     });
     const result = await this.prisma.$transaction(async (tx) => {
-      const document = body.documentId
-        ? await tx.document.findUnique({ where: { id: body.documentId } })
+      const document = existing
+        ? existing
         : await tx.document.create({
             data: {
               id: documentId,

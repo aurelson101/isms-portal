@@ -47,6 +47,20 @@ export class DirectoryService {
     });
   }
 
+  private async trimSyncHistory(connectionId: string) {
+    const obsolete = await this.prisma.directorySyncJob.findMany({
+      where: { connectionId },
+      orderBy: [{ startedAt: "desc" }, { id: "desc" }],
+      skip: 100,
+      select: { id: true },
+    });
+    if (obsolete.length) {
+      await this.prisma.directorySyncJob.deleteMany({
+        where: { id: { in: obsolete.map(({ id }) => id) } },
+      });
+    }
+  }
+
   private client(connection: ConnectionWithCa, host: string) {
     const secure = connection.protocol === "LDAPS";
     if (secure && !connection.caCertificate)
@@ -657,6 +671,7 @@ export class DirectoryService {
           where: { id: job.id },
           data: { status: "SUCCESS", details, finishedAt: new Date() },
         });
+        await this.trimSyncHistory(connection.id);
         return { id: job.id, status: "SUCCESS", ...details };
       } finally {
         await client.unbind().catch(() => undefined);
@@ -670,6 +685,7 @@ export class DirectoryService {
         where: { id: job.id },
         data: { status: "ERROR", details, finishedAt: new Date() },
       });
+      await this.trimSyncHistory(connection.id);
       return { id: job.id, status: "ERROR", ...details };
     }
   }

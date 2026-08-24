@@ -71,6 +71,7 @@ type Tab =
   | "directory"
   | "certificates"
   | "audit"
+  | "observability"
   | "health"
   | "settings";
 type Group = {
@@ -98,6 +99,7 @@ type Space = {
   nameEn: string;
   categories?: Category[];
   _count?: { documents: number; accessRules: number };
+  ownerGroup?: { id: string; name: string; active: boolean } | null;
 };
 type Category = {
   id: string;
@@ -121,7 +123,20 @@ type Rule = {
   edit: boolean;
   publish: boolean;
   archive: boolean;
+  validFrom?: string | null;
+  validUntil?: string | null;
+  justification?: string | null;
 };
+type RuleTemplate = Omit<
+  Rule,
+  | "groupId"
+  | "spaceId"
+  | "group"
+  | "space"
+  | "validFrom"
+  | "validUntil"
+  | "justification"
+> & { name: string; description?: string | null };
 type Certificate = {
   id: string;
   name: string;
@@ -222,6 +237,7 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["directory", "sync", "Synchronisation LDAP", "LDAP synchronization"],
   ["certificates", "certificate", "Certificats CA", "CA certificates"],
   ["audit", "audit", "Journal d’audit", "Audit log"],
+  ["observability", "health", "Observabilité", "Observability"],
   ["health", "health", "Santé des services", "Service health"],
   ["settings", "settings", "Configuration", "Settings"],
 ];
@@ -266,6 +282,9 @@ const emptyRule = (
   edit: false,
   publish: false,
   archive: false,
+  validFrom: null,
+  validUntil: null,
+  justification: "",
 });
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
@@ -325,6 +344,7 @@ export default function Admin() {
   const [ruleDraft, setRuleDraft] = useState(emptyRule());
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -343,10 +363,27 @@ export default function Admin() {
   const [sessionExpired, setSessionExpired] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const [expandedNavigationGroups, setExpandedNavigationGroups] = useState<
+    Set<string>
+  >(() => new Set(["overview"]));
+  const adminLoadedRef = useRef(false);
   const t = (fr: string, en?: string) =>
     locale === "fr"
       ? fr
       : en || adminEnglishCatalog[fr as keyof typeof adminEnglishCatalog] || fr;
+  useEffect(() => {
+    const activeGroup =
+      tabs.findIndex(([key]) => key === tab) === 0
+        ? "overview"
+        : tabs.findIndex(([key]) => key === tab) < 6
+          ? "content"
+          : tabs.findIndex(([key]) => key === tab) < 9
+            ? "infrastructure"
+            : "system";
+    setExpandedNavigationGroups((current) =>
+      current.has(activeGroup) ? current : new Set([...current, activeGroup]),
+    );
+  }, [tab]);
   const confirmAction = useCallback(
     (message: string) =>
       new Promise<boolean>((resolve) => {
@@ -360,7 +397,8 @@ export default function Admin() {
   };
 
   const refresh = useCallback(async () => {
-    setLoading(true);
+    if (adminLoadedRef.current) setRefreshing(true);
+    else setLoading(true);
     setError("");
     try {
       const me = await api<{
@@ -424,7 +462,9 @@ export default function Admin() {
     } catch (currentError) {
       setError((currentError as Error).message);
     } finally {
+      adminLoadedRef.current = true;
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -500,6 +540,9 @@ export default function Admin() {
       permissionKeys.reduce((draft, key) => ({ ...draft, [key]: rule[key] }), {
         groupId: rule.groupId,
         spaceId: rule.spaceId,
+        validFrom: rule.validFrom || null,
+        validUntil: rule.validUntil || null,
+        justification: rule.justification || "",
       }) as Omit<Rule, "id" | "group" | "space">,
     );
   };
@@ -564,10 +607,26 @@ export default function Admin() {
       </main>
     );
 
+  if (isAdmin === null)
+    return (
+      <main className="login-shell" aria-busy="true">
+        <section className="login-card" aria-live="polite">
+          <div className="login-brand">
+            <span aria-hidden="true">🛡️</span>
+            <div>
+              <strong>ISMS Portal</strong>
+              <small>{t("Administration sécurisée")}</small>
+            </div>
+          </div>
+          <p className="loading-state">{t("Chargement…")}</p>
+        </section>
+      </main>
+    );
+
   return (
     <AdminLocaleContext.Provider value={locale}>
       <ConfirmContext.Provider value={confirmAction}>
-        <div className="admin-shell">
+        <div className="admin-shell" aria-busy={refreshing}>
           <aside className={navigationOpen ? "navigation-open" : ""}>
             <div className="sidebar-heading">
               <div className="brand">
@@ -592,30 +651,55 @@ export default function Admin() {
             </div>
             <nav id="admin-navigation" aria-label="Administration">
               {[
-                [t("Vue d’ensemble"), tabs.slice(0, 1)],
-                [t("Contenu et accès"), tabs.slice(1, 6)],
-                [t("Infrastructure"), tabs.slice(6, 9)],
-                [t("Système"), tabs.slice(9)],
-              ].map(([groupLabel, groupTabs]) => (
+                ["overview", t("Vue d’ensemble"), tabs.slice(0, 1)],
+                ["content", t("Contenu et accès"), tabs.slice(1, 6)],
+                ["infrastructure", t("Infrastructure"), tabs.slice(6, 9)],
+                ["system", t("Système"), tabs.slice(9)],
+              ].map(([groupId, groupLabel, groupTabs]) => (
                 <div
-                  className="admin-navigation-group"
+                  className={`admin-navigation-group ${expandedNavigationGroups.has(groupId as string) ? "expanded" : ""}`}
                   key={groupLabel as string}
                 >
-                  <strong>{groupLabel as string}</strong>
-                  {(groupTabs as typeof tabs).map(
-                    ([key, icon, labelFr, labelEn]) => (
-                      <button
-                        type="button"
-                        aria-current={tab === key ? "page" : undefined}
-                        className={tab === key ? "active" : ""}
-                        key={key}
-                        onClick={() => selectTab(key)}
-                      >
-                        <Icon name={icon} />{" "}
-                        <span>{locale === "fr" ? labelFr : labelEn}</span>
-                      </button>
-                    ),
-                  )}
+                  <button
+                    type="button"
+                    className="admin-navigation-heading"
+                    aria-controls={`admin-navigation-${groupId as string}`}
+                    aria-expanded={expandedNavigationGroups.has(
+                      groupId as string,
+                    )}
+                    onClick={() =>
+                      setExpandedNavigationGroups((current) => {
+                        const next = new Set(current);
+                        if (next.has(groupId as string))
+                          next.delete(groupId as string);
+                        else next.add(groupId as string);
+                        return next;
+                      })
+                    }
+                  >
+                    <span>{groupLabel as string}</span>
+                    <Icon className="submenu-chevron" name="chevron" />
+                  </button>
+                  <div
+                    className="admin-navigation-submenu"
+                    id={`admin-navigation-${groupId as string}`}
+                    hidden={!expandedNavigationGroups.has(groupId as string)}
+                  >
+                    {(groupTabs as typeof tabs).map(
+                      ([key, icon, labelFr, labelEn]) => (
+                        <button
+                          type="button"
+                          aria-current={tab === key ? "page" : undefined}
+                          className={tab === key ? "active" : ""}
+                          key={key}
+                          onClick={() => selectTab(key)}
+                        >
+                          <Icon name={icon} />{" "}
+                          <span>{locale === "fr" ? labelFr : labelEn}</span>
+                        </button>
+                      ),
+                    )}
+                  </div>
                 </div>
               ))}
             </nav>
@@ -803,6 +887,8 @@ export default function Admin() {
                 {tab === "rules" && (
                   <RulesPanel
                     rules={filteredRules}
+                    groups={groups}
+                    spaces={spaces}
                     selected={selectedRule}
                     onSelect={selectRule}
                     onNew={() => {
@@ -810,6 +896,9 @@ export default function Admin() {
                       setRuleDraft(emptyRule());
                       setRuleEditorOpen(true);
                     }}
+                    onChanged={refresh}
+                    onError={setError}
+                    onNotice={setNotice}
                   />
                 )}
                 {tab === "spaces" && (
@@ -854,6 +943,14 @@ export default function Admin() {
                   />
                 )}
                 {tab === "audit" && <AuditPanel events={audit} />}
+                {tab === "observability" && (
+                  <ObservabilityPanel
+                    dashboard={dashboard}
+                    events={audit}
+                    health={health}
+                    onNotice={setNotice}
+                  />
+                )}
                 {tab === "health" && <HealthPanel health={health} />}
                 {tab === "settings" && (
                   <SettingsPanel
@@ -921,6 +1018,49 @@ export default function Admin() {
                   />
                 </label>
               ))}
+              <label>
+                {t("Justification")}
+                <textarea
+                  maxLength={500}
+                  value={ruleDraft.justification || ""}
+                  onChange={(event) =>
+                    setRuleDraft({
+                      ...ruleDraft,
+                      justification: event.target.value,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                {t("Début de validité")}
+                <input
+                  type="datetime-local"
+                  value={ruleDraft.validFrom?.slice(0, 16) || ""}
+                  onChange={(event) =>
+                    setRuleDraft({
+                      ...ruleDraft,
+                      validFrom: event.target.value
+                        ? new Date(event.target.value).toISOString()
+                        : null,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                {t("Expiration")}
+                <input
+                  type="datetime-local"
+                  value={ruleDraft.validUntil?.slice(0, 16) || ""}
+                  onChange={(event) =>
+                    setRuleDraft({
+                      ...ruleDraft,
+                      validUntil: event.target.value
+                        ? new Date(event.target.value).toISOString()
+                        : null,
+                    })
+                  }
+                />
+              </label>
               <div className="notice">
                 {t(
                   "Les changements s’appliquent immédiatement aux membres du groupe.",
@@ -1420,14 +1560,24 @@ function GroupsPanel({
 
 function RulesPanel({
   rules,
+  groups,
+  spaces,
   selected,
   onSelect,
   onNew,
+  onChanged,
+  onError,
+  onNotice,
 }: {
   rules: Rule[];
+  groups: Group[];
+  spaces: Space[];
   selected: Rule | null;
   onSelect: (rule: Rule) => void;
   onNew: () => void;
+  onChanged: () => Promise<void>;
+  onError: (message: string) => void;
+  onNotice: (message: string) => void;
 }) {
   const { locale, t } = useAdminI18n();
   return (
@@ -1492,7 +1642,579 @@ function RulesPanel({
           </table>
         </div>
       </section>
+      <AccessGovernancePanel
+        rules={rules}
+        groups={groups}
+        spaces={spaces}
+        onChanged={onChanged}
+        onError={onError}
+        onNotice={onNotice}
+      />
     </>
+  );
+}
+
+function AccessGovernancePanel({
+  rules,
+  groups,
+  spaces,
+  onChanged,
+  onError,
+  onNotice,
+}: {
+  rules: Rule[];
+  groups: Group[];
+  spaces: Space[];
+  onChanged: () => Promise<void>;
+  onError: (message: string) => void;
+  onNotice: (message: string) => void;
+}) {
+  const { locale, t } = useAdminI18n();
+  const [templates, setTemplates] = useState<RuleTemplate[]>([]);
+  const [anomalies, setAnomalies] = useState<
+    Array<{
+      ruleId: string;
+      group: string;
+      space: string;
+      severity: string;
+      message: string;
+    }>
+  >([]);
+  const [attention, setAttention] = useState<{
+    total: number;
+    high: number;
+    spacesWithoutOwner: number;
+    snapshotMissing: boolean;
+  } | null>(null);
+  const [snapshots, setSnapshots] = useState<
+    Array<{
+      id: string;
+      label: string;
+      sha256: string;
+      createdAt: string;
+    }>
+  >([]);
+  const [simulationIdentity, setSimulationIdentity] = useState("");
+  const [simulationGroups, setSimulationGroups] = useState("");
+  const [simulation, setSimulation] = useState<{
+    groups: string[];
+    spaces: Array<
+      Space & { permissions: Record<(typeof permissionKeys)[number], boolean> }
+    >;
+  } | null>(null);
+  const [templateName, setTemplateName] = useState("");
+  const [templatePermissions, setTemplatePermissions] = useState(emptyRule());
+  const [templateToApply, setTemplateToApply] = useState("");
+  const [templateGroup, setTemplateGroup] = useState("");
+  const [templateSpace, setTemplateSpace] = useState("");
+  const [matrixRules, setMatrixRules] = useState<Rule[]>(rules);
+  const [diff, setDiff] = useState<
+    Array<{
+      groupId: string;
+      spaceId: string;
+      newRule: boolean;
+      changes: Array<{ permission: string; before: boolean; after: boolean }>;
+    }>
+  >([]);
+  const [snapshotLabel, setSnapshotLabel] = useState("");
+  const [compareFrom, setCompareFrom] = useState("");
+  const [compareTo, setCompareTo] = useState("");
+  const [comparison, setComparison] = useState<{
+    changed: boolean;
+    summary: { ruleChanges: number; ownerChanges: number };
+  } | null>(null);
+
+  const loadGovernance = useCallback(async () => {
+    try {
+      const [nextTemplates, nextAnomalies, nextAttention, nextSnapshots] =
+        await Promise.all([
+          api<RuleTemplate[]>("/api/admin/access-rule-templates"),
+          api<typeof anomalies>("/api/admin/access-rules/anomalies"),
+          api<NonNullable<typeof attention>>("/api/admin/access-attention"),
+          api<typeof snapshots>("/api/admin/access-snapshots"),
+        ]);
+      setTemplates(nextTemplates);
+      setAnomalies(nextAnomalies);
+      setAttention(nextAttention);
+      setSnapshots(nextSnapshots);
+    } catch (error) {
+      onError((error as Error).message);
+    }
+  }, [onError]);
+
+  useEffect(() => {
+    setMatrixRules(rules);
+  }, [rules]);
+  useEffect(() => {
+    void loadGovernance();
+  }, [loadGovernance]);
+
+  const serializableRule = (rule: Rule) => ({
+    groupId: rule.groupId,
+    spaceId: rule.spaceId,
+    ...Object.fromEntries(permissionKeys.map((key) => [key, rule[key]])),
+    validFrom: rule.validFrom || undefined,
+    validUntil: rule.validUntil || undefined,
+    justification: rule.justification || undefined,
+  });
+
+  return (
+    <section className="access-governance">
+      <h2>{t("Gouvernance des accès")}</h2>
+      <div className="summary-grid">
+        <article>
+          <strong>{attention?.total ?? "—"}</strong>
+          <span>{t("éléments à examiner")}</span>
+        </article>
+        <article>
+          <strong>{attention?.high ?? "—"}</strong>
+          <span>{t("alertes prioritaires")}</span>
+        </article>
+        <article>
+          <strong>{attention?.spacesWithoutOwner ?? "—"}</strong>
+          <span>{t("espaces sans propriétaire")}</span>
+        </article>
+      </div>
+
+      <details open>
+        <summary>{t("Simuler les droits effectifs")}</summary>
+        <div className="admin-form inline-form">
+          <input
+            aria-label={t("Identité utilisateur")}
+            placeholder="alice@example.com"
+            value={simulationIdentity}
+            onChange={(event) => setSimulationIdentity(event.target.value)}
+          />
+          <input
+            aria-label={t(
+              "Groupes séparés par des virgules",
+              "Comma-separated groups",
+            )}
+            placeholder="Finance Readers, ISO Owners"
+            value={simulationGroups}
+            onChange={(event) => setSimulationGroups(event.target.value)}
+          />
+          <button
+            type="button"
+            className="primary"
+            onClick={() =>
+              void api<NonNullable<typeof simulation>>(
+                "/api/admin/access-rules/simulate",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    identity: simulationIdentity || undefined,
+                    groups: simulationGroups
+                      .split(",")
+                      .map((value) => value.trim())
+                      .filter(Boolean),
+                  }),
+                },
+              )
+                .then(setSimulation)
+                .catch((error) => onError(error.message))
+            }
+          >
+            {t("Simuler")}
+          </button>
+        </div>
+        {simulation && (
+          <div className="admin-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t("Espace")}</th>
+                  {permissionKeys.map((key) => (
+                    <th key={key}>
+                      {permissionLabels[key][locale === "fr" ? 0 : 1]}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {simulation.spaces.map((space) => (
+                  <tr key={space.id}>
+                    <td>{locale === "fr" ? space.nameFr : space.nameEn}</td>
+                    {permissionKeys.map((key) => (
+                      <td key={key}>{space.permissions[key] ? "✓" : "—"}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </details>
+
+      <details>
+        <summary>{t("Modèles de permissions")}</summary>
+        <div className="admin-form inline-form">
+          <input
+            aria-label={t("Nom du modèle")}
+            value={templateName}
+            onChange={(event) => setTemplateName(event.target.value)}
+          />
+          {permissionKeys.map((key) => (
+            <label className="toggle" key={key}>
+              {permissionLabels[key][locale === "fr" ? 0 : 1]}
+              <input
+                type="checkbox"
+                checked={templatePermissions[key]}
+                onChange={(event) =>
+                  setTemplatePermissions({
+                    ...templatePermissions,
+                    [key]: event.target.checked,
+                  })
+                }
+              />
+            </label>
+          ))}
+          <button
+            type="button"
+            disabled={templateName.trim().length < 2}
+            onClick={() =>
+              void api("/api/admin/access-rule-templates", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: templateName,
+                  description: "",
+                  ...Object.fromEntries(
+                    permissionKeys.map((key) => [
+                      key,
+                      templatePermissions[key],
+                    ]),
+                  ),
+                }),
+              })
+                .then(async () => {
+                  setTemplateName("");
+                  setTemplatePermissions(emptyRule());
+                  await loadGovernance();
+                })
+                .catch((error) => onError(error.message))
+            }
+          >
+            {t("Créer le modèle")}
+          </button>
+        </div>
+        <ul>
+          {templates.map((template) => (
+            <li key={template.id}>
+              <strong>{template.name}</strong> —{" "}
+              {permissionKeys.filter((key) => template[key]).length}{" "}
+              {t("droits")}
+            </li>
+          ))}
+        </ul>
+        <div className="admin-form inline-form">
+          <select
+            aria-label={t("Modèle à appliquer")}
+            value={templateToApply}
+            onChange={(event) => setTemplateToApply(event.target.value)}
+          >
+            <option value="">{t("Choisir un modèle")}</option>
+            {templates.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.name}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label={t("Groupe cible")}
+            value={templateGroup}
+            onChange={(event) => setTemplateGroup(event.target.value)}
+          >
+            <option value="">{t("Choisir un groupe")}</option>
+            {groups
+              .filter((group) => group.active)
+              .map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+          </select>
+          <select
+            aria-label={t("Espace cible")}
+            value={templateSpace}
+            onChange={(event) => setTemplateSpace(event.target.value)}
+          >
+            <option value="">{t("Choisir un espace")}</option>
+            {spaces.map((space) => (
+              <option key={space.id} value={space.id}>
+                {locale === "fr" ? space.nameFr : space.nameEn}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={!templateToApply || !templateGroup || !templateSpace}
+            onClick={() => {
+              const template = templates.find(
+                (item) => item.id === templateToApply,
+              );
+              const group = groups.find((item) => item.id === templateGroup);
+              const space = spaces.find((item) => item.id === templateSpace);
+              if (!template || !group || !space) return;
+              setMatrixRules((current) => {
+                const index = current.findIndex(
+                  (rule) =>
+                    rule.groupId === group.id && rule.spaceId === space.id,
+                );
+                const permissions = Object.fromEntries(
+                  permissionKeys.map((key) => [key, template[key]]),
+                ) as Pick<Rule, (typeof permissionKeys)[number]>;
+                if (index >= 0)
+                  return current.map((rule, ruleIndex) =>
+                    ruleIndex === index ? { ...rule, ...permissions } : rule,
+                  );
+                return [
+                  ...current,
+                  {
+                    ...emptyRule(),
+                    ...permissions,
+                    id: `draft:${group.id}:${space.id}`,
+                    groupId: group.id,
+                    spaceId: space.id,
+                    group,
+                    space,
+                    validFrom: null,
+                    validUntil: null,
+                    justification: null,
+                  },
+                ];
+              });
+              setDiff([]);
+            }}
+          >
+            {t("Appliquer à la matrice")}
+          </button>
+        </div>
+      </details>
+
+      <details>
+        <summary>{t("Matrice modifiable et aperçu")}</summary>
+        <div className="admin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{t("Groupe")}</th>
+                <th>{t("Espace")}</th>
+                {permissionKeys.map((key) => (
+                  <th key={key}>
+                    {permissionLabels[key][locale === "fr" ? 0 : 1]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {matrixRules.map((rule, index) => (
+                <tr key={rule.id}>
+                  <td>{rule.group.name}</td>
+                  <td>
+                    {locale === "fr" ? rule.space.nameFr : rule.space.nameEn}
+                  </td>
+                  {permissionKeys.map((key) => (
+                    <td key={key}>
+                      <input
+                        type="checkbox"
+                        aria-label={`${rule.group.name} ${rule.space.slug} ${key}`}
+                        checked={rule[key]}
+                        onChange={(event) =>
+                          setMatrixRules((current) =>
+                            current.map((item, itemIndex) =>
+                              itemIndex === index
+                                ? { ...item, [key]: event.target.checked }
+                                : item,
+                            ),
+                          )
+                        }
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="button-row">
+          <button
+            type="button"
+            onClick={() =>
+              void api<typeof diff>("/api/admin/access-rules/diff", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  rules: matrixRules.map(serializableRule),
+                }),
+              })
+                .then(setDiff)
+                .catch((error) => onError(error.message))
+            }
+          >
+            {t("Prévisualiser les changements")}
+          </button>
+          <button
+            type="button"
+            className="primary"
+            disabled={diff.length === 0}
+            onClick={() =>
+              void api("/api/admin/access-rules/bulk", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  rules: matrixRules.map(serializableRule),
+                }),
+              })
+                .then(async () => {
+                  setDiff([]);
+                  onNotice(t("Matrice enregistrée."));
+                  await onChanged();
+                  await loadGovernance();
+                })
+                .catch((error) => onError(error.message))
+            }
+          >
+            {t("Enregistrer en lot")}
+          </button>
+        </div>
+        {diff.length > 0 && (
+          <p>
+            {diff.length} {t("règle(s) modifiée(s)")}
+          </p>
+        )}
+      </details>
+
+      <details>
+        <summary>{t("Propriétaires d’espace")}</summary>
+        {spaces.map((space) => (
+          <label key={space.id} className="owner-row">
+            <span>{locale === "fr" ? space.nameFr : space.nameEn}</span>
+            <select
+              value={space.ownerGroup?.id || ""}
+              onChange={(event) =>
+                void api(`/api/admin/spaces/${space.id}/owner`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    groupId: event.target.value || undefined,
+                  }),
+                })
+                  .then(onChanged)
+                  .catch((error) => onError(error.message))
+              }
+            >
+              <option value="">{t("Sans propriétaire")}</option>
+              {groups
+                .filter((group) => group.active)
+                .map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        ))}
+      </details>
+
+      <details>
+        <summary>{t("Historique signé des droits")}</summary>
+        <div className="admin-form inline-form">
+          <input
+            aria-label={t("Libellé de l’instantané")}
+            value={snapshotLabel}
+            onChange={(event) => setSnapshotLabel(event.target.value)}
+          />
+          <button
+            type="button"
+            disabled={snapshotLabel.trim().length < 2}
+            onClick={() =>
+              void api("/api/admin/access-snapshots", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ label: snapshotLabel }),
+              })
+                .then(async () => {
+                  setSnapshotLabel("");
+                  await loadGovernance();
+                })
+                .catch((error) => onError(error.message))
+            }
+          >
+            {t("Créer un instantané")}
+          </button>
+          <select
+            value={compareFrom}
+            onChange={(event) => setCompareFrom(event.target.value)}
+          >
+            <option value="">{t("État initial")}</option>
+            {snapshots.map((snapshot) => (
+              <option value={snapshot.id} key={snapshot.id}>
+                {snapshot.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={compareTo}
+            onChange={(event) => setCompareTo(event.target.value)}
+          >
+            <option value="">{t("État final")}</option>
+            {snapshots.map((snapshot) => (
+              <option value={snapshot.id} key={snapshot.id}>
+                {snapshot.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={!compareFrom || !compareTo}
+            onClick={() =>
+              void api<NonNullable<typeof comparison>>(
+                `/api/admin/access-snapshots/compare?from=${encodeURIComponent(compareFrom)}&to=${encodeURIComponent(compareTo)}`,
+              )
+                .then(setComparison)
+                .catch((error) => onError(error.message))
+            }
+          >
+            {t("Comparer")}
+          </button>
+        </div>
+        {comparison && (
+          <p>
+            {comparison.changed
+              ? t("Les droits ont changé.")
+              : t("Aucun changement.")}{" "}
+            {comparison.summary.ruleChanges} {t("règle(s) modifiée(s)")},{" "}
+            {comparison.summary.ownerChanges} {t("propriétaire(s) modifié(s)")}
+          </p>
+        )}
+        <ul>
+          {snapshots.map((snapshot) => (
+            <li key={snapshot.id}>
+              {snapshot.label} — {new Date(snapshot.createdAt).toLocaleString()}{" "}
+              <a href={`/api/admin/access-snapshots/${snapshot.id}/export`}>
+                {t("Exporter l’instantané signé")}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </details>
+
+      <details>
+        <summary>
+          {t("Anomalies détectées")} ({anomalies.length})
+        </summary>
+        <ul className="attention-list">
+          {anomalies.map((anomaly, index) => (
+            <li key={`${anomaly.ruleId}:${anomaly.message}:${index}`}>
+              <mark>{anomaly.severity}</mark> {anomaly.group} → {anomaly.space}:{" "}
+              {anomaly.message}
+            </li>
+          ))}
+        </ul>
+      </details>
+    </section>
   );
 }
 
@@ -3094,6 +3816,457 @@ function IncidentReportsPanel({
         )}
       </div>
     </div>
+  );
+}
+
+function ObservabilityPanel({
+  dashboard,
+  events,
+  health,
+  onNotice,
+}: {
+  dashboard: Dashboard | null;
+  events: Audit[];
+  health: Record<string, unknown> | null;
+  onNotice: (message: string) => void;
+}) {
+  const { t } = useAdminI18n();
+  const [operations, setOperations] = useState<{
+    failures: number;
+    denied: number;
+    accessRequests: number;
+    reports: number;
+    unreadNotifications: number;
+  } | null>(null);
+  const [workItems, setWorkItems] = useState<{
+    accessRequests: Array<{
+      id: string;
+      identity: string;
+      justification: string;
+      status: string;
+    }>;
+    reports: Array<{
+      id: string;
+      identity: string;
+      reason: string;
+      status: string;
+    }>;
+  }>({ accessRequests: [], reports: [] });
+  const [integrationState, setIntegrationState] = useState<
+    Record<string, boolean>
+  >({});
+  const [portalOrigin, setPortalOrigin] = useState("");
+  const [alertPolicy, setAlertPolicy] = useState({
+    enabled: false,
+    channel: "none",
+    destinationReference: "",
+    fiveXxPercent: "5",
+    deniedPerMinute: "20",
+  });
+  const reloadOperations = useCallback(async () => {
+    const [summaryResponse, workResponse, integrationsResponse] =
+      await Promise.all([
+        fetch("/api/admin/operations/summary", { cache: "no-store" }),
+        fetch("/api/admin/operations/work-items", { cache: "no-store" }),
+        fetch("/api/admin/operations/integrations", { cache: "no-store" }),
+      ]);
+    if (summaryResponse.ok) setOperations(await summaryResponse.json());
+    if (workResponse.ok) setWorkItems(await workResponse.json());
+    if (integrationsResponse.ok) {
+      const result = (await integrationsResponse.json()) as {
+        settings: Array<{ key: string; value: { enabled?: boolean } }>;
+      };
+      setIntegrationState(
+        Object.fromEntries(
+          result.settings.map((setting) => [
+            setting.key.replace("observability.", ""),
+            Boolean(setting.value.enabled),
+          ]),
+        ),
+      );
+    }
+  }, []);
+  useEffect(() => {
+    void reloadOperations();
+  }, [reloadOperations]);
+  useEffect(() => {
+    setPortalOrigin(window.location.origin);
+  }, []);
+  const failures = events.filter((event) => event.result !== "success").length;
+  const services =
+    health && typeof health.services === "object" && health.services
+      ? Object.values(health.services as Record<string, boolean>)
+      : [];
+  const healthyServices = services.filter(Boolean).length;
+  const detectedPortalUrl = portalOrigin || "<URL_PUBLIQUE_DU_PORTAIL>";
+  const detectedHost = portalOrigin ? new URL(portalOrigin).hostname : "<HOTE>";
+  const hostType =
+    detectedHost === "localhost" ||
+    /^\d{1,3}(?:\.\d{1,3}){3}$/u.test(detectedHost) ||
+    detectedHost.includes(":")
+      ? t("adresse IP du serveur")
+      : t("domaine publié par Nginx");
+  const integrations = [
+    {
+      name: "Prometheus / Grafana",
+      description: t(
+        "Collecte des métriques privées et création de tableaux de bord.",
+      ),
+      config: `# Portail détecté : ${detectedPortalUrl}\n# Collecteur connecté au réseau Docker privé uniquement\nscrape_configs:\n  - job_name: isms-api\n    metrics_path: /metrics\n    static_configs:\n      - targets: ["api:3001"]\nrule_files:\n  - /etc/prometheus/isms-alerts.yml`,
+    },
+    {
+      name: "Syslog / rsyslog",
+      description: t("Centralisation des journaux JSON Docker via TLS."),
+      config: `# Configuration limitée aux services du portail\nSYSLOG_ADDRESS=tcp+tls://<SYSLOG_HOST>:6514 \\\n  docker compose -f docker-compose.yml \\\n  -f deploy/compose/observability-syslog.yml up -d`,
+    },
+    {
+      name: "Wazuh",
+      description: t(
+        "Décodage des événements JSON, corrélation et alertes SIEM.",
+      ),
+      config: `<!-- Portail détecté : ${detectedPortalUrl} -->\n<localfile>\n  <log_format>json</log_format>\n  <location>/var/log/isms-portal/events.json</location>\n</localfile>\n<!-- Importer deploy/monitoring/wazuh-isms-rules.xml -->`,
+    },
+    {
+      name: "Zabbix",
+      description: t(
+        "Supervision de disponibilité, capacité et erreurs applicatives.",
+      ),
+      config: `Importer deploy/monitoring/zabbix-isms-template.yaml\n{$ISMS.URL}=${detectedPortalUrl}\n{$ISMS.METRICS.URL}=http://api:3001/metrics\n# Le serveur/proxy Zabbix doit rejoindre le réseau privé.`,
+    },
+  ];
+  const copy = async (value: string) => {
+    await navigator.clipboard.writeText(value);
+    onNotice(t("Configuration copiée."));
+  };
+
+  return (
+    <section className="observability-panel">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">{t("Exploitation et SIEM")}</span>
+          <h1>{t("Observabilité")}</h1>
+          <p>
+            {t(
+              "Visualisez les signaux essentiels et préparez les intégrations sans exposer les métriques sur Internet.",
+            )}
+          </p>
+        </div>
+      </div>
+      <div className="summary-grid">
+        <article>
+          <strong>
+            {healthyServices}/{services.length || "—"}
+          </strong>
+          <span>{t("services disponibles")}</span>
+        </article>
+        <article>
+          <strong>{failures}</strong>
+          <span>{t("échecs dans le journal chargé")}</span>
+        </article>
+        <article>
+          <strong>{dashboard?.syncErrors ?? "—"}</strong>
+          <span>{t("erreurs de synchronisation")}</span>
+        </article>
+        <article>
+          <strong>{operations?.denied ?? failures}</strong>
+          <span>{t("refus sur les dernières 24 heures")}</span>
+        </article>
+      </div>
+      <div className="summary-grid">
+        <article>
+          <strong>{operations?.accessRequests ?? "—"}</strong>
+          <span>{t("demandes d’accès en attente")}</span>
+        </article>
+        <article>
+          <strong>{operations?.reports ?? "—"}</strong>
+          <span>{t("signalements documentaires ouverts")}</span>
+        </article>
+        <article>
+          <strong>{operations?.unreadNotifications ?? "—"}</strong>
+          <span>{t("notifications non lues")}</span>
+        </article>
+        <article>
+          <strong>{operations?.failures ?? "—"}</strong>
+          <span>{t("échecs applicatifs sur 24 heures")}</span>
+        </article>
+      </div>
+      <div className="admin-alert observability-warning">
+        {t("Adresse du portail détectée automatiquement")}:{" "}
+        <strong>{detectedPortalUrl}</strong> ({hostType}).
+      </div>
+      <div className="admin-alert warning observability-warning">
+        {t(
+          "Le point /metrics reste accessible uniquement depuis le réseau privé de l’API. Les secrets et certificats doivent rester dans le gestionnaire de secrets de l’infrastructure.",
+        )}
+      </div>
+      <div className="admin-alert observability-warning">
+        {t(
+          "Architecture recommandée : Prometheus ou Zabbix collecte les métriques sur le réseau privé ; rsyslog normalise les journaux ; Wazuh les corrèle. Évitez de faire collecter le même signal par plusieurs agents.",
+        )}
+      </div>
+      <div className="admin-alert observability-warning">
+        {t(
+          "Le réseau isms-portal_observability est dédié aux collecteurs autorisés. Il n’est pas interne et n’expose aucun port hôte : un collecteur Docker externe peut le rejoindre explicitement.",
+        )}
+      </div>
+      <div className="integration-grid">
+        {integrations.map((integration) => {
+          const tool = integration.name.toLowerCase().includes("prometheus")
+            ? "prometheus"
+            : integration.name.toLowerCase().includes("syslog")
+              ? "syslog"
+              : integration.name.toLowerCase();
+          return (
+            <article className="integration-card" key={integration.name}>
+              <h2>{integration.name}</h2>
+              <label className="toggle-line">
+                <input
+                  type="checkbox"
+                  checked={Boolean(integrationState[tool])}
+                  onChange={async (event) => {
+                    const enabled = event.target.checked;
+                    const response = await fetch(
+                      `/api/admin/operations/integrations/${tool}`,
+                      {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ enabled }),
+                      },
+                    );
+                    if (response.ok) {
+                      setIntegrationState((current) => ({
+                        ...current,
+                        [tool]: enabled,
+                      }));
+                      onNotice(
+                        enabled
+                          ? t("Intégration optionnelle activée.")
+                          : t("Intégration optionnelle désactivée."),
+                      );
+                    }
+                  }}
+                />
+                {t("Activer cette intégration optionnelle")}
+              </label>
+              <p>{integration.description}</p>
+              <pre>
+                <code>{integration.config}</code>
+              </pre>
+              <button
+                type="button"
+                onClick={() => void copy(integration.config)}
+              >
+                {t("Copier la configuration")}
+              </button>
+              <a
+                href={`/api/admin/operations/integrations/${tool}/download?portalUrl=${encodeURIComponent(detectedPortalUrl)}`}
+              >
+                {t("Télécharger la configuration")}
+              </a>
+              <button
+                type="button"
+                onClick={async () => {
+                  const response = await fetch(
+                    `/api/admin/operations/integrations/${tool}/test`,
+                  );
+                  onNotice(
+                    response.ok
+                      ? t(
+                          "Application prête ; test externe à effectuer depuis le collecteur.",
+                        )
+                      : t("Test indisponible."),
+                  );
+                }}
+              >
+                {t("Tester la préparation")}
+              </button>
+            </article>
+          );
+        })}
+      </div>
+      <form
+        className="admin-form observability-policy"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          const response = await fetch("/api/admin/operations/alert-policy", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(alertPolicy),
+          });
+          onNotice(
+            response.ok
+              ? t("Politique d’alerte enregistrée.")
+              : t("Politique d’alerte invalide."),
+          );
+        }}
+      >
+        <h2>{t("Seuils et canal d’alerte")}</h2>
+        <label className="toggle-line">
+          <input
+            type="checkbox"
+            checked={alertPolicy.enabled}
+            onChange={(event) =>
+              setAlertPolicy((current) => ({
+                ...current,
+                enabled: event.target.checked,
+              }))
+            }
+          />
+          {t("Activer les alertes externes")}
+        </label>
+        <label>
+          {t("Taux 5xx maximal (%)")}
+          <input
+            inputMode="decimal"
+            value={alertPolicy.fiveXxPercent}
+            onChange={(event) =>
+              setAlertPolicy((current) => ({
+                ...current,
+                fiveXxPercent: event.target.value,
+              }))
+            }
+          />
+        </label>
+        <label>
+          {t("Refus maximaux par minute")}
+          <input
+            inputMode="numeric"
+            value={alertPolicy.deniedPerMinute}
+            onChange={(event) =>
+              setAlertPolicy((current) => ({
+                ...current,
+                deniedPerMinute: event.target.value,
+              }))
+            }
+          />
+        </label>
+        <label>
+          {t("Canal")}
+          <select
+            value={alertPolicy.channel}
+            onChange={(event) =>
+              setAlertPolicy((current) => ({
+                ...current,
+                channel: event.target.value,
+              }))
+            }
+          >
+            <option value="none">—</option>
+            <option value="email">E-mail</option>
+            <option value="teams">Teams</option>
+            <option value="slack">Slack</option>
+            <option value="webhook">Webhook</option>
+          </select>
+        </label>
+        <label>
+          {t("Référence de destination ou secret")}
+          <input
+            value={alertPolicy.destinationReference}
+            placeholder="<SECRET_DANS_GESTIONNAIRE>"
+            onChange={(event) =>
+              setAlertPolicy((current) => ({
+                ...current,
+                destinationReference: event.target.value,
+              }))
+            }
+          />
+        </label>
+        <button>{t("Enregistrer la politique")}</button>
+      </form>
+      <section className="operations-work-items">
+        <h2>{t("Demandes et signalements à traiter")}</h2>
+        {[...workItems.accessRequests, ...workItems.reports].length === 0 ? (
+          <p>{t("Aucun élément en attente.")}</p>
+        ) : (
+          <div className="admin-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t("Type")}</th>
+                  <th>{t("Identité")}</th>
+                  <th>{t("Motif")}</th>
+                  <th>{t("Action")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {workItems.accessRequests
+                  .filter((item) => item.status === "PENDING")
+                  .map((item) => (
+                    <tr key={item.id}>
+                      <td>{t("Demande d’accès")}</td>
+                      <td>{item.identity}</td>
+                      <td>{item.justification}</td>
+                      <td>
+                        <button
+                          onClick={async () => {
+                            await fetch(
+                              `/api/admin/operations/access-requests/${item.id}`,
+                              {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ status: "APPROVED" }),
+                              },
+                            );
+                            await reloadOperations();
+                          }}
+                        >
+                          {t("Approuver")}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await fetch(
+                              `/api/admin/operations/access-requests/${item.id}`,
+                              {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ status: "REJECTED" }),
+                              },
+                            );
+                            await reloadOperations();
+                          }}
+                        >
+                          {t("Refuser")}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                {workItems.reports
+                  .filter((item) => item.status === "OPEN")
+                  .map((item) => (
+                    <tr key={item.id}>
+                      <td>{t("Signalement")}</td>
+                      <td>{item.identity}</td>
+                      <td>{item.reason}</td>
+                      <td>
+                        <button
+                          onClick={async () => {
+                            await fetch(
+                              `/api/admin/operations/document-reports/${item.id}`,
+                              {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ status: "RESOLVED" }),
+                              },
+                            );
+                            await reloadOperations();
+                          }}
+                        >
+                          {t("Marquer traité")}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+      <p className="lead">
+        {t(
+          "Les exemples complets et les règles d’alerte se trouvent dans deploy/monitoring.",
+        )}
+      </p>
+    </section>
   );
 }
 

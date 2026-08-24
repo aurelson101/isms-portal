@@ -60,6 +60,38 @@ describe("AuthService directory sessions", () => {
     );
   });
 
+  it("keeps a recognized user device session for 14 days", async () => {
+    const sessionCreate = vi.fn().mockResolvedValue({ id: "session-1" });
+    const response = { cookie: vi.fn() };
+    const service = new AuthService(
+      {
+        directoryUserSession: { create: sessionCreate },
+        adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
+      } as never,
+      {
+        authenticateUser: vi.fn().mockResolvedValue({
+          username: "alice@example.com",
+          displayName: "Alice",
+          groups: [],
+          connectionId: "directory-1",
+        }),
+      } as never,
+    );
+    const before = Date.now();
+
+    await service.directoryLogin("alice", "password", response as never, true);
+
+    const expiresAt = sessionCreate.mock.calls[0][0].data.expiresAt as Date;
+    expect(expiresAt.getTime() - before).toBeGreaterThanOrEqual(
+      14 * 24 * 60 * 60 * 1000 - 1000,
+    );
+    expect(response.cookie).toHaveBeenCalledWith(
+      "isms_directory_session",
+      expect.any(String),
+      expect.objectContaining({ expires: expiresAt, httpOnly: true }),
+    );
+  });
+
   it("migrates a legacy short-login administrator grant to canonical mail", async () => {
     const legacyAccount = {
       id: "directory-admin-1",
@@ -146,6 +178,37 @@ describe("AuthService directory sessions", () => {
         directoryConnectionId: "directory-2",
       }),
     });
+  });
+
+  it("does not write a recent directory session on every request", async () => {
+    const session = {
+      id: "session-1",
+      username: "alice@example.com",
+      displayName: "Alice Example",
+      groups: ["KNOWN-GROUP"],
+      directoryConnectionId: "directory-1",
+      expiresAt: new Date(Date.now() + 60_000),
+      lastUsedAt: new Date(),
+    };
+    const update = vi.fn();
+    const service = new AuthService(
+      {
+        directoryUserSession: {
+          findUnique: vi.fn().mockResolvedValue(session),
+          update,
+        },
+        adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
+        adminDirectoryGroup: { findFirst: vi.fn().mockResolvedValue(null) },
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.sessionIdentity({
+        headers: { cookie: "isms_directory_session=opaque-token" },
+      } as never),
+    ).resolves.toMatchObject({ username: "alice@example.com" });
+    expect(update).not.toHaveBeenCalled();
   });
 
   it("removes stale groups when the directory confirms the user is absent", async () => {

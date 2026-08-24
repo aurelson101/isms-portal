@@ -1,0 +1,18 @@
+# Receive normalized ISMS Portal JSON events from Docker on the monitored host.
+template(name="IsmsPortalJson" type="string"
+  string="%timestamp:::date-rfc3339% %hostname% %syslogtag%%msg%\n")
+
+if ($syslogtag contains "isms-portal") then {
+  action(type="omfwd"
+    target="<SYSLOG_HOST>"
+    port="6514"
+    protocol="tcp"
+    StreamDriver="gtls"
+    StreamDriverMode="1"
+    StreamDriverAuthMode="x509/name"
+    StreamDriverPermittedPeers="<SYSLOG_CERTIFICATE_NAME>"
+    template="IsmsPortalJson"
+    queue.type="LinkedList"
+    action.resumeRetryCount="-1")
+  stop
+}

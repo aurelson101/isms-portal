@@ -8,6 +8,7 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { collectDefaultMetrics } from "prom-client";
 import { httpDuration, httpRequests } from "./metrics";
+import { sameOriginMutationGuard } from "./http-security";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -45,6 +46,7 @@ async function bootstrap() {
     next();
   });
   app.use(helmet());
+  app.use(sameOriginMutationGuard);
   app.useBodyParser("json", { limit: "256kb" });
   app.useGlobalPipes(
     new ValidationPipe({
