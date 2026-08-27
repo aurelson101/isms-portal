@@ -104,9 +104,17 @@ export class GovernanceController {
       throw new BadRequestException("Review due date must be in the future");
     const document = await this.prisma.document.findFirst({
       where: { id: body.documentId, deletedAt: null },
-      select: { id: true },
+      select: {
+        id: true,
+        versions: {
+          select: { id: true },
+          orderBy: { version: "desc" },
+          take: 1,
+        },
+      },
     });
     if (!document) throw new NotFoundException("Document not found");
+    const versionId = body.versionId || document.versions?.[0]?.id || null;
     if (body.versionId) {
       const version = await this.prisma.documentVersion.findFirst({
         where: { id: body.versionId, documentId: body.documentId },
@@ -118,7 +126,7 @@ export class GovernanceController {
     const review = await this.prisma.documentReview.create({
       data: {
         documentId: body.documentId,
-        versionId: body.versionId || null,
+        versionId,
         owner: body.owner.trim(),
         reviewer: body.reviewer.trim(),
         approver: body.approver.trim(),
