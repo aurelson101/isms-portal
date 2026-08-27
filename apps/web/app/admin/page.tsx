@@ -206,7 +206,15 @@ type AdminDocument = {
   translations: Array<{ locale: string; title: string }>;
   space: Space;
   category?: Category;
-  versions: Array<{ id?: string; locale: string; version: number }>;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+  versions: Array<{
+    id?: string;
+    locale: string;
+    version: number;
+    createdAt: string;
+  }>;
 };
 type Dashboard = {
   groups: number;
@@ -2787,6 +2795,47 @@ function SpacesPanel({
                   <Icon name="archive" />
                   <span>{t("Archiver")}</span>
                 </button>
+                <button
+                  type="button"
+                  className="danger"
+                  disabled={
+                    Boolean(space._count?.documents) ||
+                    Boolean(space.categories?.length) ||
+                    Boolean(space._count?.accessRules)
+                  }
+                  title={
+                    space._count?.documents ||
+                    space.categories?.length ||
+                    space._count?.accessRules
+                      ? t(
+                          "Retirez d’abord les documents, catégories et règles d’accès.",
+                          "Remove documents, categories and access rules first.",
+                        )
+                      : t(
+                          "Supprimer définitivement cet espace vide",
+                          "Permanently delete this empty space",
+                        )
+                  }
+                  onClick={async () => {
+                    if (
+                      !(await confirmAction(
+                        t(
+                          `Supprimer définitivement l’espace vide ${space.nameFr} ? Cette action est irréversible.`,
+                          `Permanently delete the empty space ${space.nameEn}? This action cannot be undone.`,
+                        ),
+                      ))
+                    )
+                      return;
+                    await api(`/api/admin/spaces/${space.id}/permanent`, {
+                      method: "DELETE",
+                    })
+                      .then(onChanged)
+                      .catch((error) => onError(error.message));
+                  }}
+                >
+                  <Icon name="delete" />
+                  <span>{t("Supprimer")}</span>
+                </button>
               </div>
             </header>
             <div className="space-category-list">
@@ -3035,6 +3084,42 @@ function DocumentsPanel({
               <tr key={document.id}>
                 <td>
                   {document.translations.map((item) => item.title).join(" / ")}
+                  <details className="document-lifecycle">
+                    <summary>{t("Chronologie")}</summary>
+                    <ol>
+                      <li>
+                        {t("Création")}:{" "}
+                        {new Date(document.createdAt).toLocaleString(locale)}
+                      </li>
+                      {document.versions
+                        .slice()
+                        .sort((left, right) => left.version - right.version)
+                        .map((version) => (
+                          <li
+                            key={
+                              version.id ||
+                              `${version.locale}-${version.version}`
+                            }
+                          >
+                            v{version.version} · {version.locale.toUpperCase()}{" "}
+                            ·{" "}
+                            {new Date(version.createdAt).toLocaleString(locale)}
+                          </li>
+                        ))}
+                      {document.publishedAt && (
+                        <li>
+                          {t("Publication")}:{" "}
+                          {new Date(document.publishedAt).toLocaleString(
+                            locale,
+                          )}
+                        </li>
+                      )}
+                      <li>
+                        {t("Dernière modification")}:{" "}
+                        {new Date(document.updatedAt).toLocaleString(locale)}
+                      </li>
+                    </ol>
+                  </details>
                 </td>
                 <td>
                   {locale === "fr"
@@ -4728,6 +4813,14 @@ function ObservabilityPanel({
 
 function AuditPanel({ events }: { events: Audit[] }) {
   const { t } = useAdminI18n();
+  const [privilegedOnly, setPrivilegedOnly] = useState(false);
+  const privilegedEvents = privilegedOnly
+    ? events.filter((event) =>
+        /^(admin-|access-|retention-|governance-|incident-|corrective-|space\.|category\.|document\.(publish|archive|delete|restore))/u.test(
+          event.action,
+        ),
+      )
+    : events;
   return (
     <>
       <div className="section-actions">
@@ -4741,6 +4834,14 @@ function AuditPanel({ events }: { events: Audit[] }) {
         <a href="/api/admin/audit/export?format=csv">{t("Exporter CSV")}</a>
         <a href="/api/admin/audit/export?format=json">{t("Exporter JSON")}</a>
       </div>
+      <label className="audit-privilege-filter">
+        <input
+          type="checkbox"
+          checked={privilegedOnly}
+          onChange={(event) => setPrivilegedOnly(event.target.checked)}
+        />
+        {t("Afficher uniquement les opérations privilégiées")}
+      </label>
       <div className="admin-table-wrap">
         <table>
           <thead>
@@ -4754,7 +4855,7 @@ function AuditPanel({ events }: { events: Audit[] }) {
             </tr>
           </thead>
           <tbody>
-            {events.length === 0 && (
+            {privilegedEvents.length === 0 && (
               <tr>
                 <td colSpan={6}>
                   <EmptyState
@@ -4765,7 +4866,7 @@ function AuditPanel({ events }: { events: Audit[] }) {
                 </td>
               </tr>
             )}
-            {events.map((event) => (
+            {privilegedEvents.map((event) => (
               <tr key={event.id}>
                 <td>{new Date(event.occurredAt).toISOString()}</td>
                 <td>{event.identity}</td>
@@ -4884,6 +4985,7 @@ function SettingsPanel({
       lastUsedAt: string;
       expiresAt: string;
       sourceIp: string | null;
+      userAgent: string | null;
       adminAccount: { username: string; displayName: string; source: string };
     }>
   >([]);
@@ -4896,6 +4998,30 @@ function SettingsPanel({
         .includes(query),
     );
   }, [accounts, administratorFilter]);
+  const deviceLabel = (userAgent: string | null) => {
+    if (!userAgent) return t("Appareil inconnu");
+    const browser = /Edg\//u.test(userAgent)
+      ? "Edge"
+      : /Firefox\//u.test(userAgent)
+        ? "Firefox"
+        : /Chrome\//u.test(userAgent)
+          ? "Chrome"
+          : /Safari\//u.test(userAgent)
+            ? "Safari"
+            : t("Navigateur inconnu");
+    const system = /Windows/u.test(userAgent)
+      ? "Windows"
+      : /Android/u.test(userAgent)
+        ? "Android"
+        : /iPhone|iPad/u.test(userAgent)
+          ? "iOS"
+          : /Mac OS/u.test(userAgent)
+            ? "macOS"
+            : /Linux/u.test(userAgent)
+              ? "Linux"
+              : t("Système inconnu");
+    return `${browser} · ${system}`;
+  };
   const localAdministratorCount = accounts.filter(
     (account) => account.source === "LOCAL",
   ).length;
@@ -5034,6 +5160,15 @@ function SettingsPanel({
       onError(t("Renseignez une justification d’au moins trois caractères."));
       return;
     }
+    const largeGroupConfirmed =
+      selectedAdminGroup.memberCount <= 100 ||
+      (await confirmAction(
+        t(
+          `Ce groupe contient ${selectedAdminGroup.memberCount} membres. Confirmer l’attribution de droits administratifs complets ?`,
+          `This group contains ${selectedAdminGroup.memberCount} members. Confirm full administrative privileges?`,
+        ),
+      ));
+    if (!largeGroupConfirmed) return;
     setAdministratorGrantPending("group");
     try {
       await api("/api/admin/accounts/groups", {
@@ -5045,6 +5180,7 @@ function SettingsPanel({
           justification: groupAdminJustification.trim(),
           validFrom: groupAdminValidFrom || undefined,
           validUntil: groupAdminValidUntil || undefined,
+          largeGroupConfirmed,
         }),
       });
       setAdminGroupQuery("");
@@ -5377,16 +5513,6 @@ function SettingsPanel({
                 <input name="validFrom" type="datetime-local" />
               </label>
               <label>
-                {t("Début facultatif")}
-                <input
-                  type="datetime-local"
-                  value={directoryAdminValidFrom}
-                  onChange={(event) =>
-                    setDirectoryAdminValidFrom(event.target.value)
-                  }
-                />
-              </label>
-              <label>
                 {t("Expiration facultative")}
                 <input name="validUntil" type="datetime-local" />
               </label>
@@ -5425,9 +5551,9 @@ function SettingsPanel({
                 {t("Début facultatif")}
                 <input
                   type="datetime-local"
-                  value={groupAdminValidFrom}
+                  value={directoryAdminValidFrom}
                   onChange={(event) =>
-                    setGroupAdminValidFrom(event.target.value)
+                    setDirectoryAdminValidFrom(event.target.value)
                   }
                 />
               </label>
@@ -5512,6 +5638,16 @@ function SettingsPanel({
                 />
               </label>
               <label>
+                {t("Début facultatif")}
+                <input
+                  type="datetime-local"
+                  value={groupAdminValidFrom}
+                  onChange={(event) =>
+                    setGroupAdminValidFrom(event.target.value)
+                  }
+                />
+              </label>
+              <label>
                 {t("Expiration facultative")}
                 <input
                   type="datetime-local"
@@ -5540,6 +5676,9 @@ function SettingsPanel({
                   >
                     <strong>{group.name}</strong>
                     <small>{group.distinguishedName}</small>
+                    <small>
+                      {group.memberCount} {t("membre(s)")}
+                    </small>
                   </button>
                 ))}
               </div>
@@ -5632,7 +5771,8 @@ function SettingsPanel({
                 <span>
                   <strong>{session.adminAccount.displayName}</strong>
                   <small>
-                    {session.adminAccount.username} · {t("Adresse IP")}:{" "}
+                    {session.adminAccount.username} ·{" "}
+                    {deviceLabel(session.userAgent)} · {t("Adresse IP")}:{" "}
                     {session.sourceIp || "—"} · {t("Dernière utilisation")}:{" "}
                     {new Date(session.lastUsedAt).toLocaleString()} ·{" "}
                     {t("Expiration")}:{" "}

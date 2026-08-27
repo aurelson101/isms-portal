@@ -509,6 +509,7 @@ test("administration uses live APIs and every menu opens a section", async ({
 
 test("document spaces provide a clear responsive content hierarchy", async ({
   page,
+  request,
 }) => {
   await page.goto("/admin#spaces");
   await expect(
@@ -545,6 +546,22 @@ test("document spaces provide a clear responsive content hierarchy", async ({
   await expect(
     spaces.first().locator(".space-management-header-actions"),
   ).toBeVisible();
+
+  const suffix = Date.now().toString(36);
+  const created = await request.post("/api/admin/spaces", {
+    data: {
+      slug: `empty-${suffix}`,
+      nameFr: `Espace vide ${suffix}`,
+      nameEn: `Empty space ${suffix}`,
+    },
+  });
+  expect(created.status()).toBe(201);
+  const emptySpace = (await created.json()) as { id: string };
+  const deleted = await request.delete(
+    `/api/admin/spaces/${emptySpace.id}/permanent`,
+  );
+  expect(deleted.ok()).toBeTruthy();
+  expect(await deleted.json()).toEqual({ deleted: true });
 });
 
 test("administration is fully switchable between French and English", async ({
@@ -1805,9 +1822,12 @@ test("personal tools persist searches, preferences, access requests and reports"
   const identity = (await (await request.get("/api/me")).json()) as {
     preferences: { viewMode: string; density: string };
   };
-  expect(identity.preferences).toEqual({
+  expect(identity.preferences).toMatchObject({
     viewMode: "grid",
     density: "compact",
+    textScale: 100,
+    highContrast: false,
+    reducedMotion: false,
   });
 
   const accessRequestResponse = await request.post(

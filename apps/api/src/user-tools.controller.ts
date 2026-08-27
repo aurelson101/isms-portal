@@ -92,6 +92,45 @@ export class UserToolsController {
     return { deleted: result.count };
   }
 
+  @Get("updates")
+  async updates(@Req() req: IsmsRequest) {
+    const preference = await this.prisma.userPreference.findUnique({
+      where: { identity: req.identity.username },
+      select: { lastSeenAt: true },
+    });
+    const readableSpaceIds = (
+      await this.authorization.permittedSpaces(req.identity.groups, "read")
+    ).map((space) => space.id);
+    const since = preference?.lastSeenAt || new Date(0);
+    const documents = await this.prisma.document.findMany({
+      where: {
+        deletedAt: null,
+        status: "PUBLISHED",
+        spaceId: { in: readableSpaceIds },
+        updatedAt: { gt: since },
+      },
+      select: {
+        id: true,
+        updatedAt: true,
+        translations: { select: { locale: true, title: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 20,
+    });
+    return { since, count: documents.length, documents };
+  }
+
+  @Put("updates/seen")
+  async markUpdatesSeen(@Req() req: IsmsRequest) {
+    const lastSeenAt = new Date();
+    await this.prisma.userPreference.upsert({
+      where: { identity: req.identity.username },
+      update: { lastSeenAt },
+      create: { identity: req.identity.username, lastSeenAt },
+    });
+    return { lastSeenAt };
+  }
+
   @Get("saved-searches")
   savedSearches(@Req() req: IsmsRequest) {
     return this.prisma.savedSearch.findMany({

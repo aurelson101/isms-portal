@@ -378,7 +378,11 @@ export function GovernancePanel({
             />
           )}
           {section === "identity" && (
-            <IdentitySection locale={locale} data={identityHealth} />
+            <IdentitySection
+              locale={locale}
+              data={identityHealth}
+              onRefresh={refresh}
+            />
           )}
           {section === "incidents" && (
             <IncidentsSection
@@ -1245,9 +1249,11 @@ function RetentionSection({
 function IdentitySection({
   locale,
   data,
+  onRefresh,
 }: {
   locale: Locale;
   data: Record<string, unknown>;
+  onRefresh: () => Promise<void>;
 }) {
   const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
   const dormant =
@@ -1322,6 +1328,22 @@ function IdentitySection({
                   <strong>{String(account.username)}</strong>
                   <span>{String(account.source)}</span>
                   <small>{formatDate(account.lastAuthorizedAt)}</small>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() =>
+                      void jsonApi(
+                        `/api/admin/accounts/${String(account.id)}/active`,
+                        {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ active: false }),
+                        },
+                      ).then(onRefresh)
+                    }
+                  >
+                    {t("Désactiver", "Disable")}
+                  </button>
                 </li>
               ))}
             </ul>
