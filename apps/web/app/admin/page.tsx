@@ -3938,6 +3938,7 @@ type OperationsWorkItems = {
     description: string;
     status: string;
     createdAt: string;
+    attachmentOriginalName?: string | null;
   }>;
 };
 
@@ -4071,6 +4072,14 @@ function RequestsPanel({
                 {item.identity} · {item.category} ·{" "}
                 {new Date(item.createdAt).toLocaleString(locale)}
               </small>
+              {item.attachmentOriginalName && (
+                <a
+                  className="button-link"
+                  href={`/api/admin/operations/security-reports/${item.id}/attachment`}
+                >
+                  <Icon name="download" /> {t("Télécharger la pièce jointe")}
+                </a>
+              )}
               <button
                 type="button"
                 disabled={processing === item.id}

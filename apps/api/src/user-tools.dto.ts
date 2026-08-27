@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsDateString,
   IsIn,
   IsObject,
   IsOptional,
@@ -36,6 +37,7 @@ export class AccessRequestDto {
   @IsUUID() spaceId!: string;
   @IsOptional() @IsString() @MinLength(1) @MaxLength(160) documentId?: string;
   @IsString() @MinLength(5) @MaxLength(1000) justification!: string;
+  @IsOptional() @IsDateString() requestedUntil?: string;
 }
 
 export class DocumentReportDto {

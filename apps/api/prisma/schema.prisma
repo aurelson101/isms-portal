@@ -100,19 +100,20 @@ model TrustedCaCertificate {
 }
 
 model DirectoryGroup {
-  id                    String               @id @default(uuid())
-  name                  String               @unique
-  distinguishedName     String               @unique
+  id                    String                 @id @default(uuid())
+  name                  String                 @unique
+  distinguishedName     String                 @unique
   description           String?
-  memberCount           Int                  @default(0)
-  active                Boolean              @default(true)
+  memberCount           Int                    @default(0)
+  active                Boolean                @default(true)
   lastSyncedAt          DateTime?
   directoryConnectionId String?
-  directoryConnection   DirectoryConnection? @relation(fields: [directoryConnectionId], references: [id])
+  directoryConnection   DirectoryConnection?   @relation(fields: [directoryConnectionId], references: [id])
   accessRules           AccessRule[]
-  ownedSpaces           DocumentSpace[]      @relation("SpaceOwnerGroup")
-  createdAt             DateTime             @default(now())
-  updatedAt             DateTime             @updatedAt
+  temporaryAccessGrants TemporaryAccessGrant[]
+  ownedSpaces           DocumentSpace[]        @relation("SpaceOwnerGroup")
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 
   @@index([directoryConnectionId])
 }
@@ -131,18 +132,19 @@ model DirectorySyncJob {
 }
 
 model DocumentSpace {
-  id           String             @id @default(uuid())
-  slug         String             @unique
-  nameFr       String
-  nameEn       String
-  categories   DocumentCategory[]
-  documents    Document[]
-  accessRules  AccessRule[]
-  ownerGroupId String?
-  ownerGroup   DirectoryGroup?    @relation("SpaceOwnerGroup", fields: [ownerGroupId], references: [id], onDelete: SetNull)
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  deletedAt    DateTime?
+  id                    String                 @id @default(uuid())
+  slug                  String                 @unique
+  nameFr                String
+  nameEn                String
+  categories            DocumentCategory[]
+  documents             Document[]
+  accessRules           AccessRule[]
+  temporaryAccessGrants TemporaryAccessGrant[]
+  ownerGroupId          String?
+  ownerGroup            DirectoryGroup?        @relation("SpaceOwnerGroup", fields: [ownerGroupId], references: [id], onDelete: SetNull)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  deletedAt             DateTime?
 
   @@index([ownerGroupId])
 }
@@ -229,18 +231,21 @@ model SavedSearch {
 }
 
 model AccessRequest {
-  id            String    @id @default(uuid())
-  identity      String
-  documentId    String?
-  document      Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
-  spaceId       String
-  justification String
-  status        String    @default("PENDING")
-  decision      String?
-  reviewedBy    String?
-  reviewedAt    DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id             String                @id @default(uuid())
+  identity       String
+  documentId     String?
+  document       Document?             @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  spaceId        String
+  groupId        String?
+  requestedUntil DateTime?
+  justification  String
+  status         String                @default("PENDING")
+  decision       String?
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  grant          TemporaryAccessGrant?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 
   @@index([identity, createdAt])
   @@index([status, createdAt])
@@ -305,6 +310,7 @@ model DocumentVersion {
   distributedStoredFile   StoredFile?      @relation("DistributedDocumentVersion", fields: [distributedStoredFileId], references: [id])
   createdAt               DateTime         @default(now())
   changeSummary           String?
+  changeDetails           Json?
   reviews                 DocumentReview[]
 
   @@unique([documentId, locale, version])
@@ -328,15 +334,20 @@ model DocumentAcknowledgement {
 }
 
 model SecurityReport {
-  id          String   @id @default(uuid())
-  identity    String
-  category    String
-  urgency     String
-  description String
-  status      String   @default("OPEN")
-  reference   String   @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                     String   @id @default(uuid())
+  identity               String
+  category               String
+  urgency                String
+  description            String
+  status                 String   @default("OPEN")
+  reference              String   @unique
+  attachmentObjectKey    String?
+  attachmentOriginalName String?
+  attachmentMimeType     String?
+  attachmentSize         Int?
+  attachmentSha256       String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   @@index([status, urgency, createdAt])
   @@index([identity, createdAt])
@@ -353,11 +364,28 @@ model RiskException {
   expiresAt           DateTime
   approvedBy          String?
   approvedAt          DateTime?
+  reviewNotifiedAt    DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
   @@index([status, expiresAt])
   @@index([owner, createdAt])
+}
+
+model TemporaryAccessGrant {
+  id         String         @id @default(uuid())
+  requestId  String         @unique
+  request    AccessRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  groupId    String
+  group      DirectoryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  spaceId    String
+  space      DocumentSpace  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  validUntil DateTime
+  createdBy  String
+  createdAt  DateTime       @default(now())
+
+  @@index([groupId, spaceId, validUntil])
+  @@index([validUntil])
 }
 
 model SensitiveOperationApproval {

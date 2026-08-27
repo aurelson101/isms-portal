@@ -64,6 +64,39 @@ worker.on("failed", (job, error) => {
 
 async function schedule() {
   const now = Date.now();
+  const reviewAt = new Date(now + 30 * 86400000);
+  const dueExceptions = await prisma.riskException.findMany({
+    where: {
+      status: "APPROVED",
+      reviewNotifiedAt: null,
+      expiresAt: { lte: reviewAt },
+    },
+    take: 100,
+  });
+  for (const item of dueExceptions) {
+    const identities = [...new Set([item.owner, item.approver])];
+    await prisma.$transaction([
+      prisma.riskException.update({
+        where: { id: item.id },
+        data: { status: "REVIEW_DUE", reviewNotifiedAt: new Date() },
+      }),
+      ...identities.map((identity) =>
+        prisma.userNotification.create({
+          data: {
+            identity,
+            title: "Dérogation à renouveler",
+            message: `${item.title} expire le ${item.expiresAt.toISOString()}`,
+            mandatory: true,
+            resourceType: "risk-exception",
+            resourceId: item.id,
+          },
+        }),
+      ),
+    ]);
+  }
+  const expiredGrants = await prisma.temporaryAccessGrant.deleteMany({
+    where: { validUntil: { lte: new Date(now) } },
+  });
   const connections = await prisma.directoryConnection.findMany({
     where: { enabled: true },
   });
@@ -94,7 +127,11 @@ async function schedule() {
       );
     }
   }
-  log("scheduler.checked", { enabledConnections: connections.length });
+  log("scheduler.checked", {
+    enabledConnections: connections.length,
+    riskReviewsOpened: dueExceptions.length,
+    expiredTemporaryGrants: expiredGrants.count,
+  });
 }
 
 const timer = setInterval(() => {

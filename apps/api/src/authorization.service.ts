@@ -9,6 +9,7 @@ import { isAdminIdentity } from "./security";
 
 type SpaceWithRule = DocumentSpace & {
   accessRules: Array<AccessRule & { group?: { name: string } }>;
+  temporaryAccessGrants: Array<{ group: { name: string }; validUntil: Date }>;
   ownerGroup: { name: string; active: boolean } | null;
   categories: Array<
     DocumentCategory & {
@@ -26,6 +27,13 @@ export type Permission =
   | "edit"
   | "publish"
   | "archive";
+
+const temporaryGrantPermissions = new Set<Permission>([
+  "showMenu",
+  "read",
+  "search",
+  "preview",
+]);
 
 @Injectable()
 export class AuthorizationService {
@@ -74,6 +82,11 @@ export class AuthorizationService {
                     },
                   },
                 },
+                {
+                  temporaryAccessGrants: {
+                    some: { group: groupFilter, validUntil: { gt: now } },
+                  },
+                },
                 { ownerGroup: groupFilter },
               ],
             }
@@ -90,6 +103,12 @@ export class AuthorizationService {
                   { OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
                 ],
               },
+              include: { group: { select: { name: true } } },
+            },
+        temporaryAccessGrants: administrator
+          ? { include: { group: { select: { name: true } } } }
+          : {
+              where: { group: groupFilter, validUntil: { gt: now } },
               include: { group: { select: { name: true } } },
             },
         ownerGroup: { select: { name: true, active: true } },
@@ -122,7 +141,9 @@ export class AuthorizationService {
                   name.toLowerCase() === space.ownerGroup!.name.toLowerCase(),
               )
                 ? true
-                : space.accessRules.some((rule) => rule[permission]),
+                : space.accessRules.some((rule) => rule[permission]) ||
+                  (temporaryGrantPermissions.has(permission) &&
+                    (space.temporaryAccessGrants?.length || 0) > 0),
             ),
       );
     }
@@ -163,6 +184,18 @@ export class AuthorizationService {
                 },
               },
             },
+            ...(temporaryGrantPermissions.has(permission)
+              ? [
+                  {
+                    temporaryAccessGrants: {
+                      some: {
+                        group: { active: true, OR: groupNames },
+                        validUntil: { gt: now },
+                      },
+                    },
+                  },
+                ]
+              : []),
           ],
         },
       })) > 0

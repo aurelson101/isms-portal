@@ -58,6 +58,11 @@ type Version = {
   locale: string;
   version: number;
   changeSummary?: string | null;
+  changeDetails?: {
+    added?: string[];
+    removed?: string[];
+    modified?: Array<{ before: string; after: string }>;
+  } | null;
   storedFile: { mimeType: string; originalName: string; size: string | number };
 };
 type ReviewEvidence = {
@@ -163,6 +168,8 @@ type UserAccessRequest = {
   spaceId: string;
   status: string;
   justification: string;
+  decision?: string | null;
+  requestedUntil?: string | null;
   createdAt: string;
 };
 type DocumentUpdates = {
@@ -2384,6 +2391,15 @@ export function Portal({
                               {accessRequestStatus(request.status, locale)}
                             </strong>{" "}
                             — {request.justification}
+                            {request.requestedUntil && (
+                              <small>
+                                {locale === "fr" ? " · Jusqu’au " : " · Until "}
+                                {new Date(
+                                  request.requestedUntil,
+                                ).toLocaleDateString(locale)}
+                              </small>
+                            )}
+                            {request.decision && <p>{request.decision}</p>}
                           </li>
                         ))}
                       </ul>
@@ -2741,6 +2757,36 @@ export function Portal({
                 <p>{openedVersion.changeSummary}</p>
               </aside>
             )}
+            {openedVersion?.changeDetails &&
+              (openedVersion.changeDetails.added?.length || 0) +
+                (openedVersion.changeDetails.removed?.length || 0) +
+                (openedVersion.changeDetails.modified?.length || 0) >
+                0 && (
+                <details className="document-change-details">
+                  <summary>
+                    {locale === "fr"
+                      ? "Comparer avec la version précédente"
+                      : "Compare with the previous version"}
+                  </summary>
+                  {openedVersion.changeDetails.modified?.map(
+                    (change, index) => (
+                      <div
+                        className="change-modified"
+                        key={`modified-${index}`}
+                      >
+                        <del>{change.before}</del>
+                        <ins>{change.after}</ins>
+                      </div>
+                    ),
+                  )}
+                  {openedVersion.changeDetails.removed?.map((value, index) => (
+                    <del key={`removed-${index}`}>{value}</del>
+                  ))}
+                  {openedVersion.changeDetails.added?.map((value, index) => (
+                    <ins key={`added-${index}`}>{value}</ins>
+                  ))}
+                </details>
+              )}
             {openedVersion && opened.status === "PUBLISHED" && (
               <button
                 type="button"
@@ -3007,12 +3053,7 @@ export function Portal({
                   "/api/user-tools/security-reports",
                   {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      category: form.get("category"),
-                      urgency: form.get("urgency"),
-                      description: form.get("description"),
-                    }),
+                    body: form,
                   },
                 );
                 if (!response.ok) {
@@ -3076,6 +3117,21 @@ export function Portal({
                   maxLength={4000}
                   rows={6}
                 />
+              </label>
+              <label>
+                {locale === "fr"
+                  ? "Pièce jointe sûre (facultative)"
+                  : "Safe attachment (optional)"}
+                <input
+                  type="file"
+                  name="attachment"
+                  accept=".pdf,.png,.jpg,.jpeg,.txt"
+                />
+                <small>
+                  {locale === "fr"
+                    ? "PDF, PNG, JPEG ou TXT, 10 Mo maximum. Analyse antivirus obligatoire."
+                    : "PDF, PNG, JPEG or TXT, 10 MB maximum. Antivirus scanning is mandatory."}
+                </small>
               </label>
               {securityReportFeedback && (
                 <p role="status">{securityReportFeedback}</p>

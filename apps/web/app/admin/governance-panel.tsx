@@ -507,6 +507,12 @@ function RiskExceptionsSection({
     approver: "",
     expiresAt: "",
   });
+  const [renewalExpiries, setRenewalExpiries] = useState<
+    Record<string, string>
+  >({});
+  const [minimumRenewalDate] = useState(() =>
+    new Date(Date.now() + 31 * 86400000).toISOString().slice(0, 10),
+  );
   return (
     <div className="governance-grid">
       <form
@@ -592,14 +598,42 @@ function RiskExceptionsSection({
               {t("Expiration", "Expiry")}:{" "}
               {new Date(item.expiresAt).toLocaleString(locale)}
             </small>
-            {item.status === "PENDING" && (
+            {["PENDING", "REVIEW_DUE"].includes(item.status) && (
               <div className="button-row">
+                {item.status === "REVIEW_DUE" && (
+                  <label>
+                    {t("Nouvelle expiration", "New expiry")}
+                    <input
+                      type="date"
+                      min={minimumRenewalDate}
+                      value={renewalExpiries[item.id] || ""}
+                      onChange={(event) =>
+                        setRenewalExpiries({
+                          ...renewalExpiries,
+                          [item.id]: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                )}
                 <button
                   type="button"
+                  disabled={
+                    item.status === "REVIEW_DUE" && !renewalExpiries[item.id]
+                  }
                   onClick={() =>
                     void submit(
                       `/api/admin/governance/risk-exceptions/${item.id}/decision`,
-                      { status: "APPROVED" },
+                      {
+                        status: "APPROVED",
+                        ...(renewalExpiries[item.id]
+                          ? {
+                              expiresAt: new Date(
+                                `${renewalExpiries[item.id]}T23:59:59`,
+                              ).toISOString(),
+                            }
+                          : {}),
+                      },
                       "PUT",
                     )
                   }

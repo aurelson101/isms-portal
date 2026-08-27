@@ -23,6 +23,7 @@ import { AuthService } from "./auth.service";
 import { AuthController, AdminAccountsController } from "./auth.controller";
 import { WatermarkService } from "./watermark.service";
 import { ObservabilityService } from "./observability.service";
+import { SensitiveApprovalService } from "./sensitive-approval.service";
 import {
   OperationsController,
   UserToolsController,
@@ -56,6 +57,7 @@ import { GovernanceController } from "./governance.controller";
     AuthService,
     WatermarkService,
     ObservabilityService,
+    SensitiveApprovalService,
     { provide: APP_GUARD, useClass: AdminGuard },
   ],
 })

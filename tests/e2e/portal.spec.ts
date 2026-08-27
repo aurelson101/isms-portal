@@ -1534,13 +1534,16 @@ test("governance workflows support lifetime access, reviews, SoA, retention, ide
   });
   expect(control.status()).toBe(201);
 
+  const adminIdentity = (await (
+    await request.get("/api/admin/check")
+  ).json()) as { username: string };
   const exception = await request.post(
     "/api/admin/governance/risk-exceptions",
     {
       data: {
         title: `Dérogation ${governanceRun}`,
         owner: "metier@example.test",
-        approver: "rssi@example.test",
+        approver: adminIdentity.username,
         justification: "Exception temporaire nécessaire pour la recette.",
         compensatingControl: "Surveillance renforcée et revue hebdomadaire.",
         expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
@@ -1860,6 +1863,22 @@ test("personal tools persist searches, preferences, access requests and reports"
     reference: expect.stringMatching(/^SEC-/),
     status: "OPEN",
   });
+  const securityReportWithAttachment = await request.post(
+    "/api/user-tools/security-reports",
+    {
+      multipart: {
+        category: "INCIDENT",
+        urgency: "MEDIUM",
+        description: "Pièce justificative analysée pendant la recette.",
+        attachment: {
+          name: "evidence.pdf",
+          mimeType: "application/pdf",
+          buffer: Buffer.from("%PDF-1.4\n% secure evidence\n"),
+        },
+      },
+    },
+  );
+  expect(securityReportWithAttachment.status()).toBe(201);
   expect(document.versions.length).toBeGreaterThan(0);
   const acknowledgement = await request.post(
     "/api/user-tools/acknowledgements",
@@ -1901,9 +1920,24 @@ test("personal tools persist searches, preferences, access requests and reports"
   ).toBeTruthy();
   const workItems = (await (
     await request.get("/api/admin/operations/work-items")
-  ).json()) as { accessRequests: unknown[]; reports: unknown[] };
+  ).json()) as {
+    accessRequests: unknown[];
+    reports: unknown[];
+    securityReports: Array<{ id: string; attachmentOriginalName?: string }>;
+  };
   expect(workItems.accessRequests.length).toBeGreaterThan(0);
   expect(workItems.reports.length).toBeGreaterThan(0);
+  const attachmentReport = workItems.securityReports.find(
+    (item) => item.attachmentOriginalName === "evidence.pdf",
+  );
+  expect(attachmentReport).toBeTruthy();
+  expect(
+    (
+      await request.get(
+        `/api/admin/operations/security-reports/${attachmentReport!.id}/attachment`,
+      )
+    ).ok(),
+  ).toBeTruthy();
 
   await page.goto("/admin#requests");
   await expect(
@@ -1915,6 +1949,23 @@ test("personal tools persist searches, preferences, access requests and reports"
   await expect(
     page.getByRole("button", { name: "Approuver" }).first(),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Approuver" }).first().click();
+  await expect(
+    page.getByText("Besoin de vérifier la procédure annuelle"),
+  ).toHaveCount(0);
+  const decidedRequests = (await (
+    await request.get("/api/user-tools/access-requests")
+  ).json()) as Array<{
+    justification: string;
+    status: string;
+    requestedUntil: string;
+  }>;
+  expect(
+    decidedRequests.find(
+      (item) =>
+        item.justification === "Besoin de vérifier la procédure annuelle",
+    ),
+  ).toMatchObject({ status: "APPROVED", requestedUntil: expect.any(String) });
 
   await page.goto("/explorer?q=VPN");
   await page.locator(".account-button").click();
@@ -1946,9 +1997,7 @@ test("personal tools persist searches, preferences, access requests and reports"
   const workspace = page.getByRole("dialog", { name: "Mon espace personnel" });
   await expect(workspace).toBeVisible();
   await workspace.getByRole("button", { name: /Demandes/ }).click();
-  await expect(
-    workspace.getByText("En attente", { exact: true }),
-  ).toBeVisible();
+  await expect(workspace.getByText("Approuvée", { exact: true })).toBeVisible();
   await workspace.getByRole("button", { name: /Recherches/ }).click();
   expect(
     await page.evaluate(
