@@ -79,7 +79,7 @@ type PortalDocument = {
   downloadCount: number;
   favorite: boolean;
   space: Space;
-  category: { slug: string; nameFr: string; nameEn: string } | null;
+  category: { id: string; slug: string; nameFr: string; nameEn: string } | null;
   translations: Translation[];
   versions: Version[];
   reviews: ReviewEvidence[];
@@ -114,7 +114,13 @@ type Identity = {
   username: string;
   isAdmin: boolean;
   locale: Locale | null;
-  preferences?: { viewMode: ViewMode; density: "comfortable" | "compact" };
+  preferences?: {
+    viewMode: ViewMode;
+    density: "comfortable" | "compact";
+    textScale: number;
+    highContrast: boolean;
+    reducedMotion: boolean;
+  };
   authentication: {
     source: string;
     ssoConnected: boolean;
@@ -156,6 +162,15 @@ type UserAccessRequest = {
   status: string;
   justification: string;
   createdAt: string;
+};
+type DocumentUpdates = {
+  since: string;
+  count: number;
+  documents: Array<{
+    id: string;
+    updatedAt: string;
+    translations: Translation[];
+  }>;
 };
 
 const wordMime =
@@ -550,10 +565,14 @@ export function Portal({
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [accessRequests, setAccessRequests] = useState<UserAccessRequest[]>([]);
+  const [updates, setUpdates] = useState<DocumentUpdates | null>(null);
   const [density, setDensity] = useState<"comfortable" | "compact">(
     "comfortable",
   );
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [textScale, setTextScale] = useState(100);
+  const [highContrast, setHighContrast] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
   const [documentSort, setDocumentSort] = useState<DocumentSort>("recent");
   const [viewerExpanded, setViewerExpanded] = useState(false);
   const [pdfZoom, setPdfZoom] = useState<PdfZoom>("page-width");
@@ -810,6 +829,9 @@ export function Portal({
         setIdentity(currentIdentity);
         setViewMode(currentIdentity.preferences?.viewMode || "list");
         setDensity(currentIdentity.preferences?.density || "comfortable");
+        setTextScale(currentIdentity.preferences?.textScale || 100);
+        setHighContrast(currentIdentity.preferences?.highContrast || false);
+        setReducedMotion(currentIdentity.preferences?.reducedMotion || false);
         const saved =
           currentIdentity.locale ||
           (localStorage.getItem("isms-locale") as Locale | null);
@@ -871,15 +893,16 @@ export function Portal({
   const loadUserTools = useCallback(async () => {
     const responses = await Promise.all([
       fetch("/api/user-tools/recent", { cache: "no-store" }),
+      fetch("/api/user-tools/updates", { cache: "no-store" }),
       fetch("/api/user-tools/saved-searches", { cache: "no-store" }),
       fetch("/api/user-tools/notifications", { cache: "no-store" }),
       fetch("/api/user-tools/access-requests", { cache: "no-store" }),
     ]);
     if (responses.some((response) => !response.ok)) return;
-    const [recent, searches, notices, requests] = await Promise.all(
-      responses.map((response) => response.json()),
-    );
+    const [recent, documentUpdates, searches, notices, requests] =
+      await Promise.all(responses.map((response) => response.json()));
     setActivities(recent as UserActivity[]);
+    setUpdates(documentUpdates as DocumentUpdates);
     setSavedSearches(searches as SavedSearch[]);
     setNotifications(notices as UserNotification[]);
     setAccessRequests(requests as UserAccessRequest[]);
@@ -940,7 +963,14 @@ export function Portal({
       void fetch("/api/user-tools/preferences", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locale, viewMode: next, density }),
+        body: JSON.stringify({
+          locale,
+          viewMode: next,
+          density,
+          textScale,
+          highContrast,
+          reducedMotion,
+        }),
       });
   };
   const saveCurrentSearch = async () => {
@@ -1148,6 +1178,19 @@ export function Portal({
         ? locale
         : (opened.versions[0]?.locale as Locale))
     : null;
+  const openedIndex = opened
+    ? documents.findIndex((document) => document.id === opened.id)
+    : -1;
+  const relatedDocuments = opened
+    ? documents
+        .filter(
+          (document) =>
+            document.id !== opened.id &&
+            document.space.id === opened.space.id &&
+            (!opened.category || document.category?.id === opened.category.id),
+        )
+        .slice(0, 4)
+    : [];
   const openedVersion = opened?.versions.find(
     (version) => version.locale === openedLocale,
   );
@@ -1252,7 +1295,10 @@ export function Portal({
   }
 
   return (
-    <div className={`shell density-${density}`}>
+    <div
+      className={`shell density-${density}${highContrast ? " high-contrast" : ""}${reducedMotion ? " reduced-motion" : ""}`}
+      style={{ fontSize: `${textScale}%` }}
+    >
       <aside className={navigationOpen ? "navigation-open" : ""}>
         <div className="sidebar-heading">
           <div className="brand">
@@ -2185,6 +2231,34 @@ export function Portal({
                         ? "Consultés récemment"
                         : "Recently viewed"}
                     </h3>
+                    {updates && updates.count > 0 && (
+                      <div className="document-updates-notice">
+                        <strong>
+                          {locale === "fr"
+                            ? `${updates.count} nouveauté(s) depuis votre dernière visite`
+                            : `${updates.count} update(s) since your last visit`}
+                        </strong>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void fetch("/api/user-tools/updates/seen", {
+                              method: "PUT",
+                            }).then((response) => {
+                              if (response.ok)
+                                setUpdates({
+                                  ...updates,
+                                  count: 0,
+                                  documents: [],
+                                });
+                            })
+                          }
+                        >
+                          {locale === "fr"
+                            ? "Tout marquer comme vu"
+                            : "Mark all as seen"}
+                        </button>
+                      </div>
+                    )}
                     {activities.length > 0 && (
                       <button
                         type="button"
@@ -2386,6 +2460,9 @@ export function Portal({
                           locale,
                           viewMode,
                           density: next,
+                          textScale,
+                          highContrast,
+                          reducedMotion,
                         }),
                       });
                     }}
@@ -2397,6 +2474,79 @@ export function Portal({
                       {locale === "fr" ? "Compacte" : "Compact"}
                     </option>
                   </select>
+                </label>
+                <label>
+                  {locale === "fr" ? "Taille du texte" : "Text size"}
+                  <select
+                    value={textScale}
+                    onChange={(event) => {
+                      const next = Number(event.target.value);
+                      setTextScale(next);
+                      void fetch("/api/user-tools/preferences", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          locale,
+                          viewMode,
+                          density,
+                          textScale: next,
+                          highContrast,
+                          reducedMotion,
+                        }),
+                      });
+                    }}
+                  >
+                    <option value={85}>85 %</option>
+                    <option value={100}>100 %</option>
+                    <option value={115}>115 %</option>
+                    <option value={130}>130 %</option>
+                  </select>
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={highContrast}
+                    onChange={(event) => {
+                      const next = event.target.checked;
+                      setHighContrast(next);
+                      void fetch("/api/user-tools/preferences", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          locale,
+                          viewMode,
+                          density,
+                          textScale,
+                          highContrast: next,
+                          reducedMotion,
+                        }),
+                      });
+                    }}
+                  />
+                  {locale === "fr" ? "Contraste renforcé" : "High contrast"}
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={reducedMotion}
+                    onChange={(event) => {
+                      const next = event.target.checked;
+                      setReducedMotion(next);
+                      void fetch("/api/user-tools/preferences", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          locale,
+                          viewMode,
+                          density,
+                          textScale,
+                          highContrast,
+                          reducedMotion: next,
+                        }),
+                      });
+                    }}
+                  />
+                  {locale === "fr" ? "Réduire les animations" : "Reduce motion"}
                 </label>
               </fieldset>
             )}
@@ -2429,6 +2579,32 @@ export function Portal({
                 {titleFor(opened, openedLocale || locale)}
               </h2>
               <div className="viewer-actions">
+                <button
+                  type="button"
+                  disabled={openedIndex <= 0}
+                  onClick={() => setOpened(documents[openedIndex - 1])}
+                  aria-label={
+                    locale === "fr" ? "Document précédent" : "Previous document"
+                  }
+                  title={
+                    locale === "fr" ? "Document précédent" : "Previous document"
+                  }
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    openedIndex < 0 || openedIndex >= documents.length - 1
+                  }
+                  onClick={() => setOpened(documents[openedIndex + 1])}
+                  aria-label={
+                    locale === "fr" ? "Document suivant" : "Next document"
+                  }
+                  title={locale === "fr" ? "Document suivant" : "Next document"}
+                >
+                  →
+                </button>
                 <button
                   type="button"
                   onClick={() => setViewerExpanded((current) => !current)}
@@ -2528,6 +2704,64 @@ export function Portal({
                 ))}
               </aside>
             )}
+            <div className="document-context-grid">
+              <aside>
+                <h3>
+                  {locale === "fr" ? "Documents liés" : "Related documents"}
+                </h3>
+                {relatedDocuments.length ? (
+                  <ol>
+                    {relatedDocuments.map((document) => (
+                      <li key={document.id}>
+                        <button
+                          type="button"
+                          onClick={() => setOpened(document)}
+                        >
+                          {titleFor(document, locale)}
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p>
+                    {locale === "fr"
+                      ? "Aucun document lié dans cette catégorie."
+                      : "No related document in this category."}
+                  </p>
+                )}
+              </aside>
+              <details>
+                <summary>
+                  {locale === "fr" ? "Glossaire ISMS" : "ISMS glossary"}
+                </summary>
+                <dl>
+                  <div>
+                    <dt>ISMS / SMSI</dt>
+                    <dd>
+                      {locale === "fr"
+                        ? "Système de management de la sécurité de l’information."
+                        : "Information security management system."}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>SoA</dt>
+                    <dd>
+                      {locale === "fr"
+                        ? "Déclaration d’applicabilité des contrôles de sécurité."
+                        : "Statement of Applicability for security controls."}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>CAPA</dt>
+                    <dd>
+                      {locale === "fr"
+                        ? "Actions correctives et préventives."
+                        : "Corrective and preventive actions."}
+                    </dd>
+                  </div>
+                </dl>
+              </details>
+            </div>
             {openedPdf && opened?.permissions.preview && (
               <div
                 className="pdf-toolbar"

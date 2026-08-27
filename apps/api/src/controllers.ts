@@ -239,6 +239,9 @@ export class IdentityController {
       preferences: {
         viewMode: preference?.viewMode || "list",
         density: preference?.density || "comfortable",
+        textScale: preference?.textScale || 100,
+        highContrast: preference?.highContrast || false,
+        reducedMotion: preference?.reducedMotion || false,
       },
       authentication: {
         source: req.identity.source,
@@ -2070,6 +2073,39 @@ export class AdminController {
       data: { deletedAt: new Date() },
     });
     await this.audit.record(req, "space.archive", `space:${id}`, "success");
+    return { deleted: true };
+  }
+
+  @Delete("spaces/:id/permanent")
+  async permanentlyDeleteSpace(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+  ) {
+    const existing = await this.prisma.documentSpace.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { documents: true, categories: true, accessRules: true },
+        },
+      },
+    });
+    if (!existing) throw new NotFoundException();
+    const dependencies = existing._count;
+    if (
+      dependencies.documents > 0 ||
+      dependencies.categories > 0 ||
+      dependencies.accessRules > 0
+    ) {
+      throw new ConflictException({
+        message:
+          "Document space must be empty before it can be permanently deleted",
+        dependencies,
+      });
+    }
+    await this.prisma.documentSpace.delete({ where: { id } });
+    await this.audit.record(req, "space.delete", `space:${id}`, "success", {
+      slug: existing.slug,
+    });
     return { deleted: true };
   }
 

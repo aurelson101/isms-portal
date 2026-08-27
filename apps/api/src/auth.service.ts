@@ -445,6 +445,8 @@ export class AuthService implements OnModuleInit {
         adminAccountId: account.id,
         expiresAt,
         sourceIp: this.clientIp(request),
+        userAgent:
+          String(request.headers["user-agent"] || "").slice(0, 512) || null,
       },
     });
     response.cookie(adminCookieName, token, {
@@ -501,6 +503,7 @@ export class AuthService implements OnModuleInit {
       secure: process.env.COOKIE_SECURE === "true",
       path: "/",
       expires: expiresAt,
+      maxAge: expiresAt.getTime() - Date.now(),
     });
     return { authenticated: true, destination: "/" };
   }

@@ -21,6 +21,7 @@ import { AuditService } from "./audit.service";
 import { DirectoryService } from "./directory.service";
 import type { IsmsRequest } from "./types";
 import {
+  AdminActiveDto,
   ChangePasswordDto,
   CreateAdminDirectoryGroupDto,
   CreateAdminDto,
@@ -145,6 +146,14 @@ export class AdminAccountsController {
     );
     if (!selected)
       throw new BadRequestException("The AD group could not be verified");
+    const warningThreshold = Math.max(
+      1,
+      Number(process.env.ADMIN_GROUP_WARNING_THRESHOLD) || 100,
+    );
+    if (selected.memberCount > warningThreshold && !body.largeGroupConfirmed)
+      throw new BadRequestException(
+        `Large AD group confirmation required (${selected.memberCount} members)`,
+      );
     const existing = await this.prisma.adminDirectoryGroup.findFirst({
       where: {
         OR: [
@@ -301,6 +310,7 @@ export class AdminAccountsController {
         lastUsedAt: true,
         expiresAt: true,
         sourceIp: true,
+        userAgent: true,
         adminAccount: {
           select: { username: true, displayName: true, source: true },
         },
@@ -452,5 +462,37 @@ export class AdminAccountsController {
       "success",
     );
     return { deleted: true };
+  }
+
+  @Put(":id/active")
+  async setActive(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: AdminActiveDto,
+  ) {
+    const existing = await this.prisma.adminAccount.findUnique({
+      where: { id },
+    });
+    if (!existing) throw new NotFoundException();
+    if (existing.primary && !body.active)
+      throw new BadRequestException(
+        "The primary administrator cannot be disabled",
+      );
+    const account = await this.prisma.adminAccount.update({
+      where: { id },
+      data: { active: body.active },
+      select: { id: true, username: true, active: true },
+    });
+    if (!body.active)
+      await this.prisma.adminSession.deleteMany({
+        where: { adminAccountId: id },
+      });
+    await this.audit.record(
+      req,
+      body.active ? "admin-account.enable" : "admin-account.disable",
+      `admin:${id}`,
+      "success",
+    );
+    return account;
   }
 }

@@ -3,6 +3,9 @@ import {
   IsIn,
   IsObject,
   IsOptional,
+  IsInt,
+  Max,
+  Min,
   IsString,
   IsUUID,
   MaxLength,
@@ -18,6 +21,10 @@ export class UserPreferenceDto {
 
   @IsIn(["comfortable", "compact"])
   density!: "comfortable" | "compact";
+
+  @IsOptional() @IsInt() @Min(85) @Max(130) textScale?: number;
+  @IsOptional() @IsBoolean() highContrast?: boolean;
+  @IsOptional() @IsBoolean() reducedMotion?: boolean;
 }
 
 export class SavedSearchDto {

@@ -513,11 +513,15 @@ model ApplicationSetting {
 }
 
 model UserPreference {
-  identity  String   @id
-  locale    String   @default("fr")
-  viewMode  String   @default("list")
-  density   String   @default("comfortable")
-  updatedAt DateTime @updatedAt
+  identity      String    @id
+  locale        String    @default("fr")
+  viewMode      String    @default("list")
+  density       String    @default("comfortable")
+  textScale     Int       @default(100)
+  highContrast  Boolean   @default(false)
+  reducedMotion Boolean   @default(false)
+  lastSeenAt    DateTime?
+  updatedAt     DateTime  @updatedAt
 }
 
 model AdminAccount {
@@ -575,6 +579,7 @@ model AdminSession {
   createdAt      DateTime     @default(now())
   lastUsedAt     DateTime     @default(now())
   sourceIp       String?
+  userAgent      String?
 
   @@index([adminAccountId])
   @@index([expiresAt])

@@ -64,6 +64,11 @@ export class CreateAdminDirectoryGroupDto {
   @IsString() @MinLength(3) @MaxLength(500) justification!: string;
   @IsOptional() @IsDateString() validFrom?: string;
   @IsOptional() @IsDateString() validUntil?: string;
+  @IsOptional() @IsBoolean() largeGroupConfirmed?: boolean;
+}
+
+export class AdminActiveDto {
+  @IsBoolean() active!: boolean;
 }
 
 export class SpaceDto {
