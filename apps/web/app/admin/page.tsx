@@ -3012,6 +3012,14 @@ function DocumentsPanel({
           <textarea name="description" maxLength={2000} />
         </label>
         <label>
+          {t("Résumé des changements")}
+          <textarea
+            name="changeSummary"
+            maxLength={2000}
+            placeholder={t("Décrivez ce qui change dans cette version.")}
+          />
+        </label>
+        <label>
           {t("Fichier")}
           <input name="file" type="file" required accept=".pdf,.docx,.xlsx" />
         </label>
@@ -4167,6 +4175,16 @@ type OperationsWorkItems = {
     createdAt?: string;
     document?: { translations?: Array<{ locale: string; title: string }> };
   }>;
+  securityReports: Array<{
+    id: string;
+    identity: string;
+    reference: string;
+    category: string;
+    urgency: string;
+    description: string;
+    status: string;
+    createdAt: string;
+  }>;
 };
 
 function RequestsPanel({
@@ -4180,6 +4198,7 @@ function RequestsPanel({
   const [items, setItems] = useState<OperationsWorkItems>({
     accessRequests: [],
     reports: [],
+    securityReports: [],
   });
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState("");
@@ -4215,8 +4234,11 @@ function RequestsPanel({
     (item) => item.status === "PENDING",
   );
   const openReports = items.reports.filter((item) => item.status === "OPEN");
+  const openSecurityReports = items.securityReports.filter(
+    (item) => item.status === "OPEN",
+  );
   const update = async (
-    kind: "access" | "report",
+    kind: "access" | "report" | "security",
     id: string,
     status: string,
   ) => {
@@ -4225,7 +4247,9 @@ function RequestsPanel({
       const endpoint =
         kind === "access"
           ? `/api/admin/operations/access-requests/${id}`
-          : `/api/admin/operations/document-reports/${id}`;
+          : kind === "report"
+            ? `/api/admin/operations/document-reports/${id}`
+            : `/api/admin/operations/security-reports/${id}`;
       const response = await fetch(endpoint, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -4266,13 +4290,42 @@ function RequestsPanel({
           <strong>{openReports.length}</strong>
           <span>{t("signalements ouverts")}</span>
         </article>
+        <article>
+          <strong>{openSecurityReports.length}</strong>
+          <span>{t("incidents de sécurité ouverts")}</span>
+        </article>
       </div>
       {loading ? (
         <AdminSkeleton label={t("Chargement des demandes…")} />
-      ) : pendingRequests.length + openReports.length === 0 ? (
+      ) : pendingRequests.length +
+          openReports.length +
+          openSecurityReports.length ===
+        0 ? (
         <p className="admin-empty">{t("Aucune demande à traiter.")}</p>
       ) : (
         <div className="request-work-list">
+          {openSecurityReports.map((item) => (
+            <article className="request-work-card" key={item.id}>
+              <header>
+                <span className="status-pill warning">{item.urgency}</span>
+                <strong>
+                  {item.reference} · {t("Incident de sécurité")}
+                </strong>
+              </header>
+              <p>{item.description}</p>
+              <small>
+                {item.identity} · {item.category} ·{" "}
+                {new Date(item.createdAt).toLocaleString(locale)}
+              </small>
+              <button
+                type="button"
+                disabled={processing === item.id}
+                onClick={() => void update("security", item.id, "RESOLVED")}
+              >
+                {t("Marquer comme traité")}
+              </button>
+            </article>
+          ))}
           {pendingRequests.map((item) => (
             <article className="request-work-card" key={item.id}>
               <header>

@@ -495,8 +495,10 @@ export class DocumentsController {
         },
         versions: {
           select: {
+            id: true,
             locale: true,
             version: true,
+            changeSummary: true,
             storedFile: {
               select: { mimeType: true, originalName: true, size: true },
             },
@@ -713,6 +715,7 @@ export class DocumentsController {
           locale: body.locale,
           version: (latest?.version || 0) + 1,
           storedFileId: storedFile.id,
+          changeSummary: body.changeSummary?.trim() || null,
         },
       });
       await tx.documentTranslation.upsert({
@@ -886,6 +889,7 @@ export class DocumentsController {
             locale: true,
             version: true,
             createdAt: true,
+            changeSummary: true,
             storedFile: {
               select: { originalName: true, mimeType: true, size: true },
             },
@@ -2102,7 +2106,45 @@ export class AdminController {
         dependencies,
       });
     }
-    await this.prisma.documentSpace.delete({ where: { id } });
+    const approval = await this.prisma.sensitiveOperationApproval.findFirst({
+      where: {
+        operation: "PERMANENT_DELETE",
+        targetType: "DOCUMENT_SPACE",
+        targetId: id,
+        status: "APPROVED",
+      },
+      orderBy: { approvedAt: "desc" },
+    });
+    if (!approval) {
+      const pending = await this.prisma.sensitiveOperationApproval.findFirst({
+        where: {
+          operation: "PERMANENT_DELETE",
+          targetType: "DOCUMENT_SPACE",
+          targetId: id,
+          status: "PENDING",
+        },
+      });
+      if (!pending)
+        await this.prisma.sensitiveOperationApproval.create({
+          data: {
+            operation: "PERMANENT_DELETE",
+            targetType: "DOCUMENT_SPACE",
+            targetId: id,
+            requestedBy: req.identity.username,
+            reason: `Permanent deletion of empty document space ${existing.slug}`,
+          },
+        });
+      throw new ConflictException(
+        "A second administrator must approve this permanent deletion",
+      );
+    }
+    await this.prisma.$transaction([
+      this.prisma.documentSpace.delete({ where: { id } }),
+      this.prisma.sensitiveOperationApproval.update({
+        where: { id: approval.id },
+        data: { status: "EXECUTED" },
+      }),
+    ]);
     await this.audit.record(req, "space.delete", `space:${id}`, "success", {
       slug: existing.slug,
     });
@@ -2523,6 +2565,7 @@ export class DocumentAdminController {
           locale: body.locale,
           version: (latest?.version || 0) + 1,
           storedFileId: storedFile.id,
+          changeSummary: body.changeSummary?.trim() || null,
         },
       });
       await tx.documentTranslation.upsert({

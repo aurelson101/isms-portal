@@ -54,8 +54,10 @@ type Translation = {
   description?: string | null;
 };
 type Version = {
+  id: string;
   locale: string;
   version: number;
+  changeSummary?: string | null;
   storedFile: { mimeType: string; originalName: string; size: string | number };
 };
 type ReviewEvidence = {
@@ -550,6 +552,8 @@ export function Portal({
   const [reportMessage, setReportMessage] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportFeedback, setReportFeedback] = useState("");
+  const [securityReportOpen, setSecurityReportOpen] = useState(false);
+  const [securityReportFeedback, setSecurityReportFeedback] = useState("");
   const [editing, setEditing] = useState<PortalDocument | null>(null);
   const [depositOpen, setDepositOpen] = useState(false);
   const [actionError, setActionError] = useState("");
@@ -598,6 +602,7 @@ export function Portal({
         toolsOpen ||
         opened ||
         reporting ||
+        securityReportOpen ||
         editing ||
         depositOpen,
     );
@@ -671,6 +676,7 @@ export function Portal({
     helpOpen,
     opened,
     reporting,
+    securityReportOpen,
     sessionExpired,
     toolsOpen,
   ]);
@@ -2394,6 +2400,27 @@ export function Portal({
                       <Icon name="audit" />{" "}
                       {locale === "fr" ? "Notifications" : "Notifications"}
                     </h3>
+                    {notifications.some(
+                      (notification) =>
+                        !notification.readAt && !notification.mandatory,
+                    ) && (
+                      <button
+                        type="button"
+                        className="mark-all-seen"
+                        onClick={async () => {
+                          await fetch(
+                            "/api/user-tools/notifications/read-all",
+                            { method: "PUT" },
+                          );
+                          await loadUserTools();
+                        }}
+                      >
+                        <Icon name="publish" />
+                        {locale === "fr"
+                          ? "Tout marquer comme vu"
+                          : "Mark all as seen"}
+                      </button>
+                    )}
                     {notifications.length ? (
                       <ul>
                         {notifications.map((notification) => (
@@ -2704,6 +2731,49 @@ export function Portal({
                 ))}
               </aside>
             )}
+            {openedVersion?.changeSummary && (
+              <aside className="document-change-summary">
+                <strong>
+                  {locale === "fr"
+                    ? `Nouveautés de la version ${openedVersion.version}`
+                    : `What changed in version ${openedVersion.version}`}
+                </strong>
+                <p>{openedVersion.changeSummary}</p>
+              </aside>
+            )}
+            {openedVersion && opened.status === "PUBLISHED" && (
+              <button
+                type="button"
+                className="document-acknowledge-button"
+                onClick={async () => {
+                  const response = await fetch(
+                    "/api/user-tools/acknowledgements",
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        documentId: opened.id,
+                        versionId: openedVersion.id,
+                      }),
+                    },
+                  );
+                  setReportFeedback(
+                    response.ok
+                      ? locale === "fr"
+                        ? `Prise de connaissance enregistrée pour la version ${openedVersion.version}.`
+                        : `Acknowledgement recorded for version ${openedVersion.version}.`
+                      : locale === "fr"
+                        ? "La prise de connaissance n’a pas pu être enregistrée."
+                        : "The acknowledgement could not be recorded.",
+                  );
+                }}
+              >
+                <Icon name="publish" />
+                {locale === "fr"
+                  ? `Attester avoir lu la version ${openedVersion.version}`
+                  : `Acknowledge version ${openedVersion.version}`}
+              </button>
+            )}
             <div className="document-context-grid">
               <aside>
                 <h3>
@@ -2883,6 +2953,137 @@ export function Portal({
             ) : (
               <p>{t.fileUnavailable}</p>
             )}
+          </section>
+        </div>
+      )}
+      <button
+        type="button"
+        className="security-report-trigger"
+        onClick={() => {
+          setSecurityReportFeedback("");
+          setSecurityReportOpen(true);
+        }}
+      >
+        <Icon name="shield" />
+        {locale === "fr" ? "Signaler un incident" : "Report an incident"}
+      </button>
+      {securityReportOpen && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={() => setSecurityReportOpen(false)}
+        >
+          <section
+            className="modal small-modal security-report-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="security-report-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="modal-close"
+              aria-label={t.close}
+              onClick={() => setSecurityReportOpen(false)}
+            >
+              ×
+            </button>
+            <h2 id="security-report-title">
+              {locale === "fr"
+                ? "Signaler un événement de sécurité"
+                : "Report a security event"}
+            </h2>
+            <p>
+              {locale === "fr"
+                ? "Un numéro de suivi vous sera remis après l’envoi."
+                : "A tracking reference will be provided after submission."}
+            </p>
+            <form
+              className="admin-form"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const form = new FormData(event.currentTarget);
+                const response = await fetch(
+                  "/api/user-tools/security-reports",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      category: form.get("category"),
+                      urgency: form.get("urgency"),
+                      description: form.get("description"),
+                    }),
+                  },
+                );
+                if (!response.ok) {
+                  setSecurityReportFeedback(
+                    locale === "fr"
+                      ? "Le signalement n’a pas pu être envoyé."
+                      : "The report could not be sent.",
+                  );
+                  return;
+                }
+                const result = (await response.json()) as {
+                  reference: string;
+                };
+                setSecurityReportFeedback(
+                  locale === "fr"
+                    ? `Signalement enregistré : ${result.reference}`
+                    : `Report recorded: ${result.reference}`,
+                );
+                event.currentTarget.reset();
+              }}
+            >
+              <label>
+                {locale === "fr" ? "Type" : "Type"}
+                <select name="category" required defaultValue="INCIDENT">
+                  <option value="INCIDENT">Incident</option>
+                  <option value="PHISHING">Phishing</option>
+                  <option value="LOST_DEVICE">
+                    {locale === "fr" ? "Matériel perdu" : "Lost device"}
+                  </option>
+                  <option value="POLICY_BREACH">
+                    {locale === "fr" ? "Écart de politique" : "Policy breach"}
+                  </option>
+                  <option value="OTHER">
+                    {locale === "fr" ? "Autre" : "Other"}
+                  </option>
+                </select>
+              </label>
+              <label>
+                {locale === "fr" ? "Urgence" : "Urgency"}
+                <select name="urgency" required defaultValue="MEDIUM">
+                  <option value="LOW">
+                    {locale === "fr" ? "Faible" : "Low"}
+                  </option>
+                  <option value="MEDIUM">
+                    {locale === "fr" ? "Moyenne" : "Medium"}
+                  </option>
+                  <option value="HIGH">
+                    {locale === "fr" ? "Élevée" : "High"}
+                  </option>
+                  <option value="CRITICAL">
+                    {locale === "fr" ? "Critique" : "Critical"}
+                  </option>
+                </select>
+              </label>
+              <label>
+                {locale === "fr" ? "Description" : "Description"}
+                <textarea
+                  name="description"
+                  required
+                  minLength={10}
+                  maxLength={4000}
+                  rows={6}
+                />
+              </label>
+              {securityReportFeedback && (
+                <p role="status">{securityReportFeedback}</p>
+              )}
+              <button className="primary">
+                {locale === "fr" ? "Envoyer" : "Submit"}
+              </button>
+            </form>
           </section>
         </div>
       )}
@@ -3159,6 +3360,10 @@ export function Portal({
               <label>
                 {t.description}
                 <textarea name="description" maxLength={2000} />
+              </label>
+              <label>
+                {locale === "fr" ? "Résumé des changements" : "Change summary"}
+                <textarea name="changeSummary" maxLength={2000} />
               </label>
               <label>
                 {t.file}

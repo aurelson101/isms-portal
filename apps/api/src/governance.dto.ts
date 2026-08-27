@@ -102,3 +102,39 @@ export class GovernanceBulkDto {
   @IsString() @MinLength(2) @MaxLength(40) value!: string;
   @IsOptional() @IsBoolean() confirmed?: boolean;
 }
+
+export class RiskExceptionDto {
+  @IsString() @MinLength(3) @MaxLength(240) title!: string;
+  @IsString() @MinLength(2) @MaxLength(160) owner!: string;
+  @IsString() @MinLength(10) @MaxLength(4000) justification!: string;
+  @IsString() @MinLength(5) @MaxLength(4000) compensatingControl!: string;
+  @IsString() @MinLength(2) @MaxLength(160) approver!: string;
+  @IsDateString() expiresAt!: string;
+}
+
+export class RiskExceptionDecisionDto {
+  @IsIn(["APPROVED", "REJECTED"])
+  status!: "APPROVED" | "REJECTED";
+}
+
+export class SensitiveApprovalDto {
+  @IsIn([
+    "PERMANENT_DELETE",
+    "BROAD_PRIVILEGE",
+    "RETENTION_CHANGE",
+    "SENSITIVE_EXPORT",
+  ])
+  operation!:
+    | "PERMANENT_DELETE"
+    | "BROAD_PRIVILEGE"
+    | "RETENTION_CHANGE"
+    | "SENSITIVE_EXPORT";
+  @IsString() @MinLength(2) @MaxLength(80) targetType!: string;
+  @IsString() @MinLength(1) @MaxLength(160) targetId!: string;
+  @IsString() @MinLength(5) @MaxLength(1000) reason!: string;
+}
+
+export class SensitiveApprovalDecisionDto {
+  @IsIn(["APPROVED", "REJECTED"])
+  status!: "APPROVED" | "REJECTED";
+}
