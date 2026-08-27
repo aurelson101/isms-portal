@@ -32,7 +32,6 @@ import { ImportCertificateDto } from "./certificate.dto";
 import {
   AccessRuleDto,
   AccessRuleBulkDto,
-  AccessRuleTemplateDto,
   AccessSimulationDto,
   AccessSnapshotDto,
   AnnualIncidentReportDto,
@@ -1721,77 +1720,6 @@ export class AdminController {
         };
       })
       .filter((entry) => entry.newRule || entry.changes.length > 0);
-  }
-
-  @Get("access-rule-templates")
-  accessRuleTemplates() {
-    return this.prisma.accessRuleTemplate.findMany({
-      orderBy: { name: "asc" },
-    });
-  }
-
-  @Post("access-rule-templates")
-  async createAccessRuleTemplate(
-    @Req() req: IsmsRequest,
-    @Body() body: AccessRuleTemplateDto,
-  ) {
-    const template = await this.prisma.accessRuleTemplate.create({
-      data: {
-        ...body,
-        name: body.name.trim(),
-        description: body.description?.trim() || null,
-      },
-    });
-    await this.audit.record(
-      req,
-      "access-template.create",
-      `access-template:${template.id}`,
-      "success",
-    );
-    return template;
-  }
-
-  @Put("access-rule-templates/:id")
-  async updateAccessRuleTemplate(
-    @Req() req: IsmsRequest,
-    @Param("id") id: string,
-    @Body() body: AccessRuleTemplateDto,
-  ) {
-    const existing = await this.prisma.accessRuleTemplate.findUnique({
-      where: { id },
-    });
-    if (!existing) throw new NotFoundException();
-    const template = await this.prisma.accessRuleTemplate.update({
-      where: { id },
-      data: {
-        ...body,
-        name: body.name.trim(),
-        description: body.description?.trim() || null,
-      },
-    });
-    await this.audit.record(
-      req,
-      "access-template.update",
-      `access-template:${id}`,
-      "success",
-      { before: existing, after: template },
-    );
-    return template;
-  }
-
-  @Delete("access-rule-templates/:id")
-  async deleteAccessRuleTemplate(
-    @Req() req: IsmsRequest,
-    @Param("id") id: string,
-  ) {
-    await this.prisma.accessRuleTemplate.delete({ where: { id } });
-    await this.audit.record(
-      req,
-      "access-template.delete",
-      `access-template:${id}`,
-      "success",
-    );
-    return { deleted: true };
   }
 
   @Put("spaces/:id/owner")
