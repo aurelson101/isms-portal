@@ -45,6 +45,24 @@ export class DocumentReportDto {
   @IsOptional() @IsString() @MaxLength(2000) message?: string;
 }
 
+export class DocumentAcknowledgementDto {
+  @IsString() @MinLength(1) @MaxLength(160) documentId!: string;
+  @IsString() @MinLength(1) @MaxLength(160) versionId!: string;
+}
+
+export class SecurityReportDto {
+  @IsIn(["INCIDENT", "PHISHING", "LOST_DEVICE", "POLICY_BREACH", "OTHER"])
+  category!:
+    | "INCIDENT"
+    | "PHISHING"
+    | "LOST_DEVICE"
+    | "POLICY_BREACH"
+    | "OTHER";
+  @IsIn(["LOW", "MEDIUM", "HIGH", "CRITICAL"])
+  urgency!: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  @IsString() @MinLength(10) @MaxLength(4000) description!: string;
+}
+
 export class ReviewDto {
   @IsIn(["APPROVED", "REJECTED", "RESOLVED"])
   status!: "APPROVED" | "REJECTED" | "RESOLVED";

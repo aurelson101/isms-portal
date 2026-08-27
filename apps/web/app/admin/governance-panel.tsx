@@ -76,6 +76,37 @@ type DirectoryUser = {
   displayName: string;
   email: string | null;
 };
+type RiskException = {
+  id: string;
+  title: string;
+  owner: string;
+  justification: string;
+  compensatingControl: string;
+  approver: string;
+  status: string;
+  expiresAt: string;
+  approvedBy: string | null;
+};
+type SensitiveApproval = {
+  id: string;
+  operation: string;
+  targetType: string;
+  targetId: string;
+  requestedBy: string;
+  reason: string;
+  status: string;
+  approvedBy: string | null;
+};
+type Kpi = {
+  generatedAt: string;
+  documents: { total: number; published: number; publicationRate: number };
+  controls: { total: number; implemented: number; implementationRate: number };
+  reviews: { overdue: number };
+  incidents: { annual: number; resolved: number; resolutionRate: number };
+  risks: { openExceptions: number; expiringExceptions: number };
+  approvals: { pending: number };
+  acknowledgements: { annual: number };
+};
 
 const jsonApi = async <T,>(url: string, options?: RequestInit): Promise<T> => {
   const response = await fetch(url, options);
@@ -138,6 +169,8 @@ const sectionsForErrors = (locale: Locale) =>
         "incidents",
         "identités",
         "vues",
+        "dérogations",
+        "pilotage",
       ]
     : [
         "summary",
@@ -148,6 +181,8 @@ const sectionsForErrors = (locale: Locale) =>
         "incidents",
         "identities",
         "views",
+        "exceptions",
+        "dashboard",
       ];
 
 export function GovernancePanel({
@@ -177,6 +212,11 @@ export function GovernancePanel({
     {},
   );
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [riskExceptions, setRiskExceptions] = useState<RiskException[]>([]);
+  const [sensitiveApprovals, setSensitiveApprovals] = useState<
+    SensitiveApproval[]
+  >([]);
+  const [kpi, setKpi] = useState<Kpi | null>(null);
   const [selectedIncidentIds, setSelectedIncidentIds] = useState<string[]>([]);
   const [bulkPreview, setBulkPreview] = useState<{
     count: number;
@@ -198,6 +238,9 @@ export function GovernancePanel({
         "/api/admin/governance/identity-health?dormantDays=90",
       ),
       jsonApi<SavedView[]>("/api/admin/governance/saved-views"),
+      jsonApi<RiskException[]>("/api/admin/governance/risk-exceptions"),
+      jsonApi<SensitiveApproval[]>("/api/admin/governance/sensitive-approvals"),
+      jsonApi<Kpi>("/api/admin/governance/kpi"),
     ] as const;
     const results = await Promise.allSettled(requests);
     const setters = [
@@ -209,6 +252,9 @@ export function GovernancePanel({
       setIncidents,
       setIdentityHealth,
       setSavedViews,
+      setRiskExceptions,
+      setSensitiveApprovals,
+      setKpi,
     ] as const;
     const failed: string[] = [];
     const names = sectionsForErrors(locale);
@@ -267,6 +313,18 @@ export function GovernancePanel({
       summary.incidents || 0,
     ],
     ["views", "Vues et lots", "Views and bulk", savedViews.length],
+    [
+      "risks",
+      "Dérogations",
+      "Exceptions",
+      riskExceptions.filter((item) => item.status === "PENDING").length,
+    ],
+    [
+      "dashboard",
+      "Pilotage KPI/KRI",
+      "KPI/KRI dashboard",
+      sensitiveApprovals.filter((item) => item.status === "PENDING").length,
+    ],
   ] as const;
 
   return (
@@ -406,9 +464,287 @@ export function GovernancePanel({
               onNotice={onNotice}
             />
           )}
+          {section === "risks" && (
+            <RiskExceptionsSection
+              locale={locale}
+              items={riskExceptions}
+              submit={submit}
+            />
+          )}
+          {section === "dashboard" && (
+            <KpiSection
+              locale={locale}
+              kpi={kpi}
+              approvals={sensitiveApprovals}
+              submit={submit}
+            />
+          )}
         </div>
       )}
     </section>
+  );
+}
+
+function RiskExceptionsSection({
+  locale,
+  items,
+  submit,
+}: {
+  locale: Locale;
+  items: RiskException[];
+  submit: (
+    url: string,
+    body: Record<string, unknown>,
+    method?: string,
+  ) => Promise<void>;
+}) {
+  const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const [draft, setDraft] = useState({
+    title: "",
+    owner: "",
+    justification: "",
+    compensatingControl: "",
+    approver: "",
+    expiresAt: "",
+  });
+  return (
+    <div className="governance-grid">
+      <form
+        className="admin-form governance-form"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          await submit("/api/admin/governance/risk-exceptions", {
+            ...draft,
+            expiresAt: new Date(draft.expiresAt).toISOString(),
+          });
+          setDraft({
+            title: "",
+            owner: "",
+            justification: "",
+            compensatingControl: "",
+            approver: "",
+            expiresAt: "",
+          });
+        }}
+      >
+        <h2>{t("Créer une dérogation", "Create an exception")}</h2>
+        {(
+          [
+            ["title", "Titre", "Title"],
+            ["owner", "Propriétaire", "Owner"],
+            ["approver", "Approbateur distinct", "Distinct approver"],
+          ] as const
+        ).map(([key, fr, en]) => (
+          <label key={key}>
+            {t(fr, en)}
+            <input
+              required
+              value={draft[key]}
+              onChange={(event) =>
+                setDraft({ ...draft, [key]: event.target.value })
+              }
+            />
+          </label>
+        ))}
+        <label>
+          {t("Justification", "Justification")}
+          <textarea
+            required
+            minLength={10}
+            value={draft.justification}
+            onChange={(event) =>
+              setDraft({ ...draft, justification: event.target.value })
+            }
+          />
+        </label>
+        <label>
+          {t("Mesure compensatoire", "Compensating control")}
+          <textarea
+            required
+            minLength={5}
+            value={draft.compensatingControl}
+            onChange={(event) =>
+              setDraft({ ...draft, compensatingControl: event.target.value })
+            }
+          />
+        </label>
+        <label>
+          {t("Expiration", "Expiry")}
+          <input
+            required
+            type="datetime-local"
+            value={draft.expiresAt}
+            onChange={(event) =>
+              setDraft({ ...draft, expiresAt: event.target.value })
+            }
+          />
+        </label>
+        <button className="primary">{t("Créer", "Create")}</button>
+      </form>
+      <section className="governance-list">
+        <h2>{t("Registre des dérogations", "Exception register")}</h2>
+        {items.map((item) => (
+          <article className="governance-card" key={item.id}>
+            <strong>{item.title}</strong>
+            <span>{statusLabel(locale, item.status)}</span>
+            <p>{item.justification}</p>
+            <small>
+              {t("Expiration", "Expiry")}:{" "}
+              {new Date(item.expiresAt).toLocaleString(locale)}
+            </small>
+            {item.status === "PENDING" && (
+              <div className="button-row">
+                <button
+                  type="button"
+                  onClick={() =>
+                    void submit(
+                      `/api/admin/governance/risk-exceptions/${item.id}/decision`,
+                      { status: "APPROVED" },
+                      "PUT",
+                    )
+                  }
+                >
+                  {t("Approuver", "Approve")}
+                </button>
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={() =>
+                    void submit(
+                      `/api/admin/governance/risk-exceptions/${item.id}/decision`,
+                      { status: "REJECTED" },
+                      "PUT",
+                    )
+                  }
+                >
+                  {t("Refuser", "Reject")}
+                </button>
+              </div>
+            )}
+          </article>
+        ))}
+      </section>
+    </div>
+  );
+}
+
+function KpiSection({
+  locale,
+  kpi,
+  approvals,
+  submit,
+}: {
+  locale: Locale;
+  kpi: Kpi | null;
+  approvals: SensitiveApproval[];
+  submit: (
+    url: string,
+    body: Record<string, unknown>,
+    method?: string,
+  ) => Promise<void>;
+}) {
+  const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const metrics = kpi
+    ? [
+        [
+          t("Documents publiés", "Published documents"),
+          `${kpi.documents.publicationRate}%`,
+        ],
+        [
+          t("Contrôles mis en œuvre", "Implemented controls"),
+          `${kpi.controls.implementationRate}%`,
+        ],
+        [
+          t("Incidents résolus", "Resolved incidents"),
+          `${kpi.incidents.resolutionRate}%`,
+        ],
+        [t("Revues en retard", "Overdue reviews"), kpi.reviews.overdue],
+        [
+          t("Dérogations ouvertes", "Open exceptions"),
+          kpi.risks.openExceptions,
+        ],
+        [
+          t("Attestations annuelles", "Annual acknowledgements"),
+          kpi.acknowledgements.annual,
+        ],
+      ]
+    : [];
+  return (
+    <div className="governance-dashboard">
+      {kpi && (
+        <button
+          type="button"
+          onClick={() => {
+            const rows = [
+              ["generatedAt", kpi.generatedAt],
+              ...metrics.map(([label, value]) => [
+                String(label),
+                String(value),
+              ]),
+            ];
+            const csv = rows
+              .map((row) =>
+                row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(","),
+              )
+              .join("\n");
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(
+              new Blob([csv], { type: "text/csv" }),
+            );
+            link.download = `isms-kpi-kri-${new Date(kpi.generatedAt).toISOString().slice(0, 10)}.csv`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+          }}
+        >
+          <Icon name="download" /> {t("Exporter CSV daté", "Export dated CSV")}
+        </button>
+      )}
+      <section className="governance-summary" aria-label="KPI KRI">
+        {metrics.map(([label, value]) => (
+          <article key={label}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </article>
+        ))}
+      </section>
+      <section className="governance-list">
+        <h2>{t("Approbations sensibles", "Sensitive approvals")}</h2>
+        {approvals.map((approval) => (
+          <article className="governance-card" key={approval.id}>
+            <strong>{approval.operation}</strong>
+            <span>
+              {approval.targetType} · {approval.targetId}
+            </span>
+            <p>{approval.reason}</p>
+            <small>
+              {approval.requestedBy} · {statusLabel(locale, approval.status)}
+            </small>
+            {approval.status === "PENDING" && (
+              <div className="button-row">
+                {(["APPROVED", "REJECTED"] as const).map((status) => (
+                  <button
+                    type="button"
+                    className={status === "REJECTED" ? "danger" : ""}
+                    key={status}
+                    onClick={() =>
+                      void submit(
+                        `/api/admin/governance/sensitive-approvals/${approval.id}/decision`,
+                        { status },
+                        "PUT",
+                      )
+                    }
+                  >
+                    {status === "APPROVED"
+                      ? t("Approuver", "Approve")
+                      : t("Refuser", "Reject")}
+                  </button>
+                ))}
+              </div>
+            )}
+          </article>
+        ))}
+      </section>
+    </div>
   );
 }
 

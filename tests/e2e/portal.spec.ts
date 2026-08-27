@@ -560,8 +560,16 @@ test("document spaces provide a clear responsive content hierarchy", async ({
   const deleted = await request.delete(
     `/api/admin/spaces/${emptySpace.id}/permanent`,
   );
-  expect(deleted.ok()).toBeTruthy();
-  expect(await deleted.json()).toEqual({ deleted: true });
+  expect(deleted.status()).toBe(409);
+  expect(await deleted.json()).toMatchObject({
+    message: "A second administrator must approve this permanent deletion",
+  });
+  const approvals = (await (
+    await request.get("/api/admin/governance/sensitive-approvals")
+  ).json()) as Array<{ targetId: string; status: string }>;
+  expect(approvals).toContainEqual(
+    expect.objectContaining({ targetId: emptySpace.id, status: "PENDING" }),
+  );
 });
 
 test("administration is fully switchable between French and English", async ({
@@ -1554,6 +1562,40 @@ test("governance workflows support lifetime access, reviews, SoA, retention, ide
   });
   expect(control.status()).toBe(201);
 
+  const exception = await request.post(
+    "/api/admin/governance/risk-exceptions",
+    {
+      data: {
+        title: `Dérogation ${governanceRun}`,
+        owner: "metier@example.test",
+        approver: "rssi@example.test",
+        justification: "Exception temporaire nécessaire pour la recette.",
+        compensatingControl: "Surveillance renforcée et revue hebdomadaire.",
+        expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+      },
+    },
+  );
+  expect(exception.status()).toBe(201);
+  const exceptionBody = (await exception.json()) as { id: string };
+  expect(
+    (
+      await request.put(
+        `/api/admin/governance/risk-exceptions/${exceptionBody.id}/decision`,
+        { data: { status: "APPROVED" } },
+      )
+    ).ok(),
+  ).toBeTruthy();
+  const kpi = await request.get("/api/admin/governance/kpi");
+  expect(kpi.ok()).toBeTruthy();
+  expect(await kpi.json()).toMatchObject({
+    documents: {
+      total: expect.any(Number),
+      publicationRate: expect.any(Number),
+    },
+    controls: { implementationRate: expect.any(Number) },
+    incidents: { resolutionRate: expect.any(Number) },
+  });
+
   const retention = await request.put("/api/admin/governance/retention", {
     data: {
       documentId,
@@ -1790,6 +1832,7 @@ test("personal tools persist searches, preferences, access requests and reports"
   const documents = (await documentsResponse.json()) as Array<{
     id: string;
     space: { id: string };
+    versions: Array<{ id: string; version: number }>;
   }>;
   expect(documents.length).toBeGreaterThan(0);
   const document = documents[0];
@@ -1828,6 +1871,38 @@ test("personal tools persist searches, preferences, access requests and reports"
     textScale: 100,
     highContrast: false,
     reducedMotion: false,
+  });
+
+  const securityReport = await request.post(
+    "/api/user-tools/security-reports",
+    {
+      data: {
+        category: "PHISHING",
+        urgency: "HIGH",
+        description: "Courriel suspect reçu pendant la recette fonctionnelle.",
+      },
+    },
+  );
+  expect(securityReport.status()).toBe(201);
+  expect(await securityReport.json()).toMatchObject({
+    reference: expect.stringMatching(/^SEC-/),
+    status: "OPEN",
+  });
+  expect(document.versions.length).toBeGreaterThan(0);
+  const acknowledgement = await request.post(
+    "/api/user-tools/acknowledgements",
+    {
+      data: {
+        documentId: document.id,
+        versionId: document.versions[0].id,
+      },
+    },
+  );
+  expect(acknowledgement.status()).toBe(201);
+  expect(await acknowledgement.json()).toMatchObject({
+    documentId: document.id,
+    versionId: document.versions[0].id,
+    sha256: expect.any(String),
   });
 
   const accessRequestResponse = await request.post(
@@ -1930,7 +2005,11 @@ test("personal tools persist searches, preferences, access requests and reports"
       node ? getComputedStyle(node).backgroundColor : null,
     );
   });
-  expect(personalColors).not.toContain("rgb(255, 255, 255)");
+  expect(personalColors).toEqual([
+    "rgb(255, 255, 255)",
+    "rgb(248, 250, 252)",
+    "rgb(5, 7, 11)",
+  ]);
   expect(new Set(personalColors.filter(Boolean)).size).toBeGreaterThan(1);
   const deleteButton = workspace.getByRole("button", { name: "Supprimer" });
   await expect(deleteButton).toBeVisible();

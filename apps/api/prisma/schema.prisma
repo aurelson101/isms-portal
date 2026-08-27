@@ -304,11 +304,77 @@ model DocumentVersion {
   distributedStoredFileId String?
   distributedStoredFile   StoredFile?      @relation("DistributedDocumentVersion", fields: [distributedStoredFileId], references: [id])
   createdAt               DateTime         @default(now())
+  changeSummary           String?
   reviews                 DocumentReview[]
 
   @@unique([documentId, locale, version])
   @@index([storedFileId])
   @@index([distributedStoredFileId])
+}
+
+model DocumentAcknowledgement {
+  id             String   @id @default(uuid())
+  identity       String
+  documentId     String
+  versionId      String
+  version        Int
+  locale         String
+  sha256         String
+  acknowledgedAt DateTime @default(now())
+
+  @@unique([identity, versionId])
+  @@index([identity, acknowledgedAt])
+  @@index([documentId, version])
+}
+
+model SecurityReport {
+  id          String   @id @default(uuid())
+  identity    String
+  category    String
+  urgency     String
+  description String
+  status      String   @default("OPEN")
+  reference   String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, urgency, createdAt])
+  @@index([identity, createdAt])
+}
+
+model RiskException {
+  id                  String    @id @default(uuid())
+  title               String
+  owner               String
+  justification       String
+  compensatingControl String
+  approver            String
+  status              String    @default("PENDING")
+  expiresAt           DateTime
+  approvedBy          String?
+  approvedAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([status, expiresAt])
+  @@index([owner, createdAt])
+}
+
+model SensitiveOperationApproval {
+  id          String    @id @default(uuid())
+  operation   String
+  targetType  String
+  targetId    String
+  requestedBy String
+  reason      String
+  status      String    @default("PENDING")
+  approvedBy  String?
+  approvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
 }
 
 model StoredFile {

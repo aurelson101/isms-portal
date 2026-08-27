@@ -23,8 +23,12 @@ import {
   IncidentCaseDto,
   RetentionDecisionDto,
   RetentionPolicyDto,
+  RiskExceptionDecisionDto,
+  RiskExceptionDto,
   ReviewDecisionDto,
   SavedViewDto,
+  SensitiveApprovalDecisionDto,
+  SensitiveApprovalDto,
 } from "./governance.dto";
 import { PrismaService } from "./prisma.service";
 import { AdminOnly } from "./security";
@@ -77,6 +81,232 @@ export class GovernanceController {
       overdueActions,
       certifications,
     };
+  }
+
+  @Get("kpi")
+  async kpi() {
+    const now = new Date();
+    const since = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+    const [
+      documents,
+      published,
+      overdueReviews,
+      controls,
+      implementedControls,
+      incidents,
+      resolvedIncidents,
+      openRisks,
+      expiringExceptions,
+      pendingApprovals,
+      acknowledgements,
+    ] = await Promise.all([
+      this.prisma.document.count({ where: { deletedAt: null } }),
+      this.prisma.document.count({
+        where: { deletedAt: null, status: "PUBLISHED" },
+      }),
+      this.prisma.documentReview.count({
+        where: { dueAt: { lt: now }, status: { in: ["PENDING", "IN_REVIEW"] } },
+      }),
+      this.prisma.complianceControl.count(),
+      this.prisma.complianceControl.count({
+        where: { implementationStatus: "IMPLEMENTED" },
+      }),
+      this.prisma.incidentCase.count({ where: { occurredAt: { gte: since } } }),
+      this.prisma.incidentCase.count({
+        where: {
+          occurredAt: { gte: since },
+          status: { in: ["RESOLVED", "CLOSED"] },
+        },
+      }),
+      this.prisma.riskException.count({ where: { status: "PENDING" } }),
+      this.prisma.riskException.count({
+        where: {
+          status: "APPROVED",
+          expiresAt: { lte: new Date(now.getTime() + 30 * 86400000) },
+        },
+      }),
+      this.prisma.sensitiveOperationApproval.count({
+        where: { status: "PENDING" },
+      }),
+      this.prisma.documentAcknowledgement.count({
+        where: { acknowledgedAt: { gte: since } },
+      }),
+    ]);
+    return {
+      generatedAt: now,
+      documents: {
+        total: documents,
+        published,
+        publicationRate: documents
+          ? Math.round((published / documents) * 100)
+          : 0,
+      },
+      controls: {
+        total: controls,
+        implemented: implementedControls,
+        implementationRate: controls
+          ? Math.round((implementedControls / controls) * 100)
+          : 0,
+      },
+      reviews: { overdue: overdueReviews },
+      incidents: {
+        annual: incidents,
+        resolved: resolvedIncidents,
+        resolutionRate: incidents
+          ? Math.round((resolvedIncidents / incidents) * 100)
+          : 0,
+      },
+      risks: { openExceptions: openRisks, expiringExceptions },
+      approvals: { pending: pendingApprovals },
+      acknowledgements: { annual: acknowledgements },
+    };
+  }
+
+  @Get("risk-exceptions")
+  riskExceptions() {
+    return this.prisma.riskException.findMany({
+      orderBy: [{ status: "asc" }, { expiresAt: "asc" }],
+      take: 300,
+    });
+  }
+
+  @Post("risk-exceptions")
+  async createRiskException(
+    @Req() req: IsmsRequest,
+    @Body() body: RiskExceptionDto,
+  ) {
+    if (body.owner.trim().toLowerCase() === body.approver.trim().toLowerCase())
+      throw new BadRequestException("Owner and approver must be distinct");
+    if (new Date(body.expiresAt) <= new Date())
+      throw new BadRequestException("Expiry must be in the future");
+    const item = await this.prisma.riskException.create({
+      data: {
+        ...body,
+        title: body.title.trim(),
+        owner: body.owner.trim(),
+        approver: body.approver.trim(),
+        justification: body.justification.trim(),
+        compensatingControl: body.compensatingControl.trim(),
+        expiresAt: new Date(body.expiresAt),
+      },
+    });
+    await this.audit.record(
+      req,
+      "risk-exception.create",
+      `risk-exception:${item.id}`,
+      "success",
+      { expiresAt: item.expiresAt },
+    );
+    return item;
+  }
+
+  @Put("risk-exceptions/:id/decision")
+  async decideRiskException(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: RiskExceptionDecisionDto,
+  ) {
+    const existing = await this.prisma.riskException.findUnique({
+      where: { id },
+    });
+    if (!existing) throw new NotFoundException();
+    if (existing.status !== "PENDING")
+      throw new ConflictException("Exception already decided");
+    if (existing.owner.toLowerCase() === req.identity.username.toLowerCase())
+      throw new ConflictException("Owner cannot approve their own exception");
+    const item = await this.prisma.riskException.update({
+      where: { id },
+      data: {
+        status: body.status,
+        approvedBy: req.identity.username,
+        approvedAt: new Date(),
+      },
+    });
+    await this.audit.record(
+      req,
+      "risk-exception.decision",
+      `risk-exception:${id}`,
+      "success",
+      { status: body.status },
+    );
+    return item;
+  }
+
+  @Get("sensitive-approvals")
+  sensitiveApprovals() {
+    return this.prisma.sensitiveOperationApproval.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 300,
+    });
+  }
+
+  @Post("sensitive-approvals")
+  async requestSensitiveApproval(
+    @Req() req: IsmsRequest,
+    @Body() body: SensitiveApprovalDto,
+  ) {
+    const pending = await this.prisma.sensitiveOperationApproval.findFirst({
+      where: {
+        operation: body.operation,
+        targetType: body.targetType,
+        targetId: body.targetId,
+        status: "PENDING",
+      },
+    });
+    if (pending) throw new ConflictException("Approval already pending");
+    const item = await this.prisma.sensitiveOperationApproval.create({
+      data: {
+        ...body,
+        requestedBy: req.identity.username,
+        reason: body.reason.trim(),
+      },
+    });
+    await this.audit.record(
+      req,
+      "sensitive-approval.request",
+      `sensitive-approval:${item.id}`,
+      "success",
+      {
+        operation: item.operation,
+        targetType: item.targetType,
+        targetId: item.targetId,
+      },
+    );
+    return item;
+  }
+
+  @Put("sensitive-approvals/:id/decision")
+  async decideSensitiveApproval(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: SensitiveApprovalDecisionDto,
+  ) {
+    const existing = await this.prisma.sensitiveOperationApproval.findUnique({
+      where: { id },
+    });
+    if (!existing) throw new NotFoundException();
+    if (existing.status !== "PENDING")
+      throw new ConflictException("Approval already decided");
+    if (
+      existing.requestedBy.toLowerCase() === req.identity.username.toLowerCase()
+    )
+      throw new ConflictException("A second administrator is required");
+    const item = await this.prisma.sensitiveOperationApproval.update({
+      where: { id },
+      data: {
+        status: body.status,
+        approvedBy: req.identity.username,
+        approvedAt: new Date(),
+      },
+    });
+    await this.audit.record(
+      req,
+      "sensitive-approval.decision",
+      `sensitive-approval:${id}`,
+      "success",
+      { status: body.status },
+    );
+    return item;
   }
 
   @Get("reviews")

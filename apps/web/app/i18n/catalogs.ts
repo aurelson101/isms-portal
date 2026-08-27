@@ -341,6 +341,9 @@ export const adminEnglishCatalog = {
   "Modèle de permissions modifié.": "Permission template updated.",
   "Modèle de permissions supprimé.": "Permission template deleted.",
   "Supprimer ce modèle de permissions ?": "Delete this permission template?",
+  "Résumé des changements": "Change summary",
+  "Décrivez ce qui change dans cette version.":
+    "Describe what changed in this version.",
   "Appliquer maintenant": "Apply now",
   "Modèle appliqué immédiatement.": "Template applied immediately.",
   droits: "permissions",

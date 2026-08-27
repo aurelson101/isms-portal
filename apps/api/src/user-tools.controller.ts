@@ -14,6 +14,7 @@ import {
 } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import type { Response } from "express";
+import { randomUUID } from "crypto";
 import { AdminOnly } from "./security";
 import { PrismaService } from "./prisma.service";
 import { AuthorizationService } from "./authorization.service";
@@ -23,9 +24,11 @@ import {
   AccessRequestDto,
   AlertPolicyDto,
   DocumentReportDto,
+  DocumentAcknowledgementDto,
   ObservabilityOptionsDto,
   ReviewDto,
   SavedSearchDto,
+  SecurityReportDto,
   UserPreferenceDto,
 } from "./user-tools.dto";
 
@@ -266,6 +269,107 @@ export class UserToolsController {
     return report;
   }
 
+  @Post("acknowledgements")
+  async acknowledgeDocument(
+    @Req() req: IsmsRequest,
+    @Body() body: DocumentAcknowledgementDto,
+  ) {
+    const version = await this.prisma.documentVersion.findFirst({
+      where: { id: body.versionId, documentId: body.documentId },
+      include: {
+        document: { select: { spaceId: true, status: true, deletedAt: true } },
+        storedFile: { select: { sha256: true } },
+      },
+    });
+    if (
+      !version ||
+      version.document.deletedAt ||
+      version.document.status !== "PUBLISHED" ||
+      !(await this.authorization.can(
+        req.identity.groups,
+        version.document.spaceId,
+        "read",
+      ))
+    )
+      throw new NotFoundException();
+    const acknowledgement = await this.prisma.documentAcknowledgement.upsert({
+      where: {
+        identity_versionId: {
+          identity: req.identity.username,
+          versionId: version.id,
+        },
+      },
+      update: { acknowledgedAt: new Date(), sha256: version.storedFile.sha256 },
+      create: {
+        identity: req.identity.username,
+        documentId: body.documentId,
+        versionId: version.id,
+        version: version.version,
+        locale: version.locale,
+        sha256: version.storedFile.sha256,
+      },
+    });
+    await this.audit.record(
+      req,
+      "document.acknowledge",
+      `document:${body.documentId}`,
+      "success",
+      {
+        versionId: version.id,
+        version: version.version,
+        sha256: version.storedFile.sha256,
+      },
+    );
+    return acknowledgement;
+  }
+
+  @Get("acknowledgements")
+  acknowledgements(@Req() req: IsmsRequest) {
+    return this.prisma.documentAcknowledgement.findMany({
+      where: { identity: req.identity.username },
+      orderBy: { acknowledgedAt: "desc" },
+      take: 200,
+    });
+  }
+
+  @Post("security-reports")
+  async securityReport(
+    @Req() req: IsmsRequest,
+    @Body() body: SecurityReportDto,
+  ) {
+    const reference = `SEC-${new Date().getUTCFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const report = await this.prisma.securityReport.create({
+      data: {
+        identity: req.identity.username,
+        category: body.category,
+        urgency: body.urgency,
+        description: body.description.trim(),
+        reference,
+      },
+    });
+    await this.audit.record(
+      req,
+      "security-report.create",
+      `security-report:${report.id}`,
+      "success",
+      { reference, urgency: body.urgency, category: body.category },
+    );
+    return { reference: report.reference, status: report.status };
+  }
+
+  @Put("notifications/read-all")
+  async readAllNotifications(@Req() req: IsmsRequest) {
+    const updated = await this.prisma.userNotification.updateMany({
+      where: {
+        identity: req.identity.username,
+        readAt: null,
+        mandatory: false,
+      },
+      data: { readAt: new Date() },
+    });
+    return { read: updated.count };
+  }
+
   @Get("notifications")
   notifications(@Req() req: IsmsRequest) {
     return this.prisma.userNotification.findMany({
@@ -363,7 +467,7 @@ export class OperationsController {
 
   @Get("work-items")
   async workItems() {
-    const [accessRequests, reports] = await Promise.all([
+    const [accessRequests, reports, securityReports] = await Promise.all([
       this.prisma.accessRequest.findMany({
         orderBy: { createdAt: "desc" },
         take: 100,
@@ -373,8 +477,34 @@ export class OperationsController {
         take: 100,
         include: { document: { select: { translations: true } } },
       }),
+      this.prisma.securityReport.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      }),
     ]);
-    return { accessRequests, reports };
+    return { accessRequests, reports, securityReports };
+  }
+
+  @Put("security-reports/:id")
+  async resolveSecurityReport(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: ReviewDto,
+  ) {
+    if (body.status !== "RESOLVED")
+      throw new BadRequestException("Security report status must be RESOLVED");
+    const report = await this.prisma.securityReport.update({
+      where: { id },
+      data: { status: "RESOLVED" },
+    });
+    await this.audit.record(
+      req,
+      "security-report.resolve",
+      `security-report:${id}`,
+      "success",
+      { reference: report.reference },
+    );
+    return report;
   }
 
   @Put("access-requests/:id")
