@@ -4418,7 +4418,10 @@ svg {
   padding: 0.55rem 0.8rem;
   border: 1px solid #374151;
   border-radius: 0.55rem;
-  background: #05070b;
+  /* Keep every workspace section visibly black, even when a generic button
+     theme resets the background shorthand later in the cascade. */
+  background-color: #05070b !important;
+  background-image: none;
   color: #f8fafc;
   font-weight: 700;
 }
