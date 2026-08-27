@@ -335,6 +335,7 @@ export const adminEnglishCatalog = {
   "Groupes séparés par des virgules": "Comma-separated groups",
   Simuler: "Simulate",
   "Résumé des changements": "Change summary",
+  "Télécharger la pièce jointe": "Download attachment",
   "Décrivez ce qui change dans cette version.":
     "Describe what changed in this version.",
   "Matrice modifiable et aperçu": "Editable matrix and preview",

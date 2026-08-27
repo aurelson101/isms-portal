@@ -115,6 +115,7 @@ export class RiskExceptionDto {
 export class RiskExceptionDecisionDto {
   @IsIn(["APPROVED", "REJECTED"])
   status!: "APPROVED" | "REJECTED";
+  @IsOptional() @IsDateString() expiresAt?: string;
 }
 
 export class SensitiveApprovalDto {

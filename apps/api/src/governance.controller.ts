@@ -14,6 +14,7 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { AuditService } from "./audit.service";
+import { SensitiveApprovalService } from "./sensitive-approval.service";
 import {
   AccessCertificationDto,
   ComplianceControlDto,
@@ -42,7 +43,41 @@ export class GovernanceController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly sensitiveApprovalGate: SensitiveApprovalService,
   ) {}
+
+  private async refreshRiskExceptions() {
+    const reviewAt = new Date(Date.now() + 30 * 86400000);
+    const due = await this.prisma.riskException.findMany({
+      where: {
+        status: "APPROVED",
+        reviewNotifiedAt: null,
+        expiresAt: { lte: reviewAt },
+      },
+      take: 100,
+    });
+    for (const item of due) {
+      const identities = [...new Set([item.owner, item.approver])];
+      await this.prisma.$transaction([
+        this.prisma.riskException.update({
+          where: { id: item.id },
+          data: { status: "REVIEW_DUE", reviewNotifiedAt: new Date() },
+        }),
+        ...identities.map((identity) =>
+          this.prisma.userNotification.create({
+            data: {
+              identity,
+              title: "Dérogation à renouveler",
+              message: `${item.title} expire le ${item.expiresAt.toISOString()}`,
+              mandatory: true,
+              resourceType: "risk-exception",
+              resourceId: item.id,
+            },
+          }),
+        ),
+      ]);
+    }
+  }
 
   @Get("summary")
   async summary() {
@@ -85,6 +120,7 @@ export class GovernanceController {
 
   @Get("kpi")
   async kpi() {
+    await this.refreshRiskExceptions();
     const now = new Date();
     const since = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
     const [
@@ -163,7 +199,8 @@ export class GovernanceController {
   }
 
   @Get("risk-exceptions")
-  riskExceptions() {
+  async riskExceptions() {
+    await this.refreshRiskExceptions();
     return this.prisma.riskException.findMany({
       orderBy: [{ status: "asc" }, { expiresAt: "asc" }],
       take: 300,
@@ -210,16 +247,29 @@ export class GovernanceController {
       where: { id },
     });
     if (!existing) throw new NotFoundException();
-    if (existing.status !== "PENDING")
+    if (!["PENDING", "REVIEW_DUE"].includes(existing.status))
       throw new ConflictException("Exception already decided");
-    if (existing.owner.toLowerCase() === req.identity.username.toLowerCase())
-      throw new ConflictException("Owner cannot approve their own exception");
+    if (existing.approver.toLowerCase() !== req.identity.username.toLowerCase())
+      throw new ConflictException("Only the designated approver can decide");
+    const expiresAt = body.expiresAt
+      ? new Date(body.expiresAt)
+      : existing.expiresAt;
+    if (
+      body.status === "APPROVED" &&
+      existing.status === "REVIEW_DUE" &&
+      expiresAt <= new Date(Date.now() + 30 * 86400000)
+    )
+      throw new BadRequestException(
+        "Renewal expiry must be more than 30 days away",
+      );
     const item = await this.prisma.riskException.update({
       where: { id },
       data: {
         status: body.status,
         approvedBy: req.identity.username,
         approvedAt: new Date(),
+        expiresAt,
+        reviewNotifiedAt: null,
       },
     });
     await this.audit.record(
@@ -618,6 +668,19 @@ export class GovernanceController {
       throw new BadRequestException(
         "Retention requires a date or a legal hold",
       );
+    const existingPolicy = await this.prisma.retentionPolicy.findUnique({
+      where: { documentId: body.documentId },
+      select: { id: true },
+    });
+    const approvalId = existingPolicy
+      ? await this.sensitiveApprovalGate.require(
+          req,
+          "RETENTION_CHANGE",
+          "DOCUMENT",
+          body.documentId,
+          body.reason.trim(),
+        )
+      : "";
     const policy = await this.prisma.retentionPolicy.upsert({
       where: { documentId: body.documentId },
       create: {
@@ -653,6 +716,7 @@ export class GovernanceController {
         retentionUntil: policy.retentionUntil,
       },
     );
+    await this.sensitiveApprovalGate.execute(approvalId);
     return policy;
   }
 

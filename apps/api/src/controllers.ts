@@ -52,6 +52,8 @@ import { DirectoryService } from "./directory.service";
 import { parseCaCertificates } from "./certificate.parser";
 import { validateDirectoryHosts } from "./directory-host";
 import { WatermarkService } from "./watermark.service";
+import { compareDocumentVersions } from "./document-diff";
+import { SensitiveApprovalService } from "./sensitive-approval.service";
 import { ObservabilityService } from "./observability.service";
 import { safeSsoPath } from "./http-security";
 
@@ -498,6 +500,7 @@ export class DocumentsController {
             locale: true,
             version: true,
             changeSummary: true,
+            changeDetails: true,
             storedFile: {
               select: { mimeType: true, originalName: true, size: true },
             },
@@ -691,7 +694,18 @@ export class DocumentsController {
       const latest = await tx.documentVersion.findFirst({
         where: { documentId, locale: body.locale },
         orderBy: { version: "desc" },
+        include: { storedFile: true },
       });
+      const automatedChange = latest
+        ? compareDocumentVersions(
+            await this.storage.getBuffer(latest.storedFile.objectKey),
+            file.buffer,
+            extension,
+          )
+        : {
+            details: { added: [], removed: [], modified: [] },
+            summary: "Initial version",
+          };
       const storedFile = await tx.storedFile.create({
         data: {
           objectKey,
@@ -714,7 +728,8 @@ export class DocumentsController {
           locale: body.locale,
           version: (latest?.version || 0) + 1,
           storedFileId: storedFile.id,
-          changeSummary: body.changeSummary?.trim() || null,
+          changeSummary: body.changeSummary?.trim() || automatedChange.summary,
+          changeDetails: automatedChange.details,
         },
       });
       await tx.documentTranslation.upsert({
@@ -889,6 +904,7 @@ export class DocumentsController {
             version: true,
             createdAt: true,
             changeSummary: true,
+            changeDetails: true,
             storedFile: {
               select: { originalName: true, mimeType: true, size: true },
             },
@@ -1100,6 +1116,7 @@ export class AdminController {
     private readonly audit: AuditService,
     private readonly crypto: CryptoService,
     private readonly directory: DirectoryService,
+    private readonly sensitiveApprovals: SensitiveApprovalService,
   ) {}
 
   private async validateAccessRuleTargets(body: AccessRuleDto) {
@@ -1902,6 +1919,7 @@ export class AdminController {
 
   @Get("access-snapshots/:id/export")
   async exportAccessSnapshot(
+    @Req() req: IsmsRequest,
     @Param("id") id: string,
     @Res() response: Response,
   ) {
@@ -1909,6 +1927,14 @@ export class AdminController {
       where: { id },
     });
     if (!snapshot) throw new NotFoundException();
+    const approvalId = await this.sensitiveApprovals.require(
+      req,
+      "SENSITIVE_EXPORT",
+      "ACCESS_SNAPSHOT",
+      id,
+      `Export signed access snapshot ${snapshot.label}`,
+    );
+    await this.sensitiveApprovals.execute(approvalId);
     response.setHeader("Content-Type", "application/json; charset=utf-8");
     response.setHeader(
       "Content-Disposition",
@@ -2214,14 +2240,24 @@ export class AdminController {
 
   @Get("audit/export")
   async exportAudit(
+    @Req() req: IsmsRequest,
     @Res() response: Response,
     @Query("format") format = "json",
   ) {
+    const normalizedFormat = format === "csv" ? "csv" : "json";
+    const approvalId = await this.sensitiveApprovals.require(
+      req,
+      "SENSITIVE_EXPORT",
+      "AUDIT_LOG",
+      normalizedFormat,
+      `Export audit log as ${normalizedFormat}`,
+    );
     const items = await this.prisma.auditEvent.findMany({
       orderBy: { occurredAt: "desc" },
       take: 10000,
     });
-    if (format === "csv") {
+    await this.sensitiveApprovals.execute(approvalId);
+    if (normalizedFormat === "csv") {
       const escape = (value: unknown) =>
         `"${String(value ?? "").replace(/"/g, '""')}"`;
       const lines = [
@@ -2470,7 +2506,18 @@ export class DocumentAdminController {
       const latest = await tx.documentVersion.findFirst({
         where: { documentId, locale: body.locale },
         orderBy: { version: "desc" },
+        include: { storedFile: true },
       });
+      const automatedChange = latest
+        ? compareDocumentVersions(
+            await this.storage.getBuffer(latest.storedFile.objectKey),
+            file.buffer,
+            extension,
+          )
+        : {
+            details: { added: [], removed: [], modified: [] },
+            summary: "Initial version",
+          };
       const storedFile = await tx.storedFile.create({
         data: {
           objectKey,
@@ -2493,7 +2540,8 @@ export class DocumentAdminController {
           locale: body.locale,
           version: (latest?.version || 0) + 1,
           storedFileId: storedFile.id,
-          changeSummary: body.changeSummary?.trim() || null,
+          changeSummary: body.changeSummary?.trim() || automatedChange.summary,
+          changeDetails: automatedChange.details,
         },
       });
       await tx.documentTranslation.upsert({

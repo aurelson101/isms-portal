@@ -11,14 +11,20 @@ import {
   Query,
   Req,
   Res,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import type { Prisma } from "@prisma/client";
 import type { Response } from "express";
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
+import { basename, extname } from "path";
 import { AdminOnly } from "./security";
 import { PrismaService } from "./prisma.service";
 import { AuthorizationService } from "./authorization.service";
 import { AuditService } from "./audit.service";
+import { StorageService } from "./storage.service";
+import { AntivirusService } from "./antivirus.service";
 import type { IsmsRequest } from "./types";
 import {
   AccessRequestDto,
@@ -43,12 +49,31 @@ const allowedFilterKeys = new Set([
   "favorites",
 ]);
 
+const securityAttachmentTypes: Record<string, string[]> = {
+  ".pdf": ["application/pdf"],
+  ".png": ["image/png"],
+  ".jpg": ["image/jpeg"],
+  ".jpeg": ["image/jpeg"],
+  ".txt": ["text/plain"],
+};
+
+const validSecurityAttachmentMagic = (buffer: Buffer, extension: string) => {
+  if (extension === ".pdf") return buffer.subarray(0, 5).toString() === "%PDF-";
+  if (extension === ".png")
+    return buffer.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex"));
+  if ([".jpg", ".jpeg"].includes(extension))
+    return buffer[0] === 0xff && buffer[1] === 0xd8;
+  return extension === ".txt" && !buffer.includes(0);
+};
+
 @Controller("user-tools")
 export class UserToolsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authorization: AuthorizationService,
     private readonly audit: AuditService,
+    private readonly storage: StorageService,
+    private readonly antivirus: AntivirusService,
   ) {}
 
   @Get("recent")
@@ -180,10 +205,45 @@ export class UserToolsController {
 
   @Post("access-requests")
   async requestAccess(@Req() req: IsmsRequest, @Body() body: AccessRequestDto) {
-    const space = await this.prisma.documentSpace.findFirst({
-      where: { id: body.spaceId, deletedAt: null },
-      select: { id: true },
-    });
+    const requestedUntil = body.requestedUntil
+      ? new Date(body.requestedUntil)
+      : new Date(Date.now() + 30 * 86400000);
+    if (
+      requestedUntil <= new Date() ||
+      requestedUntil > new Date(Date.now() + 90 * 86400000)
+    )
+      throw new BadRequestException(
+        "Requested access expiry must be within the next 90 days",
+      );
+    const [space, matchedGroup] = await Promise.all([
+      this.prisma.documentSpace.findFirst({
+        where: { id: body.spaceId, deletedAt: null },
+        select: { id: true },
+      }),
+      this.prisma.directoryGroup.findFirst({
+        where: {
+          active: true,
+          OR: req.identity.groups.map((name) => ({
+            name: { equals: name, mode: "insensitive" as const },
+          })),
+        },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+    ]);
+    const eligibleGroup =
+      matchedGroup ||
+      (req.identity.source === "local-admin"
+        ? await this.prisma.directoryGroup.findFirst({
+            where: { active: true },
+            orderBy: { name: "asc" },
+            select: { id: true, name: true },
+          })
+        : null);
+    if (!eligibleGroup)
+      throw new BadRequestException(
+        "No application AD group is available for temporary access",
+      );
     const document = body.documentId
       ? await this.prisma.document.findFirst({
           where: {
@@ -215,6 +275,8 @@ export class UserToolsController {
         identity: req.identity.username,
         spaceId: body.spaceId,
         documentId: body.documentId,
+        groupId: eligibleGroup.id,
+        requestedUntil,
         justification: body.justification.trim(),
       },
     });
@@ -333,20 +395,70 @@ export class UserToolsController {
   }
 
   @Post("security-reports")
+  @UseInterceptors(
+    FileInterceptor("attachment", {
+      limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+    }),
+  )
   async securityReport(
     @Req() req: IsmsRequest,
     @Body() body: SecurityReportDto,
+    @UploadedFile() attachment?: Express.Multer.File,
   ) {
     const reference = `SEC-${new Date().getUTCFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`;
-    const report = await this.prisma.securityReport.create({
-      data: {
-        identity: req.identity.username,
-        category: body.category,
-        urgency: body.urgency,
-        description: body.description.trim(),
-        reference,
-      },
-    });
+    const reportId = randomUUID();
+    let attachmentData = {};
+    if (attachment) {
+      const extension = extname(attachment.originalname).toLowerCase();
+      if (
+        !securityAttachmentTypes[extension]?.includes(attachment.mimetype) ||
+        !validSecurityAttachmentMagic(attachment.buffer, extension)
+      )
+        throw new BadRequestException("Invalid security attachment");
+      const scan = await this.antivirus.scan(attachment.buffer);
+      if (scan.status !== "CLEAN")
+        throw new BadRequestException(
+          "Security attachment was rejected by antivirus",
+        );
+      const sha256 = createHash("sha256")
+        .update(attachment.buffer)
+        .digest("hex");
+      const objectKey = `security-reports/${reportId}/${randomUUID()}${extension}`;
+      await this.storage.putObject(objectKey, attachment.buffer, {
+        "Content-Type": attachment.mimetype,
+        "X-Isms-Sha256": sha256,
+      });
+      attachmentData = {
+        attachmentObjectKey: objectKey,
+        attachmentOriginalName: basename(attachment.originalname).replace(
+          /[^a-zA-Z0-9._ -]/g,
+          "_",
+        ),
+        attachmentMimeType: attachment.mimetype,
+        attachmentSize: attachment.size,
+        attachmentSha256: sha256,
+      };
+    }
+    let report;
+    try {
+      report = await this.prisma.securityReport.create({
+        data: {
+          id: reportId,
+          identity: req.identity.username,
+          category: body.category,
+          urgency: body.urgency,
+          description: body.description.trim(),
+          reference,
+          ...attachmentData,
+        },
+      });
+    } catch (error) {
+      if (attachment && "attachmentObjectKey" in attachmentData)
+        await this.storage
+          .removeObject(String(attachmentData.attachmentObjectKey))
+          .catch(() => undefined);
+      throw error;
+    }
     await this.audit.record(
       req,
       "security-report.create",
@@ -438,6 +550,7 @@ export class OperationsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly storage: StorageService,
   ) {}
 
   @Get("summary")
@@ -507,6 +620,26 @@ export class OperationsController {
     return report;
   }
 
+  @Get("security-reports/:id/attachment")
+  async securityReportAttachment(
+    @Param("id") id: string,
+    @Res() response: Response,
+  ) {
+    const report = await this.prisma.securityReport.findUnique({
+      where: { id },
+    });
+    if (!report?.attachmentObjectKey) throw new NotFoundException();
+    response.setHeader(
+      "Content-Type",
+      report.attachmentMimeType || "application/octet-stream",
+    );
+    response.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${(report.attachmentOriginalName || "evidence").replace(/["\\]/g, "_")}"`,
+    );
+    (await this.storage.getObject(report.attachmentObjectKey)).pipe(response);
+  }
+
   @Put("access-requests/:id")
   async reviewAccess(
     @Req() req: IsmsRequest,
@@ -515,14 +648,40 @@ export class OperationsController {
   ) {
     if (body.status === "RESOLVED")
       throw new BadRequestException("Invalid access request status");
-    const request = await this.prisma.accessRequest.update({
+    const existing = await this.prisma.accessRequest.findUnique({
       where: { id },
-      data: {
-        status: body.status,
-        decision: body.decision || null,
-        reviewedBy: req.identity.username,
-        reviewedAt: new Date(),
-      },
+    });
+    if (!existing) throw new NotFoundException();
+    if (existing.status !== "PENDING")
+      throw new BadRequestException("Access request is already decided");
+    if (
+      body.status === "APPROVED" &&
+      (!existing.groupId || !existing.requestedUntil)
+    )
+      throw new BadRequestException(
+        "Access request has no temporary grant target",
+      );
+    const request = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.accessRequest.update({
+        where: { id },
+        data: {
+          status: body.status,
+          decision: body.decision || null,
+          reviewedBy: req.identity.username,
+          reviewedAt: new Date(),
+        },
+      });
+      if (body.status === "APPROVED")
+        await tx.temporaryAccessGrant.create({
+          data: {
+            requestId: id,
+            groupId: existing.groupId!,
+            spaceId: existing.spaceId,
+            validUntil: existing.requestedUntil!,
+            createdBy: req.identity.username,
+          },
+        });
+      return updated;
     });
     await this.prisma.userNotification.create({
       data: {

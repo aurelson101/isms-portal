@@ -4690,6 +4690,46 @@ svg {
   background: #eff6ff;
 }
 
+.document-change-details {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0 1rem 1rem;
+  padding: 0.8rem;
+  border: 1px solid #b8c9df;
+  border-radius: 0.65rem;
+  background: #f8fafc;
+}
+
+.document-change-details summary {
+  color: #071a38;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.document-change-details del,
+.document-change-details ins {
+  display: block;
+  padding: 0.55rem;
+  border-radius: 0.4rem;
+  text-decoration-thickness: 2px;
+  white-space: pre-wrap;
+}
+
+.document-change-details del {
+  background: #fff0f0;
+  color: #842323;
+}
+
+.document-change-details ins {
+  background: #ecf9f0;
+  color: #155f34;
+}
+
+.change-modified {
+  display: grid;
+  gap: 0.35rem;
+}
+
 .document-change-summary p {
   margin: 0.4rem 0 0;
 }
