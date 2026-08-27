@@ -664,6 +664,14 @@ test("successful asynchronous forms reset without losing their element", async (
     await accountForm
       .locator('textarea[name="justification"]')
       .fill("Functional test administrator");
+    const validFrom = new Date(Date.now() + 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 16);
+    const validUntil = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 16);
+    await accountForm.locator('input[name="validFrom"]').fill(validFrom);
+    await accountForm.locator('input[name="validUntil"]').fill(validUntil);
     await accountForm.getByRole("button", { name: "Ajouter" }).click();
     await expect(accountForm.locator('input[name="username"]')).toHaveValue("");
     await expect(
@@ -671,6 +679,19 @@ test("successful asynchronous forms reset without losing their element", async (
         .locator(".admin-account-list > div")
         .filter({ hasText: adminDisplayName }),
     ).toContainText(adminUsername);
+    const createdAccount = (await (
+      await request.get("/api/admin/accounts")
+    ).json()) as Array<{
+      username: string;
+      validFrom: string | null;
+      validUntil: string | null;
+    }>;
+    expect(
+      createdAccount.find((item) => item.username === adminUsername),
+    ).toMatchObject({
+      validFrom: expect.any(String),
+      validUntil: expect.any(String),
+    });
   } finally {
     const accounts = (await (
       await request.get("/api/admin/accounts")
@@ -1900,6 +1921,11 @@ test("personal tools persist searches, preferences, access requests and reports"
   await expect(
     workspace.getByRole("button", { name: "Fermer mon espace" }),
   ).toBeVisible();
+
+  expect((await request.delete("/api/user-tools/recent")).ok()).toBeTruthy();
+  expect(await (await request.get("/api/user-tools/recent")).json()).toEqual(
+    [],
+  );
 
   expect(
     (

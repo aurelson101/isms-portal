@@ -94,12 +94,20 @@ export class AdminAccountsController {
     private readonly directory: DirectoryService,
   ) {}
 
-  private lifecycle(validUntil?: string) {
+  private lifecycle(validUntil?: string, validFrom?: string) {
+    if (Boolean(validFrom) !== Boolean(validUntil))
+      throw new BadRequestException(
+        "Temporary privileges require both a start and an expiry",
+      );
+    const start = validFrom ? new Date(validFrom) : null;
     const expiry = validUntil ? new Date(validUntil) : null;
     if (expiry && expiry <= new Date())
       throw new BadRequestException("Privilege expiry must be in the future");
+    if (start && expiry && expiry <= start)
+      throw new BadRequestException("Privilege expiry must follow its start");
     const reviewedAt = new Date();
     return {
+      validFrom: start,
       validUntil: expiry,
       lastReviewedAt: reviewedAt,
       reviewDueAt: new Date(reviewedAt.getTime() + 180 * 24 * 60 * 60 * 1000),
@@ -157,7 +165,7 @@ export class AdminAccountsController {
         name: selected.name,
         distinguishedName: selected.distinguishedName,
         justification: body.justification.trim(),
-        ...this.lifecycle(body.validUntil),
+        ...this.lifecycle(body.validUntil, body.validFrom),
       },
     });
     await this.audit.record(
@@ -218,6 +226,7 @@ export class AdminAccountsController {
         primary: true,
         justification: true,
         validUntil: true,
+        validFrom: true,
         lastAuthorizedAt: true,
         lastReviewedAt: true,
         reviewDueAt: true,
@@ -238,7 +247,7 @@ export class AdminAccountsController {
         displayName: body.displayName.trim(),
         source: body.source,
         justification: body.justification.trim(),
-        ...this.lifecycle(body.validUntil),
+        ...this.lifecycle(body.validUntil, body.validFrom),
         passwordHash:
           body.source === "LOCAL"
             ? await this.auth.hashPassword(body.password!)

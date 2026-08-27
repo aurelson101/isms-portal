@@ -224,6 +224,8 @@ export class AuthService implements OnModuleInit {
         session &&
         session.expiresAt > new Date() &&
         session.adminAccount.active &&
+        (!session.adminAccount.validFrom ||
+          session.adminAccount.validFrom <= new Date()) &&
         (!session.adminAccount.validUntil ||
           session.adminAccount.validUntil > new Date())
       ) {
@@ -279,7 +281,10 @@ export class AuthService implements OnModuleInit {
           },
           source: "DIRECTORY",
           active: true,
-          OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
+          AND: [
+            { OR: [{ validFrom: null }, { validFrom: { lte: new Date() } }] },
+            { OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }] },
+          ],
         },
       }),
       enrichedIdentity.groups.length
@@ -287,6 +292,9 @@ export class AuthService implements OnModuleInit {
             where: {
               active: true,
               AND: [
+                {
+                  OR: [{ validFrom: null }, { validFrom: { lte: new Date() } }],
+                },
                 {
                   OR: [
                     { validUntil: null },
@@ -399,6 +407,7 @@ export class AuthService implements OnModuleInit {
     const valid =
       account?.source === "LOCAL" &&
       account.active &&
+      (!account.validFrom || account.validFrom <= new Date()) &&
       (!account.validUntil || account.validUntil > new Date()) &&
       (await this.verifyPassword(password, account.passwordHash));
     if (!valid) {

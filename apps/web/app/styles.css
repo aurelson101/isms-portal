@@ -3972,6 +3972,67 @@ svg {
   gap: 24px;
   background: #f8fbff;
 }
+
+.dashboard-attention {
+  margin: 1rem 0;
+  padding: 1.1rem;
+  border: 1px solid #d7e2f2;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.dashboard-attention-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dashboard-attention-heading h2,
+.dashboard-attention-heading p {
+  margin: 0;
+}
+
+.dashboard-attention-heading > strong {
+  min-width: 2.4rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 999px;
+  background: #fff0dd;
+  color: #9a4b00;
+  text-align: center;
+}
+
+.dashboard-attention-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.dashboard-attention-grid button {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.dashboard-attention-grid button.warning {
+  border-color: #efb56d;
+  background: #fff8ee;
+}
+
+.dashboard-attention-grid button.clear strong {
+  color: #138a52;
+}
+
+.clear-recent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.8rem;
+}
 .dashboard-shortcuts h2,
 .dashboard-shortcuts p {
   margin: 0;
