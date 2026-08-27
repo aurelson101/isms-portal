@@ -527,23 +527,6 @@ model AdminSavedView {
   @@index([identity, section, updatedAt])
 }
 
-model AccessRuleTemplate {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  showMenu    Boolean  @default(false)
-  read        Boolean  @default(false)
-  search      Boolean  @default(false)
-  preview     Boolean  @default(false)
-  download    Boolean  @default(false)
-  upload      Boolean  @default(false)
-  edit        Boolean  @default(false)
-  publish     Boolean  @default(false)
-  archive     Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
 model AccessSnapshot {
   id        String   @id @default(uuid())
   label     String

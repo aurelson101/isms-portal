@@ -111,20 +111,6 @@ export class AccessRuleDto {
   @IsOptional() @IsString() @MaxLength(500) justification?: string;
 }
 
-export class AccessRuleTemplateDto {
-  @IsString() @MinLength(2) @MaxLength(120) name!: string;
-  @IsOptional() @IsString() @MaxLength(500) description?: string;
-  @IsBoolean() showMenu!: boolean;
-  @IsBoolean() read!: boolean;
-  @IsBoolean() search!: boolean;
-  @IsBoolean() preview!: boolean;
-  @IsBoolean() download!: boolean;
-  @IsBoolean() upload!: boolean;
-  @IsBoolean() edit!: boolean;
-  @IsBoolean() publish!: boolean;
-  @IsBoolean() archive!: boolean;
-}
-
 export class AccessRuleBulkDto {
   @IsArray()
   @ValidateNested({ each: true })

@@ -2520,7 +2520,6 @@ h1 {
 }
 
 .annual-report-actions .incident-action,
-.permission-template-actions button,
 .schedule-next-review {
   display: inline-flex;
   align-items: center;
@@ -2538,7 +2537,6 @@ h1 {
 }
 
 .annual-report-actions .incident-action svg,
-.permission-template-actions svg,
 .schedule-next-review svg {
   width: 1rem;
   height: 1rem;
@@ -2551,47 +2549,15 @@ h1 {
   color: #0759bd;
 }
 
-.annual-report-actions .incident-action.delete,
-.permission-template-actions .danger {
+.annual-report-actions .incident-action.delete {
   border-color: #e0b7b7;
   color: #a12424;
 }
 
 .annual-report-actions .incident-action.delete:hover,
-.annual-report-actions .incident-action.delete:focus-visible,
-.permission-template-actions .danger:hover,
-.permission-template-actions .danger:focus-visible {
+.annual-report-actions .incident-action.delete:focus-visible {
   border-color: #c83838;
   background: #fff2f2;
-}
-
-.permission-template-list {
-  display: grid;
-  gap: 0.65rem;
-  padding: 0;
-  list-style: none;
-}
-
-.permission-template-list > li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.8rem;
-  border: 1px solid #d5dfed;
-  border-radius: 0.65rem;
-  background: #f8fbff;
-}
-
-.permission-template-list > li > span {
-  display: grid;
-  gap: 0.2rem;
-}
-
-.permission-template-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 }
 
 .document-review-evidence {
@@ -2665,16 +2631,6 @@ h1 {
 }
 
 @media (max-width: 700px) {
-  .permission-template-list > li,
-  .permission-template-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .permission-template-actions button {
-    width: 100%;
-  }
-
   .document-review-evidence dl {
     grid-template-columns: 1fr;
   }

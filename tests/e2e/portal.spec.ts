@@ -1341,6 +1341,9 @@ test("AD groups can be added, suggested in search and deleted", async ({
 test("access rules can be created, updated and deleted", async ({
   request,
 }) => {
+  expect((await request.get("/api/admin/access-rule-templates")).status()).toBe(
+    404,
+  );
   const suffix = Date.now().toString(36);
   const groupResponse = await request.post("/api/admin/groups", {
     data: {
@@ -1354,7 +1357,6 @@ test("access rules can be created, updated and deleted", async ({
     await request.get("/api/admin/spaces")
   ).json()) as Array<{ id: string }>;
   let ruleId = "";
-  let templateId = "";
 
   try {
     const ruleTemplate = {
@@ -1415,37 +1417,7 @@ test("access rules can be created, updated and deleted", async ({
     );
     expect(updatedResponse.ok()).toBeTruthy();
     expect((await updatedResponse.json()).download).toBe(true);
-
-    const templateResponse = await request.post(
-      "/api/admin/access-rule-templates",
-      {
-        data: { ...ruleTemplate, name: `Template ${suffix}` },
-      },
-    );
-    expect(templateResponse.status()).toBe(201);
-    templateId = ((await templateResponse.json()) as { id: string }).id;
-    const updatedTemplate = await request.put(
-      `/api/admin/access-rule-templates/${templateId}`,
-      {
-        data: {
-          ...ruleTemplate,
-          name: `Template modifié ${suffix}`,
-          download: true,
-        },
-      },
-    );
-    expect(updatedTemplate.ok()).toBeTruthy();
-    expect(await updatedTemplate.json()).toMatchObject({
-      name: `Template modifié ${suffix}`,
-      download: true,
-    });
   } finally {
-    if (templateId)
-      expect(
-        (
-          await request.delete(`/api/admin/access-rule-templates/${templateId}`)
-        ).ok(),
-      ).toBeTruthy();
     if (ruleId)
       expect(
         (await request.delete(`/api/admin/access-rules/${ruleId}`)).ok(),

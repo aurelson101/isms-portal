@@ -136,16 +136,6 @@ type Rule = {
   lifetime?: boolean;
   justification?: string | null;
 };
-type RuleTemplate = Omit<
-  Rule,
-  | "groupId"
-  | "spaceId"
-  | "group"
-  | "space"
-  | "validFrom"
-  | "validUntil"
-  | "justification"
-> & { name: string; description?: string | null };
 type Certificate = {
   id: string;
   name: string;
@@ -1838,8 +1828,6 @@ function AccessGovernancePanel({
   onNotice: (message: string) => void;
 }) {
   const { locale, t } = useAdminI18n();
-  const confirmAction = useContext(ConfirmContext);
-  const [templates, setTemplates] = useState<RuleTemplate[]>([]);
   const [anomalies, setAnomalies] = useState<
     Array<{
       ruleId: string;
@@ -1871,14 +1859,6 @@ function AccessGovernancePanel({
       Space & { permissions: Record<(typeof permissionKeys)[number], boolean> }
     >;
   } | null>(null);
-  const [templateName, setTemplateName] = useState("");
-  const [templatePermissions, setTemplatePermissions] = useState(emptyRule());
-  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(
-    null,
-  );
-  const [templateToApply, setTemplateToApply] = useState("");
-  const [templateGroup, setTemplateGroup] = useState("");
-  const [templateSpace, setTemplateSpace] = useState("");
   const [matrixRules, setMatrixRules] = useState<Rule[]>(rules);
   const [diff, setDiff] = useState<
     Array<{
@@ -1898,14 +1878,11 @@ function AccessGovernancePanel({
 
   const loadGovernance = useCallback(async () => {
     try {
-      const [nextTemplates, nextAnomalies, nextAttention, nextSnapshots] =
-        await Promise.all([
-          api<RuleTemplate[]>("/api/admin/access-rule-templates"),
-          api<typeof anomalies>("/api/admin/access-rules/anomalies"),
-          api<NonNullable<typeof attention>>("/api/admin/access-attention"),
-          api<typeof snapshots>("/api/admin/access-snapshots"),
-        ]);
-      setTemplates(nextTemplates);
+      const [nextAnomalies, nextAttention, nextSnapshots] = await Promise.all([
+        api<typeof anomalies>("/api/admin/access-rules/anomalies"),
+        api<NonNullable<typeof attention>>("/api/admin/access-attention"),
+        api<typeof snapshots>("/api/admin/access-snapshots"),
+      ]);
       setAnomalies(nextAnomalies);
       setAttention(nextAttention);
       setSnapshots(nextSnapshots);
@@ -2017,229 +1994,6 @@ function AccessGovernancePanel({
             </table>
           </div>
         )}
-      </details>
-
-      <details>
-        <summary>{t("Modèles de permissions")}</summary>
-        <div className="admin-form inline-form">
-          <input
-            aria-label={t("Nom du modèle")}
-            value={templateName}
-            onChange={(event) => setTemplateName(event.target.value)}
-          />
-          {permissionKeys.map((key) => (
-            <label className="toggle" key={key}>
-              {permissionLabels[key][locale === "fr" ? 0 : 1]}
-              <input
-                type="checkbox"
-                checked={templatePermissions[key]}
-                onChange={(event) =>
-                  setTemplatePermissions({
-                    ...templatePermissions,
-                    [key]: event.target.checked,
-                  })
-                }
-              />
-            </label>
-          ))}
-          <button
-            type="button"
-            disabled={templateName.trim().length < 2}
-            onClick={() =>
-              void api(
-                editingTemplateId
-                  ? `/api/admin/access-rule-templates/${editingTemplateId}`
-                  : "/api/admin/access-rule-templates",
-                {
-                  method: editingTemplateId ? "PUT" : "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    name: templateName,
-                    description: "",
-                    ...Object.fromEntries(
-                      permissionKeys.map((key) => [
-                        key,
-                        templatePermissions[key],
-                      ]),
-                    ),
-                  }),
-                },
-              )
-                .then(async () => {
-                  setTemplateName("");
-                  setTemplatePermissions(emptyRule());
-                  setEditingTemplateId(null);
-                  await loadGovernance();
-                  onNotice(
-                    t(
-                      editingTemplateId
-                        ? "Modèle de permissions modifié."
-                        : "Modèle de permissions créé.",
-                    ),
-                  );
-                })
-                .catch((error) => onError(error.message))
-            }
-          >
-            {editingTemplateId ? t("Enregistrer") : t("Créer le modèle")}
-          </button>
-          {editingTemplateId && (
-            <button
-              type="button"
-              onClick={() => {
-                setEditingTemplateId(null);
-                setTemplateName("");
-                setTemplatePermissions(emptyRule());
-              }}
-            >
-              {t("Annuler")}
-            </button>
-          )}
-        </div>
-        <ul className="permission-template-list">
-          {templates.map((template) => (
-            <li key={template.id}>
-              <span>
-                <strong>{template.name}</strong>
-                <small>
-                  {permissionKeys.filter((key) => template[key]).length}{" "}
-                  {t("droits")}
-                </small>
-              </span>
-              <div className="permission-template-actions">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingTemplateId(template.id);
-                    setTemplateName(template.name);
-                    setTemplatePermissions({
-                      ...emptyRule(),
-                      ...Object.fromEntries(
-                        permissionKeys.map((key) => [key, template[key]]),
-                      ),
-                    });
-                  }}
-                >
-                  <Icon name="settings" /> {t("Modifier")}
-                </button>
-                <button
-                  type="button"
-                  className="danger"
-                  onClick={async () => {
-                    if (
-                      !(await confirmAction(
-                        t("Supprimer ce modèle de permissions ?"),
-                      ))
-                    )
-                      return;
-                    await api(
-                      `/api/admin/access-rule-templates/${template.id}`,
-                      {
-                        method: "DELETE",
-                      },
-                    )
-                      .then(async () => {
-                        if (editingTemplateId === template.id) {
-                          setEditingTemplateId(null);
-                          setTemplateName("");
-                          setTemplatePermissions(emptyRule());
-                        }
-                        await loadGovernance();
-                        onNotice(t("Modèle de permissions supprimé."));
-                      })
-                      .catch((error) => onError(error.message));
-                  }}
-                >
-                  <Icon name="delete" /> {t("Supprimer")}
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-        <div className="admin-form inline-form">
-          <select
-            aria-label={t("Modèle à appliquer")}
-            value={templateToApply}
-            onChange={(event) => setTemplateToApply(event.target.value)}
-          >
-            <option value="">{t("Choisir un modèle")}</option>
-            {templates.map((template) => (
-              <option key={template.id} value={template.id}>
-                {template.name}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label={t("Groupe cible")}
-            value={templateGroup}
-            onChange={(event) => setTemplateGroup(event.target.value)}
-          >
-            <option value="">{t("Choisir un groupe")}</option>
-            {groups
-              .filter((group) => group.active)
-              .map((group) => (
-                <option key={group.id} value={group.id}>
-                  {group.name}
-                </option>
-              ))}
-          </select>
-          <select
-            aria-label={t("Espace cible")}
-            value={templateSpace}
-            onChange={(event) => setTemplateSpace(event.target.value)}
-          >
-            <option value="">{t("Choisir un espace")}</option>
-            {spaces.map((space) => (
-              <option key={space.id} value={space.id}>
-                {locale === "fr" ? space.nameFr : space.nameEn}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            disabled={!templateToApply || !templateGroup || !templateSpace}
-            onClick={() => {
-              const template = templates.find(
-                (item) => item.id === templateToApply,
-              );
-              const group = groups.find((item) => item.id === templateGroup);
-              const space = spaces.find((item) => item.id === templateSpace);
-              if (!template || !group || !space) return;
-              const existingRule = matrixRules.find(
-                (rule) =>
-                  rule.groupId === group.id && rule.spaceId === space.id,
-              );
-              const payload = {
-                groupId: group.id,
-                spaceId: space.id,
-                ...Object.fromEntries(
-                  permissionKeys.map((key) => [key, template[key]]),
-                ),
-                lifetime: true,
-                justification: `Modèle: ${template.name}`,
-              };
-              void api(
-                existingRule
-                  ? `/api/admin/access-rules/${existingRule.id}`
-                  : "/api/admin/access-rules",
-                {
-                  method: existingRule ? "PUT" : "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(payload),
-                },
-              )
-                .then(async () => {
-                  setDiff([]);
-                  await onChanged();
-                  await loadGovernance();
-                  onNotice(t("Modèle appliqué immédiatement."));
-                })
-                .catch((error) => onError(error.message));
-            }}
-          >
-            {t("Appliquer maintenant")}
-          </button>
-        </div>
       </details>
 
       <details>
