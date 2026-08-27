@@ -500,6 +500,22 @@ export class DocumentsController {
           },
           orderBy: { version: "desc" },
         },
+        reviews: {
+          where: { status: "APPROVED", decidedAt: { not: null } },
+          select: {
+            id: true,
+            owner: true,
+            reviewer: true,
+            approver: true,
+            decisionComment: true,
+            decidedBy: true,
+            decidedAt: true,
+            dueAt: true,
+            version: { select: { locale: true, version: true } },
+          },
+          orderBy: { decidedAt: "desc" },
+          take: 5,
+        },
         favorites: {
           where: { identity: req.identity.username },
           select: { identity: true },
@@ -1682,6 +1698,34 @@ export class AdminController {
       "access-template.create",
       `access-template:${template.id}`,
       "success",
+    );
+    return template;
+  }
+
+  @Put("access-rule-templates/:id")
+  async updateAccessRuleTemplate(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: AccessRuleTemplateDto,
+  ) {
+    const existing = await this.prisma.accessRuleTemplate.findUnique({
+      where: { id },
+    });
+    if (!existing) throw new NotFoundException();
+    const template = await this.prisma.accessRuleTemplate.update({
+      where: { id },
+      data: {
+        ...body,
+        name: body.name.trim(),
+        description: body.description?.trim() || null,
+      },
+    });
+    await this.audit.record(
+      req,
+      "access-template.update",
+      `access-template:${id}`,
+      "success",
+      { before: existing, after: template },
     );
     return template;
   }

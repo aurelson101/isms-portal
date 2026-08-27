@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { Icon } from "../icons";
 
 type Locale = "fr" | "en";
 type DocumentItem = {
@@ -565,6 +566,7 @@ function ReviewsSection({
                 {review.status === "APPROVED" && (
                   <button
                     type="button"
+                    className="primary schedule-next-review"
                     onClick={() => {
                       const next = new Date();
                       next.setFullYear(next.getFullYear() + 1);
@@ -583,6 +585,7 @@ function ReviewsSection({
                         });
                     }}
                   >
+                    <Icon name="audit" />{" "}
                     {t(
                       "Planifier la prochaine revue dans un an",
                       "Schedule the next review in one year",
