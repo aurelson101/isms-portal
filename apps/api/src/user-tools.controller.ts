@@ -77,6 +77,21 @@ export class UserToolsController {
     );
   }
 
+  @Delete("recent")
+  async clearRecent(@Req() req: IsmsRequest) {
+    const result = await this.prisma.userDocumentActivity.deleteMany({
+      where: { identity: req.identity.username },
+    });
+    await this.audit.record(
+      req,
+      "user-recent.clear",
+      "user-document-activity",
+      "success",
+      { count: result.count },
+    );
+    return { deleted: result.count };
+  }
+
   @Get("saved-searches")
   savedSearches(@Req() req: IsmsRequest) {
     return this.prisma.savedSearch.findMany({

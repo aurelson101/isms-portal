@@ -672,6 +672,15 @@ export const adminEnglishCatalog = {
   "Synchronisé AD": "AD synchronized",
   Synchroniser: "Synchronize",
   "Tableau de bord": "Dashboard",
+  "À traiter": "Needs attention",
+  "Signaux nécessitant une vérification administrative.":
+    "Signals requiring administrative review.",
+  "Échecs LDAP/LDAPS": "LDAP/LDAPS failures",
+  "Certificats à renouveler sous 30 jours":
+    "Certificates expiring within 30 days",
+  "Documents en quarantaine": "Quarantined documents",
+  "Brouillons en attente": "Pending drafts",
+  "Début facultatif": "Optional start",
   Télécharger: "Download",
   "Durée d’accès": "Access duration",
   "Lifetime — sans expiration": "Lifetime — no expiry",

@@ -2185,6 +2185,24 @@ export function Portal({
                         ? "Consultés récemment"
                         : "Recently viewed"}
                     </h3>
+                    {activities.length > 0 && (
+                      <button
+                        type="button"
+                        className="clear-recent"
+                        onClick={() =>
+                          void fetch("/api/user-tools/recent", {
+                            method: "DELETE",
+                          }).then((response) => {
+                            if (response.ok) setActivities([]);
+                          })
+                        }
+                      >
+                        <Icon name="delete" />{" "}
+                        {locale === "fr"
+                          ? "Effacer mon historique"
+                          : "Clear my history"}
+                      </button>
+                    )}
                     {activities.length ? (
                       <ul>
                         {activities.map((activity) => (

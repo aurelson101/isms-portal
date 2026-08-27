@@ -214,6 +214,14 @@ type Dashboard = {
   spaces: number;
   documents: number;
   syncErrors: number;
+  attention: {
+    total: number;
+    syncErrors: number;
+    failingConnections: number;
+    expiringCertificates: number;
+    quarantined: number;
+    drafts: number;
+  };
 };
 type Audit = {
   id: string;
@@ -1363,6 +1371,57 @@ function DashboardPanel({
           </article>
         ))}
       </div>
+      <section
+        className="dashboard-attention"
+        aria-labelledby="attention-title"
+      >
+        <div className="dashboard-attention-heading">
+          <div>
+            <h2 id="attention-title">{t("À traiter")}</h2>
+            <p>{t("Signaux nécessitant une vérification administrative.")}</p>
+          </div>
+          <strong>{dashboard?.attention.total ?? 0}</strong>
+        </div>
+        <div className="dashboard-attention-grid">
+          {[
+            [
+              "directory",
+              t("Échecs LDAP/LDAPS"),
+              dashboard?.attention.failingConnections ?? 0,
+            ],
+            [
+              "directory",
+              t("Erreurs de synchronisation"),
+              dashboard?.attention.syncErrors ?? 0,
+            ],
+            [
+              "certificates",
+              t("Certificats à renouveler sous 30 jours"),
+              dashboard?.attention.expiringCertificates ?? 0,
+            ],
+            [
+              "documents",
+              t("Documents en quarantaine"),
+              dashboard?.attention.quarantined ?? 0,
+            ],
+            [
+              "documents",
+              t("Brouillons en attente"),
+              dashboard?.attention.drafts ?? 0,
+            ],
+          ].map(([target, label, value]) => (
+            <button
+              type="button"
+              key={label}
+              className={Number(value) > 0 ? "warning" : "clear"}
+              onClick={() => onNavigate(target as Tab)}
+            >
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </button>
+          ))}
+        </div>
+      </section>
       <section
         className="dashboard-shortcuts"
         aria-labelledby="shortcuts-title"
@@ -4764,6 +4823,7 @@ function SettingsPanel({
       mfaEnabled: boolean;
       primary: boolean;
       justification: string | null;
+      validFrom: string | null;
       validUntil: string | null;
       lastAuthorizedAt: string | null;
       lastReviewedAt: string | null;
@@ -4793,6 +4853,7 @@ function SettingsPanel({
       name: string;
       distinguishedName: string;
       justification: string;
+      validFrom: string | null;
       validUntil: string | null;
       lastAuthorizedAt: string | null;
       reviewDueAt: string | null;
@@ -4808,8 +4869,10 @@ function SettingsPanel({
   const [administratorFilter, setAdministratorFilter] = useState("");
   const [directoryAdminJustification, setDirectoryAdminJustification] =
     useState("");
+  const [directoryAdminValidFrom, setDirectoryAdminValidFrom] = useState("");
   const [directoryAdminValidUntil, setDirectoryAdminValidUntil] = useState("");
   const [groupAdminJustification, setGroupAdminJustification] = useState("");
+  const [groupAdminValidFrom, setGroupAdminValidFrom] = useState("");
   const [groupAdminValidUntil, setGroupAdminValidUntil] = useState("");
   const [administratorGrantPending, setAdministratorGrantPending] = useState<
     "user" | "group" | null
@@ -4943,6 +5006,7 @@ function SettingsPanel({
           displayName: selectedDirectoryUser.displayName,
           source: "DIRECTORY",
           justification: directoryAdminJustification.trim(),
+          validFrom: directoryAdminValidFrom || undefined,
           validUntil: directoryAdminValidUntil || undefined,
         }),
       });
@@ -4950,6 +5014,7 @@ function SettingsPanel({
       setDirectoryUsers([]);
       setSelectedDirectoryUser(null);
       setDirectoryAdminJustification("");
+      setDirectoryAdminValidFrom("");
       setDirectoryAdminValidUntil("");
       await loadAccounts();
       onNotice(t("Administrateur ajouté."));
@@ -4978,6 +5043,7 @@ function SettingsPanel({
           name: selectedAdminGroup.name,
           distinguishedName: selectedAdminGroup.distinguishedName,
           justification: groupAdminJustification.trim(),
+          validFrom: groupAdminValidFrom || undefined,
           validUntil: groupAdminValidUntil || undefined,
         }),
       });
@@ -4985,6 +5051,7 @@ function SettingsPanel({
       setAdminGroupSuggestions([]);
       setSelectedAdminGroup(null);
       setGroupAdminJustification("");
+      setGroupAdminValidFrom("");
       setGroupAdminValidUntil("");
       await loadAdminGroups();
       onNotice(t("Groupe administrateur ajouté."));
@@ -5273,6 +5340,7 @@ function SettingsPanel({
                   body: JSON.stringify({
                     ...values,
                     source: "LOCAL",
+                    validFrom: values.validFrom || undefined,
                     validUntil: values.validUntil || undefined,
                   }),
                 })
@@ -5304,6 +5372,20 @@ function SettingsPanel({
                 placeholder={t("Justification du privilège")}
                 required
               />
+              <label>
+                {t("Début facultatif")}
+                <input name="validFrom" type="datetime-local" />
+              </label>
+              <label>
+                {t("Début facultatif")}
+                <input
+                  type="datetime-local"
+                  value={directoryAdminValidFrom}
+                  onChange={(event) =>
+                    setDirectoryAdminValidFrom(event.target.value)
+                  }
+                />
+              </label>
               <label>
                 {t("Expiration facultative")}
                 <input name="validUntil" type="datetime-local" />
@@ -5337,6 +5419,16 @@ function SettingsPanel({
                   maxLength={500}
                   placeholder={t("Motif de cet accès administrateur")}
                   required
+                />
+              </label>
+              <label>
+                {t("Début facultatif")}
+                <input
+                  type="datetime-local"
+                  value={groupAdminValidFrom}
+                  onChange={(event) =>
+                    setGroupAdminValidFrom(event.target.value)
+                  }
                 />
               </label>
               <label>

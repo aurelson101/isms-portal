@@ -532,6 +532,7 @@ model AdminAccount {
   active           Boolean        @default(true)
   primary          Boolean        @default(false)
   justification    String?
+  validFrom        DateTime?
   validUntil       DateTime?
   lastAuthorizedAt DateTime?
   lastReviewedAt   DateTime?
@@ -543,6 +544,7 @@ model AdminAccount {
   updatedAt        DateTime       @updatedAt
 
   @@index([source, active])
+  @@index([active, validFrom, validUntil])
 }
 
 model AdminDirectoryGroup {
@@ -551,6 +553,7 @@ model AdminDirectoryGroup {
   distinguishedName String    @unique
   active            Boolean   @default(true)
   justification     String
+  validFrom         DateTime?
   validUntil        DateTime?
   lastAuthorizedAt  DateTime?
   lastReviewedAt    DateTime?
@@ -560,6 +563,7 @@ model AdminDirectoryGroup {
 
   @@index([active, name])
   @@index([active, validUntil])
+  @@index([active, validFrom, validUntil])
 }
 
 model AdminSession {

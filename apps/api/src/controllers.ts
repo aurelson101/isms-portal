@@ -1261,14 +1261,56 @@ export class AdminController {
 
   @Get("dashboard")
   async dashboard() {
-    const [groups, rules, spaces, documents, syncErrors] = await Promise.all([
+    const warningDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const [
+      groups,
+      rules,
+      spaces,
+      documents,
+      syncErrors,
+      quarantined,
+      drafts,
+      expiringCertificates,
+      failingConnections,
+    ] = await Promise.all([
       this.prisma.directoryGroup.count({ where: { active: true } }),
       this.prisma.accessRule.count(),
       this.prisma.documentSpace.count({ where: { deletedAt: null } }),
       this.prisma.document.count({ where: { deletedAt: null } }),
       this.prisma.directorySyncJob.count({ where: { status: "ERROR" } }),
+      this.prisma.document.count({
+        where: { deletedAt: null, status: "QUARANTINED" },
+      }),
+      this.prisma.document.count({
+        where: { deletedAt: null, status: "DRAFT" },
+      }),
+      this.prisma.trustedCaCertificate.count({
+        where: { validTo: { lte: warningDate } },
+      }),
+      this.prisma.directoryConnection.count({
+        where: { enabled: true, lastTestStatus: "ERROR" },
+      }),
     ]);
-    return { groups, rules, spaces, documents, syncErrors };
+    return {
+      groups,
+      rules,
+      spaces,
+      documents,
+      syncErrors,
+      attention: {
+        total:
+          syncErrors +
+          quarantined +
+          drafts +
+          expiringCertificates +
+          failingConnections,
+        syncErrors,
+        failingConnections,
+        expiringCertificates,
+        quarantined,
+        drafts,
+      },
+    };
   }
 
   @Get("groups")

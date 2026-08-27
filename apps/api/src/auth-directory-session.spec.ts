@@ -389,6 +389,9 @@ describe("AuthService directory sessions", () => {
         active: true,
         AND: [
           {
+            OR: [{ validFrom: null }, { validFrom: { lte: expect.any(Date) } }],
+          },
+          {
             OR: [
               { validUntil: null },
               { validUntil: { gt: expect.any(Date) } },

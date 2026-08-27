@@ -56,6 +56,7 @@ type Incident = {
   owner: string;
   occurredAt: string;
   rootCause: string | null;
+  lessonsLearned: string | null;
   correctiveActions: Array<{
     id: string;
     description: string;
@@ -1396,16 +1397,27 @@ function IncidentsSection({
     rootCause: "",
     lessonsLearned: "",
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
   const create = async (event: FormEvent) => {
     event.preventDefault();
-    await submit("/api/admin/governance/incidents", {
-      ...draft,
-      occurredAt: new Date(draft.occurredAt).toISOString(),
-    });
+    await submit(
+      editingId
+        ? `/api/admin/governance/incidents/${editingId}`
+        : "/api/admin/governance/incidents",
+      {
+        ...draft,
+        occurredAt: new Date(draft.occurredAt).toISOString(),
+      },
+      editingId ? "PUT" : "POST",
+    );
+    setEditingId(null);
     setDraft({
-      ...draft,
       reference: "",
       title: "",
+      severity: "MEDIUM",
+      status: "OPEN",
+      owner: "",
+      occurredAt: "",
       rootCause: "",
       lessonsLearned: "",
     });
@@ -1416,7 +1428,11 @@ function IncidentsSection({
         className="admin-form governance-form"
         onSubmit={(e) => void create(e)}
       >
-        <h2>{t("Ouvrir un incident", "Open an incident")}</h2>
+        <h2>
+          {editingId
+            ? t("Traiter l’incident", "Process incident")
+            : t("Ouvrir un incident", "Open an incident")}
+        </h2>
         {(["reference", "title", "owner"] as const).map((key) => (
           <label key={key}>
             {
@@ -1447,6 +1463,21 @@ function IncidentsSection({
           </select>
         </label>
         <label>
+          {t("Statut", "Status")}
+          <select
+            value={draft.status}
+            onChange={(e) => setDraft({ ...draft, status: e.target.value })}
+          >
+            {["OPEN", "INVESTIGATING", "CONTAINED", "RESOLVED", "CLOSED"].map(
+              (value) => (
+                <option key={value} value={value}>
+                  {statusLabel(locale, value)}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+        <label>
           {t("Survenu le", "Occurred at")}
           <input
             required
@@ -1455,7 +1486,48 @@ function IncidentsSection({
             onChange={(e) => setDraft({ ...draft, occurredAt: e.target.value })}
           />
         </label>
-        <button className="primary">{t("Créer", "Create")}</button>
+        <label>
+          {t("Cause racine", "Root cause")}
+          <textarea
+            required={["RESOLVED", "CLOSED"].includes(draft.status)}
+            value={draft.rootCause}
+            onChange={(e) => setDraft({ ...draft, rootCause: e.target.value })}
+          />
+        </label>
+        <label>
+          {t("Leçons apprises", "Lessons learned")}
+          <textarea
+            value={draft.lessonsLearned}
+            onChange={(e) =>
+              setDraft({ ...draft, lessonsLearned: e.target.value })
+            }
+          />
+        </label>
+        <div className="button-row">
+          {editingId && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingId(null);
+                setDraft({
+                  reference: "",
+                  title: "",
+                  severity: "MEDIUM",
+                  status: "OPEN",
+                  owner: "",
+                  occurredAt: "",
+                  rootCause: "",
+                  lessonsLearned: "",
+                });
+              }}
+            >
+              {t("Annuler", "Cancel")}
+            </button>
+          )}
+          <button className="primary">
+            {editingId ? t("Enregistrer", "Save") : t("Créer", "Create")}
+          </button>
+        </div>
       </form>
       <div className="governance-list">
         {incidents.map((incident) => (
@@ -1485,12 +1557,44 @@ function IncidentsSection({
               {incident.owner} ·{" "}
               {new Date(incident.occurredAt).toLocaleString(locale)}
             </p>
+            {incident.rootCause && (
+              <p>
+                <strong>{t("Cause racine", "Root cause")}:</strong>{" "}
+                {incident.rootCause}
+              </p>
+            )}
+            {incident.lessonsLearned && (
+              <p>
+                <strong>{t("Leçons apprises", "Lessons learned")}:</strong>{" "}
+                {incident.lessonsLearned}
+              </p>
+            )}
             {incident.correctiveActions.map((action) => (
               <small key={action.id}>
                 CAPA: {action.description} — {action.owner} —{" "}
                 {statusLabel(locale, action.status)}
               </small>
             ))}
+            <button
+              type="button"
+              onClick={() => {
+                setEditingId(incident.id);
+                setDraft({
+                  reference: incident.reference,
+                  title: incident.title,
+                  severity: incident.severity,
+                  status: incident.status,
+                  owner: incident.owner,
+                  occurredAt: new Date(incident.occurredAt)
+                    .toISOString()
+                    .slice(0, 16),
+                  rootCause: incident.rootCause || "",
+                  lessonsLearned: incident.lessonsLearned || "",
+                });
+              }}
+            >
+              {t("Traiter", "Process")}
+            </button>
             <button
               type="button"
               onClick={() =>
