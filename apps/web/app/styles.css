@@ -4160,44 +4160,7 @@ svg {
   background: #edf5ff;
 }
 
-.document-context-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
-  margin: 0.8rem 0;
-}
-
-.document-context-grid-single {
-  grid-template-columns: 1fr;
-}
-
-.document-context-grid > * {
-  padding: 0.8rem;
-  border: 1px solid #d7e2f2;
-  border-radius: 10px;
-  background: #f8fbff;
-}
-
-.document-context-grid h3,
-.document-context-grid p,
-.document-context-grid dl {
-  margin: 0;
-}
-
-.document-context-grid ol {
-  margin: 0.5rem 0 0;
-  padding-left: 1.2rem;
-}
-
-.document-context-grid button {
-  border: 0;
-  background: transparent;
-  color: #075fd8;
-  text-align: left;
-}
-
 @media (max-width: 640px) {
-  .document-context-grid,
   .document-updates-notice {
     grid-template-columns: 1fr;
   }
