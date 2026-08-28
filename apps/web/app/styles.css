@@ -4916,20 +4916,6 @@ svg {
   gap: 0.35rem;
 }
 
-.document-acknowledge-button {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  padding: 0.65rem 0.95rem;
-  border: 1px solid #047857;
-  border-radius: 0.6rem;
-  background: #059669;
-  color: #fff;
-  font-weight: 750;
-}
-
 .explorer-controls > button:not(.primary) {
   min-height: 42px;
   padding: 0.55rem 0.8rem;
