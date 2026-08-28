@@ -500,10 +500,16 @@ export class DocumentsController {
             id: true,
             locale: true,
             version: true,
+            createdAt: true,
             changeSummary: true,
             changeDetails: true,
             storedFile: {
-              select: { mimeType: true, originalName: true, size: true },
+              select: {
+                mimeType: true,
+                originalName: true,
+                size: true,
+                sha256: true,
+              },
             },
           },
           orderBy: { version: "desc" },
@@ -929,7 +935,12 @@ export class DocumentsController {
             changeSummary: true,
             changeDetails: true,
             storedFile: {
-              select: { originalName: true, mimeType: true, size: true },
+              select: {
+                originalName: true,
+                mimeType: true,
+                size: true,
+                sha256: true,
+              },
             },
           },
           orderBy: [{ locale: "asc" }, { version: "desc" }],

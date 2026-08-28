@@ -57,13 +57,19 @@ type Version = {
   id: string;
   locale: string;
   version: number;
+  createdAt: string;
   changeSummary?: string | null;
   changeDetails?: {
     added?: string[];
     removed?: string[];
     modified?: Array<{ before: string; after: string }>;
   } | null;
-  storedFile: { mimeType: string; originalName: string; size: string | number };
+  storedFile: {
+    mimeType: string;
+    originalName: string;
+    size: string | number;
+    sha256?: string;
+  };
 };
 type ReviewEvidence = {
   id: string;
@@ -369,6 +375,15 @@ const accessRequestStatus = (status: string, locale: Locale) => {
   return label ? label[locale === "fr" ? 0 : 1] : status;
 };
 
+const openedReviewLabel = (approved: boolean, locale: Locale) =>
+  approved
+    ? locale === "fr"
+      ? "Revue approuvée"
+      : "Approved review"
+    : locale === "fr"
+      ? "Aucune revue approuvée"
+      : "No approved review";
+
 function DocumentRows({
   documents,
   locale,
@@ -418,6 +433,9 @@ function DocumentRows({
         const translation = document.translations.find(
           (item) => item.locale === selected,
         );
+        const selectedVersion =
+          document.versions.find((version) => version.locale === selected) ||
+          document.versions[0];
         return (
           <div className="document" key={document.id}>
             <span className="file">
@@ -431,15 +449,36 @@ function DocumentRows({
                 ? locale === "fr"
                   ? document.category.nameFr
                   : document.category.nameEn
-                : "—"}
+                : locale === "fr"
+                  ? "Sans catégorie"
+                  : "No category"}
             </span>
-            <span className="document-version-badge">
-              v
-              {document.versions.find((version) => version.locale === selected)
-                ?.version ??
-                document.versions[0]?.version ??
-                "—"}
-            </span>
+            <details className="document-version-details">
+              <summary className="document-version-badge">
+                v{selectedVersion?.version ?? "—"}
+              </summary>
+              <div>
+                <strong>
+                  {locale === "fr" ? "Version publiée" : "Published version"}
+                </strong>
+                <span>
+                  {selectedVersion?.createdAt
+                    ? new Date(selectedVersion.createdAt).toLocaleString(locale)
+                    : "—"}
+                </span>
+                {selectedVersion?.changeSummary && (
+                  <span>{selectedVersion.changeSummary}</span>
+                )}
+                <span>
+                  {openedReviewLabel(document.reviews.length > 0, locale)}
+                </span>
+                {selectedVersion?.storedFile.sha256 && (
+                  <code title={selectedVersion.storedFile.sha256}>
+                    {selectedVersion.storedFile.sha256.slice(0, 12)}…
+                  </code>
+                )}
+              </div>
+            </details>
             <span className="locales">
               {(["fr", "en"] as Locale[]).map((item) => (
                 <button
@@ -560,6 +599,7 @@ export function Portal({
   const [documentFormat, setDocumentFormat] = useState("");
   const [documentLanguage, setDocumentLanguage] = useState("");
   const [documentSensitivity, setDocumentSensitivity] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [documents, setDocuments] = useState<PortalDocument[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -1991,101 +2031,140 @@ export function Portal({
                         {t.deposit}
                       </button>
                     )}
-                    <div
-                      className="advanced-document-filters"
-                      role="group"
-                      aria-label={t.advancedFilters}
-                    >
-                      <select
-                        value={documentFormat}
-                        aria-label={t.allFormats}
-                        onChange={(event) =>
-                          changeAdvancedFilter("format", event.target.value)
-                        }
-                      >
-                        <option value="">{t.allFormats}</option>
-                        <option value="pdf">PDF</option>
-                        <option value="docx">Word</option>
-                        <option value="xlsx">Excel</option>
-                      </select>
-                      <select
-                        value={documentLanguage}
-                        aria-label={t.allLanguages}
-                        onChange={(event) =>
-                          changeAdvancedFilter("locale", event.target.value)
-                        }
-                      >
-                        <option value="">{t.allLanguages}</option>
-                        <option value="fr">FR</option>
-                        <option value="en">EN</option>
-                      </select>
-                      <select
-                        value={documentSensitivity}
-                        aria-label={t.allSensitivity}
-                        onChange={(event) =>
-                          changeAdvancedFilter("sensitive", event.target.value)
-                        }
-                      >
-                        <option value="">{t.allSensitivity}</option>
-                        <option value="true">{t.sensitiveOnly}</option>
-                        <option value="false">{t.standardOnly}</option>
-                      </select>
-                    </div>
                     <button
                       type="button"
-                      onClick={() => void saveCurrentSearch()}
+                      className="mobile-filter-toggle"
+                      aria-expanded={filtersOpen}
+                      aria-controls="mobile-document-filters"
+                      onClick={() => setFiltersOpen((current) => !current)}
                     >
-                      {locale === "fr"
-                        ? "Sauvegarder la recherche"
-                        : "Save search"}
+                      <Icon name="search" />
+                      {locale === "fr" ? "Filtrer et trier" : "Filter and sort"}
+                      {[
+                        documentFormat,
+                        documentLanguage,
+                        documentSensitivity,
+                        documentSort === "popular" ? documentSort : "",
+                      ].filter(Boolean).length > 0 && (
+                        <small>
+                          {
+                            [
+                              documentFormat,
+                              documentLanguage,
+                              documentSensitivity,
+                              documentSort === "popular" ? documentSort : "",
+                            ].filter(Boolean).length
+                          }
+                        </small>
+                      )}
                     </button>
-                    {selectedSpace && (
+                    <div
+                      id="mobile-document-filters"
+                      className={`mobile-filter-panel${filtersOpen ? " open" : ""}`}
+                    >
+                      <div
+                        className="advanced-document-filters"
+                        role="group"
+                        aria-label={t.advancedFilters}
+                      >
+                        <select
+                          value={documentFormat}
+                          aria-label={t.allFormats}
+                          onChange={(event) =>
+                            changeAdvancedFilter("format", event.target.value)
+                          }
+                        >
+                          <option value="">{t.allFormats}</option>
+                          <option value="pdf">PDF</option>
+                          <option value="docx">Word</option>
+                          <option value="xlsx">Excel</option>
+                        </select>
+                        <select
+                          value={documentLanguage}
+                          aria-label={t.allLanguages}
+                          onChange={(event) =>
+                            changeAdvancedFilter("locale", event.target.value)
+                          }
+                        >
+                          <option value="">{t.allLanguages}</option>
+                          <option value="fr">FR</option>
+                          <option value="en">EN</option>
+                        </select>
+                        <select
+                          value={documentSensitivity}
+                          aria-label={t.allSensitivity}
+                          onChange={(event) =>
+                            changeAdvancedFilter(
+                              "sensitive",
+                              event.target.value,
+                            )
+                          }
+                        >
+                          <option value="">{t.allSensitivity}</option>
+                          <option value="true">{t.sensitiveOnly}</option>
+                          <option value="false">{t.standardOnly}</option>
+                        </select>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => void requestSpaceAccess()}
+                        onClick={() => void saveCurrentSearch()}
                       >
                         {locale === "fr"
-                          ? "Demander un accès complémentaire"
-                          : "Request additional access"}
+                          ? "Sauvegarder la recherche"
+                          : "Save search"}
                       </button>
-                    )}
-                    <label className="document-sort">
-                      <span>{t.sortBy}</span>
-                      <select
-                        value={documentSort}
-                        onChange={(event) =>
-                          changeDocumentSort(event.target.value as DocumentSort)
-                        }
+                      {selectedSpace && (
+                        <button
+                          type="button"
+                          onClick={() => void requestSpaceAccess()}
+                        >
+                          {locale === "fr"
+                            ? "Demander un accès complémentaire"
+                            : "Request additional access"}
+                        </button>
+                      )}
+                      <label className="document-sort">
+                        <span>{t.sortBy}</span>
+                        <select
+                          value={documentSort}
+                          onChange={(event) =>
+                            changeDocumentSort(
+                              event.target.value as DocumentSort,
+                            )
+                          }
+                        >
+                          <option value="recent">{t.sortRecent}</option>
+                          <option value="popular">{t.sortPopular}</option>
+                        </select>
+                      </label>
+                      <div
+                        className="view-switcher"
+                        role="group"
+                        aria-label={t.displayMode}
                       >
-                        <option value="recent">{t.sortRecent}</option>
-                        <option value="popular">{t.sortPopular}</option>
-                      </select>
-                    </label>
-                    <div
-                      className="view-switcher"
-                      role="group"
-                      aria-label={t.displayMode}
-                    >
-                      <button
-                        type="button"
-                        aria-pressed={viewMode === "grid"}
-                        aria-label={t.gridView}
-                        title={t.gridView}
-                        onClick={() => changeViewMode("grid")}
-                      >
-                        <Icon name="grid" />
-                        <span>{locale === "fr" ? "Fenêtres" : "Windows"}</span>
-                      </button>
-                      <button
-                        type="button"
-                        aria-pressed={viewMode === "list"}
-                        aria-label={t.listView}
-                        title={t.listView}
-                        onClick={() => changeViewMode("list")}
-                      >
-                        <Icon name="list" />
-                        <span>{locale === "fr" ? "Liste" : "List"}</span>
-                      </button>
+                        <button
+                          type="button"
+                          aria-pressed={viewMode === "grid"}
+                          aria-label={t.gridView}
+                          title={t.gridView}
+                          onClick={() => changeViewMode("grid")}
+                        >
+                          <Icon name="grid" />
+                          <span>
+                            {locale === "fr" ? "Fenêtres" : "Windows"}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={viewMode === "list"}
+                          aria-label={t.listView}
+                          title={t.listView}
+                          onClick={() => changeViewMode("list")}
+                        >
+                          <Icon name="list" />
+                          <span>{locale === "fr" ? "Liste" : "List"}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -3236,6 +3315,24 @@ export function Portal({
                   aria-pressed={pdfZoom === "page-fit"}
                 >
                   {t.fitPage}
+                </button>
+                {opened.permissions.download && (
+                  <a
+                    className="pdf-mobile-action"
+                    href={`/api/documents/${opened.id}/download?locale=${openedLocale}`}
+                    title={t.download}
+                    aria-label={t.download}
+                  >
+                    <Icon name="download" />
+                  </a>
+                )}
+                <button
+                  type="button"
+                  className="pdf-mobile-action"
+                  onClick={closeDocument}
+                  aria-label={t.close}
+                >
+                  ×
                 </button>
                 <a
                   href={openedContentUrl}
