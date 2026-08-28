@@ -195,6 +195,16 @@ function fileLabel(mimeType?: string) {
   return "FILE";
 }
 
+function urlSlug(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 72);
+}
+
 function SensitiveWatermark({ position }: { position: WatermarkPosition }) {
   return (
     <span
@@ -559,6 +569,7 @@ export function Portal({
   const [reportMessage, setReportMessage] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportFeedback, setReportFeedback] = useState("");
+  const [linkCopied, setLinkCopied] = useState(false);
   const [securityReportOpen, setSecurityReportOpen] = useState(false);
   const [securityReportFeedback, setSecurityReportFeedback] = useState("");
   const [editing, setEditing] = useState<PortalDocument | null>(null);
@@ -602,6 +613,19 @@ export function Portal({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const documentsLoadedRef = useRef(false);
 
+  const closeDocument = useCallback(() => {
+    setViewerExpanded(false);
+    setOpened(null);
+    setLinkCopied(false);
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.delete("document");
+    window.history.replaceState(
+      null,
+      "",
+      `${currentUrl.pathname}${currentUrl.search}`,
+    );
+  }, []);
+
   useEffect(() => {
     const modalOpen = Boolean(
       helpOpen ||
@@ -636,10 +660,8 @@ export function Portal({
         if (reporting) setReporting(null);
         else if (editing) setEditing(null);
         else if (depositOpen) setDepositOpen(false);
-        else if (opened) {
-          setOpened(null);
-          setViewerExpanded(false);
-        } else if (toolsOpen) setToolsOpen(false);
+        else if (opened) closeDocument();
+        else if (toolsOpen) setToolsOpen(false);
         else if (helpOpen) setHelpOpen(false);
         return;
       }
@@ -686,6 +708,7 @@ export function Portal({
     securityReportOpen,
     sessionExpired,
     toolsOpen,
+    closeDocument,
   ]);
 
   useEffect(() => {
@@ -773,7 +796,7 @@ export function Portal({
       setSpace(requestedSpace || "");
     } else if (legacyCategory) {
       setCategory(legacyCategory);
-      setSpace("");
+      setSpace(requestedSpace || "");
     }
     if (requestedSpace && !requestedCategory && !legacyCategory) {
       setSpace(requestedSpace);
@@ -949,9 +972,13 @@ export function Portal({
   };
 
   const selectCategory = (spaceSlug: string, categoryId: string) => {
+    const categorySlug =
+      identity?.spaces
+        .flatMap((item) => item.categories)
+        .find((item) => item.id === categoryId)?.slug || categoryId;
     if (!explorerMode) {
       router.push(
-        `/explorer?space=${encodeURIComponent(spaceSlug)}&categoryId=${encodeURIComponent(categoryId)}`,
+        `/explorer?space=${encodeURIComponent(spaceSlug)}&category=${encodeURIComponent(categorySlug)}`,
       );
       return;
     }
@@ -966,7 +993,7 @@ export function Portal({
     window.history.replaceState(
       null,
       "",
-      `/explorer?space=${encodeURIComponent(spaceSlug)}&categoryId=${encodeURIComponent(categoryId)}${documentSort === "popular" ? "&sort=popular" : ""}`,
+      `/explorer?space=${encodeURIComponent(spaceSlug)}&category=${encodeURIComponent(categorySlug)}${documentSort === "popular" ? "&sort=popular" : ""}`,
     );
   };
   const changeViewMode = (next: ViewMode) => {
@@ -1052,7 +1079,7 @@ export function Portal({
       setActionError(t.error);
       return;
     }
-    setOpened(null);
+    closeDocument();
     await loadDocuments();
   };
   const selectSpace = (next: string) => {
@@ -1110,7 +1137,12 @@ export function Portal({
     setPage(target);
     const parameters = new URLSearchParams();
     if (query.trim()) parameters.set("q", query.trim());
-    if (category) parameters.set("categoryId", category);
+    if (category) {
+      const selected = identity?.spaces
+        .flatMap((item) => item.categories)
+        .find((item) => item.id === category || item.slug === category);
+      parameters.set("category", selected?.slug || category);
+    }
     if (space) parameters.set("space", space);
     if (favoritesOnly) parameters.set("favorites", "true");
     if (documentFormat) parameters.set("format", documentFormat);
@@ -1168,7 +1200,7 @@ export function Portal({
   const t = copy[locale];
   const selectedCategory = identity?.spaces
     .flatMap((item) => item.categories)
-    .find((item) => item.id === category);
+    .find((item) => item.id === category || item.slug === category);
   const categoryLabel = selectedCategory
     ? locale === "fr"
       ? selectedCategory.nameFr
@@ -1214,6 +1246,35 @@ export function Portal({
   const pdfSource = openedPdf
     ? `${openedContentUrl}#toolbar=1&navpanes=0&zoom=${pdfZoom}`
     : openedContentUrl;
+
+  useEffect(() => {
+    if (!opened) return;
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set(
+      "document",
+      `${urlSlug(titleFor(opened, openedLocale || locale)) || "document"}--${opened.id}`,
+    );
+    window.history.replaceState(
+      null,
+      "",
+      `${currentUrl.pathname}${currentUrl.search}`,
+    );
+    setLinkCopied(false);
+  }, [opened, openedLocale, locale]);
+
+  useEffect(() => {
+    if (opened || documents.length === 0) return;
+    const reference = new URLSearchParams(window.location.search).get(
+      "document",
+    );
+    const separator = reference?.lastIndexOf("--") ?? -1;
+    const id =
+      reference && separator >= 0 ? reference.slice(separator + 2) : undefined;
+    const requested = id
+      ? documents.find((document) => document.id === id)
+      : undefined;
+    if (requested) setOpened(requested);
+  }, [documents, opened]);
   const selectedSpace = identity?.spaces.find((item) => item.slug === space);
   const incidentReportTotals = incidentReports.reduce(
     (result, report) => ({
@@ -2184,415 +2245,447 @@ export function Portal({
                     : "Find your documents, requests and preferences."}
                 </p>
               </div>
+              <dl className="personal-tools-summary">
+                <div>
+                  <dt>{locale === "fr" ? "Activité" : "Activity"}</dt>
+                  <dd>{activities.length}</dd>
+                </div>
+                <div>
+                  <dt>{locale === "fr" ? "À lire" : "Unread"}</dt>
+                  <dd>{notifications.filter((item) => !item.readAt).length}</dd>
+                </div>
+                <div>
+                  <dt>{locale === "fr" ? "Demandes" : "Requests"}</dt>
+                  <dd>{accessRequests.length}</dd>
+                </div>
+              </dl>
             </header>
-            <nav
-              className="personal-tools-tabs"
-              aria-label={
-                locale === "fr"
-                  ? "Rubriques de mon espace personnel"
-                  : "Personal workspace sections"
-              }
-            >
-              {[
-                [
-                  "recent",
-                  locale === "fr" ? "Récents" : "Recent",
-                  activities.length,
-                ],
-                [
-                  "searches",
-                  locale === "fr" ? "Recherches" : "Searches",
-                  savedSearches.length,
-                ],
-                [
-                  "access",
-                  locale === "fr" ? "Demandes" : "Requests",
-                  accessRequests.length,
-                ],
-                [
-                  "notifications",
-                  locale === "fr" ? "Notifications" : "Notifications",
-                  notifications.length,
-                ],
-                [
-                  "preferences",
-                  locale === "fr" ? "Affichage" : "Display",
-                  null,
-                ],
-              ].map(([key, label, count]) => (
-                <button
-                  type="button"
-                  className={personalSection === key ? "active" : ""}
-                  aria-pressed={personalSection === key}
-                  key={key}
-                  onClick={() =>
-                    setPersonalSection(key as typeof personalSection)
-                  }
-                >
-                  <span>{label}</span>
-                  {typeof count === "number" && <small>{count}</small>}
-                </button>
-              ))}
-            </nav>
-            {personalSection !== "preferences" && (
-              <div className="personal-tools-grid">
-                {personalSection === "recent" && (
-                  <section>
-                    <h3>
-                      <Icon name="documents" />{" "}
-                      {locale === "fr"
-                        ? "Consultés récemment"
-                        : "Recently viewed"}
-                    </h3>
-                    {updates && updates.count > 0 && (
-                      <div className="document-updates-notice">
-                        <strong>
-                          {locale === "fr"
-                            ? `${updates.count} nouveauté(s) depuis votre dernière visite`
-                            : `${updates.count} update(s) since your last visit`}
-                        </strong>
+            <div className="personal-tools-content">
+              <nav
+                className="personal-tools-tabs"
+                aria-label={
+                  locale === "fr"
+                    ? "Rubriques de mon espace personnel"
+                    : "Personal workspace sections"
+                }
+              >
+                {(
+                  [
+                    {
+                      key: "recent",
+                      label: locale === "fr" ? "Récents" : "Recent",
+                      count: activities.length,
+                      icon: "documents",
+                    },
+                    {
+                      key: "searches",
+                      label: locale === "fr" ? "Recherches" : "Searches",
+                      count: savedSearches.length,
+                      icon: "search",
+                    },
+                    {
+                      key: "access",
+                      label: locale === "fr" ? "Demandes" : "Requests",
+                      count: accessRequests.length,
+                      icon: "rules",
+                    },
+                    {
+                      key: "notifications",
+                      label:
+                        locale === "fr" ? "Notifications" : "Notifications",
+                      count: notifications.filter((item) => !item.readAt)
+                        .length,
+                      icon: "audit",
+                    },
+                    {
+                      key: "preferences",
+                      label: locale === "fr" ? "Affichage" : "Display",
+                      count: null,
+                      icon: "settings",
+                    },
+                  ] as const
+                ).map(({ key, label, count, icon }) => (
+                  <button
+                    type="button"
+                    className={personalSection === key ? "active" : ""}
+                    aria-pressed={personalSection === key}
+                    key={key}
+                    onClick={() =>
+                      setPersonalSection(key as typeof personalSection)
+                    }
+                  >
+                    <Icon name={icon} />
+                    <span>{label}</span>
+                    {typeof count === "number" && <small>{count}</small>}
+                  </button>
+                ))}
+              </nav>
+              {personalSection !== "preferences" && (
+                <div className="personal-tools-grid">
+                  {personalSection === "recent" && (
+                    <section>
+                      <h3>
+                        <Icon name="documents" />{" "}
+                        {locale === "fr"
+                          ? "Consultés récemment"
+                          : "Recently viewed"}
+                      </h3>
+                      {updates && updates.count > 0 && (
+                        <div className="document-updates-notice">
+                          <strong>
+                            {locale === "fr"
+                              ? `${updates.count} nouveauté(s) depuis votre dernière visite`
+                              : `${updates.count} update(s) since your last visit`}
+                          </strong>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void fetch("/api/user-tools/updates/seen", {
+                                method: "PUT",
+                              }).then((response) => {
+                                if (response.ok)
+                                  setUpdates({
+                                    ...updates,
+                                    count: 0,
+                                    documents: [],
+                                  });
+                              })
+                            }
+                          >
+                            {locale === "fr"
+                              ? "Tout marquer comme vu"
+                              : "Mark all as seen"}
+                          </button>
+                        </div>
+                      )}
+                      {activities.length > 0 && (
                         <button
                           type="button"
+                          className="clear-recent"
                           onClick={() =>
-                            void fetch("/api/user-tools/updates/seen", {
-                              method: "PUT",
+                            void fetch("/api/user-tools/recent", {
+                              method: "DELETE",
                             }).then((response) => {
-                              if (response.ok)
-                                setUpdates({
-                                  ...updates,
-                                  count: 0,
-                                  documents: [],
-                                });
+                              if (response.ok) setActivities([]);
                             })
                           }
                         >
+                          <Icon name="delete" />{" "}
+                          {locale === "fr"
+                            ? "Effacer mon historique"
+                            : "Clear my history"}
+                        </button>
+                      )}
+                      {activities.length ? (
+                        <ul>
+                          {activities.map((activity) => (
+                            <li
+                              key={`${activity.document.id}-${activity.action}`}
+                            >
+                              <a
+                                className="personal-tools-link"
+                                href={`/explorer?q=${encodeURIComponent(
+                                  activity.document.translations.find(
+                                    (item) => item.locale === locale,
+                                  )?.title ||
+                                    activity.document.translations[0]?.title ||
+                                    activity.document.id,
+                                )}`}
+                              >
+                                {activity.document.translations.find(
+                                  (item) => item.locale === locale,
+                                )?.title ||
+                                  activity.document.translations[0]?.title ||
+                                  activity.document.id}
+                              </a>
+                              <small>
+                                {new Date(activity.occurredAt).toLocaleString(
+                                  locale,
+                                )}
+                              </small>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>
+                          {locale === "fr"
+                            ? "Aucune consultation."
+                            : "No activity."}
+                        </p>
+                      )}
+                    </section>
+                  )}
+                  {personalSection === "searches" && (
+                    <section>
+                      <h3>
+                        <Icon name="search" />
+                        {locale === "fr"
+                          ? "Recherches sauvegardées"
+                          : "Saved searches"}
+                      </h3>
+                      {savedSearches.length ? (
+                        <ul>
+                          {savedSearches.map((search) => (
+                            <li key={search.id}>
+                              <a
+                                className="personal-tools-link"
+                                href={`/explorer?${new URLSearchParams(search.filters)}`}
+                              >
+                                {search.name}
+                              </a>
+                              <button
+                                type="button"
+                                className="personal-tools-action danger"
+                                onClick={async () => {
+                                  await fetch(
+                                    `/api/user-tools/saved-searches/${search.id}`,
+                                    { method: "DELETE" },
+                                  );
+                                  await loadUserTools();
+                                }}
+                              >
+                                <Icon name="delete" />
+                                <span>
+                                  {locale === "fr" ? "Supprimer" : "Delete"}
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>
+                          {locale === "fr"
+                            ? "Aucune recherche."
+                            : "No saved search."}
+                        </p>
+                      )}
+                    </section>
+                  )}
+                  {personalSection === "access" && (
+                    <section>
+                      <h3>
+                        <Icon name="rules" />
+                        {locale === "fr"
+                          ? "Demandes d’accès"
+                          : "Access requests"}
+                      </h3>
+                      {accessRequests.length ? (
+                        <ul>
+                          {accessRequests.map((request) => (
+                            <li key={request.id}>
+                              <strong
+                                className={`personal-request-status ${request.status.toLowerCase()}`}
+                              >
+                                {accessRequestStatus(request.status, locale)}
+                              </strong>{" "}
+                              — {request.justification}
+                              {request.requestedUntil && (
+                                <small>
+                                  {locale === "fr"
+                                    ? " · Jusqu’au "
+                                    : " · Until "}
+                                  {new Date(
+                                    request.requestedUntil,
+                                  ).toLocaleDateString(locale)}
+                                </small>
+                              )}
+                              {request.decision && <p>{request.decision}</p>}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>
+                          {locale === "fr" ? "Aucune demande." : "No request."}
+                        </p>
+                      )}
+                    </section>
+                  )}
+                  {personalSection === "notifications" && (
+                    <section>
+                      <h3>
+                        <Icon name="audit" />{" "}
+                        {locale === "fr" ? "Notifications" : "Notifications"}
+                      </h3>
+                      {notifications.some(
+                        (notification) =>
+                          !notification.readAt && !notification.mandatory,
+                      ) && (
+                        <button
+                          type="button"
+                          className="mark-all-seen"
+                          onClick={async () => {
+                            await fetch(
+                              "/api/user-tools/notifications/read-all",
+                              { method: "PUT" },
+                            );
+                            await loadUserTools();
+                          }}
+                        >
+                          <Icon name="publish" />
                           {locale === "fr"
                             ? "Tout marquer comme vu"
                             : "Mark all as seen"}
                         </button>
-                      </div>
-                    )}
-                    {activities.length > 0 && (
-                      <button
-                        type="button"
-                        className="clear-recent"
-                        onClick={() =>
-                          void fetch("/api/user-tools/recent", {
-                            method: "DELETE",
-                          }).then((response) => {
-                            if (response.ok) setActivities([]);
-                          })
-                        }
-                      >
-                        <Icon name="delete" />{" "}
-                        {locale === "fr"
-                          ? "Effacer mon historique"
-                          : "Clear my history"}
-                      </button>
-                    )}
-                    {activities.length ? (
-                      <ul>
-                        {activities.map((activity) => (
-                          <li
-                            key={`${activity.document.id}-${activity.action}`}
-                          >
-                            <a
-                              className="personal-tools-link"
-                              href={`/explorer?q=${encodeURIComponent(
-                                activity.document.translations.find(
-                                  (item) => item.locale === locale,
-                                )?.title ||
-                                  activity.document.translations[0]?.title ||
-                                  activity.document.id,
-                              )}`}
+                      )}
+                      {notifications.length ? (
+                        <ul>
+                          {notifications.map((notification) => (
+                            <li
+                              className={notification.readAt ? "" : "unread"}
+                              key={notification.id}
                             >
-                              {activity.document.translations.find(
-                                (item) => item.locale === locale,
-                              )?.title ||
-                                activity.document.translations[0]?.title ||
-                                activity.document.id}
-                            </a>
-                            <small>
-                              {new Date(activity.occurredAt).toLocaleString(
-                                locale,
-                              )}
-                            </small>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p>
-                        {locale === "fr"
-                          ? "Aucune consultation."
-                          : "No activity."}
-                      </p>
-                    )}
-                  </section>
-                )}
-                {personalSection === "searches" && (
-                  <section>
-                    <h3>
-                      <Icon name="search" />
-                      {locale === "fr"
-                        ? "Recherches sauvegardées"
-                        : "Saved searches"}
-                    </h3>
-                    {savedSearches.length ? (
-                      <ul>
-                        {savedSearches.map((search) => (
-                          <li key={search.id}>
-                            <a
-                              className="personal-tools-link"
-                              href={`/explorer?${new URLSearchParams(search.filters)}`}
-                            >
-                              {search.name}
-                            </a>
-                            <button
-                              type="button"
-                              className="personal-tools-action danger"
-                              onClick={async () => {
-                                await fetch(
-                                  `/api/user-tools/saved-searches/${search.id}`,
-                                  { method: "DELETE" },
-                                );
-                                await loadUserTools();
-                              }}
-                            >
-                              <Icon name="delete" />
-                              <span>
-                                {locale === "fr" ? "Supprimer" : "Delete"}
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p>
-                        {locale === "fr"
-                          ? "Aucune recherche."
-                          : "No saved search."}
-                      </p>
-                    )}
-                  </section>
-                )}
-                {personalSection === "access" && (
-                  <section>
-                    <h3>
-                      <Icon name="rules" />
-                      {locale === "fr" ? "Demandes d’accès" : "Access requests"}
-                    </h3>
-                    {accessRequests.length ? (
-                      <ul>
-                        {accessRequests.map((request) => (
-                          <li key={request.id}>
-                            <strong
-                              className={`personal-request-status ${request.status.toLowerCase()}`}
-                            >
-                              {accessRequestStatus(request.status, locale)}
-                            </strong>{" "}
-                            — {request.justification}
-                            {request.requestedUntil && (
-                              <small>
-                                {locale === "fr" ? " · Jusqu’au " : " · Until "}
-                                {new Date(
-                                  request.requestedUntil,
-                                ).toLocaleDateString(locale)}
-                              </small>
-                            )}
-                            {request.decision && <p>{request.decision}</p>}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p>
-                        {locale === "fr" ? "Aucune demande." : "No request."}
-                      </p>
-                    )}
-                  </section>
-                )}
-                {personalSection === "notifications" && (
-                  <section>
-                    <h3>
-                      <Icon name="audit" />{" "}
-                      {locale === "fr" ? "Notifications" : "Notifications"}
-                    </h3>
-                    {notifications.some(
-                      (notification) =>
-                        !notification.readAt && !notification.mandatory,
-                    ) && (
-                      <button
-                        type="button"
-                        className="mark-all-seen"
-                        onClick={async () => {
-                          await fetch(
-                            "/api/user-tools/notifications/read-all",
-                            { method: "PUT" },
-                          );
-                          await loadUserTools();
-                        }}
-                      >
-                        <Icon name="publish" />
-                        {locale === "fr"
-                          ? "Tout marquer comme vu"
-                          : "Mark all as seen"}
-                      </button>
-                    )}
-                    {notifications.length ? (
-                      <ul>
-                        {notifications.map((notification) => (
-                          <li
-                            className={notification.readAt ? "" : "unread"}
-                            key={notification.id}
-                          >
-                            <strong>{notification.title}</strong>
-                            <span>{notification.message}</span>
-                            <button
-                              type="button"
-                              className="personal-tools-action"
-                              onClick={async () => {
-                                await fetch(
-                                  `/api/user-tools/notifications/${notification.id}/${notification.mandatory ? "acknowledge" : "read"}`,
-                                  { method: "PUT" },
-                                );
-                                await loadUserTools();
-                              }}
-                            >
-                              <Icon name="publish" />
-                              {notification.mandatory
-                                ? locale === "fr"
-                                  ? "Accuser réception"
-                                  : "Acknowledge"
-                                : locale === "fr"
-                                  ? "Marquer comme lu"
-                                  : "Mark as read"}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p>
-                        {locale === "fr"
-                          ? "Aucune notification."
-                          : "No notification."}
-                      </p>
-                    )}
-                  </section>
-                )}
-              </div>
-            )}
-            {personalSection === "preferences" && (
-              <fieldset className="personal-tools-preferences">
-                <legend>
-                  {locale === "fr"
-                    ? "Préférences d’affichage"
-                    : "Display preferences"}
-                </legend>
-                <label>
-                  {locale === "fr" ? "Densité" : "Density"}
-                  <select
-                    value={density}
-                    onChange={(event) => {
-                      const next = event.target.value as
-                        | "comfortable"
-                        | "compact";
-                      setDensity(next);
-                      void fetch("/api/user-tools/preferences", {
-                        method: "PUT",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          locale,
-                          viewMode,
-                          density: next,
-                          textScale,
-                          highContrast,
-                          reducedMotion,
-                        }),
-                      });
-                    }}
-                  >
-                    <option value="comfortable">
-                      {locale === "fr" ? "Confortable" : "Comfortable"}
-                    </option>
-                    <option value="compact">
-                      {locale === "fr" ? "Compacte" : "Compact"}
-                    </option>
-                  </select>
-                </label>
-                <label>
-                  {locale === "fr" ? "Taille du texte" : "Text size"}
-                  <select
-                    value={textScale}
-                    onChange={(event) => {
-                      const next = Number(event.target.value);
-                      setTextScale(next);
-                      void fetch("/api/user-tools/preferences", {
-                        method: "PUT",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          locale,
-                          viewMode,
-                          density,
-                          textScale: next,
-                          highContrast,
-                          reducedMotion,
-                        }),
-                      });
-                    }}
-                  >
-                    <option value={85}>85 %</option>
-                    <option value={100}>100 %</option>
-                    <option value={115}>115 %</option>
-                    <option value={130}>130 %</option>
-                  </select>
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={highContrast}
-                    onChange={(event) => {
-                      const next = event.target.checked;
-                      setHighContrast(next);
-                      void fetch("/api/user-tools/preferences", {
-                        method: "PUT",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          locale,
-                          viewMode,
-                          density,
-                          textScale,
-                          highContrast: next,
-                          reducedMotion,
-                        }),
-                      });
-                    }}
-                  />
-                  {locale === "fr" ? "Contraste renforcé" : "High contrast"}
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={reducedMotion}
-                    onChange={(event) => {
-                      const next = event.target.checked;
-                      setReducedMotion(next);
-                      void fetch("/api/user-tools/preferences", {
-                        method: "PUT",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          locale,
-                          viewMode,
-                          density,
-                          textScale,
-                          highContrast,
-                          reducedMotion: next,
-                        }),
-                      });
-                    }}
-                  />
-                  {locale === "fr" ? "Réduire les animations" : "Reduce motion"}
-                </label>
-              </fieldset>
-            )}
+                              <strong>{notification.title}</strong>
+                              <span>{notification.message}</span>
+                              <button
+                                type="button"
+                                className="personal-tools-action"
+                                onClick={async () => {
+                                  await fetch(
+                                    `/api/user-tools/notifications/${notification.id}/${notification.mandatory ? "acknowledge" : "read"}`,
+                                    { method: "PUT" },
+                                  );
+                                  await loadUserTools();
+                                }}
+                              >
+                                <Icon name="publish" />
+                                {notification.mandatory
+                                  ? locale === "fr"
+                                    ? "Accuser réception"
+                                    : "Acknowledge"
+                                  : locale === "fr"
+                                    ? "Marquer comme lu"
+                                    : "Mark as read"}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>
+                          {locale === "fr"
+                            ? "Aucune notification."
+                            : "No notification."}
+                        </p>
+                      )}
+                    </section>
+                  )}
+                </div>
+              )}
+              {personalSection === "preferences" && (
+                <fieldset className="personal-tools-preferences">
+                  <legend>
+                    {locale === "fr"
+                      ? "Préférences d’affichage"
+                      : "Display preferences"}
+                  </legend>
+                  <label>
+                    {locale === "fr" ? "Densité" : "Density"}
+                    <select
+                      value={density}
+                      onChange={(event) => {
+                        const next = event.target.value as
+                          | "comfortable"
+                          | "compact";
+                        setDensity(next);
+                        void fetch("/api/user-tools/preferences", {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            locale,
+                            viewMode,
+                            density: next,
+                            textScale,
+                            highContrast,
+                            reducedMotion,
+                          }),
+                        });
+                      }}
+                    >
+                      <option value="comfortable">
+                        {locale === "fr" ? "Confortable" : "Comfortable"}
+                      </option>
+                      <option value="compact">
+                        {locale === "fr" ? "Compacte" : "Compact"}
+                      </option>
+                    </select>
+                  </label>
+                  <label>
+                    {locale === "fr" ? "Taille du texte" : "Text size"}
+                    <select
+                      value={textScale}
+                      onChange={(event) => {
+                        const next = Number(event.target.value);
+                        setTextScale(next);
+                        void fetch("/api/user-tools/preferences", {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            locale,
+                            viewMode,
+                            density,
+                            textScale: next,
+                            highContrast,
+                            reducedMotion,
+                          }),
+                        });
+                      }}
+                    >
+                      <option value={85}>85 %</option>
+                      <option value={100}>100 %</option>
+                      <option value={115}>115 %</option>
+                      <option value={130}>130 %</option>
+                    </select>
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={highContrast}
+                      onChange={(event) => {
+                        const next = event.target.checked;
+                        setHighContrast(next);
+                        void fetch("/api/user-tools/preferences", {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            locale,
+                            viewMode,
+                            density,
+                            textScale,
+                            highContrast: next,
+                            reducedMotion,
+                          }),
+                        });
+                      }}
+                    />
+                    {locale === "fr" ? "Contraste renforcé" : "High contrast"}
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={reducedMotion}
+                      onChange={(event) => {
+                        const next = event.target.checked;
+                        setReducedMotion(next);
+                        void fetch("/api/user-tools/preferences", {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            locale,
+                            viewMode,
+                            density,
+                            textScale,
+                            highContrast,
+                            reducedMotion: next,
+                          }),
+                        });
+                      }}
+                    />
+                    {locale === "fr"
+                      ? "Réduire les animations"
+                      : "Reduce motion"}
+                  </label>
+                </fieldset>
+              )}
+            </div>
             <footer className="personal-tools-footer">
               <button type="button" onClick={() => setToolsOpen(false)}>
                 {locale === "fr" ? "Fermer mon espace" : "Close my workspace"}
@@ -2605,10 +2698,7 @@ export function Portal({
         <div
           className="modal-backdrop"
           role="presentation"
-          onMouseDown={() => {
-            setViewerExpanded(false);
-            setOpened(null);
-          }}
+          onMouseDown={closeDocument}
         >
           <section
             className={`modal document-modal ${viewerExpanded ? "expanded" : ""}`}
@@ -2622,6 +2712,25 @@ export function Portal({
                 {titleFor(opened, openedLocale || locale)}
               </h2>
               <div className="viewer-actions">
+                <button
+                  type="button"
+                  className="viewer-copy-link"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(window.location.href);
+                    setLinkCopied(true);
+                  }}
+                >
+                  <Icon name="publish" />
+                  <span>
+                    {linkCopied
+                      ? locale === "fr"
+                        ? "Lien copié"
+                        : "Link copied"
+                      : locale === "fr"
+                        ? "Copier le lien"
+                        : "Copy link"}
+                  </span>
+                </button>
                 <button
                   type="button"
                   disabled={openedIndex <= 0}
@@ -2658,10 +2767,7 @@ export function Portal({
                 </button>
                 <button
                   className="modal-close"
-                  onClick={() => {
-                    setViewerExpanded(false);
-                    setOpened(null);
-                  }}
+                  onClick={closeDocument}
                   aria-label={t.close}
                 >
                   ×
@@ -2687,6 +2793,29 @@ export function Portal({
                 </button>
               ))}
             </div>
+            <dl className="document-reader-meta">
+              <div>
+                <dt>{locale === "fr" ? "Emplacement" : "Location"}</dt>
+                <dd>
+                  {locale === "fr" ? opened.space.nameFr : opened.space.nameEn}
+                  {opened.category
+                    ? ` / ${locale === "fr" ? opened.category.nameFr : opened.category.nameEn}`
+                    : ""}
+                </dd>
+              </div>
+              <div>
+                <dt>{locale === "fr" ? "Fichier" : "File"}</dt>
+                <dd>{fileLabel(openedVersion?.storedFile.mimeType)}</dd>
+              </div>
+              <div>
+                <dt>{locale === "fr" ? "Version" : "Version"}</dt>
+                <dd>{openedVersion?.version ?? "—"}</dd>
+              </div>
+              <div>
+                <dt>{locale === "fr" ? "Langue" : "Language"}</dt>
+                <dd>{openedLocale?.toUpperCase() || "—"}</dd>
+              </div>
+            </dl>
             {opened.reviews.length > 0 && (
               <aside
                 className="document-review-evidence"
