@@ -920,11 +920,17 @@ h1 {
   min-height: calc(100vh - 180px);
 }
 .viewer-header {
+  position: sticky;
+  top: -28px;
+  z-index: 8;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
   padding-right: 0;
+  padding-block: 12px;
+  border-bottom: 1px solid #d9e4f1;
+  background: #fff;
 }
 .viewer-header h2 {
   margin: 0 0 14px;
@@ -944,6 +950,17 @@ h1 {
   display: grid;
   place-items: center;
   color: #17345f;
+}
+.viewer-actions .viewer-copy-link {
+  width: auto;
+  padding-inline: 0.75rem;
+  display: inline-flex;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+.viewer-copy-link svg {
+  width: 1rem;
+  height: 1rem;
 }
 .viewer-actions button:hover {
   background: #eef5ff;
@@ -967,7 +984,38 @@ h1 {
   gap: 10px;
   margin-bottom: 14px;
 }
+.document-reader-meta {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(80px, 0.5fr));
+  gap: 0.55rem;
+  margin: 0 0 0.9rem;
+}
+.document-reader-meta > div {
+  min-width: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #d6e2f0;
+  border-radius: 0.65rem;
+  background: #f7faff;
+}
+.document-reader-meta dt {
+  color: #65758d;
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.document-reader-meta dd {
+  margin: 0.2rem 0 0;
+  overflow: hidden;
+  color: #17345f;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .pdf-toolbar {
+  position: sticky;
+  top: 62px;
+  z-index: 7;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1034,6 +1082,9 @@ h1 {
   display: flow-root;
   overflow: hidden;
   border-radius: 8px;
+  border: 1px solid #c8d8eb;
+  background: #e9eef5;
+  box-shadow: inset 0 0 0 1px #fff;
 }
 .sensitive-watermark {
   position: absolute;
@@ -4044,6 +4095,27 @@ svg {
     align-items: stretch;
     flex-direction: column;
   }
+
+  .document-reader-meta {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .document-reader-meta > div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .viewer-actions .viewer-copy-link span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .viewer-actions .viewer-copy-link {
+    width: 42px;
+    padding: 0;
+  }
 }
 
 .shell.high-contrast {
@@ -4345,48 +4417,58 @@ svg {
 }
 
 .personal-tools-modal {
-  width: min(860px, calc(100vw - 2rem));
+  width: min(1040px, calc(100vw - 2rem));
   max-height: min(88vh, 900px);
   overflow: auto;
   padding: 0;
-  border: 1px solid #202938;
+  border: 1px solid #c8d8ec;
   border-radius: 1rem;
   background: #f6f8fb;
   box-shadow: 0 28px 80px #02061752;
 }
 
 .personal-tools-tabs {
-  display: flex;
+  display: grid;
+  align-content: start;
   gap: 0.5rem;
-  padding: 0.9rem 1.25rem;
-  border-bottom: 1px solid #263244;
-  background: #111827;
-  overflow-x: auto;
+  padding: 1rem;
+  border-right: 1px solid #d8e4f2;
+  background: #f7faff;
   scrollbar-width: thin;
 }
 
 .personal-tools-tabs button {
   display: inline-flex;
   min-height: 42px;
-  flex: 0 0 auto;
+  width: 100%;
   align-items: center;
   gap: 0.45rem;
   padding: 0.55rem 0.8rem;
-  border: 1px solid #374151;
-  border-radius: 0.55rem;
-  /* Keep every workspace section visibly black, even when a generic button
-     theme resets the background shorthand later in the cascade. */
-  background-color: #05070b !important;
-  background-image: none;
-  color: #f8fafc;
+  border: 1px solid transparent;
+  border-radius: 0.65rem;
+  background: transparent;
+  color: #36506f;
   font-weight: 700;
+  text-align: left;
 }
 
 .personal-tools-tabs button.active {
-  border-color: #38bdf8;
-  background: #0f6feb;
-  color: #fff;
-  box-shadow: inset 0 -3px 0 #7dd3fc;
+  border-color: #a9c9f3;
+  background: #e9f3ff;
+  color: #0759bd;
+  box-shadow: inset 3px 0 0 #0f6feb;
+}
+
+.personal-tools-tabs button:hover,
+.personal-tools-tabs button:focus-visible {
+  border-color: #c0d5ef;
+  background: #f0f6ff;
+  color: #0759bd;
+}
+
+.personal-tools-tabs button svg {
+  width: 1.15rem;
+  height: 1.15rem;
 }
 
 .personal-tools-tabs small {
@@ -4395,8 +4477,9 @@ svg {
   height: 1.35rem;
   place-items: center;
   border-radius: 999px;
-  background: #273449;
-  color: #f8fafc;
+  margin-left: auto;
+  background: #dbeafe;
+  color: #0759bd;
 }
 
 .personal-tools-tabs button.active small {
@@ -4426,9 +4509,9 @@ svg {
   align-items: center;
   gap: 1rem;
   padding: 1.5rem 4.5rem 1.25rem 1.5rem;
-  border-bottom: 1px solid #263244;
-  background: linear-gradient(135deg, #020617, #172033);
-  color: #fff;
+  border-bottom: 1px solid #d8e4f2;
+  background: #fff;
+  color: #071a38;
 }
 
 .personal-tools-heading > span {
@@ -4456,19 +4539,52 @@ svg {
 
 .personal-tools-heading p {
   margin-top: 0.25rem;
-  color: #cbd5e1;
+  color: #60728b;
+}
+
+.personal-tools-summary {
+  display: flex;
+  gap: 0.7rem;
+  margin: 0 0 0 auto;
+}
+
+.personal-tools-summary > div {
+  min-width: 5.5rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #d6e3f3;
+  border-radius: 0.7rem;
+  background: #f7faff;
+}
+
+.personal-tools-summary dt {
+  color: #60728b;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.personal-tools-summary dd {
+  margin: 0.15rem 0 0;
+  color: #0759bd;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.personal-tools-content {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: 25rem;
 }
 
 .personal-tools-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
-  padding: 1.25rem;
+  padding: 1rem;
 }
 
 .personal-tools-grid > section {
   min-width: 0;
-  padding: 1rem;
+  padding: 1.15rem;
   border: 1px solid #d8e0ea;
   border-radius: 0.75rem;
   background: #fff;
@@ -4506,7 +4622,7 @@ svg {
   padding: 0.75rem;
   border-radius: 0.65rem;
   border: 1px solid #e2e8f0;
-  background: #f8fafc;
+  background: #f8fbff;
   overflow-wrap: anywhere;
 }
 
@@ -4655,8 +4771,8 @@ svg {
   justify-content: center;
   gap: 0.45rem;
   padding: 0.55rem 0.85rem;
-  border: 1px solid #111827;
-  background: #05070b;
+  border: 1px solid #0759bd;
+  background: #0f6feb;
   color: #fff;
   font-weight: 750;
 }
@@ -4784,6 +4900,14 @@ svg {
     padding: 1.1rem 4rem 1rem 1rem;
   }
 
+  .personal-tools-summary {
+    display: none;
+  }
+
+  .personal-tools-content {
+    display: block;
+  }
+
   .personal-tools-heading > span {
     width: 2.6rem;
     height: 2.6rem;
@@ -4803,7 +4927,20 @@ svg {
   }
 
   .personal-tools-tabs {
+    display: flex;
+    border-right: 0;
+    border-bottom: 1px solid #d8e4f2;
     padding-inline: 0.85rem;
+    overflow-x: auto;
+  }
+
+  .personal-tools-tabs button {
+    width: auto;
+    flex: 0 0 auto;
+  }
+
+  .personal-tools-tabs button.active {
+    box-shadow: inset 0 -3px 0 #0f6feb;
   }
 
   .personal-tools-grid > section {

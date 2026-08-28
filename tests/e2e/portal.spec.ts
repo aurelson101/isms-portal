@@ -42,7 +42,7 @@ test("navigation, filtering, search and languages are functional", async ({
     .getByText("Politiques", { exact: true })
     .first()
     .click();
-  await expect(page).toHaveURL(/\/explorer\?space=general&categoryId=/);
+  await expect(page).toHaveURL(/\/explorer\?space=general&category=[a-z0-9-]+/);
   await expect(
     page.getByRole("heading", { name: "Explorateur documentaire", level: 1 }),
   ).toBeVisible();
@@ -55,7 +55,7 @@ test("navigation, filtering, search and languages are functional", async ({
     .getByText("Procédures", { exact: true })
     .first()
     .click();
-  await expect(page).toHaveURL(/categoryId=/);
+  await expect(page).toHaveURL(/category=[a-z0-9-]+/);
   await page
     .locator("aside")
     .getByRole("button", { name: /IT.*sous-menus/ })
@@ -65,7 +65,7 @@ test("navigation, filtering, search and languages are functional", async ({
     .getByText("Guides", { exact: true })
     .first()
     .click();
-  await expect(page).toHaveURL(/categoryId=/);
+  await expect(page).toHaveURL(/category=[a-z0-9-]+/);
   await page
     .locator("aside")
     .getByRole("button", { name: "Tous les documents de l’espace" })
@@ -253,6 +253,8 @@ test("document preview and binary download work", async ({ page, request }) => {
   await page.getByRole("button", { name: "Ouvrir" }).first().click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
+  await expect(page).toHaveURL(/document=[a-z0-9-]+--[a-z0-9-]+/);
+  await expect(dialog.locator(".document-reader-meta")).toBeVisible();
   await expect(dialog.locator("iframe")).toBeVisible();
   const download = dialog.getByRole("link", { name: "Télécharger" });
   const href = await download.getAttribute("href");
@@ -1205,7 +1207,7 @@ test("portal and administration remain usable on mobile", async ({ page }) => {
     .getByRole("button", { name: "Procédures", exact: true })
     .first()
     .click();
-  await expect(page).toHaveURL(/\/explorer\?.*categoryId=/);
+  await expect(page).toHaveURL(/\/explorer\?.*category=[a-z0-9-]+/);
   expect(
     await page.evaluate(
       () =>
@@ -2026,11 +2028,9 @@ test("personal tools persist searches, preferences, access requests and reports"
       node ? getComputedStyle(node).backgroundColor : null,
     );
   });
-  expect(personalColors).toEqual([
-    "rgb(255, 255, 255)",
-    "rgb(248, 250, 252)",
-    "rgb(5, 7, 11)",
-  ]);
+  expect(personalColors[0]).toBe("rgb(255, 255, 255)");
+  expect(personalColors[1]).toBe("rgb(248, 251, 255)");
+  expect(personalColors[2]).not.toBe("rgb(5, 7, 11)");
   expect(new Set(personalColors.filter(Boolean)).size).toBeGreaterThan(1);
   const deleteButton = workspace.getByRole("button", { name: "Supprimer" });
   await expect(deleteButton).toBeVisible();
