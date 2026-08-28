@@ -301,18 +301,29 @@ export class UserToolsController {
   @Post("document-reports")
   async report(@Req() req: IsmsRequest, @Body() body: DocumentReportDto) {
     const document = await this.prisma.document.findFirst({
-      where: { id: body.documentId, deletedAt: null, status: "PUBLISHED" },
-      select: { id: true, spaceId: true },
+      where: { id: body.documentId, deletedAt: null },
+      select: { id: true, spaceId: true, status: true },
     });
-    if (
-      !document ||
-      !(await this.authorization.can(
-        req.identity.groups,
-        document.spaceId,
-        "read",
-      ))
-    )
-      throw new NotFoundException();
+    const allowed = document
+      ? document.status === "PUBLISHED"
+        ? await this.authorization.can(
+            req.identity.groups,
+            document.spaceId,
+            "read",
+          )
+        : (
+            await Promise.all(
+              (["edit", "publish", "archive"] as const).map((permission) =>
+                this.authorization.can(
+                  req.identity.groups,
+                  document.spaceId,
+                  permission,
+                ),
+              ),
+            )
+          ).some(Boolean)
+      : false;
+    if (!document || !allowed) throw new NotFoundException();
     const report = await this.prisma.documentReport.create({
       data: {
         identity: req.identity.username,
@@ -329,6 +340,20 @@ export class UserToolsController {
       { reason: body.reason },
     );
     return report;
+  }
+
+  @Get("document-reports")
+  reports(@Req() req: IsmsRequest) {
+    return this.prisma.documentReport.findMany({
+      where: { identity: req.identity.username },
+      include: {
+        document: {
+          select: { slug: true, translations: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
   }
 
   @Post("acknowledgements")
@@ -710,10 +735,14 @@ export class OperationsController {
   ) {
     if (body.status !== "RESOLVED")
       throw new BadRequestException("Report status must be RESOLVED");
+    const resolutionComment = body.decision?.trim();
+    if (!resolutionComment)
+      throw new BadRequestException("A resolution comment is required");
     const report = await this.prisma.documentReport.update({
       where: { id },
       data: {
         status: "RESOLVED",
+        resolutionComment,
         resolvedBy: req.identity.username,
         resolvedAt: new Date(),
       },
@@ -722,7 +751,7 @@ export class OperationsController {
       data: {
         identity: report.identity,
         title: "Signalement traité",
-        message: body.decision || "Votre signalement a été traité.",
+        message: resolutionComment,
         resourceType: "document-report",
         resourceId: report.id,
       },
@@ -732,8 +761,27 @@ export class OperationsController {
       "document-report.resolve",
       `document-report:${id}`,
       "success",
+      { resolutionComment },
     );
     return report;
+  }
+
+  @Delete("document-reports/:id")
+  async deleteReport(@Req() req: IsmsRequest, @Param("id") id: string) {
+    const report = await this.prisma.documentReport.findUnique({
+      where: { id },
+      select: { id: true, identity: true },
+    });
+    if (!report) throw new NotFoundException();
+    await this.prisma.documentReport.delete({ where: { id } });
+    await this.audit.record(
+      req,
+      "document-report.delete",
+      `document-report:${id}`,
+      "success",
+      { reporter: report.identity },
+    );
+    return { deleted: true };
   }
 
   @Get("integrations")

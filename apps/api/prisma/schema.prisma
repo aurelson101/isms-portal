@@ -254,17 +254,18 @@ model AccessRequest {
 }
 
 model DocumentReport {
-  id         String    @id @default(uuid())
-  identity   String
-  documentId String
-  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  reason     String
-  message    String?
-  status     String    @default("OPEN")
-  resolvedBy String?
-  resolvedAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id                String    @id @default(uuid())
+  identity          String
+  documentId        String
+  document          Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  reason            String
+  message           String?
+  status            String    @default("OPEN")
+  resolutionComment String?
+  resolvedBy        String?
+  resolvedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([identity, createdAt])
   @@index([status, createdAt])

@@ -581,18 +581,19 @@ export class DocumentsController {
   @Post(":id/favorite")
   async addFavorite(@Req() req: IsmsRequest, @Param("id") id: string) {
     const document = await this.prisma.document.findFirst({
-      where: { id, deletedAt: null, status: "PUBLISHED" },
-      select: { id: true, spaceId: true },
+      where: { id, deletedAt: null },
+      select: { id: true, spaceId: true, status: true },
     });
-    if (
-      !document ||
-      !(await this.authorization.can(
-        req.identity.groups,
-        document.spaceId,
-        "read",
-      ))
-    )
-      throw new NotFoundException();
+    const allowed = document
+      ? document.status === "PUBLISHED"
+        ? await this.authorization.can(
+            req.identity.groups,
+            document.spaceId,
+            "read",
+          )
+        : await this.canManageDocument(req, document.spaceId)
+      : false;
+    if (!document || !allowed) throw new NotFoundException();
     await this.prisma.userFavorite.upsert({
       where: {
         identity_documentId: {

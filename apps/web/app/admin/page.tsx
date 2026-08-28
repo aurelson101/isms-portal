@@ -3946,6 +3946,9 @@ type OperationsWorkItems = {
     reason: string;
     message?: string | null;
     status: string;
+    resolutionComment?: string | null;
+    resolvedBy?: string | null;
+    resolvedAt?: string | null;
     createdAt?: string;
     document?: { translations?: Array<{ locale: string; title: string }> };
   }>;
@@ -3970,6 +3973,7 @@ function RequestsPanel({
   onNotice: (message: string) => void;
 }) {
   const { locale, t } = useAdminI18n();
+  const confirmAction = useContext(ConfirmContext);
   const [items, setItems] = useState<OperationsWorkItems>({
     accessRequests: [],
     reports: [],
@@ -3977,6 +3981,9 @@ function RequestsPanel({
   });
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState("");
+  const [resolutionComments, setResolutionComments] = useState<
+    Record<string, string>
+  >({});
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -4016,6 +4023,7 @@ function RequestsPanel({
     kind: "access" | "report" | "security",
     id: string,
     status: string,
+    decision?: string,
   ) => {
     setProcessing(id);
     try {
@@ -4028,10 +4036,36 @@ function RequestsPanel({
       const response = await fetch(endpoint, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, decision }),
       });
       if (!response.ok) throw new Error(t("La mise à jour a échoué."));
       onNotice(t("La demande a été mise à jour."));
+      await load();
+    } catch (error) {
+      onError(error instanceof Error ? error.message : t("Erreur inattendue."));
+    } finally {
+      setProcessing("");
+    }
+  };
+  const deleteDocumentReport = async (id: string) => {
+    if (
+      !(await confirmAction(
+        t(
+          "Supprimer définitivement ce signalement ?",
+          "Permanently delete this issue report?",
+        ),
+      ))
+    )
+      return;
+    setProcessing(id);
+    try {
+      const response = await fetch(
+        `/api/admin/operations/document-reports/${id}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok)
+        throw new Error(t("La suppression a échoué.", "Deletion failed."));
+      onNotice(t("Le signalement a été supprimé.", "Issue report deleted."));
       await load();
     } catch (error) {
       onError(error instanceof Error ? error.message : t("Erreur inattendue."));
@@ -4073,7 +4107,7 @@ function RequestsPanel({
       {loading ? (
         <AdminSkeleton label={t("Chargement des demandes…")} />
       ) : pendingRequests.length +
-          openReports.length +
+          items.reports.length +
           openSecurityReports.length ===
         0 ? (
         <p className="admin-empty">{t("Aucune demande à traiter.")}</p>
@@ -4150,10 +4184,12 @@ function RequestsPanel({
               </footer>
             </article>
           ))}
-          {openReports.map((item) => (
+          {items.reports.map((item) => (
             <article className="request-work-card" key={item.id}>
               <header>
-                <span className="status-pill warning">
+                <span
+                  className={`status-pill ${item.status === "RESOLVED" ? "success" : "warning"}`}
+                >
                   {localizedStatus(locale, item.status)}
                 </span>
                 <strong>{t("Signalement documentaire")}</strong>
@@ -4173,6 +4209,12 @@ function RequestsPanel({
                     <dd>{item.message}</dd>
                   </div>
                 )}
+                {item.resolutionComment && (
+                  <div>
+                    <dt>{t("Résolution", "Resolution")}</dt>
+                    <dd>{item.resolutionComment}</dd>
+                  </div>
+                )}
                 {item.createdAt && (
                   <div>
                     <dt>{t("Reçu le")}</dt>
@@ -4180,12 +4222,48 @@ function RequestsPanel({
                   </div>
                 )}
               </dl>
+              {item.status === "OPEN" && (
+                <label>
+                  {t("Commentaire de résolution", "Resolution comment")}
+                  <textarea
+                    value={resolutionComments[item.id] || ""}
+                    maxLength={1000}
+                    required
+                    onChange={(event) =>
+                      setResolutionComments((current) => ({
+                        ...current,
+                        [item.id]: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              )}
               <footer>
+                {item.status === "OPEN" && (
+                  <button
+                    disabled={
+                      processing === item.id ||
+                      !(resolutionComments[item.id] || "").trim()
+                    }
+                    onClick={() =>
+                      void update(
+                        "report",
+                        item.id,
+                        "RESOLVED",
+                        resolutionComments[item.id]?.trim(),
+                      )
+                    }
+                  >
+                    {t("Écrire résolu", "Resolve")}
+                  </button>
+                )}
                 <button
+                  type="button"
+                  className="danger"
                   disabled={processing === item.id}
-                  onClick={() => void update("report", item.id, "RESOLVED")}
+                  onClick={() => void deleteDocumentReport(item.id)}
                 >
-                  {t("Marquer traité")}
+                  <Icon name="delete" /> {t("Supprimer", "Delete")}
                 </button>
               </footer>
             </article>
@@ -4616,19 +4694,11 @@ function ObservabilityPanel({
                       <td>{item.reason}</td>
                       <td>
                         <button
-                          onClick={async () => {
-                            await fetch(
-                              `/api/admin/operations/document-reports/${item.id}`,
-                              {
-                                method: "PUT",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ status: "RESOLVED" }),
-                              },
-                            );
-                            await reloadOperations();
+                          onClick={() => {
+                            window.location.hash = "requests";
                           }}
                         >
-                          {t("Marquer traité")}
+                          {t("Ouvrir le traitement", "Open issue processing")}
                         </button>
                       </td>
                     </tr>

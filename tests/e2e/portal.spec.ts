@@ -129,6 +129,29 @@ test("personal favorites follow the signed-in account and remain ACL-filtered", 
   ).toBeVisible();
 });
 
+test("the reader FAV action updates the favorites view", async ({ page }) => {
+  await page.goto("/explorer");
+  const row = page.locator(".document").first();
+  const title = (await row.locator(".document-title").innerText()).trim();
+  await row.getByRole("button", { name: "Ouvrir" }).click();
+  const dialog = page.getByRole("dialog");
+  const fav = dialog.getByRole("button", { name: /favoris/ });
+  if ((await fav.getAttribute("aria-pressed")) === "true") await fav.click();
+  await expect(fav).toHaveAttribute("aria-pressed", "false");
+  await fav.click();
+  await expect(fav).toHaveAttribute("aria-pressed", "true");
+  await expect(fav).toContainText("★ FAV");
+  await dialog.getByRole("button", { name: "Fermer" }).click();
+
+  await page.goto("/explorer?favorites=true");
+  const favoriteRow = page.locator(".document").filter({ hasText: title });
+  await expect(favoriteRow).toBeVisible();
+  await favoriteRow
+    .getByRole("button", { name: "Retirer des favoris" })
+    .click();
+  await expect(favoriteRow).toHaveCount(0);
+});
+
 test("advanced document filters are combinable, URL-persistent and bilingual", async ({
   page,
   request,
@@ -342,6 +365,12 @@ test("PDF reader provides responsive zoom and dedicated viewing controls", async
     .getByRole("button", { name: "Afficher la page entière" })
     .click();
   await expect(frame).toHaveAttribute("src", /zoom=page-fit/);
+  await toolbar.getByRole("button", { name: "Ajuster à la largeur" }).click();
+  await expect(frame).toHaveAttribute("src", /zoom=page-width/);
+  const outline = toolbar.getByRole("button", { name: "Signets / sommaire" });
+  await outline.click();
+  await expect(outline).toHaveAttribute("aria-pressed", "true");
+  await expect(frame).toHaveAttribute("src", /navpanes=1/);
   await expect(
     toolbar.getByRole("link", { name: "Ouvrir dans un nouvel onglet" }),
   ).toHaveAttribute("target", "_blank");
@@ -2073,6 +2102,17 @@ test("a user can report a document from the accessible form", async ({
   page,
   request,
 }) => {
+  const previousItems = (await (
+    await request.get("/api/admin/operations/work-items")
+  ).json()) as { reports: Array<{ id: string; message: string | null }> };
+  for (const previous of previousItems.reports.filter(
+    (item) =>
+      item.message ===
+      "Le numéro de version indiqué dans le document est incorrect.",
+  ))
+    await request.delete(
+      `/api/admin/operations/document-reports/${previous.id}`,
+    );
   await page.goto("/explorer");
   await page.getByRole("button", { name: "Ouvrir" }).first().click();
   await page.getByRole("button", { name: "Signaler un problème" }).click();
@@ -2090,13 +2130,67 @@ test("a user can report a document from the accessible form", async ({
 
   const workItems = (await (
     await request.get("/api/admin/operations/work-items")
-  ).json()) as { reports: Array<{ reason: string; message: string | null }> };
-  expect(workItems.reports).toContainEqual(
+  ).json()) as {
+    reports: Array<{
+      id: string;
+      reason: string;
+      message: string | null;
+    }>;
+  };
+  const created = workItems.reports.find(
+    (item) =>
+      item.reason === "INCORRECT" &&
+      item.message ===
+        "Le numéro de version indiqué dans le document est incorrect.",
+  );
+  expect(created).toBeTruthy();
+
+  await page.goto("/admin#requests");
+  const adminReport = page
+    .locator(".request-work-card")
+    .filter({
+      hasText: "Le numéro de version indiqué dans le document est incorrect.",
+    })
+    .first();
+  await expect(adminReport).toBeVisible();
+  await adminReport
+    .getByLabel("Commentaire de résolution")
+    .fill("Version contrôlée et information corrigée.");
+  await adminReport.getByRole("button", { name: "Écrire résolu" }).click();
+  await expect(adminReport.getByText("Traité", { exact: true })).toBeVisible();
+
+  const personalReports = (await (
+    await request.get("/api/user-tools/document-reports")
+  ).json()) as Array<{
+    id: string;
+    status: string;
+    resolutionComment: string | null;
+  }>;
+  expect(personalReports).toContainEqual(
     expect.objectContaining({
-      reason: "INCORRECT",
-      message: "Le numéro de version indiqué dans le document est incorrect.",
+      id: created!.id,
+      status: "RESOLVED",
+      resolutionComment: "Version contrôlée et information corrigée.",
     }),
   );
+
+  await page.goto("/explorer");
+  await page.locator(".account-button").click();
+  await page.getByRole("button", { name: /Mon espace personnel/ }).click();
+  const workspace = page.getByRole("dialog", { name: "Mon espace personnel" });
+  await workspace.getByRole("button", { name: /Signalements/ }).click();
+  await expect(
+    workspace.getByText("Version contrôlée et information corrigée.").first(),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  expect(
+    (
+      await request.delete(
+        `/api/admin/operations/document-reports/${created!.id}`,
+      )
+    ).ok(),
+  ).toBeTruthy();
 });
 
 test("public and administration routes respond and document capabilities are explicit", async ({

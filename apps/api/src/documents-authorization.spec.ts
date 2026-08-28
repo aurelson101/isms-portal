@@ -176,13 +176,34 @@ describe("DocumentsController ACL scoping", () => {
   });
 
   it("does not allow favoriting a document without read permission", async () => {
-    findFirst.mockResolvedValue({ id: "document-1", spaceId: general.id });
+    findFirst.mockResolvedValue({
+      id: "document-1",
+      spaceId: general.id,
+      status: "PUBLISHED",
+    });
     can.mockResolvedValue(false);
 
     await expect(
       controller.addFavorite(request, "document-1"),
     ).rejects.toThrow();
     expect(upsertFavorite).not.toHaveBeenCalled();
+  });
+
+  it("allows a manager to favorite a visible draft", async () => {
+    findFirst.mockResolvedValue({
+      id: "draft-1",
+      spaceId: general.id,
+      status: "DRAFT",
+    });
+    can.mockImplementation(
+      (_groups: string[], _spaceId: string, permission: Permission) =>
+        Promise.resolve(permission === "edit"),
+    );
+
+    await expect(controller.addFavorite(request, "draft-1")).resolves.toEqual({
+      favorite: true,
+    });
+    expect(upsertFavorite).toHaveBeenCalled();
   });
 
   it("combines format, document language and sensitivity filters", async () => {

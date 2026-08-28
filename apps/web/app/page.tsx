@@ -113,6 +113,17 @@ type ReadingListEntry = {
   version: number | null;
   addedAt: string;
 };
+type UserDocumentReport = {
+  id: string;
+  reason: string;
+  message: string | null;
+  status: string;
+  resolutionComment: string | null;
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  document: { slug: string; translations: Translation[] };
+};
 type PaginatedDocuments = {
   items: PortalDocument[];
   page: number;
@@ -634,6 +645,7 @@ export function Portal({
     | "recent"
     | "searches"
     | "access"
+    | "reports"
     | "notifications"
     | "preferences"
   >("recent");
@@ -642,6 +654,9 @@ export function Portal({
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [accessRequests, setAccessRequests] = useState<UserAccessRequest[]>([]);
+  const [documentReports, setDocumentReports] = useState<UserDocumentReport[]>(
+    [],
+  );
   const [updates, setUpdates] = useState<DocumentUpdates | null>(null);
   const [density, setDensity] = useState<"comfortable" | "compact">(
     "comfortable",
@@ -985,15 +1000,17 @@ export function Portal({
       fetch("/api/user-tools/saved-searches", { cache: "no-store" }),
       fetch("/api/user-tools/notifications", { cache: "no-store" }),
       fetch("/api/user-tools/access-requests", { cache: "no-store" }),
+      fetch("/api/user-tools/document-reports", { cache: "no-store" }),
     ]);
     if (responses.some((response) => !response.ok)) return;
-    const [recent, documentUpdates, searches, notices, requests] =
+    const [recent, documentUpdates, searches, notices, requests, reports] =
       await Promise.all(responses.map((response) => response.json()));
     setActivities(recent as UserActivity[]);
     setUpdates(documentUpdates as DocumentUpdates);
     setSavedSearches(searches as SavedSearch[]);
     setNotifications(notices as UserNotification[]);
     setAccessRequests(requests as UserAccessRequest[]);
+    setDocumentReports(reports as UserDocumentReport[]);
   }, []);
 
   useEffect(() => {
@@ -1231,7 +1248,21 @@ export function Portal({
       setActionError(t.error);
       return;
     }
-    await loadDocuments();
+    const result = (await response.json()) as { favorite: boolean };
+    setDocuments((current) =>
+      favoritesOnly && !result.favorite
+        ? current.filter((item) => item.id !== document.id)
+        : current.map((item) =>
+            item.id === document.id
+              ? { ...item, favorite: result.favorite }
+              : item,
+          ),
+    );
+    setOpened((current) =>
+      current?.id === document.id
+        ? { ...current, favorite: result.favorite }
+        : current,
+    );
   };
   const refreshAccess = async () => {
     setAccessRefreshing(true);
@@ -2433,6 +2464,12 @@ export function Portal({
                       icon: "rules",
                     },
                     {
+                      key: "reports",
+                      label: locale === "fr" ? "Signalements" : "Issue reports",
+                      count: documentReports.length,
+                      icon: "audit",
+                    },
+                    {
                       key: "notifications",
                       label:
                         locale === "fr" ? "Notifications" : "Notifications",
@@ -2683,6 +2720,71 @@ export function Portal({
                       )}
                     </section>
                   )}
+                  {personalSection === "reports" && (
+                    <section>
+                      <h3>
+                        <Icon name="audit" />{" "}
+                        {locale === "fr"
+                          ? "Mes signalements"
+                          : "My issue reports"}
+                      </h3>
+                      {documentReports.length ? (
+                        <ul>
+                          {documentReports.map((report) => {
+                            const translation =
+                              report.document.translations.find(
+                                (item) => item.locale === locale,
+                              ) || report.document.translations[0];
+                            return (
+                              <li key={report.id}>
+                                <a
+                                  className="personal-tools-link"
+                                  href={`/documents/${encodeURIComponent(report.document.slug)}`}
+                                >
+                                  {translation?.title || report.document.slug}
+                                </a>{" "}
+                                <strong
+                                  className={`personal-request-status ${report.status.toLowerCase()}`}
+                                >
+                                  {report.status === "RESOLVED"
+                                    ? locale === "fr"
+                                      ? "Résolu"
+                                      : "Resolved"
+                                    : locale === "fr"
+                                      ? "Ouvert"
+                                      : "Open"}
+                                </strong>
+                                <p>{report.message || report.reason}</p>
+                                {report.resolutionComment && (
+                                  <p>
+                                    <strong>
+                                      {locale === "fr"
+                                        ? "Réponse ISMS :"
+                                        : "ISMS response:"}
+                                    </strong>{" "}
+                                    {report.resolutionComment}
+                                  </p>
+                                )}
+                                <small>
+                                  {new Date(report.createdAt).toLocaleString(
+                                    locale,
+                                  )}
+                                  {report.resolvedAt &&
+                                    ` · ${new Date(report.resolvedAt).toLocaleString(locale)}`}
+                                </small>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : (
+                        <p>
+                          {locale === "fr"
+                            ? "Aucun signalement documentaire."
+                            : "No document issue report."}
+                        </p>
+                      )}
+                    </section>
+                  )}
                   {personalSection === "notifications" && (
                     <section>
                       <h3>
@@ -2916,36 +3018,28 @@ export function Portal({
                 </button>
                 <button
                   type="button"
-                  aria-pressed={readingList.some(
-                    (item) => item.id === opened.id,
-                  )}
-                  onClick={() => {
-                    const present = readingList.some(
-                      (item) => item.id === opened.id,
-                    );
-                    updateReadingList(
-                      present
-                        ? readingList.filter((item) => item.id !== opened.id)
-                        : [
-                            {
-                              id: opened.id,
-                              slug: opened.slug,
-                              title: titleFor(opened, openedLocale || locale),
-                              version: openedVersion?.version ?? null,
-                              addedAt: new Date().toISOString(),
-                            },
-                            ...readingList,
-                          ],
-                    );
-                  }}
+                  aria-pressed={opened.favorite}
+                  aria-label={
+                    opened.favorite
+                      ? locale === "fr"
+                        ? "Retirer des favoris"
+                        : "Remove from favorites"
+                      : locale === "fr"
+                        ? "Ajouter aux favoris"
+                        : "Add to favorites"
+                  }
+                  title={
+                    opened.favorite
+                      ? locale === "fr"
+                        ? "Retirer des favoris"
+                        : "Remove from favorites"
+                      : locale === "fr"
+                        ? "Ajouter aux favoris"
+                        : "Add to favorites"
+                  }
+                  onClick={() => void toggleFavorite(opened)}
                 >
-                  {readingList.some((item) => item.id === opened.id)
-                    ? locale === "fr"
-                      ? "Retirer de À lire"
-                      : "Remove from To read"
-                    : locale === "fr"
-                      ? "Ajouter à À lire"
-                      : "Add to To read"}
+                  {opened.favorite ? "★ FAV" : "☆ FAV"}
                 </button>
                 <button
                   type="button"
