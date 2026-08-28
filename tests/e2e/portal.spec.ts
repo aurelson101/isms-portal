@@ -251,9 +251,12 @@ test("document preview and binary download work", async ({ page, request }) => {
     .getByRole("button", { name: "FR", exact: true })
     .click();
   await page.getByRole("button", { name: "Ouvrir" }).first().click();
-  const dialog = page.getByRole("dialog");
+  let dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await expect(page).toHaveURL(/document=[a-z0-9-]+--[a-z0-9-]+/);
+  await expect(page).toHaveURL(/\/documents\/[a-z0-9-]+/);
+  await page.reload();
+  dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
   await expect(dialog.locator(".document-reader-meta")).toBeVisible();
   await expect(dialog.locator("iframe")).toBeVisible();
   const download = dialog.getByRole("link", { name: "Télécharger" });
@@ -263,6 +266,11 @@ test("document preview and binary download work", async ({ page, request }) => {
   expect(response.status()).toBe(200);
   expect(response.headers()["content-type"]).toBe("application/pdf");
   expect((await response.body()).subarray(0, 5).toString()).toBe("%PDF-");
+  await dialog.getByRole("button", { name: "Fermer" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/explorer$/);
+  await page.waitForTimeout(250);
+  await expect(dialog).toBeHidden();
 });
 
 test("category explorer supports window and list views with an expandable reader", async ({
