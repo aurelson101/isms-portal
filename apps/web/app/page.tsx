@@ -78,6 +78,7 @@ type ReviewEvidence = {
 };
 type PortalDocument = {
   id: string;
+  slug: string;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED" | "QUARANTINED";
   sensitive: boolean;
   watermarkPosition: WatermarkPosition;
@@ -98,6 +99,13 @@ type PortalDocument = {
     publish: boolean;
     archive: boolean;
   };
+};
+type ReadingListEntry = {
+  id: string;
+  slug: string;
+  title: string;
+  version: number | null;
+  addedAt: string;
 };
 type PaginatedDocuments = {
   items: PortalDocument[];
@@ -193,16 +201,6 @@ function fileLabel(mimeType?: string) {
   if (mimeType === excelMime) return "XLSX";
   if (mimeType?.startsWith("image/")) return "IMG";
   return "FILE";
-}
-
-function urlSlug(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 72);
 }
 
 function SensitiveWatermark({ position }: { position: WatermarkPosition }) {
@@ -435,6 +433,13 @@ function DocumentRows({
                   : document.category.nameEn
                 : "—"}
             </span>
+            <span className="document-version-badge">
+              v
+              {document.versions.find((version) => version.locale === selected)
+                ?.version ??
+                document.versions[0]?.version ??
+                "—"}
+            </span>
             <span className="locales">
               {(["fr", "en"] as Locale[]).map((item) => (
                 <button
@@ -535,9 +540,13 @@ function DocumentRows({
 export function Portal({
   explorerMode = false,
   reportsMode = false,
+  initialDocumentId,
+  initialDocumentSlug,
 }: {
   explorerMode?: boolean;
   reportsMode?: boolean;
+  initialDocumentId?: string;
+  initialDocumentSlug?: string;
 }) {
   const router = useRouter();
   const [locale, setLocale] = useState<Locale>("fr");
@@ -581,8 +590,14 @@ export function Portal({
   const [accountOpen, setAccountOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [personalSection, setPersonalSection] = useState<
-    "recent" | "searches" | "access" | "notifications" | "preferences"
+    | "reading"
+    | "recent"
+    | "searches"
+    | "access"
+    | "notifications"
+    | "preferences"
   >("recent");
+  const [readingList, setReadingList] = useState<ReadingListEntry[]>([]);
   const [activities, setActivities] = useState<UserActivity[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
@@ -598,6 +613,8 @@ export function Portal({
   const [documentSort, setDocumentSort] = useState<DocumentSort>("recent");
   const [viewerExpanded, setViewerExpanded] = useState(false);
   const [pdfZoom, setPdfZoom] = useState<PdfZoom>("page-width");
+  const [pdfPage, setPdfPage] = useState(1);
+  const [pdfOutlineOpen, setPdfOutlineOpen] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [authenticationFailure, setAuthenticationFailure] =
     useState<SessionFailure | null>(null);
@@ -617,13 +634,7 @@ export function Portal({
     setViewerExpanded(false);
     setOpened(null);
     setLinkCopied(false);
-    const currentUrl = new URL(window.location.href);
-    currentUrl.searchParams.delete("document");
-    window.history.replaceState(
-      null,
-      "",
-      `${currentUrl.pathname}${currentUrl.search}`,
-    );
+    window.history.replaceState(null, "", "/explorer");
   }, []);
 
   useEffect(() => {
@@ -945,6 +956,23 @@ export function Portal({
   }, []);
 
   useEffect(() => {
+    try {
+      setReadingList(
+        JSON.parse(
+          localStorage.getItem("isms-reading-list") || "[]",
+        ) as ReadingListEntry[],
+      );
+    } catch {
+      localStorage.removeItem("isms-reading-list");
+    }
+  }, []);
+
+  const updateReadingList = useCallback((next: ReadingListEntry[]) => {
+    setReadingList(next);
+    localStorage.setItem("isms-reading-list", JSON.stringify(next));
+  }, []);
+
+  useEffect(() => {
     if (toolsOpen) void loadUserTools();
   }, [toolsOpen, loadUserTools]);
 
@@ -1244,23 +1272,41 @@ export function Portal({
     ? `/api/documents/${opened?.id}/content?locale=${openedLocale}`
     : "";
   const pdfSource = openedPdf
-    ? `${openedContentUrl}#toolbar=1&navpanes=0&zoom=${pdfZoom}`
+    ? `${openedContentUrl}#toolbar=1&navpanes=${pdfOutlineOpen ? 1 : 0}&page=${pdfPage}&zoom=${pdfZoom}`
     : openedContentUrl;
 
   useEffect(() => {
     if (!opened) return;
-    const currentUrl = new URL(window.location.href);
-    currentUrl.searchParams.set(
-      "document",
-      `${urlSlug(titleFor(opened, openedLocale || locale)) || "document"}--${opened.id}`,
-    );
+    const slug = opened.slug;
     window.history.replaceState(
       null,
       "",
-      `${currentUrl.pathname}${currentUrl.search}`,
+      `/documents/${encodeURIComponent(slug)}`,
     );
     setLinkCopied(false);
   }, [opened, openedLocale, locale]);
+
+  useEffect(() => {
+    if ((!initialDocumentId && !initialDocumentSlug) || opened) return;
+    const controller = new AbortController();
+    fetch(
+      initialDocumentSlug
+        ? `/api/documents/by-slug/${encodeURIComponent(initialDocumentSlug)}`
+        : `/api/documents/${encodeURIComponent(initialDocumentId!)}`,
+      {
+        cache: "no-store",
+        signal: controller.signal,
+      },
+    )
+      .then(async (response) => {
+        if (!response.ok) throw new Error("document");
+        setOpened((await response.json()) as PortalDocument);
+      })
+      .catch((error) => {
+        if ((error as Error).name !== "AbortError") setLoadError(true);
+      });
+    return () => controller.abort();
+  }, [initialDocumentId, initialDocumentSlug, opened]);
 
   useEffect(() => {
     if (opened || documents.length === 0) return;
@@ -1299,8 +1345,26 @@ export function Portal({
   );
 
   useEffect(() => {
-    setPdfZoom("page-width");
-  }, [opened?.id, openedLocale]);
+    if (!openedVersion) return;
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(`isms-pdf-progress:${openedVersion.id}`) || "{}",
+      ) as { page?: number; zoom?: PdfZoom };
+      setPdfPage(Math.max(1, saved.page || 1));
+      setPdfZoom(saved.zoom || "page-width");
+    } catch {
+      setPdfPage(1);
+      setPdfZoom("page-width");
+    }
+  }, [openedVersion]);
+
+  useEffect(() => {
+    if (!openedVersion || !openedPdf) return;
+    localStorage.setItem(
+      `isms-pdf-progress:${openedVersion.id}`,
+      JSON.stringify({ page: pdfPage, zoom: pdfZoom }),
+    );
+  }, [openedVersion, openedPdf, pdfPage, pdfZoom]);
 
   useEffect(() => {
     if (!openedPdf) return;
@@ -2251,8 +2315,8 @@ export function Portal({
                   <dd>{activities.length}</dd>
                 </div>
                 <div>
-                  <dt>{locale === "fr" ? "À lire" : "Unread"}</dt>
-                  <dd>{notifications.filter((item) => !item.readAt).length}</dd>
+                  <dt>{locale === "fr" ? "À lire" : "To read"}</dt>
+                  <dd>{readingList.length}</dd>
                 </div>
                 <div>
                   <dt>{locale === "fr" ? "Demandes" : "Requests"}</dt>
@@ -2271,6 +2335,12 @@ export function Portal({
               >
                 {(
                   [
+                    {
+                      key: "reading",
+                      label: locale === "fr" ? "À lire" : "To read",
+                      count: readingList.length,
+                      icon: "documents",
+                    },
                     {
                       key: "recent",
                       label: locale === "fr" ? "Récents" : "Recent",
@@ -2322,6 +2392,46 @@ export function Portal({
               </nav>
               {personalSection !== "preferences" && (
                 <div className="personal-tools-grid">
+                  {personalSection === "reading" && (
+                    <section>
+                      <h3>
+                        <Icon name="documents" />{" "}
+                        {locale === "fr" ? "Ma file À lire" : "My reading list"}
+                      </h3>
+                      {readingList.length ? (
+                        <ul>
+                          {readingList.map((item) => (
+                            <li key={item.id}>
+                              <a
+                                className="personal-tools-link"
+                                href={`/documents/${encodeURIComponent(item.slug)}`}
+                              >
+                                {item.title} · v{item.version ?? "—"}
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateReadingList(
+                                    readingList.filter(
+                                      (entry) => entry.id !== item.id,
+                                    ),
+                                  )
+                                }
+                              >
+                                {locale === "fr" ? "Retirer" : "Remove"}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>
+                          {locale === "fr"
+                            ? "Aucun document dans votre file personnelle."
+                            : "Your personal reading list is empty."}
+                        </p>
+                      )}
+                    </section>
+                  )}
                   {personalSection === "recent" && (
                     <section>
                       <h3>
@@ -2733,6 +2843,39 @@ export function Portal({
                 </button>
                 <button
                   type="button"
+                  aria-pressed={readingList.some(
+                    (item) => item.id === opened.id,
+                  )}
+                  onClick={() => {
+                    const present = readingList.some(
+                      (item) => item.id === opened.id,
+                    );
+                    updateReadingList(
+                      present
+                        ? readingList.filter((item) => item.id !== opened.id)
+                        : [
+                            {
+                              id: opened.id,
+                              slug: opened.slug,
+                              title: titleFor(opened, openedLocale || locale),
+                              version: openedVersion?.version ?? null,
+                              addedAt: new Date().toISOString(),
+                            },
+                            ...readingList,
+                          ],
+                    );
+                  }}
+                >
+                  {readingList.some((item) => item.id === opened.id)
+                    ? locale === "fr"
+                      ? "Retirer de À lire"
+                      : "Remove from To read"
+                    : locale === "fr"
+                      ? "Ajouter à À lire"
+                      : "Add to To read"}
+                </button>
+                <button
+                  type="button"
                   disabled={openedIndex <= 0}
                   onClick={() => setOpened(documents[openedIndex - 1])}
                   aria-label={
@@ -2793,29 +2936,38 @@ export function Portal({
                 </button>
               ))}
             </div>
-            <dl className="document-reader-meta">
-              <div>
-                <dt>{locale === "fr" ? "Emplacement" : "Location"}</dt>
-                <dd>
-                  {locale === "fr" ? opened.space.nameFr : opened.space.nameEn}
-                  {opened.category
-                    ? ` / ${locale === "fr" ? opened.category.nameFr : opened.category.nameEn}`
-                    : ""}
-                </dd>
-              </div>
-              <div>
-                <dt>{locale === "fr" ? "Fichier" : "File"}</dt>
-                <dd>{fileLabel(openedVersion?.storedFile.mimeType)}</dd>
-              </div>
-              <div>
-                <dt>{locale === "fr" ? "Version" : "Version"}</dt>
-                <dd>{openedVersion?.version ?? "—"}</dd>
-              </div>
-              <div>
-                <dt>{locale === "fr" ? "Langue" : "Language"}</dt>
-                <dd>{openedLocale?.toUpperCase() || "—"}</dd>
-              </div>
-            </dl>
+            <details className="document-reader-information" open>
+              <summary>
+                {locale === "fr"
+                  ? "Informations documentaires"
+                  : "Document information"}
+              </summary>
+              <dl className="document-reader-meta">
+                <div>
+                  <dt>{locale === "fr" ? "Emplacement" : "Location"}</dt>
+                  <dd>
+                    {locale === "fr"
+                      ? opened.space.nameFr
+                      : opened.space.nameEn}
+                    {opened.category
+                      ? ` / ${locale === "fr" ? opened.category.nameFr : opened.category.nameEn}`
+                      : ""}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{locale === "fr" ? "Fichier" : "File"}</dt>
+                  <dd>{fileLabel(openedVersion?.storedFile.mimeType)}</dd>
+                </div>
+                <div>
+                  <dt>{locale === "fr" ? "Version" : "Version"}</dt>
+                  <dd>{openedVersion?.version ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt>{locale === "fr" ? "Langue" : "Language"}</dt>
+                  <dd>{openedLocale?.toUpperCase() || "—"}</dd>
+                </div>
+              </dl>
+            </details>
             {opened.reviews.length > 0 && (
               <aside
                 className="document-review-evidence"
@@ -3038,6 +3190,44 @@ export function Portal({
                     +
                   </button>
                 </div>
+                <div className="pdf-page-controls">
+                  <button
+                    type="button"
+                    disabled={pdfPage <= 1}
+                    onClick={() =>
+                      setPdfPage((current) => Math.max(1, current - 1))
+                    }
+                  >
+                    ←
+                  </button>
+                  <label>
+                    <span>{locale === "fr" ? "Page" : "Page"}</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={pdfPage}
+                      onChange={(event) =>
+                        setPdfPage(Math.max(1, Number(event.target.value) || 1))
+                      }
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setPdfPage((current) => current + 1)}
+                  >
+                    →
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className={pdfOutlineOpen ? "selected" : ""}
+                  aria-pressed={pdfOutlineOpen}
+                  onClick={() => setPdfOutlineOpen((current) => !current)}
+                >
+                  {locale === "fr"
+                    ? "Signets / sommaire"
+                    : "Bookmarks / outline"}
+                </button>
                 <button
                   type="button"
                   className={pdfZoom === "page-width" ? "selected" : ""}
