@@ -846,6 +846,26 @@ export default function Admin() {
                       {identity?.displayName || t("Administrateur ISMS")}
                     </strong>
                     <small>{identity?.username}</small>
+                    <div
+                      className="admin-profile-language-mobile"
+                      role="group"
+                      aria-label={t("Langue de l’interface")}
+                    >
+                      <button
+                        type="button"
+                        aria-pressed={locale === "fr"}
+                        onClick={() => void changeLocale("fr")}
+                      >
+                        Français
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={locale === "en"}
+                        onClick={() => void changeLocale("en")}
+                      >
+                        English
+                      </button>
+                    </div>
                     <span
                       className={
                         identity?.authentication.ssoConnected
