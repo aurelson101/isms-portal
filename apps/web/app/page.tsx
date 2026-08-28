@@ -669,6 +669,7 @@ export function Portal({
   const resultsRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const documentsLoadedRef = useRef(false);
+  const initialDocumentReferenceRef = useRef<string | null>(null);
 
   const closeDocument = useCallback(() => {
     setViewerExpanded(false);
@@ -1317,7 +1318,17 @@ export function Portal({
   }, [opened, openedLocale, locale]);
 
   useEffect(() => {
-    if ((!initialDocumentId && !initialDocumentSlug) || opened) return;
+    const initialReference = initialDocumentSlug
+      ? `slug:${initialDocumentSlug}`
+      : initialDocumentId
+        ? `id:${initialDocumentId}`
+        : null;
+    if (
+      !initialReference ||
+      initialDocumentReferenceRef.current === initialReference
+    )
+      return;
+    initialDocumentReferenceRef.current = initialReference;
     const controller = new AbortController();
     fetch(
       initialDocumentSlug
@@ -1336,7 +1347,7 @@ export function Portal({
         if ((error as Error).name !== "AbortError") setLoadError(true);
       });
     return () => controller.abort();
-  }, [initialDocumentId, initialDocumentSlug, opened]);
+  }, [initialDocumentId, initialDocumentSlug]);
 
   useEffect(() => {
     if (opened || documents.length === 0) return;
