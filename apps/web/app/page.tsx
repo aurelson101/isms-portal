@@ -1294,16 +1294,6 @@ export function Portal({
   const openedIndex = opened
     ? documents.findIndex((document) => document.id === opened.id)
     : -1;
-  const relatedDocuments = opened
-    ? documents
-        .filter(
-          (document) =>
-            document.id !== opened.id &&
-            document.space.id === opened.space.id &&
-            (!opened.category || document.category?.id === opened.category.id),
-        )
-        .slice(0, 4)
-    : [];
   const openedVersion = opened?.versions.find(
     (version) => version.locale === openedLocale,
   );
@@ -3100,16 +3090,6 @@ export function Portal({
                 ))}
               </aside>
             )}
-            {openedVersion?.changeSummary && (
-              <aside className="document-change-summary">
-                <strong>
-                  {locale === "fr"
-                    ? `Nouveautés de la version ${openedVersion.version}`
-                    : `What changed in version ${openedVersion.version}`}
-                </strong>
-                <p>{openedVersion.changeSummary}</p>
-              </aside>
-            )}
             {openedVersion?.changeDetails &&
               (openedVersion.changeDetails.added?.length || 0) +
                 (openedVersion.changeDetails.removed?.length || 0) +
@@ -3173,32 +3153,7 @@ export function Portal({
                   : `Acknowledge version ${openedVersion.version}`}
               </button>
             )}
-            <div className="document-context-grid">
-              <aside>
-                <h3>
-                  {locale === "fr" ? "Documents liés" : "Related documents"}
-                </h3>
-                {relatedDocuments.length ? (
-                  <ol>
-                    {relatedDocuments.map((document) => (
-                      <li key={document.id}>
-                        <button
-                          type="button"
-                          onClick={() => setOpened(document)}
-                        >
-                          {titleFor(document, locale)}
-                        </button>
-                      </li>
-                    ))}
-                  </ol>
-                ) : (
-                  <p>
-                    {locale === "fr"
-                      ? "Aucun document lié dans cette catégorie."
-                      : "No related document in this category."}
-                  </p>
-                )}
-              </aside>
+            <div className="document-context-grid document-context-grid-single">
               <details>
                 <summary>
                   {locale === "fr" ? "Glossaire ISMS" : "ISMS glossary"}

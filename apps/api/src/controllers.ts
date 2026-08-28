@@ -900,7 +900,7 @@ export class DocumentsController {
   @Get(":id")
   async one(@Req() req: IsmsRequest, @Param("id") id: string) {
     const document = await this.prisma.document.findFirst({
-      where: { id, deletedAt: null, status: "PUBLISHED" },
+      where: { id, deletedAt: null },
       include: {
         translations: true,
         category: true,
@@ -947,13 +947,20 @@ export class DocumentsController {
         },
       },
     });
+    const canRead = document
+      ? await this.authorization.can(
+          req.identity.groups,
+          document.spaceId,
+          "read",
+        )
+      : false;
+    const canManage =
+      document && document.status !== "PUBLISHED"
+        ? await this.canManageDocument(req, document.spaceId)
+        : false;
     if (
       !document ||
-      !(await this.authorization.can(
-        req.identity.groups,
-        document.spaceId,
-        "read",
-      ))
+      (document.status === "PUBLISHED" ? !canRead : !canManage)
     ) {
       await this.audit
         .record(req, "authorization.denied", `document:${id}`, "denied")
@@ -1022,7 +1029,7 @@ export class DocumentsController {
   @Get("by-slug/:slug")
   async bySlug(@Req() req: IsmsRequest, @Param("slug") slug: string) {
     const document = await this.prisma.document.findFirst({
-      where: { slug, deletedAt: null, status: "PUBLISHED" },
+      where: { slug, deletedAt: null },
       select: { id: true },
     });
     if (!document) throw new NotFoundException();
@@ -1060,10 +1067,11 @@ export class DocumentsController {
     if (!["fr", "en"].includes(locale))
       throw new BadRequestException("Unsupported locale");
     const document = await this.prisma.document.findFirst({
-      where: { id, deletedAt: null, status: "PUBLISHED" },
+      where: { id, deletedAt: null },
       select: {
         id: true,
         spaceId: true,
+        status: true,
         sensitive: true,
         versions: {
           where: { locale },
@@ -1073,13 +1081,21 @@ export class DocumentsController {
         },
       },
     });
+    const hasRequestedPermission = document
+      ? await this.authorization.can(
+          req.identity.groups,
+          document.spaceId,
+          permission,
+        )
+      : false;
+    const canManage =
+      document && document.status !== "PUBLISHED"
+        ? await this.canManageDocument(req, document.spaceId)
+        : false;
     if (
       !document ||
-      !(await this.authorization.can(
-        req.identity.groups,
-        document.spaceId,
-        permission,
-      ))
+      !hasRequestedPermission ||
+      (document.status !== "PUBLISHED" && !canManage)
     ) {
       await this.audit
         .record(req, "authorization.denied", `document:${id}`, "denied")
@@ -1144,6 +1160,15 @@ export class DocumentsController {
       else response.destroy();
     });
     stream.pipe(response);
+  }
+
+  private async canManageDocument(req: IsmsRequest, spaceId: string) {
+    const permissions = await Promise.all(
+      (["edit", "publish", "archive"] as const).map((permission) =>
+        this.authorization.can(req.identity.groups, spaceId, permission),
+      ),
+    );
+    return permissions.some(Boolean);
   }
 }
 
