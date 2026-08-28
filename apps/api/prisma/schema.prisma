@@ -167,6 +167,7 @@ model DocumentCategory {
 
 model Document {
   id                String                 @id @default(uuid())
+  slug              String                 @unique
   spaceId           String
   space             DocumentSpace          @relation(fields: [spaceId], references: [id])
   categoryId        String?

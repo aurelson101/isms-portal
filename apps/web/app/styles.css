@@ -990,6 +990,53 @@ h1 {
   gap: 0.55rem;
   margin: 0 0 0.9rem;
 }
+.document-reader-information {
+  border: 1px solid #d7e1ee;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+.document-reader-information > summary {
+  padding: 10px 12px;
+  color: #17345f;
+  font-weight: 750;
+  cursor: pointer;
+}
+.document-reader-information .document-reader-meta {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid #d7e1ee;
+  border-radius: 0;
+}
+.document-version-badge {
+  width: max-content;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #e9f2ff;
+  color: #075dbd;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.pdf-page-controls {
+  display: inline-flex;
+  align-items: stretch;
+}
+.pdf-page-controls label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  border-block: 1px solid #b9c8dc;
+  background: white;
+  color: #17345f;
+  font-size: 0.8rem;
+}
+.pdf-page-controls input {
+  width: 54px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
 .document-reader-meta > div {
   min-width: 0;
   padding: 0.65rem 0.75rem;

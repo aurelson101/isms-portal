@@ -479,6 +479,7 @@ export class DocumentsController {
       where,
       select: {
         id: true,
+        slug: true,
         status: true,
         sensitive: true,
         watermarkPosition: true,
@@ -683,6 +684,7 @@ export class DocumentsController {
         await tx.document.create({
           data: {
             id: documentId,
+            slug: canonicalDocumentSlug(body.title.trim(), documentId),
             spaceId: body.spaceId,
             categoryId: body.categoryId || null,
             sensitive,
@@ -897,6 +899,27 @@ export class DocumentsController {
         translations: true,
         category: true,
         space: true,
+        favorites: {
+          where: { identity: req.identity.username },
+          select: { identity: true },
+          take: 1,
+        },
+        reviews: {
+          where: { status: "APPROVED", decidedAt: { not: null } },
+          select: {
+            id: true,
+            owner: true,
+            reviewer: true,
+            approver: true,
+            decisionComment: true,
+            decidedBy: true,
+            decidedAt: true,
+            dueAt: true,
+            version: { select: { locale: true, version: true } },
+          },
+          orderBy: { decidedAt: "desc" },
+          take: 5,
+        },
         versions: {
           select: {
             id: true,
@@ -947,13 +970,34 @@ export class DocumentsController {
         },
       }),
     ]);
-    const [preview, download] = await Promise.all([
-      this.authorization.can(req.identity.groups, document.spaceId, "preview"),
-      this.authorization.can(req.identity.groups, document.spaceId, "download"),
-    ]);
+    const permissionNames = [
+      "preview",
+      "download",
+      "upload",
+      "edit",
+      "publish",
+      "archive",
+    ] as const satisfies readonly Permission[];
+    const permissionValues = await Promise.all(
+      permissionNames.map((permission) =>
+        this.authorization.can(
+          req.identity.groups,
+          document.spaceId,
+          permission,
+        ),
+      ),
+    );
+    const permissions = Object.fromEntries(
+      permissionNames.map((permission, index) => [
+        permission,
+        permissionValues[index],
+      ]),
+    );
     return {
       ...document,
-      permissions: { preview, download },
+      favorite: document.favorites.length > 0,
+      favorites: undefined,
+      permissions,
       versions: document.versions.map((version) => ({
         ...version,
         storedFile: {
@@ -962,6 +1006,16 @@ export class DocumentsController {
         },
       })),
     };
+  }
+
+  @Get("by-slug/:slug")
+  async bySlug(@Req() req: IsmsRequest, @Param("slug") slug: string) {
+    const document = await this.prisma.document.findFirst({
+      where: { slug, deletedAt: null, status: "PUBLISHED" },
+      select: { id: true },
+    });
+    if (!document) throw new NotFoundException();
+    return this.one(req, document.id);
   }
 
   @Get(":id/content")
@@ -2345,6 +2399,16 @@ const allowedExtensions: Record<string, string[]> = {
     "application/zip",
   ],
 };
+const canonicalDocumentSlug = (title: string, id: string) => {
+  const normalized = title
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 72);
+  return `${normalized || "document"}-${id.slice(0, 8)}`;
+};
 
 const magicMatches = (content: Buffer, extension: string) => {
   if (extension === ".pdf")
@@ -2495,6 +2559,7 @@ export class DocumentAdminController {
         : await tx.document.create({
             data: {
               id: documentId,
+              slug: canonicalDocumentSlug(body.title.trim(), documentId),
               spaceId: body.spaceId,
               categoryId: body.categoryId || null,
               sensitive,

@@ -252,6 +252,7 @@ async function main() {
       },
       create: {
         id,
+        slug: id,
         status: "PUBLISHED",
         publishedAt: new Date(),
         categoryId,
