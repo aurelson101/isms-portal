@@ -3095,39 +3095,6 @@ export function Portal({
                   : `Acknowledge version ${openedVersion.version}`}
               </button>
             )}
-            <div className="document-context-grid document-context-grid-single">
-              <details>
-                <summary>
-                  {locale === "fr" ? "Glossaire ISMS" : "ISMS glossary"}
-                </summary>
-                <dl>
-                  <div>
-                    <dt>ISMS / SMSI</dt>
-                    <dd>
-                      {locale === "fr"
-                        ? "Système de management de la sécurité de l’information."
-                        : "Information security management system."}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>SoA</dt>
-                    <dd>
-                      {locale === "fr"
-                        ? "Déclaration d’applicabilité des contrôles de sécurité."
-                        : "Statement of Applicability for security controls."}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>CAPA</dt>
-                    <dd>
-                      {locale === "fr"
-                        ? "Actions correctives et préventives."
-                        : "Corrective and preventive actions."}
-                    </dd>
-                  </div>
-                </dl>
-              </details>
-            </div>
             {openedPdf && opened?.permissions.preview && (
               <div
                 className="pdf-toolbar"
