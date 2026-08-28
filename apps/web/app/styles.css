@@ -4667,6 +4667,23 @@ svg {
   color: #0759bd;
 }
 
+/* The portal sidebar rule targets every nav inside .shell. Keep workspace tabs
+   readable because this navigation is rendered inside the main dialog. */
+.shell .personal-tools-tabs button {
+  color: #172b4d;
+}
+.shell .personal-tools-tabs button svg {
+  color: currentColor;
+}
+.shell .personal-tools-tabs button.active,
+.shell .personal-tools-tabs button:hover,
+.shell .personal-tools-tabs button:focus-visible {
+  color: #0759bd;
+}
+.shell .personal-tools-tabs button small {
+  color: #0759bd;
+}
+
 .personal-tools-modal > .modal-close {
   display: grid;
   width: 42px;
