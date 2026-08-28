@@ -1469,13 +1469,6 @@ export function Portal({
           </button>
           <button
             type="button"
-            className={reportsMode ? "active" : ""}
-            onClick={() => router.push("/incident-reports")}
-          >
-            <Icon name="audit" /> <span>{t.incidentReports}</span>
-          </button>
-          <button
-            type="button"
             className={favoritesOnly ? "active" : ""}
             onClick={selectFavorites}
           >
@@ -3321,17 +3314,6 @@ export function Portal({
           </section>
         </div>
       )}
-      <button
-        type="button"
-        className="security-report-trigger"
-        onClick={() => {
-          setSecurityReportFeedback("");
-          setSecurityReportOpen(true);
-        }}
-      >
-        <Icon name="shield" />
-        {locale === "fr" ? "Signaler un incident" : "Report an incident"}
-      </button>
       {securityReportOpen && (
         <div
           className="modal-backdrop"
