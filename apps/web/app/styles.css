@@ -4236,6 +4236,10 @@ svg {
   margin: 0.8rem 0;
 }
 
+.document-context-grid-single {
+  grid-template-columns: 1fr;
+}
+
 .document-context-grid > * {
   padding: 0.8rem;
   border: 1px solid #d7e2f2;
@@ -4978,13 +4982,6 @@ svg {
   margin-top: 0.85rem;
 }
 
-.document-change-summary {
-  margin: 1rem 0;
-  padding: 0.9rem 1rem;
-  border-left: 4px solid #0f6feb;
-  background: #eff6ff;
-}
-
 .document-change-details {
   display: grid;
   gap: 0.6rem;
@@ -5023,10 +5020,6 @@ svg {
 .change-modified {
   display: grid;
   gap: 0.35rem;
-}
-
-.document-change-summary p {
-  margin: 0.4rem 0 0;
 }
 
 .document-acknowledge-button {

@@ -11,12 +11,16 @@ describe("DocumentsController ACL scoping", () => {
   const count = vi.fn().mockResolvedValue(0);
   const findMany = vi.fn().mockResolvedValue([]);
   const findFirst = vi.fn();
+  const updateDocument = vi.fn().mockResolvedValue({});
+  const upsertActivity = vi.fn().mockResolvedValue({});
   const upsertFavorite = vi.fn();
   const queryRaw = vi.fn().mockResolvedValue([]);
   const prisma = {
-    document: { count, findMany, findFirst },
+    document: { count, findMany, findFirst, update: updateDocument },
+    userDocumentActivity: { upsert: upsertActivity },
     userFavorite: { upsert: upsertFavorite },
     $queryRaw: queryRaw,
+    $transaction: vi.fn((operations: unknown[]) => Promise.all(operations)),
   } as unknown as PrismaService;
   const permittedSpacesFor = vi.fn();
   const can = vi.fn();
@@ -27,7 +31,7 @@ describe("DocumentsController ACL scoping", () => {
   const controller = new DocumentsController(
     prisma,
     authorization,
-    {} as never,
+    { record: vi.fn().mockResolvedValue(undefined) } as never,
     {} as never,
     {} as never,
     {} as never,
@@ -46,6 +50,8 @@ describe("DocumentsController ACL scoping", () => {
     findMany.mockClear();
     queryRaw.mockReset().mockResolvedValue([]);
     findFirst.mockReset();
+    updateDocument.mockClear();
+    upsertActivity.mockClear();
     upsertFavorite.mockReset();
     can.mockReset();
     permittedSpacesFor.mockReset();
@@ -208,5 +214,49 @@ describe("DocumentsController ACL scoping", () => {
         },
       }),
     });
+  });
+
+  it("does not expose a draft to a read-only identity", async () => {
+    findFirst.mockResolvedValue({
+      id: "draft-1",
+      status: "DRAFT",
+      spaceId: general.id,
+      translations: [],
+      category: null,
+      space: general,
+      favorites: [],
+      reviews: [],
+      versions: [],
+    });
+    can.mockImplementation(
+      (_groups: string[], _spaceId: string, permission: Permission) =>
+        Promise.resolve(permission === "read" || permission === "preview"),
+    );
+
+    await expect(controller.one(request, "draft-1")).rejects.toThrow();
+    expect(updateDocument).not.toHaveBeenCalled();
+  });
+
+  it("allows a document manager to open a draft", async () => {
+    findFirst.mockResolvedValue({
+      id: "draft-1",
+      status: "DRAFT",
+      spaceId: general.id,
+      translations: [],
+      category: null,
+      space: general,
+      favorites: [],
+      reviews: [],
+      versions: [],
+    });
+    can.mockImplementation(
+      (_groups: string[], _spaceId: string, permission: Permission) =>
+        Promise.resolve(["read", "preview", "edit"].includes(permission)),
+    );
+
+    await expect(controller.one(request, "draft-1")).resolves.toEqual(
+      expect.objectContaining({ id: "draft-1", status: "DRAFT" }),
+    );
+    expect(updateDocument).toHaveBeenCalled();
   });
 });
