@@ -924,10 +924,11 @@ h1 {
   top: -28px;
   z-index: 8;
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
-  padding-right: 0;
+  padding-right: 50px;
   padding-block: 12px;
   border-bottom: 1px solid #d9e4f1;
   background: #fff;
@@ -938,8 +939,11 @@ h1 {
 }
 .viewer-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
   flex: 0 0 auto;
+  max-width: 100%;
 }
 .viewer-actions button {
   width: 42px;
@@ -967,9 +971,12 @@ h1 {
   border-color: #0768ea;
 }
 .viewer-actions .modal-close {
-  position: static;
+  position: absolute;
+  top: 12px;
+  right: 0;
   font-size: 27px;
   line-height: 1;
+  cursor: pointer;
 }
 .modal-close {
   position: absolute;
@@ -2785,82 +2792,6 @@ h1 {
 .annual-report-actions .incident-action.delete:focus-visible {
   border-color: #c83838;
   background: #fff2f2;
-}
-
-.document-review-evidence {
-  display: grid;
-  gap: 0.75rem;
-  margin: 0 1rem 1rem;
-  padding: 0.9rem;
-  border: 1px solid #9fc7ad;
-  border-radius: 0.75rem;
-  background: #f0faf3;
-  color: #173d29;
-}
-
-.document-review-evidence-heading {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-}
-
-.document-review-evidence-heading svg {
-  width: 1.5rem;
-  height: 1.5rem;
-  color: #168047;
-}
-
-.document-review-evidence-heading > div,
-.document-review-evidence-body {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.document-review-version {
-  width: fit-content;
-  padding: 0.25rem 0.55rem;
-  border-radius: 999px;
-  background: #d9f2e1;
-  color: #126038;
-  font-weight: 800;
-}
-
-.document-review-evidence dl {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.55rem;
-  margin: 0.35rem 0;
-}
-
-.document-review-evidence dl > div {
-  min-width: 0;
-  padding: 0.55rem;
-  border: 1px solid #c7e4d0;
-  border-radius: 0.55rem;
-  background: #fff;
-}
-
-.document-review-evidence dt {
-  color: #527063;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.document-review-evidence dd {
-  margin: 0.2rem 0 0;
-  overflow-wrap: anywhere;
-  font-weight: 700;
-}
-
-.document-review-evidence p {
-  margin: 0.35rem 0 0;
-  white-space: pre-wrap;
-}
-
-@media (max-width: 700px) {
-  .document-review-evidence dl {
-    grid-template-columns: 1fr;
-  }
 }
 
 .annual-report-details {

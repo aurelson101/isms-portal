@@ -2971,9 +2971,11 @@ export function Portal({
                   <Icon name={viewerExpanded ? "collapse" : "expand"} />
                 </button>
                 <button
+                  type="button"
                   className="modal-close"
                   onClick={closeDocument}
                   aria-label={t.close}
+                  title={t.close}
                 >
                   ×
                 </button>
@@ -3030,66 +3032,6 @@ export function Portal({
                 </div>
               </dl>
             </details>
-            {opened.reviews.length > 0 && (
-              <aside
-                className="document-review-evidence"
-                aria-label={
-                  locale === "fr"
-                    ? "Preuve de revue documentaire"
-                    : "Document review evidence"
-                }
-              >
-                <div className="document-review-evidence-heading">
-                  <Icon name="audit" />
-                  <div>
-                    <strong>
-                      {locale === "fr"
-                        ? "Revue approuvée et traçable"
-                        : "Approved and traceable review"}
-                    </strong>
-                    <small>
-                      {locale === "fr"
-                        ? "Trois acteurs identifiés dans le circuit de validation"
-                        : "Three identified actors in the approval workflow"}
-                    </small>
-                  </div>
-                </div>
-                {opened.reviews.slice(0, 1).map((review) => (
-                  <div
-                    className="document-review-evidence-body"
-                    key={review.id}
-                  >
-                    <div className="document-review-version">
-                      {locale === "fr" ? "Version" : "Version"}{" "}
-                      {review.version?.version ?? "—"}
-                      {review.version?.locale
-                        ? ` · ${review.version.locale.toUpperCase()}`
-                        : ""}
-                    </div>
-                    <dl>
-                      <div>
-                        <dt>{locale === "fr" ? "Propriétaire" : "Owner"}</dt>
-                        <dd>{review.owner}</dd>
-                      </div>
-                      <div>
-                        <dt>{locale === "fr" ? "Relecteur" : "Reviewer"}</dt>
-                        <dd>{review.reviewer}</dd>
-                      </div>
-                      <div>
-                        <dt>{locale === "fr" ? "Approbateur" : "Approver"}</dt>
-                        <dd>{review.approver}</dd>
-                      </div>
-                    </dl>
-                    <small>
-                      {locale === "fr" ? "Décision finale" : "Final decision"}:{" "}
-                      {review.decidedBy || "—"} ·{" "}
-                      {new Date(review.decidedAt).toLocaleString(locale)}
-                    </small>
-                    {review.decisionComment && <p>{review.decisionComment}</p>}
-                  </div>
-                ))}
-              </aside>
-            )}
             {openedVersion?.changeDetails &&
               (openedVersion.changeDetails.added?.length || 0) +
                 (openedVersion.changeDetails.removed?.length || 0) +
