@@ -3062,39 +3062,6 @@ export function Portal({
                   ))}
                 </details>
               )}
-            {openedVersion && opened.status === "PUBLISHED" && (
-              <button
-                type="button"
-                className="document-acknowledge-button"
-                onClick={async () => {
-                  const response = await fetch(
-                    "/api/user-tools/acknowledgements",
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        documentId: opened.id,
-                        versionId: openedVersion.id,
-                      }),
-                    },
-                  );
-                  setReportFeedback(
-                    response.ok
-                      ? locale === "fr"
-                        ? `Prise de connaissance enregistrée pour la version ${openedVersion.version}.`
-                        : `Acknowledgement recorded for version ${openedVersion.version}.`
-                      : locale === "fr"
-                        ? "La prise de connaissance n’a pas pu être enregistrée."
-                        : "The acknowledgement could not be recorded.",
-                  );
-                }}
-              >
-                <Icon name="publish" />
-                {locale === "fr"
-                  ? `Attester avoir lu la version ${openedVersion.version}`
-                  : `Acknowledge version ${openedVersion.version}`}
-              </button>
-            )}
             {openedPdf && opened?.permissions.preview && (
               <div
                 className="pdf-toolbar"
