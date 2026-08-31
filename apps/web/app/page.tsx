@@ -43,11 +43,45 @@ type Category = {
   nameFr: string;
   nameEn: string;
   spaceId: string;
+  parentId?: string | null;
   documentCount?: number;
 };
 
-const populatedCategories = (space: Space) =>
-  space.categories.filter((category) => category.documentCount !== 0);
+type CategoryTreeItem = Category & { depth: number };
+
+const populatedCategories = (space: Space): CategoryTreeItem[] => {
+  const children = new Map<string | null, Category[]>();
+  for (const category of space.categories) {
+    const parentId = category.parentId || null;
+    children.set(parentId, [...(children.get(parentId) || []), category]);
+  }
+  const visible = new Set<string>();
+  const markVisible = (category: Category, trail = new Set<string>()) => {
+    if (trail.has(category.id)) return false;
+    const nextTrail = new Set(trail).add(category.id);
+    const hasVisibleChild = (children.get(category.id) || []).some((child) =>
+      markVisible(child, nextTrail),
+    );
+    const shown = category.documentCount !== 0 || hasVisibleChild;
+    if (shown) visible.add(category.id);
+    return shown;
+  };
+  for (const root of children.get(null) || []) markVisible(root);
+  const result: CategoryTreeItem[] = [];
+  const append = (
+    category: Category,
+    depth: number,
+    trail = new Set<string>(),
+  ) => {
+    if (trail.has(category.id) || !visible.has(category.id)) return;
+    const nextTrail = new Set(trail).add(category.id);
+    result.push({ ...category, depth });
+    for (const child of children.get(category.id) || [])
+      append(child, depth + 1, nextTrail);
+  };
+  for (const root of children.get(null) || []) append(root, 0);
+  return result;
+};
 type Translation = {
   locale: string;
   title: string;
@@ -1608,7 +1642,7 @@ export function Portal({
                     {categories.map((itemCategory) => (
                       <button
                         type="button"
-                        className={`category-menu ${category === itemCategory.id ? "active" : ""}`}
+                        className={`category-menu category-depth-${Math.min(itemCategory.depth, 4)} ${category === itemCategory.id ? "active" : ""}`}
                         onClick={() =>
                           selectCategory(item.slug, itemCategory.id)
                         }

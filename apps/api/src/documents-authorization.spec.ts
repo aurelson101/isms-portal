@@ -11,12 +11,18 @@ describe("DocumentsController ACL scoping", () => {
   const count = vi.fn().mockResolvedValue(0);
   const findMany = vi.fn().mockResolvedValue([]);
   const findFirst = vi.fn();
+  const categoryFindFirst = vi.fn();
+  const categoryFindMany = vi.fn().mockResolvedValue([]);
   const updateDocument = vi.fn().mockResolvedValue({});
   const upsertActivity = vi.fn().mockResolvedValue({});
   const upsertFavorite = vi.fn();
   const queryRaw = vi.fn().mockResolvedValue([]);
   const prisma = {
     document: { count, findMany, findFirst, update: updateDocument },
+    documentCategory: {
+      findFirst: categoryFindFirst,
+      findMany: categoryFindMany,
+    },
     userDocumentActivity: { upsert: upsertActivity },
     userFavorite: { upsert: upsertFavorite },
     $queryRaw: queryRaw,
@@ -50,6 +56,8 @@ describe("DocumentsController ACL scoping", () => {
     findMany.mockClear();
     queryRaw.mockReset().mockResolvedValue([]);
     findFirst.mockReset();
+    categoryFindFirst.mockReset();
+    categoryFindMany.mockReset().mockResolvedValue([]);
     updateDocument.mockClear();
     upsertActivity.mockClear();
     upsertFavorite.mockReset();
@@ -126,6 +134,11 @@ describe("DocumentsController ACL scoping", () => {
   it("binds a category UUID to the selected authorized space", async () => {
     grant({ read: [general, itSpace] });
     const categoryId = "123e4567-e89b-42d3-a456-426614174000";
+    categoryFindFirst.mockResolvedValue({ id: categoryId });
+    categoryFindMany.mockResolvedValue([
+      { id: categoryId, parentId: null },
+      { id: "child-category", parentId: categoryId },
+    ]);
 
     await controller.list(
       request,
@@ -140,11 +153,7 @@ describe("DocumentsController ACL scoping", () => {
 
     expect(count).toHaveBeenCalledWith({
       where: expect.objectContaining({
-        category: {
-          id: categoryId,
-          deletedAt: null,
-          spaceId: { in: ["space-general"] },
-        },
+        categoryId: { in: [categoryId, "child-category"] },
       }),
     });
   });

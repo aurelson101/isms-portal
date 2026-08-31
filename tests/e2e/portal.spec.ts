@@ -1096,21 +1096,57 @@ test("categories can be created, edited and deleted", async ({ request }) => {
   expect(createdResponse.status()).toBe(201);
   const created = (await createdResponse.json()) as { id: string };
 
+  const childResponse = await request.post("/api/admin/categories", {
+    data: {
+      spaceId: spaces[0].id,
+      parentId: created.id,
+      slug: `test-child-${suffix}`,
+      nameFr: `Sous-catégorie test ${suffix}`,
+      nameEn: `Test subcategory ${suffix}`,
+    },
+  });
+  expect(childResponse.status()).toBe(201);
+  const child = (await childResponse.json()) as {
+    id: string;
+    parentId: string;
+  };
+  expect(child.parentId).toBe(created.id);
+
   const updatedResponse = await request.put(
     `/api/admin/categories/${created.id}`,
     {
       data: {
         spaceId: spaces[0].id,
+        parentId: child.id,
         slug: `test-modifie-${suffix}`,
         nameFr: `Catégorie modifiée ${suffix}`,
         nameEn: `Updated category ${suffix}`,
       },
     },
   );
-  expect(updatedResponse.ok()).toBeTruthy();
-  expect((await updatedResponse.json()).nameFr).toBe(
+  expect(updatedResponse.status()).toBe(400);
+
+  const validUpdateResponse = await request.put(
+    `/api/admin/categories/${created.id}`,
+    {
+      data: {
+        spaceId: spaces[0].id,
+        parentId: null,
+        slug: `test-modifie-${suffix}`,
+        nameFr: `Catégorie modifiée ${suffix}`,
+        nameEn: `Updated category ${suffix}`,
+      },
+    },
+  );
+  expect(validUpdateResponse.ok()).toBeTruthy();
+  expect((await validUpdateResponse.json()).nameFr).toBe(
     `Catégorie modifiée ${suffix}`,
   );
+
+  const deletedChildResponse = await request.delete(
+    `/api/admin/categories/${child.id}`,
+  );
+  expect(deletedChildResponse.ok()).toBeTruthy();
 
   const deletedResponse = await request.delete(
     `/api/admin/categories/${created.id}`,
