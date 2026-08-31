@@ -546,6 +546,34 @@ test("administration uses live APIs and every menu opens a section", async ({
   }
 });
 
+test("administrator rights actions use the shared button styling", async ({
+  page,
+}) => {
+  await page.goto("/admin#settings");
+  await expect(
+    page.getByRole("heading", { name: "Comptes administrateurs" }),
+  ).toBeVisible();
+
+  const buttons = page.locator(
+    ".profile-settings button, .administrator-management button",
+  );
+  await expect(buttons.first()).toBeVisible();
+
+  const unstyledButtons = await buttons.evaluateAll((elements) =>
+    elements
+      .filter((element) => {
+        const style = window.getComputedStyle(element);
+        return (
+          style.borderStyle === "none" ||
+          Number.parseFloat(style.borderRadius) < 6 ||
+          Number.parseFloat(style.minHeight) < 40
+        );
+      })
+      .map((element) => element.textContent?.trim() || element.outerHTML),
+  );
+  expect(unstyledButtons).toEqual([]);
+});
+
 test("document spaces provide a clear responsive content hierarchy", async ({
   page,
   request,
