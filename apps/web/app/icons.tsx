@@ -27,6 +27,7 @@ export type IconName =
   | "archive"
   | "restore"
   | "delete"
+  | "check"
   | "menu"
   | "close"
   | "chevron";
@@ -184,6 +185,7 @@ export function Icon({
         <path d="M10 11v6M14 11v6" />
       </>
     ),
+    check: <path d="m5 12 4 4L19 6" />,
     menu: (
       <>
         <path d="M4 7h16M4 12h16M4 17h16" />

@@ -623,6 +623,51 @@ export class OperationsController {
     return { accessRequests, reports, securityReports };
   }
 
+  @Delete("work-items")
+  async deleteAllWorkItems(@Req() req: IsmsRequest) {
+    const securityReports = await this.prisma.securityReport.findMany({
+      where: { attachmentObjectKey: { not: null } },
+      select: { attachmentObjectKey: true },
+    });
+    const resourceTypes = [
+      "access-request",
+      "document-report",
+      "security-report",
+    ];
+    const deleted = await this.prisma.$transaction(async (tx) => {
+      const notifications = await tx.userNotification.deleteMany({
+        where: { resourceType: { in: resourceTypes } },
+      });
+      const accessRequests = await tx.accessRequest.deleteMany();
+      const documentReports = await tx.documentReport.deleteMany();
+      const securityReportsResult = await tx.securityReport.deleteMany();
+      return {
+        accessRequests: accessRequests.count,
+        documentReports: documentReports.count,
+        securityReports: securityReportsResult.count,
+        notifications: notifications.count,
+      };
+    });
+    const attachmentCleanup = await Promise.allSettled(
+      securityReports.flatMap((report) =>
+        report.attachmentObjectKey
+          ? [this.storage.removeObject(report.attachmentObjectKey)]
+          : [],
+      ),
+    );
+    const attachmentFailures = attachmentCleanup.filter(
+      (result) => result.status === "rejected",
+    ).length;
+    await this.audit.record(
+      req,
+      "user-requests.delete-all",
+      "user-requests:all",
+      attachmentFailures ? "failure" : "success",
+      { ...deleted, attachmentFailures },
+    );
+    return { deleted, attachmentFailures };
+  }
+
   @Put("security-reports/:id")
   async resolveSecurityReport(
     @Req() req: IsmsRequest,

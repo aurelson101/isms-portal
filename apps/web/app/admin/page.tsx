@@ -4063,9 +4063,8 @@ function RequestsPanel({
         `/api/admin/operations/document-reports/${id}`,
         { method: "DELETE" },
       );
-      if (!response.ok)
-        throw new Error(t("La suppression a échoué.", "Deletion failed."));
-      onNotice(t("Le signalement a été supprimé.", "Issue report deleted."));
+      if (!response.ok) throw new Error(t("La suppression a échoué."));
+      onNotice(t("Le signalement a été supprimé."));
       await load();
     } catch (error) {
       onError(error instanceof Error ? error.message : t("Erreur inattendue."));
@@ -4073,6 +4072,41 @@ function RequestsPanel({
       setProcessing("");
     }
   };
+  const deleteAllRequests = async () => {
+    if (
+      !(await confirmAction(
+        t(
+          "Supprimer définitivement toutes les demandes utilisateurs, tous les signalements et leurs notifications ?",
+          "Permanently delete all user requests, issue reports and their notifications?",
+        ),
+      ))
+    )
+      return;
+    setProcessing("all");
+    try {
+      const response = await fetch("/api/admin/operations/work-items", {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error(t("La suppression globale a échoué."));
+      onNotice(
+        t(
+          "Toutes les demandes utilisateurs ont été supprimées.",
+          "All user requests have been deleted.",
+        ),
+      );
+      setResolutionComments({});
+      await load();
+    } catch (error) {
+      onError(error instanceof Error ? error.message : t("Erreur inattendue."));
+    } finally {
+      setProcessing("");
+    }
+  };
+
+  const totalRequests =
+    items.accessRequests.length +
+    items.reports.length +
+    items.securityReports.length;
 
   return (
     <section className="requests-panel">
@@ -4086,9 +4120,25 @@ function RequestsPanel({
             )}
           </p>
         </div>
-        <button type="button" onClick={() => void load()} disabled={loading}>
-          <Icon name="sync" /> {t("Actualiser")}
-        </button>
+        <div className="section-heading-actions">
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => void load()}
+            disabled={loading || processing === "all"}
+          >
+            <Icon name="sync" /> {t("Actualiser")}
+          </button>
+          <button
+            type="button"
+            className="danger solid-danger"
+            onClick={() => void deleteAllRequests()}
+            disabled={!totalRequests || processing === "all"}
+          >
+            <Icon name="delete" />
+            {processing === "all" ? t("Suppression…") : t("Tout supprimer")}
+          </button>
+        </div>
       </div>
       <div className="summary-grid">
         <article>
@@ -4203,16 +4253,28 @@ function RequestsPanel({
                   <dt>{t("Motif")}</dt>
                   <dd>{item.reason}</dd>
                 </div>
-                {item.message && (
-                  <div>
-                    <dt>{t("Détail")}</dt>
-                    <dd>{item.message}</dd>
-                  </div>
-                )}
+                <div className="request-comment user-comment">
+                  <dt>{t("Commentaire utilisateur")}</dt>
+                  <dd>
+                    {item.message ||
+                      t(
+                        "Aucun commentaire fourni.",
+                        "No comment was provided.",
+                      )}
+                  </dd>
+                </div>
                 {item.resolutionComment && (
-                  <div>
-                    <dt>{t("Résolution", "Resolution")}</dt>
+                  <div className="request-comment resolution-comment">
+                    <dt>{t("Réponse de résolution")}</dt>
                     <dd>{item.resolutionComment}</dd>
+                    {(item.resolvedBy || item.resolvedAt) && (
+                      <dd className="request-resolution-meta">
+                        {item.resolvedBy}
+                        {item.resolvedBy && item.resolvedAt ? " · " : ""}
+                        {item.resolvedAt &&
+                          new Date(item.resolvedAt).toLocaleString(locale)}
+                      </dd>
+                    )}
                   </div>
                 )}
                 {item.createdAt && (
@@ -4224,7 +4286,7 @@ function RequestsPanel({
               </dl>
               {item.status === "OPEN" && (
                 <label>
-                  {t("Commentaire de résolution", "Resolution comment")}
+                  {t("Commentaire de résolution")}
                   <textarea
                     value={resolutionComments[item.id] || ""}
                     maxLength={1000}
@@ -4254,7 +4316,8 @@ function RequestsPanel({
                       )
                     }
                   >
-                    {t("Écrire résolu", "Resolve")}
+                    <Icon name="check" />
+                    {t("Résoudre avec ce commentaire")}
                   </button>
                 )}
                 <button
@@ -4263,7 +4326,7 @@ function RequestsPanel({
                   disabled={processing === item.id}
                   onClick={() => void deleteDocumentReport(item.id)}
                 >
-                  <Icon name="delete" /> {t("Supprimer", "Delete")}
+                  <Icon name="delete" /> {t("Supprimer")}
                 </button>
               </footer>
             </article>
@@ -4698,7 +4761,7 @@ function ObservabilityPanel({
                             window.location.hash = "requests";
                           }}
                         >
-                          {t("Ouvrir le traitement", "Open issue processing")}
+                          {t("Ouvrir le traitement")}
                         </button>
                       </td>
                     </tr>

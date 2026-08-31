@@ -440,6 +440,16 @@ export const adminEnglishCatalog = {
     "Automatic retention of the 50 most recent events.",
   "Supprimer définitivement ce document et tous ses fichiers ?":
     "Permanently delete this document and all its files?",
+  "La suppression a échoué.": "Deletion failed.",
+  "Le signalement a été supprimé.": "Issue report deleted.",
+  "La suppression globale a échoué.": "Bulk deletion failed.",
+  "Suppression…": "Deleting…",
+  "Tout supprimer": "Delete all",
+  "Commentaire utilisateur": "User comment",
+  "Réponse de résolution": "Resolution response",
+  "Commentaire de résolution": "Resolution comment",
+  "Résoudre avec ce commentaire": "Resolve with comment",
+  "Ouvrir le traitement": "Open issue processing",
   "Formats acceptés : certificat ou chaîne ADCS X.509 PEM, DER ou PKCS#7 (.pem, .crt, .cer, .p7b, .p7c), sans clé privée.":
     "Accepted formats: ADCS certificate or chain in X.509 PEM, DER or PKCS#7 format (.pem, .crt, .cer, .p7b, .p7c), without a private key.",
   "Le certificat dépasse la taille maximale de 48 Kio.":
