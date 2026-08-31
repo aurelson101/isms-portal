@@ -1333,7 +1333,7 @@ export function Portal({
     ? `/api/documents/${opened?.id}/content?locale=${openedLocale}`
     : "";
   const pdfSource = openedPdf
-    ? `${openedContentUrl}#toolbar=1&navpanes=${pdfOutlineOpen ? 1 : 0}&page=${pdfPage}&zoom=${pdfZoom}`
+    ? `${openedContentUrl}#toolbar=${opened?.permissions.download ? 1 : 0}&navpanes=${pdfOutlineOpen ? 1 : 0}&page=${pdfPage}&zoom=${pdfZoom}`
     : openedContentUrl;
 
   useEffect(() => {
@@ -3278,14 +3278,16 @@ export function Portal({
                 >
                   ×
                 </button>
-                <a
-                  href={openedContentUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  title={t.openNewTab}
-                >
-                  {t.openNewTab}
-                </a>
+                {opened.permissions.download && (
+                  <a
+                    href={openedContentUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={t.openNewTab}
+                  >
+                    {t.openNewTab}
+                  </a>
+                )}
               </div>
             )}
             {openedVersion && opened.permissions.preview ? (

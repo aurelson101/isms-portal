@@ -334,6 +334,8 @@ test("download actions stay hidden when the ACL denies download", async ({
   await expect(dialog.getByRole("link", { name: "Télécharger" })).toHaveCount(
     0,
   );
+  await expect(dialog.locator("iframe")).toHaveAttribute("src", /#toolbar=0&/);
+  await expect(dialog.locator('a[target="_blank"]')).toHaveCount(0);
   await expect(dialog.getByText("Lecture seule")).toBeVisible();
 });
 
