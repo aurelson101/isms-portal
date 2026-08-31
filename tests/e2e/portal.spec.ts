@@ -1199,10 +1199,28 @@ test("annual incident reports can be published and read without write actions", 
   await card.getByRole("button", { name: "Modifier" }).click();
   await page.getByLabel("Incidents résolus").fill("12");
   await page.getByLabel("Statut").selectOption("PUBLISHED");
+  await page.getByLabel("Domain Users", { exact: true }).check();
   await page.getByRole("button", { name: "Enregistrer le rapport" }).click();
   await expect(page.getByText("Rapport annuel mis à jour.")).toBeVisible();
   await expect(card.getByText("100%")).toBeVisible();
   await expect(card.getByText("Publié")).toBeVisible();
+  await card.getByText("Afficher la synthèse et les enseignements").click();
+  await expect(card.getByText("Domain Users", { exact: true })).toBeVisible();
+  const restricted = (await (
+    await request.get("/api/admin/incident-reports")
+  ).json()) as Array<{
+    id: string;
+    year: number;
+    audience: Array<{ group: { name: string } }>;
+  }>;
+  expect(restricted.find((report) => report.year === year)?.audience).toEqual([
+    { group: expect.objectContaining({ name: "Domain Users" }) },
+  ]);
+
+  await card.getByRole("button", { name: "Modifier" }).click();
+  await page.getByLabel("Domain Users", { exact: true }).uncheck();
+  await page.getByRole("button", { name: "Enregistrer le rapport" }).click();
+  await expect(page.getByText("Rapport annuel mis à jour.")).toBeVisible();
 
   await page.goto("/incident-reports");
   await expect(

@@ -1,6 +1,7 @@
 import {
   IsBoolean,
   IsArray,
+  ArrayUnique,
   IsDateString,
   IsIn,
   IsInt,
@@ -142,6 +143,11 @@ export class AnnualIncidentReportDto {
   @IsString() @MinLength(3) @MaxLength(10000) summary!: string;
   @IsOptional() @IsString() @MaxLength(10000) lessonsLearned?: string;
   @IsIn(["DRAFT", "PUBLISHED"]) status!: "DRAFT" | "PUBLISHED";
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID("4", { each: true })
+  audienceGroupIds?: string[];
 }
 
 export class DocumentMetadataDto {

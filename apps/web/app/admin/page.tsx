@@ -240,7 +240,12 @@ type AnnualIncidentReport = {
   lessonsLearned: string | null;
   status: "DRAFT" | "PUBLISHED";
   updatedAt: string;
+  audience: Array<{ group: { id: string; name: string } }>;
 };
+type AnnualIncidentReportDraft = Omit<
+  AnnualIncidentReport,
+  "id" | "updatedAt" | "audience"
+> & { audienceGroupIds: string[] };
 
 const tabs: Array<[Tab, IconName, string, string]> = [
   ["dashboard", "home", "Tableau de bord", "Dashboard"],
@@ -983,6 +988,7 @@ export default function Admin() {
                 {tab === "incidents" && (
                   <IncidentReportsPanel
                     reports={incidentReports}
+                    groups={groups}
                     search={search}
                     onChanged={refresh}
                     onError={setError}
@@ -3652,12 +3658,14 @@ function CertificatesPanel({
 
 function IncidentReportsPanel({
   reports,
+  groups,
   search,
   onChanged,
   onError,
   onNotice,
 }: {
   reports: AnnualIncidentReport[];
+  groups: Group[];
   search: string;
   onChanged: () => Promise<void>;
   onError: (message: string) => void;
@@ -3665,7 +3673,7 @@ function IncidentReportsPanel({
 }) {
   const { locale, t } = useAdminI18n();
   const confirmAction = useContext(ConfirmContext);
-  const emptyDraft = (): Omit<AnnualIncidentReport, "id" | "updatedAt"> => ({
+  const emptyDraft = (): AnnualIncidentReportDraft => ({
     year: new Date().getFullYear(),
     totalIncidents: 0,
     criticalIncidents: 0,
@@ -3673,6 +3681,7 @@ function IncidentReportsPanel({
     summary: "",
     lessonsLearned: "",
     status: "DRAFT",
+    audienceGroupIds: [],
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState(emptyDraft);
@@ -3707,6 +3716,7 @@ function IncidentReportsPanel({
       summary: report.summary,
       lessonsLearned: report.lessonsLearned || "",
       status: report.status,
+      audienceGroupIds: report.audience.map(({ group }) => group.id),
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -3824,6 +3834,37 @@ function IncidentReportsPanel({
             }
           />
         </label>
+        <fieldset>
+          <legend>{t("Groupes autorisés à consulter le rapport")}</legend>
+          <p className="field-help">
+            {t(
+              "Sans groupe sélectionné, le rapport est visible par tous les utilisateurs authentifiés.",
+            )}
+          </p>
+          <div className="permissions-grid">
+            {groups
+              .filter((group) => group.active)
+              .map((group) => (
+                <label key={group.id}>
+                  <input
+                    type="checkbox"
+                    checked={draft.audienceGroupIds.includes(group.id)}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        audienceGroupIds: event.target.checked
+                          ? [...draft.audienceGroupIds, group.id]
+                          : draft.audienceGroupIds.filter(
+                              (groupId) => groupId !== group.id,
+                            ),
+                      })
+                    }
+                  />
+                  {group.name}
+                </label>
+              ))}
+          </div>
+        </fieldset>
         <div className="button-row">
           <button className="primary" disabled={saving}>
             {saving ? t("Enregistrement…") : t("Enregistrer le rapport")}
@@ -3931,6 +3972,16 @@ function IncidentReportsPanel({
                       <p>{report.lessonsLearned}</p>
                     </section>
                   )}
+                  <section>
+                    <h3>{t("Accès au rapport")}</h3>
+                    <p>
+                      {report.audience.length
+                        ? report.audience
+                            .map(({ group }) => group.name)
+                            .join(", ")
+                        : t("Tous les utilisateurs authentifiés")}
+                    </p>
+                  </section>
                   <small>
                     {t("Dernière mise à jour")} :{" "}
                     {new Date(report.updatedAt).toLocaleString(locale)}

@@ -1179,9 +1179,38 @@ export class IncidentReportsController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
-  publishedReports() {
+  publishedReports(@Req() req: IsmsRequest) {
+    const groups = req.identity.groups;
     return this.prisma.annualIncidentReport.findMany({
-      where: { status: "PUBLISHED" },
+      where: {
+        status: "PUBLISHED",
+        ...(isAdminIdentity(groups)
+          ? {}
+          : {
+              OR: [
+                { audience: { none: {} } },
+                ...(groups.length
+                  ? [
+                      {
+                        audience: {
+                          some: {
+                            group: {
+                              active: true,
+                              OR: groups.map((name) => ({
+                                name: {
+                                  equals: name,
+                                  mode: "insensitive" as const,
+                                },
+                              })),
+                            },
+                          },
+                        },
+                      },
+                    ]
+                  : []),
+              ],
+            }),
+      },
       select: {
         id: true,
         year: true,
@@ -1243,9 +1272,26 @@ export class AdminController {
       );
   }
 
+  private async validateIncidentReportAudience(groupIds: string[]) {
+    if (!groupIds.length) return;
+    const count = await this.prisma.directoryGroup.count({
+      where: { id: { in: groupIds }, active: true },
+    });
+    if (count !== groupIds.length)
+      throw new BadRequestException(
+        "Incident report audiences require active AD groups",
+      );
+  }
+
   @Get("incident-reports")
   incidentReports() {
     return this.prisma.annualIncidentReport.findMany({
+      include: {
+        audience: {
+          select: { group: { select: { id: true, name: true } } },
+          orderBy: { group: { name: "asc" } },
+        },
+      },
       orderBy: { year: "desc" },
     });
   }
@@ -1256,16 +1302,28 @@ export class AdminController {
     @Body() body: AnnualIncidentReportDto,
   ) {
     this.validateIncidentReportCounts(body);
+    const { audienceGroupIds = [], ...reportData } = body;
+    await this.validateIncidentReportAudience(audienceGroupIds);
     try {
       const report = await this.prisma.annualIncidentReport.create({
-        data: { ...body, lessonsLearned: body.lessonsLearned || null },
+        data: {
+          ...reportData,
+          lessonsLearned: body.lessonsLearned || null,
+          audience: {
+            create: audienceGroupIds.map((groupId) => ({ groupId })),
+          },
+        },
       });
       await this.audit.record(
         req,
         "incident-report.create",
         `incident-report:${report.id}`,
         "success",
-        { year: report.year, status: report.status },
+        {
+          year: report.year,
+          status: report.status,
+          audienceGroups: audienceGroupIds.length,
+        },
       );
       return report;
     } catch (error) {
@@ -1285,17 +1343,36 @@ export class AdminController {
     @Body() body: AnnualIncidentReportDto,
   ) {
     this.validateIncidentReportCounts(body);
+    const { audienceGroupIds, ...reportData } = body;
+    await this.validateIncidentReportAudience(audienceGroupIds ?? []);
     try {
       const report = await this.prisma.annualIncidentReport.update({
         where: { id },
-        data: { ...body, lessonsLearned: body.lessonsLearned || null },
+        data: {
+          ...reportData,
+          lessonsLearned: body.lessonsLearned || null,
+          ...(audienceGroupIds
+            ? {
+                audience: {
+                  deleteMany: {},
+                  create: audienceGroupIds.map((groupId) => ({ groupId })),
+                },
+              }
+            : {}),
+        },
       });
       await this.audit.record(
         req,
         "incident-report.update",
         `incident-report:${id}`,
         "success",
-        { year: report.year, status: report.status },
+        {
+          year: report.year,
+          status: report.status,
+          ...(audienceGroupIds
+            ? { audienceGroups: audienceGroupIds.length }
+            : {}),
+        },
       );
       return report;
     } catch (error) {
