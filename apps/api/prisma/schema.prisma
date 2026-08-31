@@ -151,19 +151,23 @@ model DocumentSpace {
 }
 
 model DocumentCategory {
-  id        String        @id @default(uuid())
+  id        String             @id @default(uuid())
   slug      String
   nameFr    String
   nameEn    String
   spaceId   String
-  space     DocumentSpace @relation(fields: [spaceId], references: [id])
+  space     DocumentSpace      @relation(fields: [spaceId], references: [id])
+  parentId  String?
+  parent    DocumentCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children  DocumentCategory[] @relation("CategoryHierarchy")
   documents Document[]
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
   deletedAt DateTime?
 
   @@unique([spaceId, slug])
   @@index([spaceId])
+  @@index([parentId])
 }
 
 model Document {

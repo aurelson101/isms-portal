@@ -92,6 +92,11 @@ export class SpaceDto {
 export class CategoryDto extends SpaceDto {
   @IsUUID()
   spaceId!: string;
+
+  @IsOptional()
+  @ValidateIf((_object, value) => value !== null)
+  @IsUUID()
+  parentId?: string | null;
 }
 
 export class AccessRuleDto {

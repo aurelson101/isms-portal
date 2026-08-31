@@ -301,6 +301,19 @@ textarea:focus-visible {
   font-size: 15px;
   padding: 11px 14px;
 }
+
+.shell nav .category-menu.category-depth-1 {
+  padding-left: 2.25rem;
+}
+
+.shell nav .category-menu.category-depth-2 {
+  padding-left: 3rem;
+}
+
+.shell nav .category-menu.category-depth-3,
+.shell nav .category-menu.category-depth-4 {
+  padding-left: 3.75rem;
+}
 .shell nav button,
 .admin-shell nav button,
 .admin-shell nav a {
@@ -2437,6 +2450,19 @@ h1 {
   min-width: 0;
   padding: 10px 4px;
   border-bottom: 1px solid #e2e8f1;
+}
+
+.space-category-row.category-depth-1 {
+  padding-left: 2rem;
+}
+
+.space-category-row.category-depth-2 {
+  padding-left: 3rem;
+}
+
+.space-category-row.category-depth-3,
+.space-category-row.category-depth-4 {
+  padding-left: 4rem;
 }
 .space-category-row:last-child {
   border-bottom: 0;

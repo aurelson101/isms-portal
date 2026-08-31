@@ -325,6 +325,9 @@ export const portalCatalog = {
 } as const;
 
 export const adminEnglishCatalog = {
+  "Catégorie parente (facultatif)": "Parent category (optional)",
+  "Aucune — catégorie racine": "None — root category",
+  "Ajouter une sous-catégorie": "Add subcategory",
   "Début de validité": "Valid from",
   "Gouvernance des accès": "Access governance",
   "éléments à examiner": "items to review",

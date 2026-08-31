@@ -399,7 +399,7 @@ export class DocumentsController {
       ...new Set([...readableSpaceIds, ...managedSpaceIds]),
     ];
     if (visibleSpaceIds.length === 0) return emptyResult;
-    let categoryWhere: Prisma.DocumentCategoryWhereInput | undefined;
+    let selectedCategoryIds: string[] | undefined;
     const categoryIdIsUuid = Boolean(
       categoryId &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -407,11 +407,15 @@ export class DocumentsController {
         ),
     );
     if (categoryIdIsUuid) {
-      categoryWhere = {
-        id: categoryId,
-        deletedAt: null,
-        spaceId: { in: visibleSpaceIds },
-      };
+      const match = await this.prisma.documentCategory.findFirst({
+        where: {
+          id: categoryId,
+          deletedAt: null,
+          spaceId: { in: visibleSpaceIds },
+        },
+        select: { id: true },
+      });
+      selectedCategoryIds = match ? [match.id] : ["__missing_category__"];
     } else if (category || categoryId) {
       // Legacy links used a slug alone. A slug is only unique within a space,
       // therefore reject ambiguous requests instead of mixing categories.
@@ -429,9 +433,34 @@ export class DocumentsController {
         throw new BadRequestException(
           "Category slug is ambiguous; use categoryId",
         );
-      categoryWhere = matches.length
-        ? { id: matches[0].id, deletedAt: null }
-        : { id: "__missing_category__", deletedAt: null };
+      selectedCategoryIds = matches.length
+        ? [matches[0].id]
+        : ["__missing_category__"];
+    }
+    if (
+      selectedCategoryIds &&
+      selectedCategoryIds[0] !== "__missing_category__"
+    ) {
+      const categories = await this.prisma.documentCategory.findMany({
+        where: { deletedAt: null, spaceId: { in: visibleSpaceIds } },
+        select: { id: true, parentId: true },
+      });
+      const descendants = new Set(selectedCategoryIds);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const item of categories) {
+          if (
+            item.parentId &&
+            descendants.has(item.parentId) &&
+            !descendants.has(item.id)
+          ) {
+            descendants.add(item.id);
+            changed = true;
+          }
+        }
+      }
+      selectedCategoryIds = [...descendants];
     }
     const fullTextMatches = q
       ? await this.prisma.$queryRaw<Array<{ documentId: string }>>(Prisma.sql`
@@ -452,7 +481,9 @@ export class DocumentsController {
       ...(q
         ? { id: { in: fullTextMatches.map((match) => match.documentId) } }
         : {}),
-      ...(categoryWhere ? { category: categoryWhere } : {}),
+      ...(selectedCategoryIds
+        ? { categoryId: { in: selectedCategoryIds } }
+        : {}),
       ...(favorites === "true"
         ? { favorites: { some: { identity: req.identity.username } } }
         : {}),
@@ -2254,8 +2285,19 @@ export class AdminController {
       select: { id: true },
     });
     if (!space) throw new BadRequestException("Invalid active document space");
+    const parentId = body.parentId || null;
+    if (parentId) {
+      const parent = await this.prisma.documentCategory.findFirst({
+        where: { id: parentId, spaceId: body.spaceId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!parent)
+        throw new BadRequestException(
+          "Parent category must be in the same space",
+        );
+    }
     const category = await this.prisma.documentCategory.create({
-      data: { ...body, slug },
+      data: { ...body, parentId, slug },
     });
     await this.audit.record(
       req,
@@ -2285,18 +2327,45 @@ export class AdminController {
       select: { id: true },
     });
     if (!space) throw new BadRequestException("Invalid active document space");
-    if (existing.spaceId !== body.spaceId) {
-      const documentCount = await this.prisma.document.count({
-        where: { categoryId: id, deletedAt: null },
+    const parentId = body.parentId || null;
+    if (parentId === id)
+      throw new BadRequestException("A category cannot be its own parent");
+    if (parentId) {
+      const categories = await this.prisma.documentCategory.findMany({
+        where: { spaceId: body.spaceId, deletedAt: null },
+        select: { id: true, parentId: true },
       });
-      if (documentCount > 0)
+      const byId = new Map(categories.map((item) => [item.id, item.parentId]));
+      if (!byId.has(parentId))
+        throw new BadRequestException(
+          "Parent category must be in the same space",
+        );
+      let current: string | null | undefined = parentId;
+      while (current) {
+        if (current === id)
+          throw new BadRequestException(
+            "Category hierarchy cannot contain a cycle",
+          );
+        current = byId.get(current);
+      }
+    }
+    if (existing.spaceId !== body.spaceId) {
+      const [documentCount, childCount] = await Promise.all([
+        this.prisma.document.count({
+          where: { categoryId: id, deletedAt: null },
+        }),
+        this.prisma.documentCategory.count({
+          where: { parentId: id, deletedAt: null },
+        }),
+      ]);
+      if (documentCount > 0 || childCount > 0)
         throw new ConflictException(
-          "A category with documents cannot be moved between spaces",
+          "A category with documents or subcategories cannot be moved between spaces",
         );
     }
     const category = await this.prisma.documentCategory.update({
       where: { id },
-      data: { ...body, slug },
+      data: { ...body, parentId, slug },
     });
     await this.audit.record(
       req,
@@ -2306,12 +2375,14 @@ export class AdminController {
       {
         before: {
           spaceId: existing.spaceId,
+          parentId: existing.parentId,
           slug: existing.slug,
           nameFr: existing.nameFr,
           nameEn: existing.nameEn,
         },
         after: {
           spaceId: body.spaceId,
+          parentId,
           slug,
           nameFr: body.nameFr,
           nameEn: body.nameEn,
@@ -2334,6 +2405,10 @@ export class AdminController {
       this.prisma.document.updateMany({
         where: { categoryId: id },
         data: { categoryId: null },
+      }),
+      this.prisma.documentCategory.updateMany({
+        where: { parentId: id },
+        data: { parentId: existing.parentId },
       }),
       this.prisma.documentCategory.update({
         where: { id },

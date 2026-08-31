@@ -115,7 +115,26 @@ type Category = {
   nameFr: string;
   nameEn: string;
   spaceId: string;
+  parentId?: string | null;
 };
+
+function flattenCategories(categories: Category[]) {
+  const children = new Map<string | null, Category[]>();
+  for (const item of categories) {
+    const parentId = item.parentId || null;
+    children.set(parentId, [...(children.get(parentId) || []), item]);
+  }
+  const result: Array<{ item: Category; depth: number }> = [];
+  const append = (item: Category, depth: number, trail = new Set<string>()) => {
+    if (trail.has(item.id)) return;
+    const nextTrail = new Set(trail).add(item.id);
+    result.push({ item, depth });
+    for (const child of children.get(item.id) || [])
+      append(child, depth + 1, nextTrail);
+  };
+  for (const root of children.get(null) || []) append(root, 0);
+  return result;
+}
 type Rule = {
   id: string;
   groupId: string;
@@ -2261,6 +2280,7 @@ function SpacesPanel({
   const [form, setForm] = useState({ slug: "", nameFr: "", nameEn: "" });
   const [category, setCategory] = useState({
     spaceId: "",
+    parentId: "",
     slug: "",
     nameFr: "",
     nameEn: "",
@@ -2280,7 +2300,13 @@ function SpacesPanel({
   );
   const resetCategory = () => {
     setEditedCategoryId("");
-    setCategory({ spaceId: "", slug: "", nameFr: "", nameEn: "" });
+    setCategory({
+      spaceId: "",
+      parentId: "",
+      slug: "",
+      nameFr: "",
+      nameEn: "",
+    });
     setCreationMode(null);
   };
   return (
@@ -2309,7 +2335,13 @@ function SpacesPanel({
             onClick={() => {
               setCreationMode("category");
               setEditedCategoryId("");
-              setCategory({ spaceId: "", slug: "", nameFr: "", nameEn: "" });
+              setCategory({
+                spaceId: "",
+                parentId: "",
+                slug: "",
+                nameFr: "",
+                nameEn: "",
+              });
             }}
           >
             <Icon name="add" /> {t("Nouvelle catégorie")}
@@ -2376,6 +2408,25 @@ function SpacesPanel({
               />
             </label>
             <label>
+              {t("Catégorie parente (facultatif)")}
+              <select
+                value={category.parentId}
+                onChange={(event) =>
+                  setCategory({ ...category, parentId: event.target.value })
+                }
+              >
+                <option value="">{t("Aucune — catégorie racine")}</option>
+                {spaces
+                  .find((space) => space.id === category.spaceId)
+                  ?.categories?.filter((item) => item.id !== editedCategoryId)
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {locale === "fr" ? item.nameFr : item.nameEn}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
               {t("Nom français")}
               <input
                 required
@@ -2414,7 +2465,10 @@ function SpacesPanel({
               await api(url, {
                 method: editedCategoryId ? "PUT" : "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(category),
+                body: JSON.stringify({
+                  ...category,
+                  parentId: category.parentId || null,
+                }),
               })
                 .then(async () => {
                   resetCategory();
@@ -2446,7 +2500,14 @@ function SpacesPanel({
                 required
                 value={category.spaceId}
                 onChange={(event) =>
-                  setCategory({ ...category, spaceId: event.target.value })
+                  setCategory({
+                    ...category,
+                    spaceId: event.target.value,
+                    parentId:
+                      event.target.value === category.spaceId
+                        ? category.parentId
+                        : "",
+                  })
                 }
               >
                 <option value="">{t("Espace…")}</option>
@@ -2539,6 +2600,7 @@ function SpacesPanel({
                     setEditedCategoryId("");
                     setCategory({
                       spaceId: space.id,
+                      parentId: "",
                       slug: "",
                       nameFr: "",
                       nameEn: "",
@@ -2626,68 +2688,98 @@ function SpacesPanel({
                   en="No category in this space."
                 />
               )}
-              {space.categories?.map((item) => (
-                <div className="space-category-row" key={item.id}>
-                  <span className="space-category-icon">
-                    <Icon name="folder" />
-                  </span>
-                  <span className="space-category-name">
-                    <strong>
-                      {locale === "fr" ? item.nameFr : item.nameEn}
-                    </strong>
-                    <small>{locale === "fr" ? item.nameEn : item.nameFr}</small>
-                  </span>
-                  <code>{item.slug}</code>
-                  <span className="button-row">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditedCategoryId(item.id);
-                        setCategory({
-                          spaceId: item.spaceId,
-                          slug: item.slug,
-                          nameFr: item.nameFr,
-                          nameEn: item.nameEn,
-                        });
-                        setCreationMode("category");
-                        requestAnimationFrame(() =>
-                          editorRef.current?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "center",
-                          }),
-                        );
-                      }}
-                    >
-                      {t("Modifier")}
-                    </button>
-                    <button
-                      type="button"
-                      className="danger"
-                      onClick={async () => {
-                        if (
-                          !(await confirmAction(
-                            t(
-                              `Supprimer la catégorie ${item.nameFr} ? Les documents associés seront conservés sans catégorie.`,
-                              `Delete category ${item.nameEn}? Associated documents will be kept without a category.`,
-                            ),
-                          ))
-                        )
-                          return;
-                        await api(`/api/admin/categories/${item.id}`, {
-                          method: "DELETE",
-                        })
-                          .then(async () => {
-                            if (editedCategoryId === item.id) resetCategory();
-                            await onChanged();
+              {flattenCategories(space.categories || []).map(
+                ({ item, depth }) => (
+                  <div
+                    className={`space-category-row category-depth-${Math.min(depth, 4)}`}
+                    key={item.id}
+                  >
+                    <span className="space-category-icon">
+                      <Icon name="folder" />
+                    </span>
+                    <span className="space-category-name">
+                      <strong>
+                        {locale === "fr" ? item.nameFr : item.nameEn}
+                      </strong>
+                      <small>
+                        {locale === "fr" ? item.nameEn : item.nameFr}
+                      </small>
+                    </span>
+                    <code>{item.slug}</code>
+                    <span className="button-row">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditedCategoryId("");
+                          setCategory({
+                            spaceId: space.id,
+                            parentId: item.id,
+                            slug: "",
+                            nameFr: "",
+                            nameEn: "",
+                          });
+                          setCreationMode("category");
+                          requestAnimationFrame(() =>
+                            editorRef.current?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "center",
+                            }),
+                          );
+                        }}
+                      >
+                        {t("Ajouter une sous-catégorie")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditedCategoryId(item.id);
+                          setCategory({
+                            spaceId: item.spaceId,
+                            parentId: item.parentId || "",
+                            slug: item.slug,
+                            nameFr: item.nameFr,
+                            nameEn: item.nameEn,
+                          });
+                          setCreationMode("category");
+                          requestAnimationFrame(() =>
+                            editorRef.current?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "center",
+                            }),
+                          );
+                        }}
+                      >
+                        {t("Modifier")}
+                      </button>
+                      <button
+                        type="button"
+                        className="danger"
+                        onClick={async () => {
+                          if (
+                            !(await confirmAction(
+                              t(
+                                `Supprimer la catégorie ${item.nameFr} ? Les documents associés seront conservés sans catégorie.`,
+                                `Delete category ${item.nameEn}? Associated documents will be kept without a category.`,
+                              ),
+                            ))
+                          )
+                            return;
+                          await api(`/api/admin/categories/${item.id}`, {
+                            method: "DELETE",
                           })
-                          .catch((error) => onError(error.message));
-                      }}
-                    >
-                      {t("Supprimer")}
-                    </button>
-                  </span>
-                </div>
-              ))}
+                            .then(async () => {
+                              if (editedCategoryId === item.id) resetCategory();
+                              await onChanged();
+                            })
+                            .catch((error) => onError(error.message));
+                        }}
+                      >
+                        {t("Supprimer")}
+                      </button>
+                    </span>
+                  </div>
+                ),
+              )}
             </div>
           </article>
         ))}
@@ -2762,11 +2854,13 @@ function DocumentsPanel({
           {t("Catégorie")}
           <select name="categoryId">
             <option value="">{t("Sans catégorie")}</option>
-            {selectedSpace?.categories?.map((item) => (
-              <option value={item.id} key={item.id}>
-                {locale === "fr" ? item.nameFr : item.nameEn}
-              </option>
-            ))}
+            {flattenCategories(selectedSpace?.categories || []).map(
+              ({ item, depth }) => (
+                <option value={item.id} key={item.id}>
+                  {`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}
+                </option>
+              ),
+            )}
           </select>
         </label>
         <fieldset className="document-language-field">
