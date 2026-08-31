@@ -4488,6 +4488,57 @@ svg {
   overflow-wrap: anywhere;
 }
 
+.section-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+.request-work-card footer {
+  padding-top: 0.25rem;
+  border-top: 1px solid #e4ebf4;
+}
+
+.request-work-card footer button {
+  display: inline-flex;
+  min-height: 2.65rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding-inline: 1rem;
+}
+
+.request-comment {
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #d9e4f1;
+  border-radius: 0.7rem;
+  background: #f7f9fc;
+}
+
+.request-comment.resolution-comment {
+  border-color: #a7e3c3;
+  background: #effbf4;
+}
+
+.request-resolution-meta {
+  margin-top: 0.45rem !important;
+  color: #52657d;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 640px) {
+  .section-heading-actions,
+  .request-work-card footer {
+    width: 100%;
+  }
+
+  .section-heading-actions button,
+  .request-work-card footer button {
+    flex: 1 1 100%;
+  }
+}
+
 .density-compact .document,
 .density-compact .space-card,
 .density-compact .category-card {

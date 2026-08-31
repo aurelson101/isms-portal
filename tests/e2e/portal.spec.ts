@@ -2156,8 +2156,13 @@ test("a user can report a document from the accessible form", async ({
   await adminReport
     .getByLabel("Commentaire de résolution")
     .fill("Version contrôlée et information corrigée.");
-  await adminReport.getByRole("button", { name: "Écrire résolu" }).click();
+  await adminReport
+    .getByRole("button", { name: "Résoudre avec ce commentaire" })
+    .click();
   await expect(adminReport.getByText("Traité", { exact: true })).toBeVisible();
+  await expect(
+    adminReport.getByText("Version contrôlée et information corrigée."),
+  ).toBeVisible();
 
   const personalReports = (await (
     await request.get("/api/user-tools/document-reports")
