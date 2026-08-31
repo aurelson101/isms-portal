@@ -856,7 +856,7 @@ test("administration uses accessible confirmations and edits an existing directo
     syncIntervalMinutes: 60,
     timeoutMs: 5000,
     retries: 2,
-    enabled: false,
+    enabled: true,
     caCertificateId: null,
     lastTestStatus: null,
     syncJobs: [
@@ -875,13 +875,20 @@ test("administration uses accessible confirmations and edits an existing directo
   await page.route(
     `**/api/admin/directory-connections/${connection.id}`,
     async (route) => {
+      if (route.request().method() === "DELETE") {
+        connection.enabled = false;
+        await route.fulfill({ json: { disabled: true } });
+        return;
+      }
       expect(route.request().method()).toBe("PUT");
       const payload = route.request().postDataJSON() as {
         name: string;
         bindSecret?: string;
+        enabled: boolean;
       };
       expect(payload.name).toBe(connection.name);
       expect(payload.bindSecret).toBe("");
+      expect(payload.enabled).toBe(true);
       await route.fulfill({ json: connection });
     },
   );
@@ -916,6 +923,29 @@ test("administration uses accessible confirmations and edits an existing directo
     .getByRole("button", { name: "Enregistrer les modifications" })
     .click();
   await expect(page.getByText("Connecteur modifié.")).toBeVisible();
+
+  await page
+    .getByRole("heading", { name: connection.name })
+    .locator("..")
+    .getByRole("button", { name: "Désactiver" })
+    .click();
+  await expect(
+    page.getByText(
+      `Le connecteur ${connection.name} est désactivé. Les synchronisations automatiques et les connexions LDAP sont arrêtées.`,
+    ),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("heading", { name: connection.name })
+      .locator("..")
+      .getByText("Inactif"),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("heading", { name: connection.name })
+      .locator("..")
+      .getByRole("button", { name: "Désactiver" }),
+  ).toBeDisabled();
 });
 
 test("an administrator can confirm purging synchronized AD data", async ({
