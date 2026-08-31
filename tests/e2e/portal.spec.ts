@@ -1322,12 +1322,16 @@ test("cross-page menu navigation reuses the authenticated session without loadin
 }) => {
   await page.goto("/");
   await expect(page.locator(".shell")).toBeVisible();
-  await page.route("**/api/incident-reports**", async (route) => {
+  await page.route("**/api/documents?**", async (route) => {
+    if (!route.request().url().includes("favorites=true")) {
+      await route.continue();
+      return;
+    }
     await new Promise((resolve) => setTimeout(resolve, 600));
     await route.continue();
   });
-  await page.getByRole("button", { name: /Rapports d’incidents/ }).click();
-  await expect(page).toHaveURL(/\/incident-reports/);
+  await page.getByRole("button", { name: "Mes favoris" }).click();
+  await expect(page).toHaveURL(/\/explorer\?favorites=true/);
   await expect(page.locator(".loading-state")).toHaveCount(0);
   await expect(page.locator(".shell")).toBeVisible();
 });

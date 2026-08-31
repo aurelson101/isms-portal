@@ -7,12 +7,25 @@ export default defineConfig({
   failOnFlakyTests: Boolean(process.env.CI),
   timeout: 30_000,
   expect: { timeout: 8_000 },
+  snapshotPathTemplate:
+    "{testDir}/{testFilePath}-snapshots/{arg}-{platform}{ext}",
   fullyParallel: false,
   workers: 1,
   retries: 1,
   reporter: [
     ["list"],
     ["html", { outputFolder: "playwright-report", open: "never" }],
+  ],
+  projects: [
+    {
+      name: "visual-regression",
+      testMatch: /visual\.spec\.ts/,
+    },
+    {
+      name: "functional",
+      testIgnore: /visual\.spec\.ts/,
+      dependencies: ["visual-regression"],
+    },
   ],
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8080",

@@ -63,6 +63,9 @@ for (const viewport of viewports) {
         level: 1,
       }),
     ).toBeVisible();
+    if (viewport.width <= 600) {
+      await page.getByRole("button", { name: "Filtrer et trier" }).click();
+    }
     await expect(page.getByLabel("Trier par")).toBeVisible();
     await expect(page).toHaveScreenshot(`explorer-${viewport.name}.png`, {
       animations: "disabled",
