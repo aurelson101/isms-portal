@@ -296,6 +296,47 @@ test("document preview and binary download work", async ({ page, request }) => {
   await expect(dialog).toBeHidden();
 });
 
+test("download actions stay hidden when the ACL denies download", async ({
+  page,
+}) => {
+  await page.route(/\/api\/documents\?/, async (route) => {
+    const response = await route.fetch();
+    const payload = (await response.json()) as {
+      items?: Array<{
+        permissions: { download: boolean };
+      }>;
+    };
+    await route.fulfill({
+      response,
+      json: {
+        ...payload,
+        items: payload.items?.map((document) => ({
+          ...document,
+          permissions: { ...document.permissions, download: false },
+        })),
+      },
+    });
+  });
+
+  await page.goto("/explorer");
+  const firstDocument = page.locator(".document").first();
+  await expect(firstDocument).toBeVisible();
+  await expect(
+    firstDocument.getByRole("link", { name: "Télécharger" }),
+  ).toHaveCount(0);
+  await expect(
+    firstDocument.getByRole("button", { name: "Télécharger" }),
+  ).toHaveCount(0);
+
+  await firstDocument.getByRole("button", { name: "Ouvrir" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("link", { name: "Télécharger" })).toHaveCount(
+    0,
+  );
+  await expect(dialog.getByText("Lecture seule")).toBeVisible();
+});
+
 test("category explorer supports window and list views with an expandable reader", async ({
   page,
 }) => {

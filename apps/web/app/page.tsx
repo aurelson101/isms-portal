@@ -523,7 +523,7 @@ function DocumentRows({
               >
                 {t.open}
               </button>
-              {selected && document.permissions.download ? (
+              {selected && document.permissions.download && (
                 <a
                   className="download"
                   href={`/api/documents/${document.id}/download?locale=${selected}`}
@@ -532,10 +532,6 @@ function DocumentRows({
                 >
                   <Icon name="download" />
                 </a>
-              ) : (
-                <button className="download" disabled aria-label={t.download}>
-                  <Icon name="download" />
-                </button>
               )}
               {(document.permissions.edit ||
                 document.permissions.publish ||
