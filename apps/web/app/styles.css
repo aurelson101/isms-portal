@@ -2626,6 +2626,7 @@ h1 {
 }
 .administrator-row-actions button,
 .administrator-sessions button,
+.mfa-settings > button,
 .sso-diagnostic button {
   min-height: 40px;
   padding: 8px 12px;
@@ -5107,8 +5108,11 @@ svg {
 .space-management-header-actions button,
 .space-category-row button,
 .content-editor-heading > button,
+.profile-settings button,
+.administrator-management button,
 .administrator-row-actions button,
 .administrator-sessions button,
+.mfa-settings > button,
 .sso-diagnostic button,
 .admin-table-wrap td button,
 .navigation-toggle,
