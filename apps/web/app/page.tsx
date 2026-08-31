@@ -970,10 +970,12 @@ export function Portal({
   }, [explorerMode, identity, loadDocuments, query]);
 
   useEffect(() => {
-    if (!reportsMode || !identity) return;
+    if (!identity) return;
     const controller = new AbortController();
-    setLoading(true);
-    setLoadError(false);
+    if (reportsMode) {
+      setLoading(true);
+      setLoadError(false);
+    }
     fetch("/api/incident-reports", {
       signal: controller.signal,
       cache: "no-store",
@@ -985,10 +987,11 @@ export function Portal({
         );
       })
       .catch((error) => {
-        if ((error as Error).name !== "AbortError") setLoadError(true);
+        if ((error as Error).name !== "AbortError" && reportsMode)
+          setLoadError(true);
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted && reportsMode) setLoading(false);
       });
     return () => controller.abort();
   }, [identity, reportsMode]);
@@ -1549,6 +1552,15 @@ export function Portal({
             </span>
             <span>{t.favorites}</span>
           </button>
+          {incidentReports.length > 0 && (
+            <button
+              type="button"
+              className={reportsMode ? "active" : ""}
+              onClick={() => router.push("/incident-reports")}
+            >
+              <Icon name="audit" /> <span>{t.annualIncidentReports}</span>
+            </button>
+          )}
           {identity?.spaces.map((item) => {
             const categories = populatedCategories(item);
             const expanded = expandedSpaces.has(item.slug);

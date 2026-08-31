@@ -1226,6 +1226,9 @@ test("annual incident reports can be published and read without write actions", 
   await expect(
     page.getByRole("heading", { name: "Rapports annuels d’incidents" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Rapports annuels d’incidents" }),
+  ).toBeVisible();
   const publishedReport = page.locator(".published-incident-report", {
     has: page.getByRole("heading", { name: String(year) }),
   });
