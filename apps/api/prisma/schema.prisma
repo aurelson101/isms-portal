@@ -100,20 +100,21 @@ model TrustedCaCertificate {
 }
 
 model DirectoryGroup {
-  id                    String                 @id @default(uuid())
-  name                  String                 @unique
-  distinguishedName     String                 @unique
-  description           String?
-  memberCount           Int                    @default(0)
-  active                Boolean                @default(true)
-  lastSyncedAt          DateTime?
-  directoryConnectionId String?
-  directoryConnection   DirectoryConnection?   @relation(fields: [directoryConnectionId], references: [id])
-  accessRules           AccessRule[]
-  temporaryAccessGrants TemporaryAccessGrant[]
-  ownedSpaces           DocumentSpace[]        @relation("SpaceOwnerGroup")
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
+  id                      String                         @id @default(uuid())
+  name                    String                         @unique
+  distinguishedName       String                         @unique
+  description             String?
+  memberCount             Int                            @default(0)
+  active                  Boolean                        @default(true)
+  lastSyncedAt            DateTime?
+  directoryConnectionId   String?
+  directoryConnection     DirectoryConnection?           @relation(fields: [directoryConnectionId], references: [id])
+  accessRules             AccessRule[]
+  temporaryAccessGrants   TemporaryAccessGrant[]
+  incidentReportAudiences AnnualIncidentReportAudience[]
+  ownedSpaces             DocumentSpace[]                @relation("SpaceOwnerGroup")
+  createdAt               DateTime                       @default(now())
+  updatedAt               DateTime                       @updatedAt
 
   @@index([directoryConnectionId])
 }
@@ -665,18 +666,29 @@ model AdminSession {
 }
 
 model AnnualIncidentReport {
-  id                String   @id @default(uuid())
-  year              Int      @unique
+  id                String                         @id @default(uuid())
+  year              Int                            @unique
   totalIncidents    Int
   criticalIncidents Int
   resolvedIncidents Int
   summary           String
   lessonsLearned    String?
-  status            String   @default("DRAFT")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  status            String                         @default("DRAFT")
+  createdAt         DateTime                       @default(now())
+  updatedAt         DateTime                       @updatedAt
+  audience          AnnualIncidentReportAudience[]
 
   @@index([status, year])
+}
+
+model AnnualIncidentReportAudience {
+  reportId String
+  report   AnnualIncidentReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  groupId  String
+  group    DirectoryGroup       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([reportId, groupId])
+  @@index([groupId])
 }
 
 model AntivirusScan {
