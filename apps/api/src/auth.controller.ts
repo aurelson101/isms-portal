@@ -98,9 +98,9 @@ export class AdminAccountsController {
   ) {}
 
   private lifecycle(validUntil?: string, validFrom?: string) {
-    if (Boolean(validFrom) !== Boolean(validUntil))
+    if (validFrom && !validUntil)
       throw new BadRequestException(
-        "Temporary privileges require both a start and an expiry",
+        "A privilege starting in the future requires an expiry",
       );
     const start = validFrom ? new Date(validFrom) : null;
     const expiry = validUntil ? new Date(validUntil) : null;

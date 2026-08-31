@@ -5478,11 +5478,11 @@ function SettingsPanel({
                 required
               />
               <label>
-                {t("Début facultatif")}
+                {t("Début facultatif (vide = immédiat)")}
                 <input name="validFrom" type="datetime-local" />
               </label>
               <label>
-                {t("Expiration facultative")}
+                {t("Expiration facultative (vide = permanent)")}
                 <input name="validUntil" type="datetime-local" />
               </label>
               <button className="primary">{t("Ajouter")}</button>
@@ -5517,7 +5517,7 @@ function SettingsPanel({
                 />
               </label>
               <label>
-                {t("Début facultatif")}
+                {t("Début facultatif (vide = immédiat)")}
                 <input
                   type="datetime-local"
                   value={directoryAdminValidFrom}
@@ -5527,7 +5527,7 @@ function SettingsPanel({
                 />
               </label>
               <label>
-                {t("Expiration facultative")}
+                {t("Expiration facultative (vide = permanent)")}
                 <input
                   type="datetime-local"
                   value={directoryAdminValidUntil}
@@ -5607,7 +5607,7 @@ function SettingsPanel({
                 />
               </label>
               <label>
-                {t("Début facultatif")}
+                {t("Début facultatif (vide = immédiat)")}
                 <input
                   type="datetime-local"
                   value={groupAdminValidFrom}
@@ -5617,7 +5617,7 @@ function SettingsPanel({
                 />
               </label>
               <label>
-                {t("Expiration facultative")}
+                {t("Expiration facultative (vide = permanent)")}
                 <input
                   type="datetime-local"
                   value={groupAdminValidUntil}
