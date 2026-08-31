@@ -596,6 +596,8 @@ export const adminEnglishCatalog = {
   Recertifier: "Recertify",
   "Justification du privilège": "Privilege justification",
   "Expiration facultative": "Optional expiry",
+  "Expiration facultative (vide = permanent)":
+    "Optional expiry (empty = permanent)",
   "Sessions administrateur actives": "Active administrator sessions",
   Révoquer: "Revoke",
   "Tous les membres détectés de ce groupe disposeront des droits administratifs complets.":
@@ -685,6 +687,7 @@ export const adminEnglishCatalog = {
   "Documents en quarantaine": "Quarantined documents",
   "Brouillons en attente": "Pending drafts",
   "Début facultatif": "Optional start",
+  "Début facultatif (vide = immédiat)": "Optional start (empty = immediate)",
   Télécharger: "Download",
   "Durée d’accès": "Access duration",
   "Lifetime — sans expiration": "Lifetime — no expiry",

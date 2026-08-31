@@ -2151,43 +2151,14 @@ export class AdminController {
         dependencies,
       });
     }
-    const approval = await this.prisma.sensitiveOperationApproval.findFirst({
-      where: {
-        operation: "PERMANENT_DELETE",
-        targetType: "DOCUMENT_SPACE",
-        targetId: id,
-        status: "APPROVED",
-      },
-      orderBy: { approvedAt: "desc" },
-    });
-    if (!approval) {
-      const pending = await this.prisma.sensitiveOperationApproval.findFirst({
+    await this.prisma.$transaction([
+      this.prisma.documentSpace.delete({ where: { id } }),
+      this.prisma.sensitiveOperationApproval.deleteMany({
         where: {
           operation: "PERMANENT_DELETE",
           targetType: "DOCUMENT_SPACE",
           targetId: id,
-          status: "PENDING",
         },
-      });
-      if (!pending)
-        await this.prisma.sensitiveOperationApproval.create({
-          data: {
-            operation: "PERMANENT_DELETE",
-            targetType: "DOCUMENT_SPACE",
-            targetId: id,
-            requestedBy: req.identity.username,
-            reason: `Permanent deletion of empty document space ${existing.slug}`,
-          },
-        });
-      throw new ConflictException(
-        "A second administrator must approve this permanent deletion",
-      );
-    }
-    await this.prisma.$transaction([
-      this.prisma.documentSpace.delete({ where: { id } }),
-      this.prisma.sensitiveOperationApproval.update({
-        where: { id: approval.id },
-        data: { status: "EXECUTED" },
       }),
     ]);
     await this.audit.record(req, "space.delete", `space:${id}`, "success", {

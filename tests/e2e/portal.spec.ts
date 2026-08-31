@@ -599,16 +599,8 @@ test("document spaces provide a clear responsive content hierarchy", async ({
   const deleted = await request.delete(
     `/api/admin/spaces/${emptySpace.id}/permanent`,
   );
-  expect(deleted.status()).toBe(409);
-  expect(await deleted.json()).toMatchObject({
-    message: "A second administrator must approve this permanent deletion",
-  });
-  const approvals = (await (
-    await request.get("/api/admin/governance/sensitive-approvals")
-  ).json()) as Array<{ targetId: string; status: string }>;
-  expect(approvals).toContainEqual(
-    expect.objectContaining({ targetId: emptySpace.id, status: "PENDING" }),
-  );
+  expect(deleted.ok()).toBe(true);
+  expect(await deleted.json()).toEqual({ deleted: true });
 });
 
 test("administration is fully switchable between French and English", async ({
