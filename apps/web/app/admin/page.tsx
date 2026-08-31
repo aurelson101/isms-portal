@@ -3024,6 +3024,7 @@ function DirectoryPanel({
   const confirmAction = useContext(ConfirmContext);
   const [editing, setEditing] = useState<DirectoryConnection | null>(null);
   const [synchronizingId, setSynchronizingId] = useState<string | null>(null);
+  const [disablingId, setDisablingId] = useState<string | null>(null);
   const [selectedProtocol, setSelectedProtocol] = useState<"LDAP" | "LDAPS">(
     "LDAPS",
   );
@@ -3460,14 +3461,29 @@ function DirectoryPanel({
                     : t("Synchroniser")}
                 </button>
                 <button
+                  type="button"
                   className="danger"
-                  onClick={() =>
-                    api(`/api/admin/directory-connections/${connection.id}`, {
-                      method: "DELETE",
-                    })
-                      .then(onChanged)
-                      .catch((error) => onError(error.message))
-                  }
+                  disabled={!connection.enabled || disablingId !== null}
+                  onClick={async () => {
+                    setDisablingId(connection.id);
+                    try {
+                      await api(
+                        `/api/admin/directory-connections/${connection.id}`,
+                        { method: "DELETE" },
+                      );
+                      onNotice(
+                        t(
+                          `Le connecteur ${connection.name} est désactivé. Les synchronisations automatiques et les connexions LDAP sont arrêtées.`,
+                          `Connector ${connection.name} is disabled. Automatic synchronization and LDAP sign-in are stopped.`,
+                        ),
+                      );
+                      await onChanged();
+                    } catch (error) {
+                      onError((error as Error).message);
+                    } finally {
+                      setDisablingId(null);
+                    }
+                  }}
                 >
                   {t("Désactiver")}
                 </button>
