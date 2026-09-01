@@ -147,14 +147,16 @@ export class HealthController {
   @Get("health/details")
   @AdminOnly()
   async details() {
-    const [lastSync, certificates] = await Promise.all([
+    const [lastSync, certificates, storage] = await Promise.all([
       this.prisma.directorySyncJob.findFirst({
         orderBy: { startedAt: "desc" },
       }),
       this.prisma.trustedCaCertificate.findMany({
         select: { id: true, name: true, validFrom: true, validTo: true },
       }),
+      this.storage.diskMetrics(),
     ]);
+    const usedBytes = Math.max(0, storage.totalBytes - storage.availableBytes);
     return {
       services: {
         postgres: await tcpCheck("postgres", 5432),
@@ -163,6 +165,14 @@ export class HealthController {
         clamav: await tcpCheck("clamav", 3310),
       },
       lastDirectorySync: lastSync,
+      storage: {
+        ...storage,
+        usedBytes,
+        usedPercent:
+          storage.totalBytes > 0
+            ? Math.round((usedBytes / storage.totalBytes) * 1000) / 10
+            : 0,
+      },
       certificates: certificates.map((certificate) => ({
         ...certificate,
         status: certificateStatus(certificate.validFrom, certificate.validTo),

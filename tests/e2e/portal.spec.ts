@@ -1706,6 +1706,10 @@ test("observability center proposes private integrations without exposing metric
   await expect(page.getByText(/réseau privé de l’API/)).toBeVisible();
   await expect(page.locator('a[href="/api/metrics"]')).toHaveCount(0);
   await expect(page.getByText(/isms-portal_observability/)).toBeVisible();
+  await expect(page.getByText("espace documentaire disponible")).toBeVisible();
+  await expect(
+    page.getByText("stockage utilisé", { exact: false }),
+  ).toBeVisible();
   await expect(
     page.getByText("Adresse du portail détectée automatiquement", {
       exact: false,

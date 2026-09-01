@@ -1,0 +1,18 @@
+[Unit]
+Description=Prune unused ISMS Docker build cache older than 24 hours
+Documentation=https://docs.docker.com/reference/cli/docker/builder/prune/
+ConditionPathExists=/var/run/docker.sock
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker builder prune --force --filter until=24h
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+LockPersonality=true
+RestrictSUIDSGID=true
