@@ -44,3 +44,20 @@ durable, ajouter `vm.overcommit_memory = 1` dans le fichier `sysctl` géré par
 l'exploitation (par exemple `/etc/sysctl.d/99-isms-portal.conf`), appliquer la
 politique du serveur puis contrôler de nouveau la valeur. Cette configuration
 concerne l'hôte Docker et ne doit pas être simulée dans le conteneur Redis.
+
+## Entretien sûr du cache de build
+
+`sudo ./scripts/configure-host.sh` installe et active le timer systemd
+`isms-docker-build-cache-prune.timer`. Il s'exécute chaque jour vers 03 h 30,
+avec un délai aléatoire maximal de 30 minutes, et supprime uniquement le cache
+de build inutilisé depuis plus de 24 heures.
+
+Le service n'exécute ni `docker system prune`, ni suppression d'image, de
+conteneur ou de volume. Les volumes PostgreSQL, Redis, ClamAV et documentaires
+ne sont donc jamais ciblés. Contrôler son fonctionnement avec :
+
+```bash
+systemctl status isms-docker-build-cache-prune.timer
+systemctl list-timers isms-docker-build-cache-prune.timer
+journalctl -u isms-docker-build-cache-prune.service
+```

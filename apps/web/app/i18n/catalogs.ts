@@ -625,6 +625,8 @@ export const adminEnglishCatalog = {
   Membres: "Members",
   "Métriques Prometheus disponibles sur le réseau API privé.":
     "Prometheus metrics are available on the private API network.",
+  "espace documentaire disponible": "document storage available",
+  "stockage utilisé": "storage used",
   "Adresse du portail détectée automatiquement":
     "Portal address detected automatically",
   "adresse IP du serveur": "server IP address",

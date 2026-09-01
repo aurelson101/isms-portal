@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily ISMS Docker build cache cleanup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=30m
+Persistent=true
+Unit=isms-docker-build-cache-prune.service
+
+[Install]
+WantedBy=timers.target

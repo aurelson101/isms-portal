@@ -28,6 +28,16 @@ type Authentication = {
     administratorAccount: boolean;
   };
 };
+type Health = {
+  services?: Record<string, boolean>;
+  storage?: {
+    availableBytes: number;
+    totalBytes: number;
+    usedBytes: number;
+    usedPercent: number;
+  };
+  [key: string]: unknown;
+};
 const AdminLocaleContext = createContext<Locale>("fr");
 const ConfirmContext = createContext<(message: string) => Promise<boolean>>(
   async () => false,
@@ -385,7 +395,7 @@ export default function Admin() {
     AnnualIncidentReport[]
   >([]);
   const [audit, setAudit] = useState<Audit[]>([]);
-  const [health, setHealth] = useState<Record<string, unknown> | null>(null);
+  const [health, setHealth] = useState<Health | null>(null);
   const [selectedRule, setSelectedRule] = useState<Rule | null>(null);
   const [ruleEditorOpen, setRuleEditorOpen] = useState(false);
   const [ruleDraft, setRuleDraft] = useState(emptyRule());
@@ -515,7 +525,7 @@ export default function Admin() {
         api<AdminDocument[]>("/api/admin/documents"),
         api<AnnualIncidentReport[]>("/api/admin/incident-reports"),
         api<{ items: Audit[] }>("/api/admin/audit?limit=100"),
-        api<Record<string, unknown>>("/api/health/details"),
+        api<Health>("/api/health/details"),
       ]);
       setDashboard(dashboardResult);
       setGroups(groupsResult);
@@ -4534,10 +4544,10 @@ function ObservabilityPanel({
 }: {
   dashboard: Dashboard | null;
   events: Audit[];
-  health: Record<string, unknown> | null;
+  health: Health | null;
   onNotice: (message: string) => void;
 }) {
-  const { t } = useAdminI18n();
+  const { locale, t } = useAdminI18n();
   const [operations, setOperations] = useState<{
     failures: number;
     denied: number;
@@ -4605,6 +4615,14 @@ function ObservabilityPanel({
       ? Object.values(health.services as Record<string, boolean>)
       : [];
   const healthyServices = services.filter(Boolean).length;
+  const storage = health?.storage;
+  const formatBytes = (bytes: number) =>
+    new Intl.NumberFormat(locale, {
+      style: "unit",
+      unit: "gigabyte",
+      unitDisplay: "short",
+      maximumFractionDigits: 1,
+    }).format(bytes / 1024 ** 3);
   const detectedPortalUrl = portalOrigin || "<URL_PUBLIQUE_DU_PORTAIL>";
   const detectedHost = portalOrigin ? new URL(portalOrigin).hostname : "<HOTE>";
   const hostType =
@@ -4680,6 +4698,18 @@ function ObservabilityPanel({
         </article>
       </div>
       <div className="summary-grid">
+        <article>
+          <strong>{storage ? formatBytes(storage.availableBytes) : "—"}</strong>
+          <span>{t("espace documentaire disponible")}</span>
+        </article>
+        <article>
+          <strong>{storage ? `${storage.usedPercent} %` : "—"}</strong>
+          <span>
+            {storage
+              ? `${t("stockage utilisé")} · ${formatBytes(storage.totalBytes)}`
+              : t("stockage utilisé")}
+          </span>
+        </article>
         <article>
           <strong>{operations?.accessRequests ?? "—"}</strong>
           <span>{t("demandes d’accès en attente")}</span>
@@ -5041,7 +5071,7 @@ function AuditPanel({ events }: { events: Audit[] }) {
   );
 }
 
-function HealthPanel({ health }: { health: Record<string, unknown> | null }) {
+function HealthPanel({ health }: { health: Health | null }) {
   const { t } = useAdminI18n();
   return (
     <>
