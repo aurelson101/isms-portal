@@ -29,6 +29,7 @@ import type { IsmsRequest } from "./types";
 import {
   AccessRequestDto,
   AlertPolicyDto,
+  AlertChannelsDto,
   DocumentReportDto,
   DocumentAcknowledgementDto,
   ObservabilityOptionsDto,
@@ -37,6 +38,10 @@ import {
   SecurityReportDto,
   UserPreferenceDto,
 } from "./user-tools.dto";
+import {
+  AlertDeliveryService,
+  type AlertChannel,
+} from "./alert-delivery.service";
 
 const allowedFilterKeys = new Set([
   "q",
@@ -576,6 +581,7 @@ export class OperationsController {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly storage: StorageService,
+    private readonly alerts: AlertDeliveryService,
   ) {}
 
   @Get("summary")
@@ -939,5 +945,62 @@ export class OperationsController {
       "success",
     );
     return setting;
+  }
+
+  @Get("alert-policy")
+  async getAlertPolicy() {
+    const setting = await this.prisma.applicationSetting.findUnique({
+      where: { key: "observability.alert-policy" },
+    });
+    return (
+      setting?.value || {
+        enabled: false,
+        channel: "none",
+        destinationReference: "",
+        fiveXxPercent: "5",
+        deniedPerMinute: "20",
+      }
+    );
+  }
+
+  @Get("alert-channels")
+  alertChannels() {
+    return this.alerts.publicConfiguration();
+  }
+
+  @Put("alert-channels")
+  async saveAlertChannels(
+    @Req() req: IsmsRequest,
+    @Body() body: AlertChannelsDto,
+  ) {
+    const result = await this.alerts.save(body as Record<string, unknown>);
+    await this.audit.record(
+      req,
+      "observability.alert-channels.update",
+      "setting:observability.alert-channels",
+      "success",
+    );
+    return result;
+  }
+
+  @Post("alert-channels/:channel/test")
+  async testAlertChannel(
+    @Req() req: IsmsRequest,
+    @Param("channel") channel: string,
+  ) {
+    if (!["email", "teams", "slack", "webhook"].includes(channel))
+      throw new NotFoundException();
+    await this.alerts.send(
+      channel as AlertChannel,
+      "Test ISMS Portal",
+      `Le canal ${channel} est correctement configuré.`,
+    );
+    await this.audit.record(
+      req,
+      "observability.alert-channel.test",
+      `alert-channel:${channel}`,
+      "success",
+    );
+    return { delivered: true };
   }
 }

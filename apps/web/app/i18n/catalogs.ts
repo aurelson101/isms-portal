@@ -325,6 +325,28 @@ export const portalCatalog = {
 } as const;
 
 export const adminEnglishCatalog = {
+  "Taux maximal d’échecs d’audit (%)": "Maximum audit failure rate (%)",
+  "Configuration des canaux d’alerte": "Alert channel configuration",
+  "Les valeurs secrètes déjà enregistrées restent masquées. Un test effectue un envoi réel vers le canal sélectionné.":
+    "Previously saved secrets remain masked. A test sends a real message through the selected channel.",
+  "Serveur SMTP": "SMTP server",
+  "Port SMTP": "SMTP port",
+  "TLS implicite (port 465)": "Implicit TLS (port 465)",
+  "Utilisateur SMTP": "SMTP username",
+  "Mot de passe SMTP": "SMTP password",
+  "Adresse expéditrice": "Sender address",
+  "Destinataires (séparés par des virgules)": "Recipients (comma-separated)",
+  "URL du webhook Teams": "Teams webhook URL",
+  "URL du webhook Slack": "Slack webhook URL",
+  "URL du webhook HTTPS": "HTTPS webhook URL",
+  "Jeton Bearer (facultatif)": "Bearer token (optional)",
+  "Enregistrer les canaux": "Save channels",
+  "Canaux d’alerte enregistrés et secrets chiffrés.":
+    "Alert channels saved and secrets encrypted.",
+  "Configuration des canaux invalide.": "Invalid channel configuration.",
+  "Alerte de test envoyée.": "Test alert sent.",
+  "Échec de l’envoi de test. Vérifiez la configuration et les journaux.":
+    "Test delivery failed. Check the configuration and logs.",
   "Catégorie parente (facultatif)": "Parent category (optional)",
   "Aucune — catégorie racine": "None — root category",
   "Ajouter une sous-catégorie": "Add subcategory",

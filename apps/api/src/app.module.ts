@@ -29,6 +29,7 @@ import {
   UserToolsController,
 } from "./user-tools.controller";
 import { GovernanceController } from "./governance.controller";
+import { AlertDeliveryService } from "./alert-delivery.service";
 
 @Module({
   controllers: [
@@ -58,6 +59,7 @@ import { GovernanceController } from "./governance.controller";
     WatermarkService,
     ObservabilityService,
     SensitiveApprovalService,
+    AlertDeliveryService,
     { provide: APP_GUARD, useClass: AdminGuard },
   ],
 })

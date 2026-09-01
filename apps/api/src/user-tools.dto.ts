@@ -85,3 +85,18 @@ export class AlertPolicyDto {
   @IsString() @MaxLength(10) fiveXxPercent!: string;
   @IsString() @MaxLength(10) deniedPerMinute!: string;
 }
+
+export class AlertChannelsDto {
+  @IsOptional() @IsString() @MaxLength(255) smtpHost?: string;
+  @IsOptional() @IsString() @MaxLength(5) smtpPort?: string;
+  @IsOptional() @IsBoolean() smtpSecure?: boolean;
+  @IsOptional() @IsBoolean() smtpStartTls?: boolean;
+  @IsOptional() @IsString() @MaxLength(255) smtpUsername?: string;
+  @IsOptional() @IsString() @MaxLength(1000) smtpPassword?: string;
+  @IsOptional() @IsString() @MaxLength(255) smtpFrom?: string;
+  @IsOptional() @IsString() @MaxLength(2000) smtpRecipients?: string;
+  @IsOptional() @IsString() @MaxLength(2000) teamsWebhookUrl?: string;
+  @IsOptional() @IsString() @MaxLength(2000) slackWebhookUrl?: string;
+  @IsOptional() @IsString() @MaxLength(2000) genericWebhookUrl?: string;
+  @IsOptional() @IsString() @MaxLength(1000) genericWebhookSecret?: string;
+}
