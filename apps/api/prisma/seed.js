@@ -23,6 +23,7 @@ const groups = [
   ["FINANCEAD", "CN=FINANCEAD,DC=demo,DC=local"],
   ["MANAGEMENTAD", "CN=MANAGEMENTAD,DC=demo,DC=local"],
   ["ISMS-ADMINS", "CN=ISMS-ADMINS,DC=demo,DC=local"],
+  ["ISMS-LOCAL-ADMINS", "CN=ISMS-LOCAL-ADMINS,DC=demo,DC=local"],
 ];
 
 const spaces = [
@@ -150,38 +151,40 @@ async function main() {
         download: true,
       },
     });
-    await prisma.accessRule.upsert({
-      where: {
-        groupId_spaceId: {
-          groupId: groupIds["ISMS-ADMINS"],
-          spaceId: space.id,
+    for (const administratorGroup of ["ISMS-ADMINS", "ISMS-LOCAL-ADMINS"]) {
+      await prisma.accessRule.upsert({
+        where: {
+          groupId_spaceId: {
+            groupId: groupIds[administratorGroup],
+            spaceId: space.id,
+          },
         },
-      },
-      update: {
-        showMenu: true,
-        read: true,
-        search: true,
-        preview: true,
-        download: true,
-        upload: true,
-        edit: true,
-        publish: true,
-        archive: true,
-      },
-      create: {
-        groupId: groupIds["ISMS-ADMINS"],
-        spaceId: space.id,
-        showMenu: true,
-        read: true,
-        search: true,
-        preview: true,
-        download: true,
-        upload: true,
-        edit: true,
-        publish: true,
-        archive: true,
-      },
-    });
+        update: {
+          showMenu: true,
+          read: true,
+          search: true,
+          preview: true,
+          download: true,
+          upload: true,
+          edit: true,
+          publish: true,
+          archive: true,
+        },
+        create: {
+          groupId: groupIds[administratorGroup],
+          spaceId: space.id,
+          showMenu: true,
+          read: true,
+          search: true,
+          preview: true,
+          download: true,
+          upload: true,
+          edit: true,
+          publish: true,
+          archive: true,
+        },
+      });
+    }
   }
 
   const categories = {};
