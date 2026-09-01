@@ -51,13 +51,39 @@ describe("AuthorizationService", () => {
       { id: "space-it", slug: "it", accessRules: [{ download: true }] },
     ]);
     await expect(
-      service.can(["ISMS-LOCAL-ADMINS"], "space-it", "download"),
+      service.can(
+        ["ISMS-LOCAL-ADMINS", "Allowed-Downloads"],
+        "space-it",
+        "download",
+      ),
     ).resolves.toBe(true);
     const permitted = await service.permittedSpacesFor(
-      ["ISMS-LOCAL-ADMINS"],
+      ["ISMS-LOCAL-ADMINS", "Allowed-Downloads"],
       ["download"],
     );
     expect(permitted.get("download")).toHaveLength(1);
+    expect(count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        OR: expect.arrayContaining([
+          expect.objectContaining({
+            accessRules: {
+              some: expect.objectContaining({
+                group: expect.objectContaining({
+                  OR: expect.arrayContaining([
+                    {
+                      name: {
+                        equals: "Allowed-Downloads",
+                        mode: "insensitive",
+                      },
+                    },
+                  ]),
+                }),
+              }),
+            },
+          }),
+        ]),
+      }),
+    });
   });
 
   it("denies by default when no group rule grants the permission", async () => {

@@ -662,6 +662,19 @@ test("document spaces provide a clear responsive content hierarchy", async ({
   );
   await page.getByRole("button", { name: "Fermer" }).click();
 
+  await page.getByRole("button", { name: "Nouvelle catégorie" }).click();
+  const globalParentCategory = page.getByLabel(
+    "Catégorie parente (facultatif)",
+  );
+  await expect(
+    globalParentCategory.getByRole("option", { name: parentName }),
+  ).toHaveCount(1);
+  await globalParentCategory.selectOption(parent.id);
+  await expect(page.getByLabel("Espace de la catégorie")).toHaveValue(
+    availableSpaces[0].id,
+  );
+  await page.getByRole("button", { name: "Fermer" }).click();
+
   const spaceWithParent = spaces.filter({ hasText: parentName });
   await expect(spaceWithParent).toBeVisible();
   await spaceWithParent

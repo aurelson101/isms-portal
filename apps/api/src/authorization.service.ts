@@ -93,27 +93,16 @@ export class AuthorizationService {
           : {}),
       },
       include: {
-        accessRules: administrator
-          ? {
-              where: {
-                group: { active: true },
-                AND: [
-                  { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
-                  { OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
-                ],
-              },
-              include: { group: { select: { name: true } } },
-            }
-          : {
-              where: {
-                group: groupFilter,
-                AND: [
-                  { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
-                  { OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
-                ],
-              },
-              include: { group: { select: { name: true } } },
-            },
+        accessRules: {
+          where: {
+            group: groupFilter,
+            AND: [
+              { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
+              { OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
+            ],
+          },
+          include: { group: { select: { name: true } } },
+        },
         temporaryAccessGrants: administrator
           ? { include: { group: { select: { name: true } } } }
           : {
@@ -192,7 +181,7 @@ export class AuthorizationService {
                 some: {
                   group: {
                     active: true,
-                    ...(!administrator ? { OR: groupNames } : {}),
+                    OR: groupNames,
                   },
                   [permission]: true,
                   AND: [
