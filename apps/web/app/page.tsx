@@ -51,29 +51,21 @@ type CategoryTreeItem = Category & { depth: number };
 
 const populatedCategories = (space: Space): CategoryTreeItem[] => {
   const children = new Map<string | null, Category[]>();
+  const categoryIds = new Set(space.categories.map((category) => category.id));
   for (const category of space.categories) {
-    const parentId = category.parentId || null;
+    const parentId =
+      category.parentId && categoryIds.has(category.parentId)
+        ? category.parentId
+        : null;
     children.set(parentId, [...(children.get(parentId) || []), category]);
   }
-  const visible = new Set<string>();
-  const markVisible = (category: Category, trail = new Set<string>()) => {
-    if (trail.has(category.id)) return false;
-    const nextTrail = new Set(trail).add(category.id);
-    const hasVisibleChild = (children.get(category.id) || []).some((child) =>
-      markVisible(child, nextTrail),
-    );
-    const shown = category.documentCount !== 0 || hasVisibleChild;
-    if (shown) visible.add(category.id);
-    return shown;
-  };
-  for (const root of children.get(null) || []) markVisible(root);
   const result: CategoryTreeItem[] = [];
   const append = (
     category: Category,
     depth: number,
     trail = new Set<string>(),
   ) => {
-    if (trail.has(category.id) || !visible.has(category.id)) return;
+    if (trail.has(category.id)) return;
     const nextTrail = new Set(trail).add(category.id);
     result.push({ ...category, depth });
     for (const child of children.get(category.id) || [])
