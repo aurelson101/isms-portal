@@ -29,7 +29,10 @@ describe("AuditService", () => {
       .spyOn(process.stdout, "write")
       .mockImplementation(() => true);
 
-    await new AuditService(prisma as never).record(
+    await new AuditService(
+      prisma as never,
+      { evaluate: vi.fn(async () => undefined) } as never,
+    ).record(
       {
         identity: { username: "alice" },
         ip: "192.0.2.10",

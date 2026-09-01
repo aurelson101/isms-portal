@@ -4580,13 +4580,34 @@ function ObservabilityPanel({
     fiveXxPercent: "5",
     deniedPerMinute: "20",
   });
+  const [alertChannels, setAlertChannels] = useState({
+    smtpHost: "",
+    smtpPort: "587",
+    smtpSecure: false,
+    smtpStartTls: true,
+    smtpUsername: "",
+    smtpPassword: "",
+    smtpFrom: "",
+    smtpRecipients: "",
+    teamsWebhookUrl: "",
+    slackWebhookUrl: "",
+    genericWebhookUrl: "",
+    genericWebhookSecret: "",
+  });
   const reloadOperations = useCallback(async () => {
-    const [summaryResponse, workResponse, integrationsResponse] =
-      await Promise.all([
-        fetch("/api/admin/operations/summary", { cache: "no-store" }),
-        fetch("/api/admin/operations/work-items", { cache: "no-store" }),
-        fetch("/api/admin/operations/integrations", { cache: "no-store" }),
-      ]);
+    const [
+      summaryResponse,
+      workResponse,
+      integrationsResponse,
+      policyResponse,
+      channelsResponse,
+    ] = await Promise.all([
+      fetch("/api/admin/operations/summary", { cache: "no-store" }),
+      fetch("/api/admin/operations/work-items", { cache: "no-store" }),
+      fetch("/api/admin/operations/integrations", { cache: "no-store" }),
+      fetch("/api/admin/operations/alert-policy", { cache: "no-store" }),
+      fetch("/api/admin/operations/alert-channels", { cache: "no-store" }),
+    ]);
     if (summaryResponse.ok) setOperations(await summaryResponse.json());
     if (workResponse.ok) setWorkItems(await workResponse.json());
     if (integrationsResponse.ok) {
@@ -4601,6 +4622,11 @@ function ObservabilityPanel({
           ]),
         ),
       );
+    }
+    if (policyResponse.ok) setAlertPolicy(await policyResponse.json());
+    if (channelsResponse.ok) {
+      const channels = await channelsResponse.json();
+      setAlertChannels((current) => ({ ...current, ...channels }));
     }
   }, []);
   useEffect(() => {
@@ -4825,6 +4851,216 @@ function ObservabilityPanel({
         className="admin-form observability-policy"
         onSubmit={async (event) => {
           event.preventDefault();
+          const response = await fetch("/api/admin/operations/alert-channels", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(alertChannels),
+          });
+          if (response.ok) {
+            const channels = await response.json();
+            setAlertChannels((current) => ({ ...current, ...channels }));
+            onNotice(t("Canaux d’alerte enregistrés et secrets chiffrés."));
+          } else onNotice(t("Configuration des canaux invalide."));
+        }}
+      >
+        <h2>{t("Configuration des canaux d’alerte")}</h2>
+        <p>
+          {t(
+            "Les valeurs secrètes déjà enregistrées restent masquées. Un test effectue un envoi réel vers le canal sélectionné.",
+          )}
+        </p>
+        <fieldset>
+          <legend>SMTP / E-mail</legend>
+          <label>
+            {t("Serveur SMTP")}
+            <input
+              value={alertChannels.smtpHost}
+              onChange={(e) =>
+                setAlertChannels({ ...alertChannels, smtpHost: e.target.value })
+              }
+              placeholder="smtp.example.com"
+            />
+          </label>
+          <label>
+            {t("Port SMTP")}
+            <input
+              inputMode="numeric"
+              value={alertChannels.smtpPort}
+              onChange={(e) =>
+                setAlertChannels({ ...alertChannels, smtpPort: e.target.value })
+              }
+            />
+          </label>
+          <label className="toggle-line">
+            <input
+              type="checkbox"
+              checked={alertChannels.smtpSecure}
+              onChange={(e) =>
+                setAlertChannels({
+                  ...alertChannels,
+                  smtpSecure: e.target.checked,
+                })
+              }
+            />
+            {t("TLS implicite (port 465)")}
+          </label>
+          <label className="toggle-line">
+            <input
+              type="checkbox"
+              checked={alertChannels.smtpStartTls}
+              onChange={(e) =>
+                setAlertChannels({
+                  ...alertChannels,
+                  smtpStartTls: e.target.checked,
+                })
+              }
+            />
+            STARTTLS
+          </label>
+          <label>
+            {t("Utilisateur SMTP")}
+            <input
+              autoComplete="off"
+              value={alertChannels.smtpUsername}
+              onChange={(e) =>
+                setAlertChannels({
+                  ...alertChannels,
+                  smtpUsername: e.target.value,
+                })
+              }
+            />
+          </label>
+          <label>
+            {t("Mot de passe SMTP")}
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={alertChannels.smtpPassword}
+              onChange={(e) =>
+                setAlertChannels({
+                  ...alertChannels,
+                  smtpPassword: e.target.value,
+                })
+              }
+            />
+          </label>
+          <label>
+            {t("Adresse expéditrice")}
+            <input
+              type="email"
+              value={alertChannels.smtpFrom}
+              onChange={(e) =>
+                setAlertChannels({ ...alertChannels, smtpFrom: e.target.value })
+              }
+            />
+          </label>
+          <label>
+            {t("Destinataires (séparés par des virgules)")}
+            <input
+              value={alertChannels.smtpRecipients}
+              onChange={(e) =>
+                setAlertChannels({
+                  ...alertChannels,
+                  smtpRecipients: e.target.value,
+                })
+              }
+            />
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Microsoft Teams</legend>
+          <label>
+            {t("URL du webhook Teams")}
+            <input
+              type="password"
+              autoComplete="off"
+              value={alertChannels.teamsWebhookUrl}
+              onChange={(e) =>
+                setAlertChannels({
+                  ...alertChannels,
+                  teamsWebhookUrl: e.target.value,
+                })
+              }
+            />
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Slack</legend>
+          <label>
+            {t("URL du webhook Slack")}
+            <input
+              type="password"
+              autoComplete="off"
+              value={alertChannels.slackWebhookUrl}
+              onChange={(e) =>
+                setAlertChannels({
+                  ...alertChannels,
+                  slackWebhookUrl: e.target.value,
+                })
+              }
+            />
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Webhook</legend>
+          <label>
+            {t("URL du webhook HTTPS")}
+            <input
+              type="password"
+              autoComplete="off"
+              value={alertChannels.genericWebhookUrl}
+              onChange={(e) =>
+                setAlertChannels({
+                  ...alertChannels,
+                  genericWebhookUrl: e.target.value,
+                })
+              }
+            />
+          </label>
+          <label>
+            {t("Jeton Bearer (facultatif)")}
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={alertChannels.genericWebhookSecret}
+              onChange={(e) =>
+                setAlertChannels({
+                  ...alertChannels,
+                  genericWebhookSecret: e.target.value,
+                })
+              }
+            />
+          </label>
+        </fieldset>
+        <button>{t("Enregistrer les canaux")}</button>
+        <div className="button-row">
+          {(["email", "teams", "slack", "webhook"] as const).map((channel) => (
+            <button
+              type="button"
+              key={channel}
+              onClick={async () => {
+                const response = await fetch(
+                  `/api/admin/operations/alert-channels/${channel}/test`,
+                  { method: "POST" },
+                );
+                onNotice(
+                  response.ok
+                    ? t("Alerte de test envoyée.")
+                    : t(
+                        "Échec de l’envoi de test. Vérifiez la configuration et les journaux.",
+                      ),
+                );
+              }}
+            >
+              {t("Tester")} {channel}
+            </button>
+          ))}
+        </div>
+      </form>
+      <form
+        className="admin-form observability-policy"
+        onSubmit={async (event) => {
+          event.preventDefault();
           const response = await fetch("/api/admin/operations/alert-policy", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -4852,7 +5088,7 @@ function ObservabilityPanel({
           {t("Activer les alertes externes")}
         </label>
         <label>
-          {t("Taux 5xx maximal (%)")}
+          {t("Taux maximal d’échecs d’audit (%)")}
           <input
             inputMode="decimal"
             value={alertPolicy.fiveXxPercent}
@@ -4894,19 +5130,6 @@ function ObservabilityPanel({
             <option value="slack">Slack</option>
             <option value="webhook">Webhook</option>
           </select>
-        </label>
-        <label>
-          {t("Référence de destination ou secret")}
-          <input
-            value={alertPolicy.destinationReference}
-            placeholder="<SECRET_DANS_GESTIONNAIRE>"
-            onChange={(event) =>
-              setAlertPolicy((current) => ({
-                ...current,
-                destinationReference: event.target.value,
-              }))
-            }
-          />
         </label>
         <button>{t("Enregistrer la politique")}</button>
       </form>

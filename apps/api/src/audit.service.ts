@@ -2,12 +2,16 @@ import { Injectable } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "./prisma.service";
 import type { IsmsRequest } from "./types";
+import { AlertDeliveryService } from "./alert-delivery.service";
 
 const AUDIT_RETENTION_LIMIT = 50;
 
 @Injectable()
 export class AuditService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly alerts: AlertDeliveryService,
+  ) {}
 
   async record(
     req: IsmsRequest,
@@ -20,7 +24,7 @@ export class AuditService {
       details === undefined
         ? undefined
         : (JSON.parse(JSON.stringify(details)) as Prisma.InputJsonValue);
-    return this.prisma.$transaction(async (transaction) => {
+    const event = await this.prisma.$transaction(async (transaction) => {
       await transaction.$executeRaw`
         SELECT pg_advisory_xact_lock(hashtext('isms-audit-retention'))
       `;
@@ -63,5 +67,11 @@ export class AuditService {
       );
       return event;
     });
+    await this.alerts.evaluate(result).catch((error: Error) => {
+      process.stderr.write(
+        `${JSON.stringify({ level: "error", service: "api", event: "alert.delivery.failed", message: error.message })}\n`,
+      );
+    });
+    return event;
   }
 }
