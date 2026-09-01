@@ -363,14 +363,36 @@ export class AdminAccountsController {
       )
     )
       throw new BadRequestException("Invalid profile image");
-    const account = await this.prisma.adminAccount.update({
+    const displayName = body.displayName.trim();
+    const profilePhoto = body.profilePhoto || null;
+    const existingAccount = await this.prisma.adminAccount.findUnique({
       where: { username: req.identity.username },
-      data: {
-        displayName: body.displayName.trim(),
-        profilePhoto: body.profilePhoto || null,
-      },
-      select: { username: true, displayName: true, profilePhoto: true },
+      select: { id: true },
     });
+    const account = existingAccount
+      ? await this.prisma.adminAccount.update({
+          where: { id: existingAccount.id },
+          data: { displayName, profilePhoto },
+          select: { username: true, displayName: true, profilePhoto: true },
+        })
+      : await this.prisma.userPreference
+          .upsert({
+            where: { identity: req.identity.username },
+            update: {
+              adminDisplayName: displayName,
+              adminProfilePhoto: profilePhoto,
+            },
+            create: {
+              identity: req.identity.username,
+              adminDisplayName: displayName,
+              adminProfilePhoto: profilePhoto,
+            },
+          })
+          .then(() => ({
+            username: req.identity.username,
+            displayName,
+            profilePhoto,
+          }));
     await this.audit.record(
       req,
       "admin-account.profile",

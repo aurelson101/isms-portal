@@ -146,6 +146,7 @@ describe("AuthService directory sessions", () => {
         findUnique: vi.fn().mockResolvedValue(session),
         update,
       },
+      userPreference: { findUnique: vi.fn().mockResolvedValue(null) },
       adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
       adminDirectoryGroup: { findFirst: vi.fn().mockResolvedValue(null) },
     };
@@ -197,6 +198,7 @@ describe("AuthService directory sessions", () => {
           findUnique: vi.fn().mockResolvedValue(session),
           update,
         },
+        userPreference: { findUnique: vi.fn().mockResolvedValue(null) },
         adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
         adminDirectoryGroup: { findFirst: vi.fn().mockResolvedValue(null) },
       } as never,
@@ -227,6 +229,7 @@ describe("AuthService directory sessions", () => {
           findUnique: vi.fn().mockResolvedValue(session),
           update,
         },
+        userPreference: { findUnique: vi.fn().mockResolvedValue(null) },
         adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
         adminDirectoryGroup: { findFirst: vi.fn().mockResolvedValue(null) },
       } as never,
@@ -261,6 +264,7 @@ describe("AuthService directory sessions", () => {
           findUnique: vi.fn().mockResolvedValue(session),
           update,
         },
+        userPreference: { findUnique: vi.fn().mockResolvedValue(null) },
         adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
         adminDirectoryGroup: { findFirst: vi.fn().mockResolvedValue(null) },
       } as never,
@@ -324,6 +328,7 @@ describe("AuthService directory sessions", () => {
     const service = new AuthService(
       {
         adminAccount: { findFirst },
+        userPreference: { findUnique: vi.fn().mockResolvedValue(null) },
         adminDirectoryGroup: {
           findFirst: vi.fn().mockResolvedValue(null),
         },
@@ -369,6 +374,7 @@ describe("AuthService directory sessions", () => {
     const service = new AuthService(
       {
         adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
+        userPreference: { findUnique: vi.fn().mockResolvedValue(null) },
         adminDirectoryGroup,
       } as never,
       {} as never,
@@ -423,6 +429,7 @@ describe("AuthService directory sessions", () => {
     const service = new AuthService(
       {
         adminAccount,
+        userPreference: { findUnique: vi.fn().mockResolvedValue(null) },
         adminDirectoryGroup: { findFirst: vi.fn().mockResolvedValue(null) },
       } as never,
       {} as never,
@@ -467,6 +474,7 @@ describe("AuthService directory sessions", () => {
     const service = new AuthService(
       {
         adminAccount: { findFirst: vi.fn().mockResolvedValue(null) },
+        userPreference: { findUnique: vi.fn().mockResolvedValue(null) },
         adminDirectoryGroup: {
           findFirst: vi.fn().mockResolvedValue(null),
         },

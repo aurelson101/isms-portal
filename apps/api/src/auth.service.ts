@@ -272,7 +272,7 @@ export class AuthService implements OnModuleInit {
           groups: [...new Set([...identity.groups, ...profile.groups])],
         };
     }
-    const [account, administratorGroup] = await Promise.all([
+    const [account, administratorGroup, adminPreference] = await Promise.all([
       this.prisma.adminAccount.findFirst({
         where: {
           username: {
@@ -308,6 +308,10 @@ export class AuthService implements OnModuleInit {
             },
           })
         : Promise.resolve(null),
+      this.prisma.userPreference.findUnique({
+        where: { identity: enrichedIdentity.username },
+        select: { adminDisplayName: true, adminProfilePhoto: true },
+      }),
     ]);
     if (account || administratorGroup) {
       await Promise.all([
@@ -329,8 +333,12 @@ export class AuthService implements OnModuleInit {
     return account || administratorGroup
       ? {
           ...enrichedIdentity,
-          displayName: account?.displayName || enrichedIdentity.displayName,
-          profilePhoto: account?.profilePhoto,
+          displayName:
+            account?.displayName ||
+            adminPreference?.adminDisplayName ||
+            enrichedIdentity.displayName,
+          profilePhoto:
+            account?.profilePhoto || adminPreference?.adminProfilePhoto,
           groups: [
             ...new Set([...enrichedIdentity.groups, "ISMS-LOCAL-ADMINS"]),
           ],

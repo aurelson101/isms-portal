@@ -604,6 +604,8 @@ model UserPreference {
   textScale     Int       @default(100)
   highContrast  Boolean   @default(false)
   reducedMotion Boolean   @default(false)
+  adminDisplayName String?
+  adminProfilePhoto String?
   lastSeenAt    DateTime?
   updatedAt     DateTime  @updatedAt
 }

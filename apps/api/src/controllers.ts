@@ -232,8 +232,13 @@ export class IdentityController {
     ];
     return {
       username: req.identity.username,
-      displayName: req.identity.displayName,
-      profilePhoto: req.identity.profilePhoto || null,
+      displayName:
+        (administrator && preference?.adminDisplayName) ||
+        req.identity.displayName,
+      profilePhoto:
+        (administrator && preference?.adminProfilePhoto) ||
+        req.identity.profilePhoto ||
+        null,
       isAdmin: administrator,
       primaryAdmin: adminAccount?.primary || false,
       locale: preference?.locale || null,
@@ -267,7 +272,7 @@ export class IdentityController {
         permissions: Object.fromEntries(
           permissionNames.map((permission) => [
             permission,
-            administrator ||
+            (administrator && permission !== "download") ||
               accessRules.some((rule) => Boolean(rule[permission])),
           ]),
         ),
@@ -1461,8 +1466,9 @@ export class AdminController {
       authorized: true,
       isAdmin: true,
       username: req.identity.username,
-      displayName: req.identity.displayName,
-      profilePhoto: req.identity.profilePhoto || null,
+      displayName: preference?.adminDisplayName || req.identity.displayName,
+      profilePhoto:
+        preference?.adminProfilePhoto || req.identity.profilePhoto || null,
       primaryAdmin: account?.primary || false,
       locale: preference?.locale || null,
       authentication: {
