@@ -94,7 +94,16 @@ export class AuthorizationService {
       },
       include: {
         accessRules: administrator
-          ? { include: { group: { select: { name: true } } } }
+          ? {
+              where: {
+                group: { active: true },
+                AND: [
+                  { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
+                  { OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
+                ],
+              },
+              include: { group: { select: { name: true } } },
+            }
           : {
               where: {
                 group: groupFilter,
@@ -132,8 +141,13 @@ export class AuthorizationService {
       result.set(
         permission,
         administrator
-          ? spaces
+          ? permission === "download"
+            ? spaces.filter((space) =>
+                space.accessRules.some((rule) => rule.download),
+              )
+            : spaces
           : spaces.filter((space) =>
+              permission !== "download" &&
               space.ownerGroup &&
               space.ownerGroup.active &&
               groups.some(
@@ -157,9 +171,10 @@ export class AuthorizationService {
   }
 
   async can(groups: string[], spaceId: string, permission: Permission) {
-    if (isAdminIdentity(groups)) return true;
+    if (isAdminIdentity(groups) && permission !== "download") return true;
     if (groups.length === 0) return false;
     const now = new Date();
+    const administrator = isAdminIdentity(groups);
     const groupNames = groups.map((name) => ({
       name: { equals: name, mode: "insensitive" as const },
     }));
@@ -169,11 +184,16 @@ export class AuthorizationService {
           id: spaceId,
           deletedAt: null,
           OR: [
-            { ownerGroup: { active: true, OR: groupNames } },
+            ...(!administrator && permission !== "download"
+              ? [{ ownerGroup: { active: true, OR: groupNames } }]
+              : []),
             {
               accessRules: {
                 some: {
-                  group: { active: true, OR: groupNames },
+                  group: {
+                    active: true,
+                    ...(!administrator ? { OR: groupNames } : {}),
+                  },
                   [permission]: true,
                   AND: [
                     { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
@@ -184,7 +204,7 @@ export class AuthorizationService {
                 },
               },
             },
-            ...(temporaryGrantPermissions.has(permission)
+            ...(!administrator && temporaryGrantPermissions.has(permission)
               ? [
                   {
                     temporaryAccessGrants: {

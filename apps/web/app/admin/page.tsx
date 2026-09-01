@@ -2408,25 +2408,6 @@ function SpacesPanel({
               />
             </label>
             <label>
-              {t("Catégorie parente (facultatif)")}
-              <select
-                value={category.parentId}
-                onChange={(event) =>
-                  setCategory({ ...category, parentId: event.target.value })
-                }
-              >
-                <option value="">{t("Aucune — catégorie racine")}</option>
-                {spaces
-                  .find((space) => space.id === category.spaceId)
-                  ?.categories?.filter((item) => item.id !== editedCategoryId)
-                  .map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {locale === "fr" ? item.nameFr : item.nameEn}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <label>
               {t("Nom français")}
               <input
                 required
@@ -2516,6 +2497,28 @@ function SpacesPanel({
                     {locale === "fr" ? space.nameFr : space.nameEn}
                   </option>
                 ))}
+              </select>
+            </label>
+            <label>
+              {t("Catégorie parente (facultatif)")}
+              <select
+                value={category.parentId}
+                disabled={!category.spaceId}
+                onChange={(event) =>
+                  setCategory({ ...category, parentId: event.target.value })
+                }
+              >
+                <option value="">{t("Aucune — catégorie racine")}</option>
+                {flattenCategories(
+                  spaces.find((space) => space.id === category.spaceId)
+                    ?.categories || [],
+                )
+                  .filter(({ item }) => item.id !== editedCategoryId)
+                  .map(({ item, depth }) => (
+                    <option key={item.id} value={item.id}>
+                      {`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}
+                    </option>
+                  ))}
               </select>
             </label>
             <label>

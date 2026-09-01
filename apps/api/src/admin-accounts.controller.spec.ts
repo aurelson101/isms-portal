@@ -9,6 +9,8 @@ const request = {
 const setup = () => {
   const prisma = {
     adminAccount: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      update: vi.fn(),
       create: vi.fn().mockImplementation(({ data }) =>
         Promise.resolve({
           id: "directory-admin-1",
@@ -19,6 +21,9 @@ const setup = () => {
           validUntil: data.validUntil,
         }),
       ),
+    },
+    userPreference: {
+      upsert: vi.fn().mockResolvedValue({}),
     },
   };
   const audit = { record: vi.fn().mockResolvedValue(undefined) };
@@ -71,5 +76,36 @@ describe("AdminAccountsController privilege lifecycle", () => {
         validFrom: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe("AdminAccountsController profile", () => {
+  it("stores a group administrator photo without creating a permanent account", async () => {
+    const { controller, prisma } = setup();
+    const profilePhoto = "data:image/png;base64,iVBORw0KGgo=";
+
+    await expect(
+      controller.profile(request, {
+        displayName: "Group Admin",
+        profilePhoto,
+      }),
+    ).resolves.toEqual({
+      username: "admin",
+      displayName: "Group Admin",
+      profilePhoto,
+    });
+    expect(prisma.userPreference.upsert).toHaveBeenCalledWith({
+      where: { identity: "admin" },
+      update: {
+        adminDisplayName: "Group Admin",
+        adminProfilePhoto: profilePhoto,
+      },
+      create: {
+        identity: "admin",
+        adminDisplayName: "Group Admin",
+        adminProfilePhoto: profilePhoto,
+      },
+    });
+    expect(prisma.adminAccount.create).not.toHaveBeenCalled();
   });
 });

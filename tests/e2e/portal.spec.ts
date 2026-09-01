@@ -621,6 +621,23 @@ test("document spaces provide a clear responsive content hierarchy", async ({
   page,
   request,
 }) => {
+  const spacesResponse = await request.get("/api/admin/spaces");
+  expect(spacesResponse.ok()).toBeTruthy();
+  const availableSpaces = (await spacesResponse.json()) as Array<{
+    id: string;
+  }>;
+  const parentName = `Catégorie parente ${Date.now().toString(36)}`;
+  const parentResponse = await request.post("/api/admin/categories", {
+    data: {
+      spaceId: availableSpaces[0].id,
+      slug: `parent-${Date.now().toString(36)}`,
+      nameFr: parentName,
+      nameEn: parentName,
+    },
+  });
+  expect(parentResponse.status()).toBe(201);
+  const parent = (await parentResponse.json()) as { id: string };
+
   await page.goto("/admin#spaces");
   await expect(
     page.getByRole("heading", { name: "Espaces documentaires", exact: true }),
@@ -640,16 +657,27 @@ test("document spaces provide a clear responsive content hierarchy", async ({
     page.getByRole("heading", { name: "Créer un espace" }),
   ).toBeVisible();
   await expect(page.getByLabel("Identifiant technique")).toBeVisible();
+  await expect(page.getByLabel("Catégorie parente (facultatif)")).toHaveCount(
+    0,
+  );
   await page.getByRole("button", { name: "Fermer" }).click();
 
-  await spaces
-    .first()
+  const spaceWithParent = spaces.filter({ hasText: parentName });
+  await expect(spaceWithParent).toBeVisible();
+  await spaceWithParent
     .getByRole("button", { name: "Ajouter une catégorie" })
     .click();
   await expect(
     page.getByRole("heading", { name: "Créer une catégorie" }),
   ).toBeVisible();
   await expect(page.getByLabel("Espace de la catégorie")).not.toHaveValue("");
+  const parentCategory = page.getByLabel("Catégorie parente (facultatif)");
+  await expect(parentCategory).toBeVisible();
+  await expect(
+    parentCategory.getByRole("option", { name: parentName }),
+  ).toHaveCount(1);
+  await parentCategory.selectOption(parent.id);
+  await expect(parentCategory).toHaveValue(parent.id);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator("body")).toHaveJSProperty("scrollWidth", 390);
@@ -672,6 +700,9 @@ test("document spaces provide a clear responsive content hierarchy", async ({
   );
   expect(deleted.ok()).toBe(true);
   expect(await deleted.json()).toEqual({ deleted: true });
+  expect(
+    (await request.delete(`/api/admin/categories/${parent.id}`)).ok(),
+  ).toBeTruthy();
 });
 
 test("administration is fully switchable between French and English", async ({

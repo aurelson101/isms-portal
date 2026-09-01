@@ -15,7 +15,7 @@ describe("AuthorizationService", () => {
     count.mockReset();
   });
 
-  it("grants every permission to an administrator without a per-space rule", async () => {
+  it("keeps download ACL-controlled for an administrator", async () => {
     findMany.mockResolvedValue([
       { id: "space-it", slug: "it", accessRules: [] },
     ]);
@@ -33,14 +33,31 @@ describe("AuthorizationService", () => {
     for (const permission of permissions)
       await expect(
         service.can(["ISMS-LOCAL-ADMINS"], "space-it", permission),
-      ).resolves.toBe(true);
+      ).resolves.toBe(permission !== "download");
     const permitted = await service.permittedSpacesFor(
       ["ISMS-LOCAL-ADMINS"],
       permissions,
     );
     for (const permission of permissions)
-      expect(permitted.get(permission)).toHaveLength(1);
-    expect(count).not.toHaveBeenCalled();
+      expect(permitted.get(permission)).toHaveLength(
+        permission === "download" ? 0 : 1,
+      );
+    expect(count).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows an administrator download only when an active ACL grants it", async () => {
+    count.mockResolvedValue(1);
+    findMany.mockResolvedValue([
+      { id: "space-it", slug: "it", accessRules: [{ download: true }] },
+    ]);
+    await expect(
+      service.can(["ISMS-LOCAL-ADMINS"], "space-it", "download"),
+    ).resolves.toBe(true);
+    const permitted = await service.permittedSpacesFor(
+      ["ISMS-LOCAL-ADMINS"],
+      ["download"],
+    );
+    expect(permitted.get("download")).toHaveLength(1);
   });
 
   it("denies by default when no group rule grants the permission", async () => {
@@ -153,6 +170,20 @@ describe("AuthorizationService", () => {
               ],
             },
           },
+        ]),
+      }),
+    });
+  });
+
+  it("does not let space ownership bypass the download ACL", async () => {
+    count.mockResolvedValue(0);
+    await expect(
+      service.can(["Owners-IT"], "space-it", "download"),
+    ).resolves.toBe(false);
+    expect(count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        OR: expect.not.arrayContaining([
+          expect.objectContaining({ ownerGroup: expect.anything() }),
         ]),
       }),
     });
