@@ -1122,10 +1122,17 @@ for (const [format, fixture] of [
   });
 }
 
-test("categories can be created, edited and deleted", async ({ request }) => {
+test("categories can be created, displayed as a tree, edited and deleted", async ({
+  page,
+  request,
+}) => {
   const spacesResponse = await request.get("/api/admin/spaces");
   expect(spacesResponse.ok()).toBeTruthy();
-  const spaces = (await spacesResponse.json()) as Array<{ id: string }>;
+  const spaces = (await spacesResponse.json()) as Array<{
+    id: string;
+    nameFr: string;
+    nameEn: string;
+  }>;
   expect(spaces.length).toBeGreaterThan(0);
 
   const suffix = Date.now().toString(36);
@@ -1186,6 +1193,21 @@ test("categories can be created, edited and deleted", async ({ request }) => {
   expect((await validUpdateResponse.json()).nameFr).toBe(
     `Catégorie modifiée ${suffix}`,
   );
+
+  await page.goto("/");
+  const navigation = page.getByRole("navigation", { name: /Navigation/i });
+  await navigation
+    .locator("button.space-menu")
+    .filter({ hasText: new RegExp(`${spaces[0].nameFr}|${spaces[0].nameEn}`) })
+    .click();
+  await expect(
+    navigation.getByText(`Sous-catégorie test ${suffix}`, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    navigation
+      .getByText(`Sous-catégorie test ${suffix}`, { exact: true })
+      .locator(".."),
+  ).toHaveClass(/category-depth-1/);
 
   const deletedChildResponse = await request.delete(
     `/api/admin/categories/${child.id}`,
