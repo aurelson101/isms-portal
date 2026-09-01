@@ -120,19 +120,24 @@ type Category = {
 
 function flattenCategories(categories: Category[]) {
   const children = new Map<string | null, Category[]>();
+  const categoryIds = new Set(categories.map((item) => item.id));
   for (const item of categories) {
-    const parentId = item.parentId || null;
+    const parentId =
+      item.parentId && categoryIds.has(item.parentId) ? item.parentId : null;
     children.set(parentId, [...(children.get(parentId) || []), item]);
   }
   const result: Array<{ item: Category; depth: number }> = [];
+  const appended = new Set<string>();
   const append = (item: Category, depth: number, trail = new Set<string>()) => {
-    if (trail.has(item.id)) return;
+    if (trail.has(item.id) || appended.has(item.id)) return;
     const nextTrail = new Set(trail).add(item.id);
+    appended.add(item.id);
     result.push({ item, depth });
     for (const child of children.get(item.id) || [])
       append(child, depth + 1, nextTrail);
   };
   for (const root of children.get(null) || []) append(root, 0);
+  for (const item of categories) append(item, 0);
   return result;
 }
 type Rule = {
@@ -2503,22 +2508,42 @@ function SpacesPanel({
               {t("Catégorie parente (facultatif)")}
               <select
                 value={category.parentId}
-                disabled={!category.spaceId}
-                onChange={(event) =>
-                  setCategory({ ...category, parentId: event.target.value })
-                }
+                onChange={(event) => {
+                  const parentId = event.target.value;
+                  const parent = spaces
+                    .flatMap((space) => space.categories || [])
+                    .find((item) => item.id === parentId);
+                  setCategory({
+                    ...category,
+                    parentId,
+                    spaceId: parent?.spaceId || category.spaceId,
+                  });
+                }}
               >
                 <option value="">{t("Aucune — catégorie racine")}</option>
-                {flattenCategories(
-                  spaces.find((space) => space.id === category.spaceId)
-                    ?.categories || [],
-                )
-                  .filter(({ item }) => item.id !== editedCategoryId)
-                  .map(({ item, depth }) => (
-                    <option key={item.id} value={item.id}>
-                      {`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}
-                    </option>
-                  ))}
+                {spaces
+                  .filter(
+                    (space) =>
+                      !category.spaceId || space.id === category.spaceId,
+                  )
+                  .map((space) => {
+                    const options = flattenCategories(
+                      space.categories || [],
+                    ).filter(({ item }) => item.id !== editedCategoryId);
+                    if (options.length === 0) return null;
+                    return (
+                      <optgroup
+                        key={space.id}
+                        label={locale === "fr" ? space.nameFr : space.nameEn}
+                      >
+                        {options.map(({ item, depth }) => (
+                          <option key={item.id} value={item.id}>
+                            {`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
               </select>
             </label>
             <label>
