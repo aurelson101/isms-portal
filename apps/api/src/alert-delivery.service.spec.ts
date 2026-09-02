@@ -66,4 +66,46 @@ describe("AlertDeliveryService", () => {
       service.save({ smtpRecipients: "not-an-email" }),
     ).rejects.toThrow("Invalid email address");
   });
+
+  it("prefers SMTP and falls back to Teams when delivery fails", async () => {
+    const prisma = {
+      applicationSetting: {
+        findUnique: vi.fn(async () => ({
+          value: {
+            smtpHost: "smtp.example.com",
+            smtpFrom: "isms@example.com",
+            smtpRecipients: ["soc@example.com"],
+            teamsWebhookUrlEncrypted: "encrypted-teams",
+          },
+        })),
+      },
+    };
+    const service = new AlertDeliveryService(prisma as never, {} as never);
+    const send = vi
+      .spyOn(service, "send")
+      .mockRejectedValueOnce(new Error("SMTP unavailable"))
+      .mockResolvedValueOnce(undefined);
+
+    await expect(service.sendPreferred("Subject", "Message")).resolves.toEqual({
+      delivered: true,
+      channel: "teams",
+      attempted: ["email", "teams"],
+    });
+    expect(send.mock.calls.map(([channel]) => channel)).toEqual([
+      "email",
+      "teams",
+    ]);
+  });
+
+  it("does nothing when no outbound channel is configured", async () => {
+    const prisma = {
+      applicationSetting: { findUnique: vi.fn(async () => null) },
+    };
+    const service = new AlertDeliveryService(prisma as never, {} as never);
+    await expect(service.sendPreferred("Subject", "Message")).resolves.toEqual({
+      delivered: false,
+      channel: null,
+      attempted: [],
+    });
+  });
 });

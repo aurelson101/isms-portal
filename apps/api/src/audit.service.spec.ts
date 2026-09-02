@@ -55,4 +55,51 @@ describe("AuditService", () => {
     expect(logged).not.toContain("must-not-be-logged");
     output.mockRestore();
   });
+
+  it("sends business events through the preferred outbound channel", async () => {
+    const event = {
+      identity: "alice",
+      occurredAt: new Date("2026-09-02T12:00:00.000Z"),
+    };
+    const transaction = {
+      $executeRaw: vi.fn(),
+      auditEvent: {
+        create: vi.fn().mockResolvedValue(event),
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn(),
+      },
+    };
+    const alerts = {
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      sendPreferred: vi.fn().mockResolvedValue({
+        delivered: true,
+        channel: "email",
+        attempted: ["email"],
+      }),
+    };
+    const output = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation(() => true);
+    const service = new AuditService(
+      { $transaction: vi.fn((callback) => callback(transaction)) } as never,
+      alerts as never,
+    );
+
+    await service.record(
+      {
+        identity: { username: "alice" },
+        ip: "192.0.2.10",
+        correlationId: "correlation-2",
+      } as never,
+      "access-request.create",
+      "access-request:123",
+      "success",
+    );
+
+    expect(alerts.sendPreferred).toHaveBeenCalledWith(
+      "[ISMS Portal] Nouvelle demande d’accès",
+      expect.stringContaining("Référence : access-request:123"),
+    );
+    output.mockRestore();
+  });
 });
