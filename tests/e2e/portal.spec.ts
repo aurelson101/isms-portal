@@ -1794,6 +1794,24 @@ test("observability center proposes private integrations without exposing metric
   await expect(page.getByLabel("URL du webhook Slack")).toBeVisible();
   await expect(page.getByLabel("URL du webhook HTTPS")).toBeVisible();
   await expect(
+    page.getByRole("button", {
+      name: "Enregistrer et envoyer un e-mail de test",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "Enregistrer et envoyer une alerte Teams",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "Enregistrer et envoyer une alerte Slack",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Enregistrer et tester le webhook" }),
+  ).toBeVisible();
+  await expect(
     page.getByText("Activer cette intégration optionnelle").first(),
   ).toBeVisible();
 });

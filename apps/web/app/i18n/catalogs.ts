@@ -361,6 +361,15 @@ export const adminEnglishCatalog = {
     "Alert channels saved and secrets encrypted.",
   "Configuration des canaux invalide.": "Invalid channel configuration.",
   "Alerte de test envoyée.": "Test alert sent.",
+  "E-mail de test envoyé aux destinataires configurés.":
+    "Test email sent to the configured recipients.",
+  "Alerte de test envoyée vers le canal configuré.":
+    "Test alert sent to the configured channel.",
+  "Envoi du test…": "Sending test…",
+  "Enregistrer et envoyer un e-mail de test": "Save and send a test email",
+  "Enregistrer et envoyer une alerte Teams": "Save and send a Teams alert",
+  "Enregistrer et envoyer une alerte Slack": "Save and send a Slack alert",
+  "Enregistrer et tester le webhook": "Save and test webhook",
   "Échec de l’envoi de test. Vérifiez la configuration et les journaux.":
     "Test delivery failed. Check the configuration and logs.",
   "Catégorie parente (facultatif)": "Parent category (optional)",
