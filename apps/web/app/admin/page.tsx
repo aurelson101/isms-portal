@@ -14,6 +14,7 @@ import { Icon, type IconName } from "../icons";
 import { adminEnglishCatalog } from "../i18n/catalogs";
 import {
   defaultBranding,
+  prepareBrandLogo,
   updateBrandingCache,
   useBranding,
   type PortalBranding,
@@ -5366,6 +5367,7 @@ function SettingsPanel({
   );
   const [portalBranding, setPortalBranding] =
     useState<PortalBranding>(defaultBranding);
+  const [logoProcessing, setLogoProcessing] = useState(false);
   const [mfaSetup, setMfaSetup] = useState<{
     secret: string;
     otpauthUrl: string;
@@ -5694,25 +5696,38 @@ function SettingsPanel({
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
-              onChange={(event) => {
+              onChange={async (event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;
-                if (file.size > 256 * 1024) {
-                  onError(t("Le logo doit faire moins de 256 Kio."));
-                  return;
-                }
-                const reader = new FileReader();
-                reader.onload = () =>
+                setLogoProcessing(true);
+                try {
+                  const logoDataUrl = await prepareBrandLogo(file);
                   setPortalBranding((current) => ({
                     ...current,
-                    logoDataUrl: String(reader.result),
+                    logoDataUrl,
                   }));
-                reader.readAsDataURL(file);
+                  onNotice(t("Logo redimensionné et optimisé."));
+                } catch {
+                  onError(
+                    t(
+                      "Le logo doit être une image PNG, JPEG ou WebP valide de moins de 20 Mio.",
+                    ),
+                  );
+                } finally {
+                  setLogoProcessing(false);
+                }
               }}
             />
+            <small>
+              {t(
+                "L’image est automatiquement redimensionnée et compressée avant son envoi.",
+              )}
+            </small>
           </label>
           <div className="button-row">
-            <button className="primary">{t("Enregistrer")}</button>
+            <button className="primary" disabled={logoProcessing}>
+              {logoProcessing ? t("Optimisation…") : t("Enregistrer")}
+            </button>
             {portalBranding.logoDataUrl && (
               <button
                 type="button"
