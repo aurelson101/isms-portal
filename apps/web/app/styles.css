@@ -90,6 +90,34 @@ body {
 .login-brand > span {
   font-size: 42px;
 }
+.brand-logo {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  border-radius: 12px;
+  object-fit: contain;
+  background: #fff;
+}
+.login-brand .brand-logo {
+  width: 48px;
+  height: 48px;
+  flex-basis: 48px;
+}
+.branding-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid #d8e1ee;
+  border-radius: 10px;
+  color: #073c85;
+  background: #f7faff;
+  font-size: 1.25rem;
+}
+.branding-preview > span {
+  font-size: 42px;
+}
 .login-brand strong,
 .login-brand small {
   display: block;

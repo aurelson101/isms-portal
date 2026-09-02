@@ -11,6 +11,7 @@ import {
 } from "./auth-session";
 import { Icon } from "./icons";
 import { portalCatalog as copy } from "./i18n/catalogs";
+import { useBranding } from "./branding";
 
 type Locale = "fr" | "en";
 type ViewMode = "list" | "grid";
@@ -620,6 +621,7 @@ export function Portal({
   initialDocumentId?: string;
   initialDocumentSlug?: string;
 }) {
+  const branding = useBranding();
   const router = useRouter();
   const [locale, setLocale] = useState<Locale>("fr");
   const [identity, setIdentity] = useState<Identity | null>(() =>
@@ -1504,9 +1506,13 @@ export function Portal({
       <main className="login-shell" aria-busy={!authenticationFailure}>
         <section className="login-card" aria-live="polite">
           <div className="login-brand">
-            <span aria-hidden="true">🛡️</span>
+            {branding.logoDataUrl ? (
+              <img className="brand-logo" src={branding.logoDataUrl} alt="" />
+            ) : (
+              <span aria-hidden="true">🛡️</span>
+            )}
             <div>
-              <strong>ISMS Portal</strong>
+              <strong>{branding.title}</strong>
               <small>{t.systemName}</small>
             </div>
           </div>
@@ -1537,11 +1543,15 @@ export function Portal({
       <aside className={navigationOpen ? "navigation-open" : ""}>
         <div className="sidebar-heading">
           <div className="brand">
-            <div className="shield">
-              <Icon name="shield" />
-            </div>
+            {branding.logoDataUrl ? (
+              <img className="brand-logo" src={branding.logoDataUrl} alt="" />
+            ) : (
+              <div className="shield">
+                <Icon name="shield" />
+              </div>
+            )}
             <div>
-              <strong>ISMS Portal</strong>
+              <strong>{branding.title}</strong>
               <small>{t.systemName}</small>
             </div>
           </div>
