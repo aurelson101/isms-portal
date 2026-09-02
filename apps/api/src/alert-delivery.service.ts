@@ -24,6 +24,10 @@ type StoredChannels = {
 
 const SETTING_KEY = "observability.alert-channels";
 const MASK = "********";
+export const isAllowedTeamsWebhookHost = (hostname: string) =>
+  /(^|\.)webhook\.office\.com$|(^|\.)logic\.azure\.com$|(^|\.)environment\.api\.powerplatform\.com$/u.test(
+    hostname,
+  );
 const privateAddress = (address: string) =>
   address === "::1" ||
   address === "0.0.0.0" ||
@@ -145,12 +149,7 @@ export class AlertDeliveryService {
     }
     if (url.protocol !== "https:" || url.username || url.password)
       throw new BadRequestException("Webhook URL must use HTTPS");
-    if (
-      channel === "teams" &&
-      !/(^|\.)webhook\.office\.com$|(^|\.)logic\.azure\.com$/u.test(
-        url.hostname,
-      )
-    )
+    if (channel === "teams" && !isAllowedTeamsWebhookHost(url.hostname))
       throw new BadRequestException("Invalid Teams webhook host");
     if (channel === "slack" && url.hostname !== "hooks.slack.com")
       throw new BadRequestException("Invalid Slack webhook host");
@@ -261,14 +260,39 @@ export class AlertDeliveryService {
     if (channel === "webhook" && config.genericWebhookSecretEncrypted)
       headers.Authorization = `Bearer ${this.decrypt(config.genericWebhookSecretEncrypted)}`;
     const payload =
-      channel === "webhook"
+      channel === "teams"
         ? {
-            source: "isms-portal",
-            subject,
-            message: text,
-            occurredAt: new Date().toISOString(),
+            type: "message",
+            attachments: [
+              {
+                contentType: "application/vnd.microsoft.card.adaptive",
+                contentUrl: null,
+                content: {
+                  $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+                  type: "AdaptiveCard",
+                  version: "1.2",
+                  body: [
+                    {
+                      type: "TextBlock",
+                      text: subject,
+                      weight: "Bolder",
+                      size: "Medium",
+                      wrap: true,
+                    },
+                    { type: "TextBlock", text, wrap: true },
+                  ],
+                },
+              },
+            ],
           }
-        : { text: `**${subject}**\n${text}` };
+        : channel === "webhook"
+          ? {
+              source: "isms-portal",
+              subject,
+              message: text,
+              occurredAt: new Date().toISOString(),
+            }
+          : { text: `**${subject}**\n${text}` };
     const response = await fetch(url, {
       method: "POST",
       headers,

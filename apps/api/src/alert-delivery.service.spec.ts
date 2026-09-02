@@ -1,7 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
-import { AlertDeliveryService } from "./alert-delivery.service";
+import {
+  AlertDeliveryService,
+  isAllowedTeamsWebhookHost,
+} from "./alert-delivery.service";
 
 describe("AlertDeliveryService", () => {
+  it("accepts legacy and Power Automate Teams webhook hosts only", () => {
+    expect(isAllowedTeamsWebhookHost("tenant.webhook.office.com")).toBe(true);
+    expect(isAllowedTeamsWebhookHost("region.logic.azure.com")).toBe(true);
+    expect(
+      isAllowedTeamsWebhookHost(
+        "default123.0a.environment.api.powerplatform.com",
+      ),
+    ).toBe(true);
+    expect(isAllowedTeamsWebhookHost("powerplatform.com.example.org")).toBe(
+      false,
+    );
+    expect(
+      isAllowedTeamsWebhookHost("environment.api.powerplatform.com.evil"),
+    ).toBe(false);
+  });
+
   it("encrypts secrets and never returns them", async () => {
     let stored: { value?: unknown } | null = null;
     const prisma = {
