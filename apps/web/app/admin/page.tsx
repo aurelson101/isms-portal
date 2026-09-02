@@ -4931,6 +4931,11 @@ function ObservabilityPanel({
             "Les valeurs secrètes déjà enregistrées restent masquées. Un test effectue un envoi réel vers le canal sélectionné.",
           )}
         </p>
+        <p>
+          {t(
+            "Les demandes, signalements et événements de gouvernance utilisent automatiquement le SMTP. Si l’envoi échoue ou si SMTP n’est pas configuré, ISMS essaie Teams, puis Slack, puis le webhook générique.",
+          )}
+        </p>
         <fieldset>
           <legend>SMTP / E-mail</legend>
           <label>

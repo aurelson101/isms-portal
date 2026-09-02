@@ -1789,6 +1789,9 @@ test("observability center proposes private integrations without exposing metric
   await expect(
     page.getByRole("heading", { name: "Configuration des canaux d’alerte" }),
   ).toBeVisible();
+  await expect(
+    page.getByText(/utilisent automatiquement le SMTP/),
+  ).toBeVisible();
   await expect(page.getByLabel("Serveur SMTP")).toBeVisible();
   await expect(page.getByLabel("URL du webhook Teams")).toBeVisible();
   await expect(page.getByLabel("URL du webhook Slack")).toBeVisible();

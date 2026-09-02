@@ -7,6 +7,11 @@ import { CryptoService } from "./crypto.service";
 import { PrismaService } from "./prisma.service";
 
 export type AlertChannel = "email" | "teams" | "slack" | "webhook";
+export type PreferredDelivery = {
+  delivered: boolean;
+  channel: AlertChannel | null;
+  attempted: AlertChannel[];
+};
 type StoredChannels = {
   smtpHost?: string;
   smtpPort?: number;
@@ -302,6 +307,34 @@ export class AlertDeliveryService {
     });
     if (!response.ok)
       throw new Error(`Webhook returned HTTP ${response.status}`);
+  }
+
+  async sendPreferred(
+    subject: string,
+    text: string,
+  ): Promise<PreferredDelivery> {
+    const config = await this.stored();
+    const candidates: AlertChannel[] = [];
+    if (config.smtpHost && config.smtpFrom && config.smtpRecipients?.length)
+      candidates.push("email");
+    if (config.teamsWebhookUrlEncrypted) candidates.push("teams");
+    if (config.slackWebhookUrlEncrypted) candidates.push("slack");
+    if (config.genericWebhookUrlEncrypted) candidates.push("webhook");
+    const attempted: AlertChannel[] = [];
+    const failures: string[] = [];
+    for (const channel of candidates) {
+      attempted.push(channel);
+      try {
+        await this.send(channel, subject, text);
+        return { delivered: true, channel, attempted };
+      } catch (error) {
+        failures.push(
+          `${channel}: ${error instanceof Error ? error.message : "unknown error"}`,
+        );
+      }
+    }
+    if (failures.length) throw new Error(failures.join("; "));
+    return { delivered: false, channel: null, attempted };
   }
 
   async evaluate(result: "success" | "failure" | "denied") {

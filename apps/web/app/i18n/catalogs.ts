@@ -345,6 +345,8 @@ export const adminEnglishCatalog = {
   "Configuration des canaux d’alerte": "Alert channel configuration",
   "Les valeurs secrètes déjà enregistrées restent masquées. Un test effectue un envoi réel vers le canal sélectionné.":
     "Previously saved secrets remain masked. A test sends a real message through the selected channel.",
+  "Les demandes, signalements et événements de gouvernance utilisent automatiquement le SMTP. Si l’envoi échoue ou si SMTP n’est pas configuré, ISMS essaie Teams, puis Slack, puis le webhook générique.":
+    "Requests, reports, and governance events automatically use SMTP. If delivery fails or SMTP is not configured, ISMS tries Teams, then Slack, then the generic webhook.",
   "Serveur SMTP": "SMTP server",
   "Port SMTP": "SMTP port",
   "TLS implicite (port 465)": "Implicit TLS (port 465)",
