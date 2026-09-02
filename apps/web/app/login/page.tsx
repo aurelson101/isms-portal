@@ -2,8 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useBranding } from "../branding";
+import { initialLocale, rememberLocale, type Locale } from "../i18n/locale";
 
-type Locale = "fr" | "en";
 type AuthConfig = {
   directoryLoginEnabled: boolean;
   ssoEnabled: boolean;
@@ -58,8 +58,9 @@ export default function LoginPage() {
   const t = copy[locale];
 
   useEffect(() => {
-    const preferred: Locale = navigator.language.startsWith("en") ? "en" : "fr";
+    const preferred = initialLocale(localStorage.getItem("isms-locale"));
     setLocale(preferred);
+    document.documentElement.lang = preferred;
     const parameters = new URLSearchParams(window.location.search);
     const signedOut = parameters.get("loggedout") === "1";
     const localLogin = parameters.get("local") === "1";
@@ -142,14 +143,20 @@ export default function LoginPage() {
           <div className="login-language" aria-label="Language">
             <button
               type="button"
-              onClick={() => setLocale("fr")}
+              onClick={() => {
+                setLocale("fr");
+                rememberLocale("fr");
+              }}
               aria-pressed={locale === "fr"}
             >
               FR
             </button>
             <button
               type="button"
-              onClick={() => setLocale("en")}
+              onClick={() => {
+                setLocale("en");
+                rememberLocale("en");
+              }}
               aria-pressed={locale === "en"}
             >
               EN

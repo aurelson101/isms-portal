@@ -11,9 +11,9 @@ import {
 } from "./auth-session";
 import { Icon } from "./icons";
 import { portalCatalog as copy } from "./i18n/catalogs";
+import { initialLocale, rememberLocale, type Locale } from "./i18n/locale";
 import { useBranding } from "./branding";
 
-type Locale = "fr" | "en";
 type ViewMode = "list" | "grid";
 type DocumentSort = "recent" | "popular";
 type PdfZoom = number | "page-width" | "page-fit";
@@ -962,8 +962,7 @@ export function Portal({
         const saved =
           currentIdentity.locale ||
           (localStorage.getItem("isms-locale") as Locale | null);
-        const preferred =
-          saved || (navigator.language.startsWith("en") ? "en" : "fr");
+        const preferred = initialLocale(saved);
         setLocale(preferred);
         document.documentElement.lang = preferred;
       })
@@ -1074,8 +1073,7 @@ export function Portal({
 
   const changeLocale = async (next: Locale) => {
     setLocale(next);
-    localStorage.setItem("isms-locale", next);
-    document.documentElement.lang = next;
+    rememberLocale(next);
     setSelectedLocales((current) => ({ ...current }));
     await fetch("/api/me/preferences", {
       method: "PUT",
