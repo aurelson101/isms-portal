@@ -213,6 +213,86 @@ describe("AuthService directory sessions", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it("does not write a recent administrator session on every request", async () => {
+    const sessionUpdate = vi.fn();
+    const accountUpdate = vi.fn();
+    const service = new AuthService(
+      {
+        adminSession: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: "admin-session-1",
+            expiresAt: new Date(Date.now() + 60_000),
+            lastUsedAt: new Date(),
+            adminAccount: {
+              id: "admin-1",
+              username: "admin",
+              displayName: "Administrator",
+              active: true,
+              validFrom: null,
+              validUntil: null,
+              lastAuthorizedAt: new Date(),
+              profilePhoto: null,
+            },
+          }),
+          update: sessionUpdate,
+        },
+        adminAccount: { update: accountUpdate },
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.adminSessionIdentity({
+        headers: { cookie: "isms_admin_session=opaque-token" },
+      } as never),
+    ).resolves.toMatchObject({ username: "admin", source: "local-admin" });
+    expect(sessionUpdate).not.toHaveBeenCalled();
+    expect(accountUpdate).not.toHaveBeenCalled();
+  });
+
+  it("refreshes stale administrator session activity", async () => {
+    const sessionUpdate = vi.fn().mockResolvedValue({});
+    const accountUpdate = vi.fn().mockResolvedValue({});
+    const stale = new Date(Date.now() - 6 * 60 * 1000);
+    const service = new AuthService(
+      {
+        adminSession: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: "admin-session-1",
+            expiresAt: new Date(Date.now() + 60_000),
+            lastUsedAt: stale,
+            adminAccount: {
+              id: "admin-1",
+              username: "admin",
+              displayName: "Administrator",
+              active: true,
+              validFrom: null,
+              validUntil: null,
+              lastAuthorizedAt: stale,
+              profilePhoto: null,
+            },
+          }),
+          update: sessionUpdate,
+        },
+        adminAccount: { update: accountUpdate },
+      } as never,
+      {} as never,
+    );
+
+    await service.adminSessionIdentity({
+      headers: { cookie: "isms_admin_session=opaque-token" },
+    } as never);
+
+    expect(sessionUpdate).toHaveBeenCalledWith({
+      where: { id: "admin-session-1" },
+      data: { lastUsedAt: expect.any(Date) },
+    });
+    expect(accountUpdate).toHaveBeenCalledWith({
+      where: { id: "admin-1" },
+      data: { lastAuthorizedAt: expect.any(Date) },
+    });
+  });
+
   it("removes stale groups when the directory confirms the user is absent", async () => {
     const session = {
       id: "session-1",

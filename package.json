@@ -1,7 +1,7 @@
 {
   "name": "isms-portal",
   "private": true,
-  "version": "0.9.62",
+  "version": "0.9.63",
   "workspaces": [
     "apps/*"
   ],
