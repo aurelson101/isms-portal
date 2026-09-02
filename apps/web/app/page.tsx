@@ -959,10 +959,10 @@ export function Portal({
         setTextScale(currentIdentity.preferences?.textScale || 100);
         setHighContrast(currentIdentity.preferences?.highContrast || false);
         setReducedMotion(currentIdentity.preferences?.reducedMotion || false);
-        const saved =
-          currentIdentity.locale ||
-          (localStorage.getItem("isms-locale") as Locale | null);
-        const preferred = initialLocale(saved);
+        const preferred = initialLocale(
+          localStorage.getItem("isms-locale"),
+          currentIdentity.locale,
+        );
         setLocale(preferred);
         document.documentElement.lang = preferred;
       })
