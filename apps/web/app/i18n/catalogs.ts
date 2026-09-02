@@ -335,6 +335,12 @@ export const adminEnglishCatalog = {
     "The logo must be smaller than 256 KiB.",
   "Retirer le logo": "Remove logo",
   "Identité visuelle enregistrée.": "Visual identity saved.",
+  "Logo redimensionné et optimisé.": "Logo resized and optimized.",
+  "Le logo doit être une image PNG, JPEG ou WebP valide de moins de 20 Mio.":
+    "The logo must be a valid PNG, JPEG or WebP image smaller than 20 MiB.",
+  "L’image est automatiquement redimensionnée et compressée avant son envoi.":
+    "The image is automatically resized and compressed before upload.",
+  "Optimisation…": "Optimizing…",
   "Taux maximal d’échecs d’audit (%)": "Maximum audit failure rate (%)",
   "Configuration des canaux d’alerte": "Alert channel configuration",
   "Les valeurs secrètes déjà enregistrées restent masquées. Un test effectue un envoi réel vers le canal sélectionné.":

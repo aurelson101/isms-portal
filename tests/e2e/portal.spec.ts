@@ -624,18 +624,55 @@ test("an administrator can customize the portal title and logo", async ({
   const originalResponse = await request.get("/api/branding");
   expect(originalResponse.ok()).toBeTruthy();
   const original = await originalResponse.json();
-  const logoDataUrl =
-    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+X8hWAAAAAElFTkSuQmCC";
   try {
-    const update = await request.put("/api/branding", {
-      data: { title: "Portail Sécurité", logoDataUrl },
-    });
-    expect(update.ok()).toBeTruthy();
     await page.goto("/admin#settings");
-    await expect(page.getByLabel("Titre du portail")).toHaveValue(
-      "Portail Sécurité",
+    const brandingSection = page.locator("section", {
+      has: page.getByRole("heading", { name: "Identité visuelle du portail" }),
+    });
+    const sourceDataUrl = await page.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1024;
+      canvas.height = 1024;
+      const context = canvas.getContext("2d")!;
+      const pixels = context.createImageData(canvas.width, canvas.height);
+      let seed = 123456789;
+      for (let index = 0; index < pixels.data.length; index += 4) {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        pixels.data[index] = seed & 255;
+        pixels.data[index + 1] = (seed >>> 8) & 255;
+        pixels.data[index + 2] = (seed >>> 16) & 255;
+        pixels.data[index + 3] = 255;
+      }
+      context.putImageData(pixels, 0, 0);
+      return canvas.toDataURL("image/png");
+    });
+    const sourceBuffer = Buffer.from(sourceDataUrl.split(",")[1], "base64");
+    expect(sourceBuffer.length).toBeGreaterThan(256 * 1024);
+
+    await brandingSection
+      .getByLabel("Titre du portail")
+      .fill("Portail Sécurité");
+    await brandingSection.getByLabel("Logo du portail").setInputFiles({
+      name: "large-logo.png",
+      mimeType: "image/png",
+      buffer: sourceBuffer,
+    });
+    const preview = brandingSection.locator(".branding-preview .brand-logo");
+    await expect(preview).toHaveAttribute("src", /^data:image\/webp;base64,/);
+    await brandingSection.getByRole("button", { name: "Enregistrer" }).click();
+    await expect(
+      page.getByText("Identité visuelle enregistrée."),
+    ).toBeVisible();
+
+    const saved = await (await request.get("/api/branding")).json();
+    expect(saved.title).toBe("Portail Sécurité");
+    expect(saved.logoDataUrl).toMatch(/^data:image\/webp;base64,/);
+    expect(
+      Buffer.from(saved.logoDataUrl.split(",")[1], "base64").length,
+    ).toBeLessThanOrEqual(170 * 1024);
+    await expect(brandingSection.getByLabel("Titre du portail")).toHaveValue(
+      saved.title,
     );
-    await expect(page.locator(".branding-preview .brand-logo")).toBeVisible();
     await expect(page).toHaveTitle("Portail Sécurité");
   } finally {
     expect(
