@@ -16,6 +16,29 @@ test("the main sign-in page only exposes the user credentials form", async ({
   await expect(page.getByText("Compte Active Directory")).toHaveCount(0);
 });
 
+test("non-French browsers use English by default and remember manual choices", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem("locale-test-started")) {
+      localStorage.removeItem("isms-locale");
+      sessionStorage.setItem("locale-test-started", "1");
+    }
+    Object.defineProperty(navigator, "language", {
+      configurable: true,
+      value: "de-DE",
+    });
+  });
+  await page.goto("/login?local=1");
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+
+  await page.getByRole("button", { name: "FR", exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Connexion" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "fr");
+});
+
 test("the user sign-in page automatically detects an existing SSO session", async ({
   page,
 }) => {

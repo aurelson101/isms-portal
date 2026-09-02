@@ -12,6 +12,7 @@ import {
 } from "react";
 import { Icon, type IconName } from "../icons";
 import { adminEnglishCatalog } from "../i18n/catalogs";
+import { initialLocale, rememberLocale, type Locale } from "../i18n/locale";
 import {
   defaultBranding,
   prepareBrandLogo,
@@ -21,7 +22,6 @@ import {
 } from "../branding";
 import { GovernancePanel } from "./governance-panel";
 
-type Locale = "fr" | "en";
 type Authentication = {
   source: string;
   ssoConnected: boolean;
@@ -506,10 +506,10 @@ export default function Admin() {
       }
       setIsAdmin(true);
       setIdentity(me);
-      const preferred =
-        (localStorage.getItem("isms-locale") as Locale | null) ||
-        me.locale ||
-        (navigator.language.startsWith("en") ? "en" : "fr");
+      const preferred = initialLocale(
+        localStorage.getItem("isms-locale"),
+        me.locale,
+      );
       setLocale(preferred);
       document.documentElement.lang = preferred;
       const [
@@ -560,8 +560,7 @@ export default function Admin() {
 
   const changeLocale = async (next: Locale) => {
     setLocale(next);
-    localStorage.setItem("isms-locale", next);
-    document.documentElement.lang = next;
+    rememberLocale(next);
     await fetch("/api/me/preferences", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
