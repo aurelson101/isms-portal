@@ -30,6 +30,7 @@ import {
 } from "./user-tools.controller";
 import { GovernanceController } from "./governance.controller";
 import { AlertDeliveryService } from "./alert-delivery.service";
+import { BrandingController } from "./branding.controller";
 
 @Module({
   controllers: [
@@ -46,6 +47,7 @@ import { AlertDeliveryService } from "./alert-delivery.service";
     UserToolsController,
     OperationsController,
     GovernanceController,
+    BrandingController,
   ],
   providers: [
     PrismaService,

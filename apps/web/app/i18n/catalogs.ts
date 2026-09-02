@@ -325,6 +325,16 @@ export const portalCatalog = {
 } as const;
 
 export const adminEnglishCatalog = {
+  "Identité visuelle du portail": "Portal visual identity",
+  "Le titre et le logo sont affichés sur la connexion, le portail utilisateur et l’administration.":
+    "The title and logo are displayed on sign-in, the user portal and administration.",
+  "Aperçu du portail": "Portal preview",
+  "Titre du portail": "Portal title",
+  "Logo du portail": "Portal logo",
+  "Le logo doit faire moins de 256 Kio.":
+    "The logo must be smaller than 256 KiB.",
+  "Retirer le logo": "Remove logo",
+  "Identité visuelle enregistrée.": "Visual identity saved.",
   "Taux maximal d’échecs d’audit (%)": "Maximum audit failure rate (%)",
   "Configuration des canaux d’alerte": "Alert channel configuration",
   "Les valeurs secrètes déjà enregistrées restent masquées. Un test effectue un envoi réel vers le canal sélectionné.":

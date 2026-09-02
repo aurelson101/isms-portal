@@ -4,20 +4,214 @@ Portail documentaire ISMS/ISO 27001 bilingue, protégé par les groupes Active
 Directory. L’API applique un modèle _deny by default_ : espaces, recherche,
 consultation, téléchargement et administration sont filtrés côté serveur.
 
-## Démarrage
+## Architecture
 
-```bash
-cp .env.example .env
-# Remplacer toutes les valeurs `change-me` et générer ENCRYPTION_KEY.
-docker compose up -d --build
-docker compose ps
+```text
+Utilisateurs internes
+        │ HTTPS/443
+        ▼
+Nginx hôte + certificat Let's Encrypt
+        │ 127.0.0.1:8080
+        ▼
+Nginx Docker ── Next.js
+        │
+        └────── NestJS ── PostgreSQL
+                    ├──── Redis / BullMQ
+                    ├──── ClamAV
+                    └──── volume POSIX document-storage
 ```
 
-Portail : <http://localhost:8080> — Administration :
-<http://localhost:8080/admin> — OpenAPI : <http://localhost:8080/api/docs>.
+La pile persistante comprend sept services : proxy Docker, frontend, API,
+worker, PostgreSQL, Redis et ClamAV. Seul le proxy publie un port. Les réseaux
+applicatifs et de données sont internes à Docker.
+
+## Prérequis
+
+Configuration recommandée pour une installation autonome :
+
+- Ubuntu Server 24.04 LTS ou distribution Linux équivalente ;
+- 4 vCPU, 8 Gio de RAM et 40 Gio d’espace disponible ;
+- Docker Engine 29 ou version compatible et plugin Docker Compose v2 ;
+- Git, OpenSSL, curl et, pour HTTPS, Nginx et Certbot ;
+- DNS interne pointant le nom du portail vers le serveur ;
+- accès sortant DNS/NTP, registre Docker, LDAP ou LDAPS et services d’alerte
+  configurés ;
+- TCP/443 entrant depuis le réseau utilisateur. Le port 8080 doit rester local
+  au serveur en production.
+
+Vérification rapide :
+
+```bash
+docker version
+docker compose version
+openssl version
+getent hosts isms.example.com
+```
+
+## Installation Docker
+
+```bash
+git clone https://github.com/<ORGANISATION>/isms-portal.git
+cd isms-portal
+./scripts/generate-secrets.sh
+sudo ./scripts/configure-host.sh
+docker compose config --quiet
+docker compose up -d --build --wait
+docker compose exec -T api node node_modules/prisma/build/index.js \
+  migrate deploy --schema prisma/schema.prisma
+docker compose ps
+curl -fsS http://127.0.0.1:8080/api/health/ready
+```
+
+Le générateur crée `.env` et `credentials.txt` en mode `600`. Conserver ces
+fichiers hors Git et déplacer les identifiants vers le gestionnaire de secrets
+de l’entreprise. Le compte de secours initial se connecte uniquement sur
+`/admin/login`.
+
+En développement ou sur un poste isolé, le portail est disponible sur
+<http://localhost:8080>. En production, ne pas exposer directement ce port.
+Créer un fichier local `docker-compose.production.yml`, non versionné :
+
+```yaml
+services:
+  reverse-proxy:
+    ports:
+      - "127.0.0.1:8080:8080"
+```
+
+Puis ajouter dans `.env` :
+
+```dotenv
+COMPOSE_FILE=docker-compose.yml:docker-compose.production.yml
+COOKIE_SECURE=true
+```
+
+Contrôler le rendu effectif avant tout démarrage :
+
+```bash
+docker compose config --quiet
+docker compose config | sed -n '/ports:/,/networks:/p'
+```
 
 Les conteneurs exécutent exclusivement le mode production. Aucun fournisseur
 d’identité ni amorçage automatique de démonstration n’est présent au démarrage.
+
+## HTTPS avec Nginx et Certbot DNS OVH
+
+Le schéma recommandé termine TLS dans Nginx sur l’hôte et transmet uniquement
+vers `127.0.0.1:8080`. Le DNS public n’a pas besoin d’exposer le serveur : le
+challenge DNS-01 OVH fonctionne aussi pour un portail accessible seulement en
+interne.
+
+Installer les composants Ubuntu :
+
+```bash
+sudo apt update
+sudo apt install nginx certbot python3-certbot-dns-ovh
+```
+
+Créer `/root/.secrets/certbot/ovh.ini` avec des clés OVH dédiées et limitées à
+la zone DNS concernée :
+
+```ini
+dns_ovh_endpoint = ovh-eu
+dns_ovh_application_key = <SECRET_OVH>
+dns_ovh_application_secret = <SECRET_OVH>
+dns_ovh_consumer_key = <SECRET_OVH>
+```
+
+```bash
+sudo chmod 600 /root/.secrets/certbot/ovh.ini
+sudo certbot certonly \
+  --dns-ovh \
+  --dns-ovh-credentials /root/.secrets/certbot/ovh.ini \
+  --dns-ovh-propagation-seconds 60 \
+  --key-type ecdsa \
+  -d isms.example.com
+```
+
+Exemple `/etc/nginx/sites-available/isms-portal.conf` :
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name isms.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name isms.example.com;
+
+    ssl_certificate /etc/letsencrypt/live/isms.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/isms.example.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
+    client_max_body_size 55m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 120s;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/isms-portal.conf \
+  /etc/nginx/sites-enabled/isms-portal.conf
+sudo nginx -t
+sudo systemctl reload nginx
+curl -fsS https://isms.example.com/api/health/ready
+```
+
+Ne pas recopier la Content-Security-Policy dans Nginx : le proxy Docker la
+génère avec un nonce propre à chaque réponse. Une seconde CSP pourrait bloquer
+les scripts ou styles Next.js.
+
+### Renouvellement du certificat
+
+Certbot installe normalement son timer systemd. Ajouter un hook qui ne recharge
+Nginx qu’après validation de sa configuration :
+
+```bash
+sudo install -d -m 755 /etc/letsencrypt/renewal-hooks/deploy
+sudo sh -c 'printf "%s\n" \
+  "#!/bin/sh" \
+  "set -eu" \
+  "nginx -t" \
+  "systemctl reload nginx" \
+  > /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh'
+sudo chmod 755 /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+sudo certbot renew --dry-run --run-deploy-hooks
+systemctl status certbot.timer
+```
+
+Le test doit se terminer sans erreur et le hook doit confirmer que la
+configuration Nginx reste valide.
+
+## DNS et accès interne uniquement
+
+Pour une exposition interne, créer un enregistrement dans le DNS de l’entreprise
+qui résout `isms.example.com` vers l’adresse privée du serveur. Autoriser TCP/443
+uniquement depuis les réseaux ou le VPN internes. Aucun NAT entrant ni règle
+publique vers le serveur n’est requis pour le challenge DNS OVH.
+
+```bash
+getent hosts isms.example.com
+curl -I https://isms.example.com/login
+sudo ss -lntp | grep -E ':(443|8080)\b'
+```
+
+Le résultat attendu est Nginx sur `:443` et Docker sur `127.0.0.1:8080`, jamais
+`0.0.0.0:8080`.
 
 ## Génération des secrets
 
@@ -151,6 +345,29 @@ expiré ne donne plus aucun droit, même si sa session ou son appartenance AD es
 encore valide.
 
 ## Commandes
+
+### Mise à jour d’une installation
+
+Sauvegarder avant chaque mise à jour, puis reconstruire à partir d’un commit ou
+d’un tag identifié :
+
+```bash
+backup_target="backups/$(date +%Y%m%d-%H%M%S)"
+./scripts/backup.sh "$backup_target"
+./scripts/verify-backup.sh "$backup_target"
+git fetch origin
+git pull --ff-only origin main
+docker compose config --quiet
+docker compose up -d --build --wait
+docker compose exec -T api node node_modules/prisma/build/index.js \
+  migrate deploy --schema prisma/schema.prisma
+./scripts/diagnose.sh
+```
+
+Ne jamais lancer `docker compose down -v` : l’option `-v` supprimerait les volumes
+PostgreSQL, Redis, ClamAV et documentaires.
+
+### Validation et diagnostic
 
 ```bash
 docker run --rm -v "$PWD:/workspace" -w /workspace \

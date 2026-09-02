@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { useBranding } from "../../branding";
 
 type Locale = "fr" | "en";
 type LoginMode = "local" | "directory";
@@ -36,6 +37,7 @@ const copy = {
 } as const;
 
 export default function AdminLoginPage() {
+  const branding = useBranding();
   const [locale, setLocale] = useState<Locale>("fr");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -92,9 +94,13 @@ export default function AdminLoginPage() {
       <section className="login-card">
         <div className="login-toolbar">
           <div className="login-brand">
-            <span aria-hidden="true">◇</span>
+            {branding.logoDataUrl ? (
+              <img className="brand-logo" src={branding.logoDataUrl} alt="" />
+            ) : (
+              <span aria-hidden="true">◇</span>
+            )}
             <div>
-              <strong>ISMS Portal</strong>
+              <strong>{branding.title}</strong>
               <small>Administration sécurisée</small>
             </div>
           </div>

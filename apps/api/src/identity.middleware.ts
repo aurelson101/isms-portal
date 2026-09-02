@@ -27,7 +27,8 @@ export class IdentityMiddleware implements NestMiddleware {
     if (
       route === "/health/live" ||
       route === "/health/ready" ||
-      route === "/metrics"
+      route === "/metrics" ||
+      (route === "/branding" && req.method === "GET")
     ) {
       req.identity = {
         username: "system",

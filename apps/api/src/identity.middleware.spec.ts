@@ -59,6 +59,33 @@ describe("IdentityMiddleware", () => {
     expect(req.identity.username).toBe("system");
   });
 
+  it("keeps branding reads public but authenticates branding updates", async () => {
+    const publicRequest = {
+      method: "GET",
+      path: "/branding",
+      originalUrl: "/branding",
+      headers: {},
+    } as IsmsRequest;
+    await middleware.use(publicRequest, response() as never, vi.fn());
+    expect(publicRequest.identity.username).toBe("system");
+
+    auth.sessionIdentity.mockResolvedValueOnce({
+      username: "admin",
+      displayName: "Administrator",
+      groups: ["ISMS-LOCAL-ADMINS"],
+      source: "local-admin",
+      sessionExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const updateRequest = {
+      method: "PUT",
+      path: "/branding",
+      originalUrl: "/branding",
+      headers: {},
+    } as IsmsRequest;
+    await middleware.use(updateRequest, response() as never, vi.fn());
+    expect(updateRequest.identity.source).toBe("local-admin");
+  });
+
   it("rejects missing production identity", async () => {
     const req = {
       path: "/documents",

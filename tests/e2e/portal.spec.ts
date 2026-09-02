@@ -617,6 +617,37 @@ test("administrator rights actions use the shared button styling", async ({
   expect(unstyledButtons).toEqual([]);
 });
 
+test("an administrator can customize the portal title and logo", async ({
+  page,
+  request,
+}) => {
+  const originalResponse = await request.get("/api/branding");
+  expect(originalResponse.ok()).toBeTruthy();
+  const original = await originalResponse.json();
+  const logoDataUrl =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+X8hWAAAAAElFTkSuQmCC";
+  try {
+    const update = await request.put("/api/branding", {
+      data: { title: "Portail Sécurité", logoDataUrl },
+    });
+    expect(update.ok()).toBeTruthy();
+    await page.goto("/admin#settings");
+    await expect(page.getByLabel("Titre du portail")).toHaveValue(
+      "Portail Sécurité",
+    );
+    await expect(page.locator(".branding-preview .brand-logo")).toBeVisible();
+    await expect(page).toHaveTitle("Portail Sécurité");
+  } finally {
+    expect(
+      (
+        await request.put("/api/branding", {
+          data: original,
+        })
+      ).ok(),
+    ).toBeTruthy();
+  }
+});
+
 test("document spaces provide a clear responsive content hierarchy", async ({
   page,
   request,

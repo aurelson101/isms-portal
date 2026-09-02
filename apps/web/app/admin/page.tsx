@@ -12,6 +12,12 @@ import {
 } from "react";
 import { Icon, type IconName } from "../icons";
 import { adminEnglishCatalog } from "../i18n/catalogs";
+import {
+  defaultBranding,
+  updateBrandingCache,
+  useBranding,
+  type PortalBranding,
+} from "../branding";
 import { GovernancePanel } from "./governance-panel";
 
 type Locale = "fr" | "en";
@@ -382,6 +388,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export default function Admin() {
+  const branding = useBranding();
   const [locale, setLocale] = useState<Locale>("fr");
   const [tab, setTab] = useState<Tab>("dashboard");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
@@ -695,9 +702,13 @@ export default function Admin() {
       <main className="login-shell" aria-busy="true">
         <section className="login-card" aria-live="polite">
           <div className="login-brand">
-            <span aria-hidden="true">🛡️</span>
+            {branding.logoDataUrl ? (
+              <img className="brand-logo" src={branding.logoDataUrl} alt="" />
+            ) : (
+              <span aria-hidden="true">🛡️</span>
+            )}
             <div>
-              <strong>ISMS Portal</strong>
+              <strong>{branding.title}</strong>
               <small>{t("Administration sécurisée")}</small>
             </div>
           </div>
@@ -713,11 +724,19 @@ export default function Admin() {
           <aside className={navigationOpen ? "navigation-open" : ""}>
             <div className="sidebar-heading">
               <div className="brand">
-                <div className="shield">
-                  <Icon name="shield" />
-                </div>
+                {branding.logoDataUrl ? (
+                  <img
+                    className="brand-logo"
+                    src={branding.logoDataUrl}
+                    alt=""
+                  />
+                ) : (
+                  <div className="shield">
+                    <Icon name="shield" />
+                  </div>
+                )}
                 <div>
-                  <strong>ISMS Portal</strong>
+                  <strong>{branding.title}</strong>
                   <small>{t("Administration sécurisée")}</small>
                 </div>
               </div>
@@ -5345,6 +5364,8 @@ function SettingsPanel({
   const [profilePhoto, setProfilePhoto] = useState(
     identity?.profilePhoto || "",
   );
+  const [portalBranding, setPortalBranding] =
+    useState<PortalBranding>(defaultBranding);
   const [mfaSetup, setMfaSetup] = useState<{
     secret: string;
     otpauthUrl: string;
@@ -5449,6 +5470,11 @@ function SettingsPanel({
   useEffect(() => {
     void loadAccounts();
   }, [loadAccounts]);
+  useEffect(() => {
+    void api<PortalBranding>("/api/branding")
+      .then(setPortalBranding)
+      .catch((error) => onError(error.message));
+  }, [onError]);
   const loadAdminGroups = useCallback(
     () =>
       api<typeof adminGroups>("/api/admin/accounts/groups")
@@ -5611,6 +5637,98 @@ function SettingsPanel({
   return (
     <>
       <h1>{t("Configuration")}</h1>
+      <section className="admin-card profile-settings">
+        <h2>{t("Identité visuelle du portail")}</h2>
+        <p>
+          {t(
+            "Le titre et le logo sont affichés sur la connexion, le portail utilisateur et l’administration.",
+          )}
+        </p>
+        <div className="branding-preview" aria-label={t("Aperçu du portail")}>
+          {portalBranding.logoDataUrl ? (
+            <img
+              className="brand-logo"
+              src={portalBranding.logoDataUrl}
+              alt=""
+            />
+          ) : (
+            <span aria-hidden="true">◇</span>
+          )}
+          <strong>{portalBranding.title}</strong>
+        </div>
+        <form
+          className="admin-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            try {
+              const saved = await api<PortalBranding>("/api/branding", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(portalBranding),
+              });
+              setPortalBranding(saved);
+              updateBrandingCache(saved);
+              onNotice(t("Identité visuelle enregistrée."));
+            } catch (currentError) {
+              onError((currentError as Error).message);
+            }
+          }}
+        >
+          <label>
+            {t("Titre du portail")}
+            <input
+              required
+              minLength={3}
+              maxLength={60}
+              value={portalBranding.title}
+              onChange={(event) =>
+                setPortalBranding((current) => ({
+                  ...current,
+                  title: event.target.value,
+                }))
+              }
+            />
+          </label>
+          <label>
+            {t("Logo du portail")}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                if (file.size > 256 * 1024) {
+                  onError(t("Le logo doit faire moins de 256 Kio."));
+                  return;
+                }
+                const reader = new FileReader();
+                reader.onload = () =>
+                  setPortalBranding((current) => ({
+                    ...current,
+                    logoDataUrl: String(reader.result),
+                  }));
+                reader.readAsDataURL(file);
+              }}
+            />
+          </label>
+          <div className="button-row">
+            <button className="primary">{t("Enregistrer")}</button>
+            {portalBranding.logoDataUrl && (
+              <button
+                type="button"
+                onClick={() =>
+                  setPortalBranding((current) => ({
+                    ...current,
+                    logoDataUrl: null,
+                  }))
+                }
+              >
+                {t("Retirer le logo")}
+              </button>
+            )}
+          </div>
+        </form>
+      </section>
       <section className="admin-card profile-settings">
         <h2>{t("Profil administrateur")}</h2>
         {profilePhoto && (
