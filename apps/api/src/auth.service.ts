@@ -230,10 +230,12 @@ export class AuthService implements OnModuleInit {
           session.adminAccount.validUntil > new Date())
       ) {
         await Promise.all([
-          this.prisma.adminSession.update({
-            where: { id: session.id },
-            data: { lastUsedAt: new Date() },
-          }),
+          this.activityTouchDue(session.lastUsedAt)
+            ? this.prisma.adminSession.update({
+                where: { id: session.id },
+                data: { lastUsedAt: new Date() },
+              })
+            : Promise.resolve(),
           this.activityTouchDue(session.adminAccount.lastAuthorizedAt)
             ? this.prisma.adminAccount.update({
                 where: { id: session.adminAccount.id },
