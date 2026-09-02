@@ -165,6 +165,42 @@ test("the user profile lists groups recognized by the application", async ({
   expect(refreshRequested).toBe(true);
 });
 
+test("the browser language choice wins over a stale account preference", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+  await page.route("**/api/me*", (route) =>
+    route.fulfill({
+      json: {
+        username: "alice@example.com",
+        displayName: "Alice Example",
+        isAdmin: false,
+        primaryAdmin: false,
+        locale: "fr",
+        preferences: {},
+        authentication: {
+          source: "directory-session",
+          ssoConnected: false,
+          sessionExpiresAt: null,
+          loginUrl: null,
+          logoutUrl: null,
+          diagnostics: {
+            groupCount: 0,
+            matchedGroups: [],
+            mappedSpaceCount: 0,
+            administrator: false,
+            administratorAccount: false,
+          },
+        },
+        spaces: [],
+      },
+    }),
+  );
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /Welcome/ })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+});
+
 test("a non-admin session is redirected to the dedicated administrator sign-in", async ({
   page,
 }) => {
