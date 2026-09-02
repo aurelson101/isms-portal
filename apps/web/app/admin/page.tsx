@@ -4613,7 +4613,16 @@ function ObservabilityPanel({
     slackWebhookUrl: "",
     genericWebhookUrl: "",
     genericWebhookSecret: "",
+    configured: {
+      email: false,
+      teams: false,
+      slack: false,
+      webhook: false,
+    },
   });
+  const [testingAlertChannel, setTestingAlertChannel] = useState<
+    "email" | "teams" | "slack" | "webhook" | null
+  >(null);
   const reloadOperations = useCallback(async () => {
     const [
       summaryResponse,
@@ -4708,6 +4717,45 @@ function ObservabilityPanel({
   const copy = async (value: string) => {
     await navigator.clipboard.writeText(value);
     onNotice(t("Configuration copiée."));
+  };
+  const saveAlertChannels = async () => {
+    const { configured: _configured, ...payload } = alertChannels;
+    const response = await fetch("/api/admin/operations/alert-channels", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) return null;
+    const channels = await response.json();
+    setAlertChannels((current) => ({ ...current, ...channels }));
+    return channels;
+  };
+  const testAlertChannel = async (
+    channel: "email" | "teams" | "slack" | "webhook",
+  ) => {
+    setTestingAlertChannel(channel);
+    try {
+      const saved = await saveAlertChannels();
+      if (!saved) {
+        onNotice(t("Configuration des canaux invalide."));
+        return;
+      }
+      const response = await fetch(
+        `/api/admin/operations/alert-channels/${channel}/test`,
+        { method: "POST" },
+      );
+      onNotice(
+        response.ok
+          ? channel === "email"
+            ? t("E-mail de test envoyé aux destinataires configurés.")
+            : t("Alerte de test envoyée vers le canal configuré.")
+          : t(
+              "Échec de l’envoi de test. Vérifiez la configuration et les journaux.",
+            ),
+      );
+    } finally {
+      setTestingAlertChannel(null);
+    }
   };
 
   return (
@@ -4871,14 +4919,8 @@ function ObservabilityPanel({
         className="admin-form observability-policy"
         onSubmit={async (event) => {
           event.preventDefault();
-          const response = await fetch("/api/admin/operations/alert-channels", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(alertChannels),
-          });
-          if (response.ok) {
-            const channels = await response.json();
-            setAlertChannels((current) => ({ ...current, ...channels }));
+          const channels = await saveAlertChannels();
+          if (channels) {
             onNotice(t("Canaux d’alerte enregistrés et secrets chiffrés."));
           } else onNotice(t("Configuration des canaux invalide."));
         }}
@@ -4986,6 +5028,15 @@ function ObservabilityPanel({
               }
             />
           </label>
+          <button
+            type="button"
+            disabled={testingAlertChannel !== null}
+            onClick={() => void testAlertChannel("email")}
+          >
+            {testingAlertChannel === "email"
+              ? t("Envoi du test…")
+              : t("Enregistrer et envoyer un e-mail de test")}
+          </button>
         </fieldset>
         <fieldset>
           <legend>Microsoft Teams</legend>
@@ -5003,6 +5054,15 @@ function ObservabilityPanel({
               }
             />
           </label>
+          <button
+            type="button"
+            disabled={testingAlertChannel !== null}
+            onClick={() => void testAlertChannel("teams")}
+          >
+            {testingAlertChannel === "teams"
+              ? t("Envoi du test…")
+              : t("Enregistrer et envoyer une alerte Teams")}
+          </button>
         </fieldset>
         <fieldset>
           <legend>Slack</legend>
@@ -5020,6 +5080,15 @@ function ObservabilityPanel({
               }
             />
           </label>
+          <button
+            type="button"
+            disabled={testingAlertChannel !== null}
+            onClick={() => void testAlertChannel("slack")}
+          >
+            {testingAlertChannel === "slack"
+              ? t("Envoi du test…")
+              : t("Enregistrer et envoyer une alerte Slack")}
+          </button>
         </fieldset>
         <fieldset>
           <legend>Webhook</legend>
@@ -5051,31 +5120,17 @@ function ObservabilityPanel({
               }
             />
           </label>
+          <button
+            type="button"
+            disabled={testingAlertChannel !== null}
+            onClick={() => void testAlertChannel("webhook")}
+          >
+            {testingAlertChannel === "webhook"
+              ? t("Envoi du test…")
+              : t("Enregistrer et tester le webhook")}
+          </button>
         </fieldset>
         <button>{t("Enregistrer les canaux")}</button>
-        <div className="button-row">
-          {(["email", "teams", "slack", "webhook"] as const).map((channel) => (
-            <button
-              type="button"
-              key={channel}
-              onClick={async () => {
-                const response = await fetch(
-                  `/api/admin/operations/alert-channels/${channel}/test`,
-                  { method: "POST" },
-                );
-                onNotice(
-                  response.ok
-                    ? t("Alerte de test envoyée.")
-                    : t(
-                        "Échec de l’envoi de test. Vérifiez la configuration et les journaux.",
-                      ),
-                );
-              }}
-            >
-              {t("Tester")} {channel}
-            </button>
-          ))}
-        </div>
       </form>
       <form
         className="admin-form observability-policy"
