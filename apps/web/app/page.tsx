@@ -471,6 +471,7 @@ function DocumentRows({
         const translation = document.translations.find(
           (item) => item.locale === selected,
         );
+        const documentTitle = translation?.title || titleFor(document, locale);
         const selectedVersion =
           document.versions.find((version) => version.locale === selected) ||
           document.versions[0];
@@ -479,8 +480,8 @@ function DocumentRows({
             <span className="file">
               {fileLabel(document.versions[0]?.storedFile.mimeType)}
             </span>
-            <button className="document-title" onClick={() => onOpen(document)}>
-              {translation?.title || titleFor(document, locale)}
+            <button className="document-title" title={documentTitle} onClick={() => onOpen(document)}>
+              {documentTitle}
             </button>
             <span className="category">
               {document.category
