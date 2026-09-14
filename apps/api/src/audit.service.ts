@@ -3,29 +3,15 @@ import type { Prisma } from "@prisma/client";
 import { PrismaService } from "./prisma.service";
 import type { IsmsRequest } from "./types";
 import { AlertDeliveryService } from "./alert-delivery.service";
+import { NotificationService, notificationLabels } from "./notification.service";
 
 const AUDIT_RETENTION_LIMIT = 50;
-const businessAlertLabels: Record<string, string> = {
-  "access-request.create": "Nouvelle demande d’accès",
-  "access-request.review": "Demande d’accès traitée",
-  "document-report.create": "Nouveau signalement documentaire",
-  "document-report.resolve": "Signalement documentaire traité",
-  "security-report.create": "Nouveau signalement de sécurité",
-  "security-report.resolve": "Signalement de sécurité traité",
-  "document-review.create": "Nouvelle revue documentaire",
-  "document-review.decision": "Décision de revue documentaire",
-  "risk-exception.create": "Nouvelle dérogation de risque",
-  "risk-exception.decision": "Décision de dérogation de risque",
-  "sensitive-approval.decision": "Décision d’approbation sensible",
-  "incident-case.create": "Nouveau dossier d’incident",
-  "corrective-action.create": "Nouvelle action corrective",
-};
-
 @Injectable()
 export class AuditService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly alerts: AlertDeliveryService,
+    private readonly notifications: NotificationService,
   ) {}
 
   async record(
@@ -82,30 +68,17 @@ export class AuditService {
       );
       return event;
     });
-    await this.alerts.evaluate(result).catch((error: Error) => {
+    await this.alerts.evaluate(result, () => this.notifications.staff("edit", true)).catch((error: Error) => {
       process.stderr.write(
         `${JSON.stringify({ level: "error", service: "api", event: "alert.delivery.failed", message: error.message })}\n`,
       );
     });
-    const businessSubject =
-      result === "success" ? businessAlertLabels[action] : undefined;
-    if (businessSubject) {
-      await this.alerts
-        .sendPreferred(
-          `[ISMS Portal] ${businessSubject}`,
-          `${businessSubject}\nRéférence : ${resource}\nDéclenché par : ${event.identity}\nDate : ${event.occurredAt.toISOString()}`,
-        )
-        .then((delivery) => {
-          if (delivery.delivered)
-            process.stdout.write(
-              `${JSON.stringify({ level: "info", service: "api", event: "business-notification.delivered", action, resource, channel: delivery.channel, occurredAt: new Date().toISOString() })}\n`,
-            );
-        })
-        .catch((error: Error) => {
-          process.stderr.write(
-            `${JSON.stringify({ level: "error", service: "api", event: "business-notification.failed", action, resource, message: error.message })}\n`,
-          );
-        });
+    if (result === "success" && notificationLabels[action]) {
+      try {
+        await this.notifications.enqueue({ action, resource, actor: event.identity, at: event.occurredAt.toISOString() }, event.id);
+      } catch {
+        process.stderr.write(JSON.stringify({ level: "error", event: "notification.enqueue.failed", action, resource }) + "\n");
+      }
     }
     return event;
   }

@@ -31,9 +31,12 @@ import {
 import { GovernanceController } from "./governance.controller";
 import { AlertDeliveryService } from "./alert-delivery.service";
 import { BrandingController } from "./branding.controller";
+import { ApprovalsController, ReviewInboxController } from "./approvals.controller";
+import { NotificationService } from "./notification.service";
 
 @Module({
   controllers: [
+    ReviewInboxController,
     HealthController,
     IdentityController,
     DocumentsController,
@@ -48,8 +51,10 @@ import { BrandingController } from "./branding.controller";
     OperationsController,
     GovernanceController,
     BrandingController,
+    ApprovalsController,
   ],
   providers: [
+    NotificationService,
     PrismaService,
     AuthorizationService,
     AuditService,

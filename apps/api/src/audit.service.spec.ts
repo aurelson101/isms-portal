@@ -32,6 +32,7 @@ describe("AuditService", () => {
     await new AuditService(
       prisma as never,
       { evaluate: vi.fn(async () => undefined) } as never,
+      {} as never,
     ).record(
       {
         identity: { username: "alice" },
@@ -58,6 +59,7 @@ describe("AuditService", () => {
 
   it("sends business events through the preferred outbound channel", async () => {
     const event = {
+      id: "audit-business-1",
       identity: "alice",
       occurredAt: new Date("2026-09-02T12:00:00.000Z"),
     };
@@ -71,6 +73,7 @@ describe("AuditService", () => {
     };
     const alerts = {
       evaluate: vi.fn().mockResolvedValue(undefined),
+      documentEventEnabled: vi.fn().mockResolvedValue(true),
       sendPreferred: vi.fn().mockResolvedValue({
         delivered: true,
         channel: "email",
@@ -80,9 +83,11 @@ describe("AuditService", () => {
     const output = vi
       .spyOn(process.stdout, "write")
       .mockImplementation(() => true);
+    const notifications = { enqueue: vi.fn().mockResolvedValue(undefined) };
     const service = new AuditService(
       { $transaction: vi.fn((callback) => callback(transaction)) } as never,
       alerts as never,
+      notifications as never,
     );
 
     await service.record(
@@ -96,9 +101,9 @@ describe("AuditService", () => {
       "success",
     );
 
-    expect(alerts.sendPreferred).toHaveBeenCalledWith(
-      "[ISMS Portal] Nouvelle demande d’accès",
-      expect.stringContaining("Référence : access-request:123"),
+    expect(notifications.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "access-request.create", resource: "access-request:123", actor: "alice" }),
+      event.id,
     );
     output.mockRestore();
   });
