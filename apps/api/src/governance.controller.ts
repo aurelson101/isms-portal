@@ -4,6 +4,7 @@ import {
   ConflictException,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   NotFoundException,
   Param,
@@ -341,14 +342,16 @@ export class GovernanceController {
       existing.requestedBy.toLowerCase() === req.identity.username.toLowerCase()
     )
       throw new ConflictException("A second administrator is required");
-    const item = await this.prisma.sensitiveOperationApproval.update({
-      where: { id },
+    const changed = await this.prisma.sensitiveOperationApproval.updateMany({
+      where: { id, status: "PENDING" },
       data: {
         status: body.status,
         approvedBy: req.identity.username,
         approvedAt: new Date(),
       },
     });
+    if (changed.count !== 1) throw new ConflictException("Approval already decided");
+    const item = await this.prisma.sensitiveOperationApproval.findUniqueOrThrow({ where: { id } });
     await this.audit.record(
       req,
       "sensitive-approval.decision",
@@ -451,9 +454,11 @@ export class GovernanceController {
     if (!existing) throw new NotFoundException();
     if (["APPROVED", "REJECTED", "CANCELLED"].includes(existing.status))
       throw new ConflictException("Review is already closed");
+    if (existing.owner.toLowerCase() === req.identity.username.toLowerCase())
+      throw new ForbiddenException("The owner cannot approve their own review");
     const closed = body.status !== "IN_REVIEW";
-    const review = await this.prisma.documentReview.update({
-      where: { id },
+    const changed = await this.prisma.documentReview.updateMany({
+      where: { id, status: { in: ["PENDING", "IN_REVIEW"] } },
       data: {
         status: body.status,
         decisionComment: body.comment.trim(),
@@ -461,6 +466,8 @@ export class GovernanceController {
         decidedAt: closed ? new Date() : null,
       },
     });
+    if (changed.count !== 1) throw new ConflictException("Review is already closed");
+    const review = await this.prisma.documentReview.findUniqueOrThrow({ where: { id } });
     if (closed)
       await this.prisma.userNotification.createMany({
         data: [

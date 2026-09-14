@@ -5,6 +5,13 @@ import {
 } from "./alert-delivery.service";
 
 describe("AlertDeliveryService", () => {
+  it("uses valid AD mail recipients and HTML without SMTP fallback", async () => {
+    const service = new AlertDeliveryService({ applicationSetting: { findUnique: vi.fn().mockResolvedValue({ value: { graphTenantId: "tenant", graphClientId: "client", graphCertificatePemEncrypted: "cert", graphPrivateKeyPemEncrypted: "key" } }) } } as never, {} as never);
+    const graph = vi.spyOn(service as any, "graph").mockResolvedValue(undefined);
+    await service.sendPreferredTo(["First.Last@example.com", "first.last@example.com", "invalid"], "Document published", "Content");
+    expect(graph).toHaveBeenCalledWith(expect.anything(), "Document published", "Content", ["first.last@example.com"], expect.stringContaining('lang="en"'));
+    await expect(service.sendPreferredTo(["not an email"], "Title", "Content")).rejects.toThrow("No eligible mail recipients");
+  });
   it("accepts legacy and Power Automate Teams webhook hosts only", () => {
     expect(isAllowedTeamsWebhookHost("tenant.webhook.office.com")).toBe(true);
     expect(isAllowedTeamsWebhookHost("region.logic.azure.com")).toBe(true);

@@ -3,6 +3,9 @@ import { Queue, Worker } from "bullmq";
 import { PrismaService } from "./prisma.service";
 import { CryptoService } from "./crypto.service";
 import { DirectoryService } from "./directory.service";
+import { AlertDeliveryService } from "./alert-delivery.service";
+import { NotificationService, notificationConnection, type NotificationJob } from "./notification.service";
+import { AuthorizationService } from "./authorization.service";
 
 const redisUrl = new URL(process.env.REDIS_URL || "redis://redis:6379");
 const connection = {
@@ -11,7 +14,14 @@ const connection = {
   ...(redisUrl.password ? { password: redisUrl.password } : {}),
 };
 const prisma = new PrismaService();
-const directory = new DirectoryService(prisma, new CryptoService());
+const crypto = new CryptoService();
+const directory = new DirectoryService(prisma, crypto);
+const alerts = new AlertDeliveryService(prisma, crypto);
+const notifications = new NotificationService(prisma, directory, alerts, new AuthorizationService(prisma));
+const mailWorker = new Worker<NotificationJob>("notification-mail", (job) => notifications.process(job), { connection: notificationConnection(), concurrency: 1 });
+mailWorker.on("completed", (job, result) => process.stdout.write(JSON.stringify({ event: "notification.accepted", jobId: job.id, action: job.data.action, ...result }) + "\n"));
+mailWorker.on("failed", (job, error) => process.stderr.write(JSON.stringify({ event: "notification.failed", jobId: job?.id, action: job?.data.action, attempt: job?.attemptsMade, message: error.message }) + "\n"));
+mailWorker.on("error", () => process.stderr.write(JSON.stringify({ event: "notification.worker.error" }) + "\n"));
 const queue = new Queue("directory-sync", { connection });
 
 const log = (event: string, details: Record<string, unknown> = {}) => {
@@ -97,6 +107,60 @@ async function schedule() {
   const expiredGrants = await prisma.temporaryAccessGrant.deleteMany({
     where: { validUntil: { lte: new Date(now) } },
   });
+  const documentAlertPolicy = await alerts.documentAlertPolicy();
+  let overdueDocumentVersions = 0;
+  if (
+    documentAlertPolicy.enabled &&
+    documentAlertPolicy.documentVersionOverdue
+  ) {
+    const cutoff = new Date(
+      now - documentAlertPolicy.documentVersionMaxAgeDays * 86400000,
+    );
+    const overdueDocuments = await prisma.document.findMany({
+      where: {
+        deletedAt: null,
+        status: "PUBLISHED",
+        versions: { some: {}, none: { createdAt: { gt: cutoff } } },
+      },
+      select: {
+        id: true,
+        translations: { select: { title: true }, take: 1 },
+        versions: {
+          select: { version: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
+      take: 100,
+    });
+    overdueDocumentVersions = overdueDocuments.length;
+    if (overdueDocuments.length) {
+      const cooldown = await prisma.applicationSetting.findUnique({
+        where: { key: "observability.document-version-overdue-last-sent" },
+      });
+      const lastSent = Date.parse(
+        String((cooldown?.value as { at?: string } | undefined)?.at || ""),
+      );
+      if (!Number.isFinite(lastSent) || now - lastSent >= 86400000) {
+        for (const document of overdueDocuments) {
+          await notifications.enqueue({ action: "document.version.overdue", resource: `document:${document.id}`, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `overdue-${document.id}-${new Date(now).toISOString().slice(0, 10)}`);
+        }
+        {
+          const value = { at: new Date(now).toISOString() };
+          await prisma.applicationSetting.upsert({
+            where: {
+              key: "observability.document-version-overdue-last-sent",
+            },
+            update: { value },
+            create: {
+              key: "observability.document-version-overdue-last-sent",
+              value,
+            },
+          });
+        }
+      }
+    }
+  }
   const connections = await prisma.directoryConnection.findMany({
     where: { enabled: true },
   });
@@ -131,6 +195,7 @@ async function schedule() {
     enabledConnections: connections.length,
     riskReviewsOpened: dueExceptions.length,
     expiredTemporaryGrants: expiredGrants.count,
+    overdueDocumentVersions,
   });
 }
 
@@ -152,6 +217,7 @@ async function shutdown(signal: string) {
   clearInterval(timer);
   log("worker.stopping", { signal });
   await worker.close();
+  await mailWorker.close();
   await queue.close();
   await prisma.$disconnect();
   process.exit(0);

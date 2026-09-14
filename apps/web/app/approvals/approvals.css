@@ -1,0 +1,11 @@
+.approvals-shell .approval-card { min-width: 0; overflow-wrap: anywhere; }
+.approvals-shell .approval-card > div { flex-wrap: wrap; }
+.approvals-shell .approval-card .button-row { justify-content: flex-start; }
+.approvals-shell button { display: inline-flex; gap: 8px; align-items: center; min-height: 40px; }
+.approvals-shell button:disabled { opacity: .5; cursor: wait; }
+.approvals-shell button svg { width: 18px; height: 18px; flex: none; }
+.approvals-shell textarea { display: block; box-sizing: border-box; width: 100%; min-height: 84px; margin-top: 8px; border: 1px solid #bbcbdc; border-radius: 4px; padding: 10px; }
+.approvals-shell .approval-toolbar { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 20px; }
+.approvals-shell select { min-height: 40px; margin-left: 12px; border: 1px solid #bbcbdc; border-radius: 4px; padding: 8px; background: white; }
+.approvals-shell .approval-toolbar button { justify-content: center; width: 40px; border: 1px solid #bbcbdc; border-radius: 4px; background: white; }
+@media (max-width: 480px) { .approvals-shell .approval-card { padding: 16px; } .approvals-shell h1 { font-size: 25px; } }

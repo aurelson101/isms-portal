@@ -707,4 +707,67 @@ export class DirectoryService {
       return { groups: groups.count, rules: rules.count };
     });
   }
+
+  async emailsForGroup(distinguishedName: string, connectionId?: string) {
+    const connections = await this.prisma.directoryConnection.findMany({
+      where: { enabled: true, ...(connectionId ? { id: connectionId } : {}) }, include: { caCertificate: true }, orderBy: { name: "asc" },
+    });
+    const emails = new Set<string>();
+    for (const connection of connections) {
+      let client: Client | null = null;
+      try {
+        validateFilter(connection.userFilter);
+        if (!/^[a-z][a-z0-9-]{0,79}$/iu.test(connection.emailAttribute)) throw new Error("Invalid mail attribute");
+        let membership = connection.nestedGroups
+          ? escapeFilter`(memberOf:1.2.840.113556.1.4.1941:=${distinguishedName})`
+          : escapeFilter`(memberOf=${distinguishedName})`;
+        ({ client } = await this.bindWithFallback(connection));
+        const group = await client.search(distinguishedName, { scope: "base", filter: "(objectClass=group)", attributes: ["primaryGroupToken"] });
+        if (!group.searchEntries.length) continue;
+        const primaryGroup = Number(group.searchEntries[0].primaryGroupToken);
+        if (Number.isInteger(primaryGroup) && primaryGroup > 0)
+          membership = `(|${membership}(primaryGroupID=${primaryGroup}))`;
+        const result = await client.search(connection.userBaseDn || connection.baseDn, {
+          scope: "sub", filter: `(&${connection.userFilter}${membership}(${connection.emailAttribute}=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))`, paged: { pageSize: 500 },
+          attributes: [connection.emailAttribute],
+        });
+        for (const entry of result.searchEntries) {
+          const mail = String(entry[connection.emailAttribute] || "").trim().toLowerCase();
+          if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(mail)) emails.add(mail);
+        }
+      } catch (error) {
+        if (!connectionId && (error as { code?: number }).code === 32) continue;
+        throw new Error(`LDAP recipient resolution failed on connection ${connection.id}`);
+      } finally { await client?.unbind().catch(() => undefined); }
+    }
+    return [...emails];
+  }
+
+  async emailsForIdentities(identities: string[]) {
+    const values = [...new Set(identities.map((v) => v.trim()).filter(Boolean))];
+    if (!values.length) return [];
+    const connections = await this.prisma.directoryConnection.findMany({ where: { enabled: true }, include: { caCertificate: true } });
+    const mails = new Set<string>();
+    for (const connection of connections) {
+      let client: Client | null = null;
+      try {
+        validateFilter(connection.userFilter);
+        for (const attribute of [connection.emailAttribute, connection.loginAttribute, connection.usernameAttribute])
+          if (!/^[a-z][a-z0-9-]{0,79}$/iu.test(attribute)) throw new Error("Invalid directory attribute");
+        ({ client } = await this.bindWithFallback(connection));
+        for (let start = 0; start < values.length; start += 40) {
+          const filter = values.slice(start, start + 40).map((v) => escapeFilter`(|(${connection.emailAttribute}=${v})(${connection.loginAttribute}=${v})(${connection.usernameAttribute}=${v})(userPrincipalName=${v}))`).join("");
+          const result = await client.search(connection.userBaseDn || connection.baseDn, {
+            scope: "sub", paged: { pageSize: 500 }, attributes: [connection.emailAttribute],
+            filter: `(&${connection.userFilter}(|${filter})(${connection.emailAttribute}=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))`,
+          });
+          for (const entry of result.searchEntries) {
+            const mail = String(entry[connection.emailAttribute] || "").trim().toLowerCase();
+            if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(mail)) mails.add(mail);
+          }
+        }
+      } finally { await client?.unbind().catch(() => undefined); }
+    }
+    return [...mails];
+  }
 }

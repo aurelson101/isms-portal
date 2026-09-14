@@ -3,16 +3,32 @@ import { isIP } from "node:net";
 import { connect as connectTcp, type Socket } from "node:net";
 import { resolve4, resolve6 } from "node:dns/promises";
 import { connect as connectTls, type TLSSocket } from "node:tls";
+import { createHash, createSign, randomUUID, X509Certificate } from "node:crypto";
+import { notificationHtml, portalLink, type EmailTemplate } from "./notification-email";
 import { CryptoService } from "./crypto.service";
 import { PrismaService } from "./prisma.service";
 
-export type AlertChannel = "email" | "teams" | "slack" | "webhook";
+export type AlertChannel = "graph" | "email" | "teams" | "slack" | "webhook";
 export type PreferredDelivery = {
   delivered: boolean;
   channel: AlertChannel | null;
   attempted: AlertChannel[];
 };
+export type DocumentAlertPolicy = {
+  enabled: boolean;
+  documentAdded: boolean;
+  documentUpdated: boolean;
+  documentModified: boolean;
+  documentDeleted: boolean;
+  documentVersionOverdue: boolean;
+  documentVersionMaxAgeDays: number;
+};
 type StoredChannels = {
+  graphTenantId?: string;
+  graphClientId?: string;
+  graphSender?: string;
+  graphCertificatePemEncrypted?: string;
+  graphPrivateKeyPemEncrypted?: string;
   smtpHost?: string;
   smtpPort?: number;
   smtpSecure?: boolean;
@@ -29,6 +45,7 @@ type StoredChannels = {
 
 const SETTING_KEY = "observability.alert-channels";
 const MASK = "********";
+const base64Url = (value: Buffer | string) => Buffer.from(value).toString("base64").replace(/=/gu, "").replace(/\+/gu, "-").replace(/\//gu, "_");
 export const isAllowedTeamsWebhookHost = (hostname: string) =>
   /(^|\.)webhook\.office\.com$|(^|\.)logic\.azure\.com$|(^|\.)environment\.api\.powerplatform\.com$/u.test(
     hostname,
@@ -62,6 +79,12 @@ export class AlertDeliveryService {
   async publicConfiguration() {
     const value = await this.stored();
     return {
+      graphTenantId: value.graphTenantId || "",
+      graphClientId: value.graphClientId || "",
+      graphSender: value.graphSender || "isms-app@deftagroup.com",
+      graphCertificatePem: value.graphCertificatePemEncrypted ? MASK : "",
+      graphPrivateKeyPem: value.graphPrivateKeyPemEncrypted ? MASK : "",
+      graphThumbprint: this.graphThumbprint(value),
       smtpHost: value.smtpHost || "",
       smtpPort: String(value.smtpPort || 587),
       smtpSecure: Boolean(value.smtpSecure),
@@ -75,6 +98,7 @@ export class AlertDeliveryService {
       genericWebhookUrl: value.genericWebhookUrlEncrypted ? MASK : "",
       genericWebhookSecret: value.genericWebhookSecretEncrypted ? MASK : "",
       configured: {
+        graph: Boolean(value.graphTenantId && value.graphClientId && value.graphSender && value.graphCertificatePemEncrypted && value.graphPrivateKeyPemEncrypted),
         email: Boolean(
           value.smtpHost && value.smtpFrom && value.smtpRecipients?.length,
         ),
@@ -97,7 +121,8 @@ export class AlertDeliveryService {
     const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
     if (
       recipients.some((v) => !email.test(v)) ||
-      (input.smtpFrom && !email.test(String(input.smtpFrom)))
+      (input.smtpFrom && !email.test(String(input.smtpFrom))) ||
+      (input.graphSender && !email.test(String(input.graphSender)))
     )
       throw new BadRequestException("Invalid email address");
     const secret = (name: string, prior?: string) => {
@@ -105,6 +130,11 @@ export class AlertDeliveryService {
       return !value || value === MASK ? prior : this.crypto.encrypt(value);
     };
     const value: StoredChannels = {
+      graphTenantId: String(input.graphTenantId || "").trim(),
+      graphClientId: String(input.graphClientId || "").trim(),
+      graphSender: String(input.graphSender || "isms-app@deftagroup.com").trim(),
+      graphCertificatePemEncrypted: secret("graphCertificatePem", previous.graphCertificatePemEncrypted),
+      graphPrivateKeyPemEncrypted: secret("graphPrivateKeyPem", previous.graphPrivateKeyPemEncrypted),
       smtpHost: String(input.smtpHost || "").trim(),
       smtpPort: port,
       smtpSecure: Boolean(input.smtpSecure),
@@ -143,6 +173,29 @@ export class AlertDeliveryService {
 
   private decrypt(value?: string) {
     return value ? this.crypto.decrypt(value) : "";
+  }
+
+  private graphThumbprint(config: StoredChannels) {
+    if (!config.graphCertificatePemEncrypted) return "";
+    try { return new X509Certificate(this.decrypt(config.graphCertificatePemEncrypted)).fingerprint.replace(/:/gu, "").toUpperCase(); } catch { return ""; }
+  }
+
+  private async graph(config: StoredChannels, subject: string, text: string, recipients: string[], html?: string) {
+    if (!config.graphTenantId || !config.graphClientId || !config.graphSender || !config.graphCertificatePemEncrypted || !config.graphPrivateKeyPemEncrypted) throw new BadRequestException("Microsoft Graph is incomplete");
+    if (!recipients.length) throw new BadRequestException("No Graph recipients configured");
+    const certificate = new X509Certificate(this.decrypt(config.graphCertificatePemEncrypted));
+    const authority = `https://login.microsoftonline.com/${config.graphTenantId}/oauth2/v2.0/token`;
+    const now = Math.floor(Date.now() / 1000);
+    const header = base64Url(JSON.stringify({ alg: "RS256", typ: "JWT", x5t: base64Url(createHash("sha1").update(certificate.raw).digest()) }));
+    const payload = base64Url(JSON.stringify({ aud: authority, iss: config.graphClientId, sub: config.graphClientId, jti: randomUUID(), nbf: now - 30, exp: now + 300 }));
+    const signer = createSign("RSA-SHA256"); signer.update(`${header}.${payload}`); signer.end();
+    const assertion = `${header}.${payload}.${base64Url(signer.sign(this.decrypt(config.graphPrivateKeyPemEncrypted)))}`;
+    const tokenResponse = await fetch(authority, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: config.graphClientId, scope: "https://graph.microsoft.com/.default", grant_type: "client_credentials", client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer", client_assertion: assertion }), signal: AbortSignal.timeout(15000) });
+    if (!tokenResponse.ok) throw new Error(`Graph token request returned HTTP ${tokenResponse.status}`);
+    const token = (await tokenResponse.json()) as { access_token?: string };
+    if (!token.access_token) throw new Error("Graph token response is incomplete");
+    const response = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(config.graphSender)}/sendMail`, { method: "POST", headers: { Authorization: `Bearer ${token.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { subject, body: { contentType: "HTML", content: html || notificationHtml(subject, text) }, toRecipients: recipients.map((address) => ({ emailAddress: { address } })) }, saveToSentItems: true }), signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(`Graph sendMail returned HTTP ${response.status}`);
   }
 
   private async safeWebhook(raw: string, channel: AlertChannel) {
@@ -240,9 +293,10 @@ export class AlertDeliveryService {
     for (const recipient of config.smtpRecipients)
       await command(`RCPT TO:<${recipient}>`, 250);
     await command("DATA", 354);
-    const safeText = text.replace(/^\./gmu, "..");
+    const safeText = Buffer.from(notificationHtml(subject, text)).toString("base64").match(/.{1,76}/gu)!.join("\r\n");
+    const encodedSubject = `=?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`;
     socket.write(
-      `From: ${config.smtpFrom}\r\nTo: ${config.smtpRecipients.join(", ")}\r\nSubject: ${subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${safeText}\r\n.\r\n`,
+      `From: ${config.smtpFrom}\r\nTo: ${config.smtpRecipients.join(", ")}\r\nSubject: ${encodedSubject}\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${safeText}\r\n.\r\n`,
     );
     await read(250);
     await command("QUIT", 221);
@@ -251,6 +305,7 @@ export class AlertDeliveryService {
 
   async send(channel: AlertChannel, subject: string, text: string) {
     const config = await this.stored();
+    if (channel === "graph") throw new BadRequestException("Graph requires explicitly resolved recipients");
     if (channel === "email") return this.email(config, subject, text);
     const encrypted =
       channel === "teams"
@@ -309,6 +364,21 @@ export class AlertDeliveryService {
       throw new Error(`Webhook returned HTTP ${response.status}`);
   }
 
+  async sendGraphTest(recipient: string) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(recipient)) throw new BadRequestException("Invalid test recipient");
+    return this.graph(await this.stored(), "Test Microsoft Graph - ISMS Portal", "Microsoft Graph has accepted this test message from ISMS Portal.", [recipient]);
+  }
+
+  async sendPreferredTo(recipients: string[], subject: string, text: string, link = portalLink(), template: EmailTemplate = "service"): Promise<PreferredDelivery> {
+    const validRecipients = [...new Set(recipients.map((item) => item.trim().toLowerCase()).filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(item)))];
+    if (!validRecipients.length) throw new BadRequestException("No eligible mail recipients");
+    const config = await this.stored();
+    if (!config.graphTenantId || !config.graphClientId || !config.graphCertificatePemEncrypted || !config.graphPrivateKeyPemEncrypted)
+      throw new BadRequestException("Microsoft Graph is not configured");
+    await this.graph(config, subject, text, validRecipients, notificationHtml(subject, text, link, template));
+    return { delivered: true, channel: "graph", attempted: ["graph"] };
+  }
+
   async sendPreferred(
     subject: string,
     text: string,
@@ -337,7 +407,38 @@ export class AlertDeliveryService {
     return { delivered: false, channel: null, attempted };
   }
 
-  async evaluate(result: "success" | "failure" | "denied") {
+  async documentAlertPolicy(): Promise<DocumentAlertPolicy> {
+    const setting = await this.prisma.applicationSetting.findUnique({
+      where: { key: "observability.alert-policy" },
+    });
+    const policy = (setting?.value || {}) as Record<string, unknown>;
+    const requestedDays = Number(policy.documentVersionMaxAgeDays || 365);
+    return {
+      enabled: Boolean(policy.enabled),
+      documentAdded: Boolean(policy.documentAdded),
+      documentUpdated: Boolean(policy.documentUpdated),
+      documentModified: Boolean(policy.documentModified),
+      documentDeleted: Boolean(policy.documentDeleted),
+      documentVersionOverdue: Boolean(policy.documentVersionOverdue),
+      documentVersionMaxAgeDays: Number.isFinite(requestedDays)
+        ? Math.min(3650, Math.max(1, Math.round(requestedDays)))
+        : 365,
+    };
+  }
+
+  async documentEventEnabled(action: string) {
+    const preference = {
+      "document.upload": "documentAdded",
+      "document.version.upload": "documentUpdated",
+      "document.metadata.update": "documentModified",
+      "document.delete": "documentDeleted",
+    }[action] as keyof DocumentAlertPolicy | undefined;
+    if (!preference) return true;
+    const policy = await this.documentAlertPolicy();
+    return policy.enabled && policy[preference] === true;
+  }
+
+  async evaluate(result: "success" | "failure" | "denied", graphRecipients?: () => Promise<string[]>) {
     if (result === "success") return;
     const setting = await this.prisma.applicationSetting.findUnique({
       where: { key: "observability.alert-policy" },
@@ -373,11 +474,10 @@ export class AlertDeliveryService {
       String((cooldown?.value as { at?: string } | undefined)?.at || ""),
     );
     if (Number.isFinite(last) && Date.now() - last < 15 * 60000) return;
-    await this.send(
-      policy.channel,
-      "Alerte ISMS Portal",
-      `${failed} échec(s) et ${denied} refus durant la dernière minute.`,
-    );
+    const subject = "[ISMS Portal] Service alert";
+    const message = `${failed} failed requests and ${denied} access denials recorded during the last minute.`;
+    if (policy.channel === "graph") await this.sendPreferredTo(await graphRecipients?.() || [], subject, message);
+    else await this.send(policy.channel, subject, message);
     const value = { at: new Date().toISOString(), channel: policy.channel };
     await this.prisma.applicationSetting.upsert({
       where: { key: "observability.alert-last-sent" },
