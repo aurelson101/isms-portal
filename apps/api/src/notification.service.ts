@@ -20,6 +20,7 @@ export const notificationLabels: Record<string, string> = {
   "incident-case.create": "Incident assigned", "corrective-action.create": "Corrective action assigned",
 };
 export type NotificationJob = { action: string; resource: string; actor: string; at: string; accepted?: string[] };
+export type EmailTestType = "document" | "approval" | "review" | "report";
 const emailTemplate = (action: string): EmailTemplate => action.startsWith("document-report") || action.startsWith("security-report") ? "report" : action.startsWith("access-request") ? "access" : action.startsWith("sensitive-approval") || action.startsWith("document-review") ? "approval" : action.startsWith("document") ? "document" : action.startsWith("risk-") || action.startsWith("incident-") || action.startsWith("corrective-") ? "governance" : "service";
 export const notificationConnection = () => {
   const url = new URL(process.env.REDIS_URL || "redis://redis:6379");
@@ -32,16 +33,44 @@ export class NotificationService {
   private queue?: Queue<NotificationJob>;
   constructor(private readonly prisma: PrismaService, private readonly directory: DirectoryService, private readonly alerts: AlertDeliveryService, private readonly authorization: AuthorizationService) {}
 
-  async enqueue(event: NotificationJob, eventId: string) {
-    if (!notificationLabels[event.action]) return;
-    if (!await this.alerts.documentEventEnabled(event.action)) return;
+  private queueHandle() {
     if (!this.queue) {
       this.queue = new Queue<NotificationJob>("notification-mail", { connection: { ...notificationConnection(), enableOfflineQueue: false, maxRetriesPerRequest: 1 } });
       this.queue.on("error", () => process.stderr.write(JSON.stringify({ event: "notification.queue.error" }) + "\n"));
     }
-    await this.queue.add("event", event, { jobId: eventId, attempts: 4, backoff: { type: "exponential", delay: 30000 }, removeOnComplete: 200, removeOnFail: 200 });
+    return this.queue;
+  }
+
+  async enqueue(event: NotificationJob, eventId: string) {
+    if (!notificationLabels[event.action]) return;
+    if (!await this.alerts.documentEventEnabled(event.action)) return;
+    const queue = this.queueHandle();
+    await queue.add("event", event, { jobId: eventId, attempts: 4, backoff: { type: "exponential", delay: 30000 }, removeOnComplete: 200, removeOnFail: 200 });
   }
   async onModuleDestroy() { await this.queue?.close(); }
+
+  async deliveryHistory() {
+    const queue = this.queueHandle();
+    const [completed, failed] = await Promise.all([queue.getCompleted(0, 99), queue.getFailed(0, 99)]);
+    return [...completed, ...failed].sort((left, right) => (right.finishedOn || right.timestamp) - (left.finishedOn || left.timestamp)).slice(0, 100).map((job) => ({
+      id: String(job.id), action: job.data.action, resource: job.data.resource, status: job.failedReason ? "FAILED" : "SENT", attempts: job.attemptsMade,
+      createdAt: new Date(job.timestamp).toISOString(), finishedAt: job.finishedOn ? new Date(job.finishedOn).toISOString() : null,
+      accepted: job.returnvalue?.accepted || job.data.accepted?.length || 0, error: job.failedReason || null,
+    }));
+  }
+
+  async retryDelivery(id: string) {
+    const queue = this.queueHandle();
+    const job = await queue.getJob(id);
+    if (!job || await job.getState() !== "failed") throw new Error("Only failed email deliveries can be retried");
+    await queue.add("event", job.data, { jobId: `retry-${job.id}-${Date.now()}`, attempts: 4, backoff: { type: "exponential", delay: 30000 }, removeOnComplete: 200, removeOnFail: 200 });
+  }
+
+  async sendTypeTest(type: EmailTestType, recipient: string) {
+    const action = ({ document: "document.publish", approval: "sensitive-approval.request", review: "document-review.create", report: "document-report.create" } as const)[type];
+    if (!action) throw new Error("Unknown email test type");
+    await this.alerts.sendPreferredTo([recipient], `[ISMS Portal] ${notificationLabels[action]} test`, `This is a test of the ${notificationLabels[action].toLowerCase()} email template.\n\nNo document, approval, review or report was changed.`, portalLink(type === "document" ? "/" : "/approvals"), emailTemplate(action));
+  }
 
   async staff(permission: "read" | "publish" | "edit" | "archive" = "edit", adminsOnly = false) {
     const now = new Date();

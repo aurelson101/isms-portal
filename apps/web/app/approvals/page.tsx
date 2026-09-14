@@ -44,7 +44,7 @@ export default function ApprovalsPage() {
         <small>Requested by {item.requestedBy} on {date(item.createdAt)}</small>
         {item.approvedBy && <small>{item.status} by {item.approvedBy}{item.approvedAt && ` on ${date(item.approvedAt)}`}</small>}
         {item.slug && <p><a href={`/documents/${encodeURIComponent(item.slug)}`}>Open document</a></p>}
-        {["PENDING", "IN_REVIEW"].includes(item.status) && (!item.review || item.canDecide) && <>
+        {["PENDING", "IN_REVIEW"].includes(item.status) && item.canDecide && <>
           {item.review && <label>Decision comment<textarea maxLength={1000} value={comments[item.id] || ""} onChange={(e) => setComments({ ...comments, [item.id]: e.target.value })} /></label>}
           <div className="button-row"><button type="button" disabled={!!busy || !!item.review && (comments[item.id]?.trim().length || 0) < 3} onClick={() => void decide(item, "APPROVED")}><Icon name="check" /> Approve</button><button type="button" className="danger" disabled={!!busy || !!item.review && (comments[item.id]?.trim().length || 0) < 3} onClick={() => void decide(item, "REJECTED")}><Icon name="close" /> Reject</button></div>
         </>}

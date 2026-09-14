@@ -42,6 +42,7 @@ import {
   AlertDeliveryService,
   type AlertChannel,
 } from "./alert-delivery.service";
+import { NotificationService, type EmailTestType } from "./notification.service";
 
 const allowedFilterKeys = new Set([
   "q",
@@ -582,6 +583,7 @@ export class OperationsController {
     private readonly audit: AuditService,
     private readonly storage: StorageService,
     private readonly alerts: AlertDeliveryService,
+    private readonly notifications: NotificationService,
   ) {}
 
   @Get("summary")
@@ -1001,6 +1003,27 @@ export class OperationsController {
       `alert-channel:${channel}`,
       "success",
     );
+    return { delivered: true };
+  }
+
+  @Get("email-deliveries")
+  emailDeliveries() {
+    return this.notifications.deliveryHistory();
+  }
+
+  @Post("email-deliveries/:id/retry")
+  async retryEmailDelivery(@Req() req: IsmsRequest, @Param("id") id: string) {
+    try { await this.notifications.retryDelivery(id); }
+    catch (error) { throw new BadRequestException(error instanceof Error ? error.message : "Unable to retry email delivery"); }
+    await this.audit.record(req, "notification.delivery.retry", `notification:${id}`, "success");
+    return { queued: true };
+  }
+
+  @Post("email-tests/:type")
+  async testEmailTemplate(@Req() req: IsmsRequest, @Param("type") type: string, @Body() body: { recipient?: string }) {
+    if (!["document", "approval", "review", "report"].includes(type) || !body.recipient?.trim()) throw new BadRequestException("A test type and recipient are required");
+    await this.notifications.sendTypeTest(type as EmailTestType, body.recipient.trim());
+    await this.audit.record(req, "notification.template.test", `notification-template:${type}`, "success");
     return { delivered: true };
   }
 }

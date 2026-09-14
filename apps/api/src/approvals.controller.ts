@@ -26,12 +26,13 @@ export class ApprovalsController {
   ) {}
 
   @Get()
-  list(@Req() req: IsmsRequest) {
+  async list(@Req() req: IsmsRequest) {
     if (!isAdminIdentity(req.identity.groups)) return [];
-    return this.prisma.sensitiveOperationApproval.findMany({
+    const approvals = await this.prisma.sensitiveOperationApproval.findMany({
       orderBy: { createdAt: "desc" },
       take: 300,
     });
+    return approvals.map((item) => ({ ...item, canDecide: item.requestedBy.toLowerCase() !== req.identity.username.toLowerCase() }));
   }
 
   @Put(":id/decision")

@@ -4622,6 +4622,10 @@ function ObservabilityPanel({
   const [testingAlertChannel, setTestingAlertChannel] = useState<
     "email" | "teams" | "slack" | "webhook" | null
   >(null);
+  const [emailDeliveries, setEmailDeliveries] = useState<Array<{ id: string; action: string; status: "SENT" | "FAILED"; attempts: number; createdAt: string; finishedAt: string | null; accepted: number; error: string | null }>>([]);
+  const [emailTestRecipient, setEmailTestRecipient] = useState("");
+  const [emailTestType, setEmailTestType] = useState<"document" | "approval" | "review" | "report">("approval");
+  const [emailBusy, setEmailBusy] = useState(false);
   const reloadOperations = useCallback(async () => {
     const [
       summaryResponse,
@@ -4629,12 +4633,14 @@ function ObservabilityPanel({
       integrationsResponse,
       policyResponse,
       channelsResponse,
+      deliveriesResponse,
     ] = await Promise.all([
       fetch("/api/admin/operations/summary", { cache: "no-store" }),
       fetch("/api/admin/operations/work-items", { cache: "no-store" }),
       fetch("/api/admin/operations/integrations", { cache: "no-store" }),
       fetch("/api/admin/operations/alert-policy", { cache: "no-store" }),
       fetch("/api/admin/operations/alert-channels", { cache: "no-store" }),
+      fetch("/api/admin/operations/email-deliveries", { cache: "no-store" }),
     ]);
     if (summaryResponse.ok) setOperations(await summaryResponse.json());
     if (workResponse.ok) setWorkItems(await workResponse.json());
@@ -4656,6 +4662,7 @@ function ObservabilityPanel({
       const channels = await channelsResponse.json();
       setAlertChannels((current) => ({ ...current, ...channels }));
     }
+    if (deliveriesResponse.ok) setEmailDeliveries(await deliveriesResponse.json());
   }, []);
   useEffect(() => {
     void reloadOperations();
@@ -4755,6 +4762,23 @@ function ObservabilityPanel({
     } finally {
       setTestingAlertChannel(null);
     }
+  };
+  const testEmailTemplate = async (event: FormEvent) => {
+    event.preventDefault();
+    setEmailBusy(true);
+    try {
+      const response = await fetch(`/api/admin/operations/email-tests/${emailTestType}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient: emailTestRecipient }) });
+      onNotice(response.ok ? t("E-mail de test envoyé.") : t("Échec de l’envoi de test."));
+      if (response.ok) await reloadOperations();
+    } finally { setEmailBusy(false); }
+  };
+  const retryEmailDelivery = async (id: string) => {
+    setEmailBusy(true);
+    try {
+      const response = await fetch(`/api/admin/operations/email-deliveries/${encodeURIComponent(id)}/retry`, { method: "POST" });
+      onNotice(response.ok ? t("Relance de l’e-mail enregistrée.") : t("La relance a échoué."));
+      await reloadOperations();
+    } finally { setEmailBusy(false); }
   };
 
   return (
@@ -5212,6 +5236,20 @@ function ObservabilityPanel({
         </label>
         <button>{t("Enregistrer la politique")}</button>
       </form>
+      <section className="operations-work-items">
+        <h2>Email delivery</h2>
+        <form className="admin-form observability-policy" onSubmit={(event) => void testEmailTemplate(event)}>
+          <label>Email recipient<input required type="email" value={emailTestRecipient} onChange={(event) => setEmailTestRecipient(event.target.value)} /></label>
+          <label>Email template<select value={emailTestType} onChange={(event) => setEmailTestType(event.target.value as typeof emailTestType)}><option value="document">Document publication</option><option value="approval">Approval request</option><option value="review">Document review</option><option value="report">Issue report</option></select></label>
+          <button disabled={emailBusy}>{emailBusy ? "Sending…" : "Send template test"}</button>
+        </form>
+        <div className="admin-table-wrap">
+          <table><thead><tr><th>Event</th><th>Status</th><th>Recipients</th><th>Completed</th><th>Action</th></tr></thead><tbody>
+            {!emailDeliveries.length && <tr><td colSpan={5}>No recent email deliveries.</td></tr>}
+            {emailDeliveries.map((delivery) => <tr key={delivery.id}><td>{delivery.action}</td><td>{delivery.status}{delivery.error && `: ${delivery.error}`}</td><td>{delivery.accepted}</td><td>{delivery.finishedAt ? new Date(delivery.finishedAt).toLocaleString(locale) : "-"}</td><td>{delivery.status === "FAILED" && <button type="button" disabled={emailBusy} onClick={() => void retryEmailDelivery(delivery.id)}>Retry</button>}</td></tr>)}
+          </tbody></table>
+        </div>
+      </section>
       <section className="operations-work-items">
         <h2>{t("Demandes et signalements à traiter")}</h2>
         {[...workItems.accessRequests, ...workItems.reports].length === 0 ? (
