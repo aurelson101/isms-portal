@@ -4181,6 +4181,8 @@ type OperationsWorkItems = {
     createdAt: string;
     attachmentOriginalName?: string | null;
   }>;
+  reviews: Array<{ id: string; owner: string; reviewer: string; approver: string; dueAt: string; document?: { slug: string; translations?: Array<{ locale: string; title: string }> } }>;
+  approvals: Array<{ id: string; operation: string; requestedBy: string; reason: string; createdAt: string }>;
 };
 
 function RequestsPanel({
@@ -4196,6 +4198,8 @@ function RequestsPanel({
     accessRequests: [],
     reports: [],
     securityReports: [],
+    reviews: [],
+    approvals: [],
   });
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState("");
@@ -4587,7 +4591,9 @@ function ObservabilityPanel({
       reason: string;
       status: string;
     }>;
-  }>({ accessRequests: [], reports: [] });
+    reviews: Array<{ id: string; owner: string; reviewer: string; approver: string; dueAt: string; document?: { slug: string; translations?: Array<{ locale: string; title: string }> } }>;
+    approvals: Array<{ id: string; operation: string; requestedBy: string; reason: string; createdAt: string }>;
+  }>({ accessRequests: [], reports: [], reviews: [], approvals: [] });
   const [integrationState, setIntegrationState] = useState<
     Record<string, boolean>
   >({});
@@ -5257,7 +5263,7 @@ function ObservabilityPanel({
       </section>
       <section className="operations-work-items">
         <h2>{t("Demandes et signalements à traiter")}</h2>
-        {[...workItems.accessRequests, ...workItems.reports].length === 0 ? (
+        {[...workItems.accessRequests, ...workItems.reports, ...workItems.reviews, ...workItems.approvals].length === 0 ? (
           <p>{t("Aucun élément en attente.")}</p>
         ) : (
           <div className="admin-table-wrap">
@@ -5330,6 +5336,22 @@ function ObservabilityPanel({
                       </td>
                     </tr>
                   ))}
+                {workItems.reviews.map((item) => (
+                  <tr key={item.id}>
+                    <td>{t("Revue documentaire")}</td>
+                    <td>{item.approver}</td>
+                    <td>{item.document?.translations?.[0]?.title || item.document?.slug || "—"} · {t("Échéance")} {new Date(item.dueAt).toLocaleDateString(locale)}</td>
+                    <td><a className="button-link" href="/approvals">{t("Ouvrir la revue")}</a></td>
+                  </tr>
+                ))}
+                {workItems.approvals.map((item) => (
+                  <tr key={item.id}>
+                    <td>{t("Approbation sensible")}</td>
+                    <td>{item.requestedBy}</td>
+                    <td>{item.operation} · {item.reason}</td>
+                    <td><a className="button-link" href="/approvals">{t("Ouvrir l’approbation")}</a></td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
