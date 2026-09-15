@@ -480,9 +480,13 @@ export class DocumentsController {
     const fullTextMatches = q
       ? await this.prisma.$queryRaw<Array<{ documentId: string }>>(Prisma.sql`
           SELECT DISTINCT "documentId"
-          FROM "DocumentTranslation"
-          WHERE to_tsvector('simple', coalesce("title", '') || ' ' || coalesce("description", ''))
-            @@ websearch_to_tsquery('simple', ${q})
+          FROM "DocumentTranslation" translation
+          JOIN "Document" document ON document.id = translation."documentId"
+          WHERE to_tsvector('simple', coalesce(translation."title", '') || ' ' || coalesce(translation."description", ''))
+              @@ websearch_to_tsquery('simple', ${q})
+            OR translation."title" ILIKE ${`%${q}%`}
+            OR coalesce(translation."description", '') ILIKE ${`%${q}%`}
+            OR document.slug ILIKE ${`%${q}%`}
           LIMIT 500
         `)
       : [];

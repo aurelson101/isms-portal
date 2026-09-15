@@ -4626,6 +4626,11 @@ function ObservabilityPanel({
   const [emailTestRecipient, setEmailTestRecipient] = useState("");
   const [emailTestType, setEmailTestType] = useState<"document" | "approval" | "review" | "report">("approval");
   const [emailBusy, setEmailBusy] = useState(false);
+  const emailCopy = locale === "fr" ? {
+    title: "Suivi des e-mails", recipient: "Destinataire", template: "Modèle d’e-mail", document: "Publication documentaire", approval: "Demande d’approbation", review: "Revue documentaire", report: "Signalement", sending: "Envoi…", test: "Envoyer un e-mail de test", event: "Événement", status: "État", recipients: "Destinataires", completed: "Terminé", action: "Action", empty: "Aucun envoi récent.", retry: "Relancer",
+  } : {
+    title: "Email delivery", recipient: "Recipient", template: "Email template", document: "Document publication", approval: "Approval request", review: "Document review", report: "Issue report", sending: "Sending…", test: "Send template test", event: "Event", status: "Status", recipients: "Recipients", completed: "Completed", action: "Action", empty: "No recent email deliveries.", retry: "Retry",
+  };
   const reloadOperations = useCallback(async () => {
     const [
       summaryResponse,
@@ -5237,16 +5242,16 @@ function ObservabilityPanel({
         <button>{t("Enregistrer la politique")}</button>
       </form>
       <section className="operations-work-items">
-        <h2>Email delivery</h2>
+        <h2>{emailCopy.title}</h2>
         <form className="admin-form observability-policy" onSubmit={(event) => void testEmailTemplate(event)}>
-          <label>Email recipient<input required type="email" value={emailTestRecipient} onChange={(event) => setEmailTestRecipient(event.target.value)} /></label>
-          <label>Email template<select value={emailTestType} onChange={(event) => setEmailTestType(event.target.value as typeof emailTestType)}><option value="document">Document publication</option><option value="approval">Approval request</option><option value="review">Document review</option><option value="report">Issue report</option></select></label>
-          <button disabled={emailBusy}>{emailBusy ? "Sending…" : "Send template test"}</button>
+          <label>{emailCopy.recipient}<input required type="email" value={emailTestRecipient} onChange={(event) => setEmailTestRecipient(event.target.value)} /></label>
+          <label>{emailCopy.template}<select value={emailTestType} onChange={(event) => setEmailTestType(event.target.value as typeof emailTestType)}><option value="document">{emailCopy.document}</option><option value="approval">{emailCopy.approval}</option><option value="review">{emailCopy.review}</option><option value="report">{emailCopy.report}</option></select></label>
+          <button disabled={emailBusy}>{emailBusy ? emailCopy.sending : emailCopy.test}</button>
         </form>
         <div className="admin-table-wrap">
-          <table><thead><tr><th>Event</th><th>Status</th><th>Recipients</th><th>Completed</th><th>Action</th></tr></thead><tbody>
-            {!emailDeliveries.length && <tr><td colSpan={5}>No recent email deliveries.</td></tr>}
-            {emailDeliveries.map((delivery) => <tr key={delivery.id}><td>{delivery.action}</td><td>{delivery.status}{delivery.error && `: ${delivery.error}`}</td><td>{delivery.accepted}</td><td>{delivery.finishedAt ? new Date(delivery.finishedAt).toLocaleString(locale) : "-"}</td><td>{delivery.status === "FAILED" && <button type="button" disabled={emailBusy} onClick={() => void retryEmailDelivery(delivery.id)}>Retry</button>}</td></tr>)}
+          <table><thead><tr><th>{emailCopy.event}</th><th>{emailCopy.status}</th><th>{emailCopy.recipients}</th><th>{emailCopy.completed}</th><th>{emailCopy.action}</th></tr></thead><tbody>
+            {!emailDeliveries.length && <tr><td colSpan={5}>{emailCopy.empty}</td></tr>}
+            {emailDeliveries.map((delivery) => <tr key={delivery.id}><td>{delivery.action}</td><td>{delivery.status}{delivery.error && `: ${delivery.error}`}</td><td>{delivery.accepted}</td><td>{delivery.finishedAt ? new Date(delivery.finishedAt).toLocaleString(locale) : "-"}</td><td>{delivery.status === "FAILED" && <button type="button" disabled={emailBusy} onClick={() => void retryEmailDelivery(delivery.id)}>{emailCopy.retry}</button>}</td></tr>)}
           </tbody></table>
         </div>
       </section>

@@ -161,7 +161,17 @@ export class NotificationService {
         const permission = action === "document.delete" ? "archive" : "publish";
         recipients = published ? await this.spaceAudience(doc.spaceId, "read") : [...await this.staff(permission), ...await this.spaceAudience(doc.spaceId, permission)];
       }
-      lines.push(`Document: ${doc.translations.find((t) => t.locale === "en")?.title || doc.translations[0]?.title || doc.slug}`, `Space: ${doc.space.nameEn || doc.space.nameFr}`, `Category: ${doc.category?.nameEn || doc.category?.nameFr || "Uncategorized"}`, `Version: ${doc.versions[0]?.version || "-"}`, `Document status: ${doc.status}`);
+      const translation = doc.translations.find((item) => item.locale === "en") || doc.translations[0];
+      const title = translation?.title || doc.slug;
+      const category = doc.category?.nameEn || doc.category?.nameFr || "Uncategorized";
+      if (published) {
+        const description = translation?.description?.trim() || "No description was provided for this document.";
+        const version = doc.versions[0]?.version || "-";
+        const isNewVersion = String(version) !== "1";
+        const metadata = [`Recorded at: ${event.at}`, `Action by: ${actor}`, `Reference: ${id}`];
+        return { recipients: [...new Set(recipients)], subject: `[ISMS DEFTA Portal] ${title}${isNewVersion ? ` version ${version}` : ""} published`, text: `A ${isNewVersion ? `new version of this document is` : "new document is"} now available in the ${category} category within ${doc.space.nameEn || doc.space.nameFr}.\n\nDocument description:\n${description}\n\nVersion: ${version}\n---\n${metadata.join("\n")}`, link: portalLink(`/documents/${encodeURIComponent(doc.slug)}`) };
+      }
+      lines.push(`Document: ${title}`, `Space: ${doc.space.nameEn || doc.space.nameFr}`, `Category: ${category}`, `Version: ${doc.versions[0]?.version || "-"}`, `Document status: ${doc.status}`);
       path = action === "document.delete" ? "/" : resource.startsWith("document-review:") ? "/approvals" : `/documents/${encodeURIComponent(doc.slug)}`;
     }
     return { recipients: [...new Set(recipients)], subject: `[ISMS Portal] ${notificationLabels[action]}`, text: lines.join("\n\n"), link: portalLink(path) };
