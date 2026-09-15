@@ -613,7 +613,7 @@ export class OperationsController {
 
   @Get("work-items")
   async workItems() {
-    const [accessRequests, reports, securityReports] = await Promise.all([
+    const [accessRequests, reports, securityReports, reviews, approvals] = await Promise.all([
       this.prisma.accessRequest.findMany({
         orderBy: { createdAt: "desc" },
         take: 100,
@@ -627,8 +627,19 @@ export class OperationsController {
         orderBy: { createdAt: "desc" },
         take: 100,
       }),
+      this.prisma.documentReview.findMany({
+        where: { status: "PENDING" },
+        orderBy: { dueAt: "asc" },
+        take: 100,
+        include: { document: { select: { slug: true, translations: true } } },
+      }),
+      this.prisma.sensitiveOperationApproval.findMany({
+        where: { status: "PENDING" },
+        orderBy: { createdAt: "asc" },
+        take: 100,
+      }),
     ]);
-    return { accessRequests, reports, securityReports };
+    return { accessRequests, reports, securityReports, reviews, approvals };
   }
 
   @Delete("work-items")
