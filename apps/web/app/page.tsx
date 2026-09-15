@@ -459,6 +459,11 @@ function DocumentRows({
     <section
       className={`documents ${viewMode === "grid" ? "document-grid" : "document-list"}`}
     >
+      {viewMode === "list" && (
+        <div className="document-list-header" aria-hidden="true">
+          <span>Type</span><span>{locale === "fr" ? "Titre" : "Title"}</span><span>{locale === "fr" ? "Espace" : "Space"}</span><span>{locale === "fr" ? "Catégorie" : "Category"}</span><span>Version</span><span>{locale === "fr" ? "État" : "Status"}</span><span>{locale === "fr" ? "Mis à jour" : "Updated"}</span><span>{locale === "fr" ? "Langue" : "Language"}</span><span>Actions</span>
+        </div>
+      )}
       {documents.map((document) => {
         const available = Array.from(
           new Set(document.versions.map((version) => version.locale)),
@@ -483,6 +488,9 @@ function DocumentRows({
             <button className="document-title" title={documentTitle} onClick={() => onOpen(document)}>
               {documentTitle}
             </button>
+            <span className="document-space">
+              {locale === "fr" ? document.space.nameFr : document.space.nameEn}
+            </span>
             <span className="category">
               {document.category
                 ? locale === "fr"
@@ -518,6 +526,12 @@ function DocumentRows({
                 )}
               </div>
             </details>
+            <span className={`document-status status-${document.status.toLowerCase()}`}>
+              {document.status === "PUBLISHED" ? (locale === "fr" ? "Publié" : "Published") : document.status === "ARCHIVED" ? (locale === "fr" ? "Archivé" : "Archived") : document.status === "QUARANTINED" ? "Review" : "Draft"}
+            </span>
+            <span className="document-updated">
+              {selectedVersion?.createdAt ? new Date(selectedVersion.createdAt).toLocaleDateString(locale) : "—"}
+            </span>
             <span className="locales">
               {(["fr", "en"] as Locale[]).map((item) => (
                 <button
@@ -603,7 +617,6 @@ function DocumentRows({
                 </span>
               )}
             </span>
-            {!available.includes(locale) && <small>{t.unavailable}</small>}
           </div>
         );
       })}
@@ -2070,6 +2083,11 @@ export function Portal({
               <PortalContentSkeleton label={t.loading} />
             ) : (
               <>
+                <nav className="document-breadcrumb" aria-label={locale === "fr" ? "Fil d’Ariane" : "Breadcrumb"}>
+                  <button type="button" onClick={clearFilters}>{locale === "fr" ? "Documents" : "Documents"}</button>
+                  {selectedSpace && <><span>/</span><button type="button" onClick={() => selectSpace(selectedSpace.slug)}>{locale === "fr" ? selectedSpace.nameFr : selectedSpace.nameEn}</button></>}
+                  {category && <><span>/</span><strong>{categoryLabel}</strong></>}
+                </nav>
                 <section
                   className="explorer-heading"
                   aria-labelledby="explorer-title"
@@ -2180,9 +2198,10 @@ export function Portal({
                           <option value="false">{t.standardOnly}</option>
                         </select>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => void saveCurrentSearch()}
+                    <button
+                      type="button"
+                      className="explorer-secondary-action"
+                      onClick={() => void saveCurrentSearch()}
                       >
                         {locale === "fr"
                           ? "Sauvegarder la recherche"
@@ -2191,6 +2210,7 @@ export function Portal({
                       {selectedSpace && (
                         <button
                           type="button"
+                          className="explorer-secondary-action"
                           onClick={() => void requestSpaceAccess()}
                         >
                           {locale === "fr"
@@ -2243,6 +2263,18 @@ export function Portal({
                     </div>
                   </div>
                 </section>
+                {(query || category || space || documentFormat || documentLanguage || documentSensitivity || documentSort !== "recent") && (
+                  <div className="active-document-filters" aria-label={locale === "fr" ? "Filtres actifs" : "Active filters"}>
+                    {query && <button type="button" onClick={() => setQuery("")}>{query} <span aria-hidden="true">×</span></button>}
+                    {space && <button type="button" onClick={() => setSpace("")}>{selectedSpace ? (locale === "fr" ? selectedSpace.nameFr : selectedSpace.nameEn) : space} <span aria-hidden="true">×</span></button>}
+                    {category && <button type="button" onClick={() => setCategory("")}>{categoryLabel} <span aria-hidden="true">×</span></button>}
+                    {documentFormat && <button type="button" onClick={() => changeAdvancedFilter("format", "")}>{documentFormat.toUpperCase()} <span aria-hidden="true">×</span></button>}
+                    {documentLanguage && <button type="button" onClick={() => changeAdvancedFilter("locale", "")}>{documentLanguage.toUpperCase()} <span aria-hidden="true">×</span></button>}
+                    {documentSensitivity && <button type="button" onClick={() => changeAdvancedFilter("sensitive", "")}>{documentSensitivity === "true" ? t.sensitiveOnly : t.standardOnly} <span aria-hidden="true">×</span></button>}
+                    {documentSort !== "recent" && <button type="button" onClick={() => changeDocumentSort("recent")}>{t.sortPopular} <span aria-hidden="true">×</span></button>}
+                    <button type="button" className="clear-document-filters" onClick={clearFilters}>{locale === "fr" ? "Réinitialiser" : "Reset"}</button>
+                  </div>
+                )}
                 <DocumentRows
                   documents={documents}
                   locale={locale}
@@ -2602,6 +2634,7 @@ export function Portal({
                           </strong>
                           <button
                             type="button"
+                            className="personal-tools-action personal-tools-primary"
                             onClick={() =>
                               void fetch("/api/user-tools/updates/seen", {
                                 method: "PUT",
@@ -2624,7 +2657,7 @@ export function Portal({
                       {activities.length > 0 && (
                         <button
                           type="button"
-                          className="clear-recent"
+                          className="personal-tools-action danger clear-recent"
                           onClick={() =>
                             void fetch("/api/user-tools/recent", {
                               method: "DELETE",
