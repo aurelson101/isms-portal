@@ -90,6 +90,7 @@ type Tab =
   | "rules"
   | "spaces"
   | "documents"
+  | "trash"
   | "incidents"
   | "requests"
   | "governance"
@@ -361,6 +362,7 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["rules", "rules", "Règles d’accès", "Access rules"],
   ["spaces", "folder", "Espaces documentaires", "Document spaces"],
   ["documents", "documents", "Documents", "Documents"],
+  ["trash", "archive", "Corbeille", "Document trash"],
   ["incidents", "audit", "Rapports d’incidents", "Incident reports"],
   ["requests", "rules", "Demandes utilisateurs", "User requests"],
   ["governance", "shield", "Gouvernance ISMS", "ISMS governance"],
@@ -1106,6 +1108,9 @@ export default function Admin() {
                     onChanged={refresh}
                     onError={setError}
                   />
+                )}
+                {tab === "trash" && (
+                  <DocumentTrashPanel onChanged={refresh} onError={setError} />
                 )}
                 {tab === "incidents" && (
                   <IncidentReportsPanel
@@ -3877,6 +3882,15 @@ function CertificatesPanel({
       </div>
     </>
   );
+}
+
+function DocumentTrashPanel({ onChanged, onError }: { onChanged: () => Promise<void>; onError: (message: string) => void }) {
+  const { locale, t } = useAdminI18n();
+  const confirmAction = useContext(ConfirmContext);
+  const [trash, setTrash] = useState<Array<{ id: string; slug: string; deletedAt: string; translations: Array<{ title: string }> }>>([]);
+  const loadTrash = useCallback(() => api<typeof trash>("/api/admin/documents/trash").then(setTrash).catch((error) => onError(error.message)), [onError]);
+  useEffect(() => { void loadTrash(); }, [loadTrash]);
+  return <><h1>{t("Corbeille documentaire", "Document trash")}</h1><section className="admin-card"><p>{t("Les documents supprimés peuvent être restaurés ou supprimés définitivement.", "Deleted documents can be restored or permanently deleted.")}</p>{!trash.length && <p className="admin-empty compact">{t("Aucun document supprimé.", "No deleted documents.")}</p>}<div className="admin-account-list">{trash.map((document) => <div key={document.id}><span><strong>{document.translations[0]?.title || document.slug}</strong><small>{new Date(document.deletedAt).toLocaleString(locale)}</small></span><button type="button" onClick={() => void api(`/api/admin/documents/${document.id}/trash/restore`, { method: "POST" }).then(async () => { await loadTrash(); await onChanged(); }).catch((error) => onError(error.message))}>{t("Restaurer", "Restore")}</button><button className="danger" type="button" onClick={() => void confirmAction(t("Supprimer définitivement ce document et ses fichiers ?", "Permanently delete this document and its files?")).then(async (confirmed) => { if (!confirmed) return; await api(`/api/admin/documents/${document.id}`, { method: "DELETE" }); await loadTrash(); await onChanged(); }).catch((error) => onError(error.message))}>{t("Supprimer définitivement", "Delete permanently")}</button></div>)}</div></section></>;
 }
 
 function IncidentReportsPanel({
