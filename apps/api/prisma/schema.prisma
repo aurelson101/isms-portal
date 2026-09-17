@@ -621,6 +621,10 @@ model AdminAccount {
   mfaEnabled       Boolean        @default(false)
   active           Boolean        @default(true)
   primary          Boolean        @default(false)
+  role             String         @default("ADMIN")
+  canManageDocuments Boolean      @default(true)
+  canPublishDocuments Boolean     @default(true)
+  canDeleteDocuments Boolean      @default(true)
   justification    String?
   validFrom        DateTime?
   validUntil       DateTime?
@@ -642,6 +646,10 @@ model AdminDirectoryGroup {
   name              String    @unique
   distinguishedName String    @unique
   active            Boolean   @default(true)
+  role              String    @default("ADMIN")
+  canManageDocuments Boolean  @default(true)
+  canPublishDocuments Boolean @default(true)
+  canDeleteDocuments Boolean  @default(true)
   justification     String
   validFrom         DateTime?
   validUntil        DateTime?

@@ -246,7 +246,10 @@ export class AuthService implements OnModuleInit {
         return {
           username: session.adminAccount.username,
           displayName: session.adminAccount.displayName,
-          groups: ["ISMS-LOCAL-ADMINS"],
+          groups:
+            session.adminAccount.role === "MODERATOR"
+              ? ["ISMS-MODERATOR-MANAGE"]
+              : ["ISMS-LOCAL-ADMINS"],
           source: "local-admin",
           sessionExpiresAt: session.expiresAt.toISOString(),
           profilePhoto: session.adminAccount.profilePhoto,
@@ -332,6 +335,18 @@ export class AuthService implements OnModuleInit {
           : Promise.resolve(),
       ]);
     }
+    const administrator =
+      account?.role !== "MODERATOR" && !!account ||
+      administratorGroup?.role !== "MODERATOR" && !!administratorGroup;
+    const moderatorCanManage =
+      (!administrator && account?.role === "MODERATOR" && account.canManageDocuments) ||
+      (!administrator && administratorGroup?.role === "MODERATOR" && administratorGroup.canManageDocuments);
+    const moderatorCanPublish =
+      (!administrator && account?.role === "MODERATOR" && account.canPublishDocuments) ||
+      (!administrator && administratorGroup?.role === "MODERATOR" && administratorGroup.canPublishDocuments);
+    const moderatorCanDelete =
+      (!administrator && account?.role === "MODERATOR" && account.canDeleteDocuments) ||
+      (!administrator && administratorGroup?.role === "MODERATOR" && administratorGroup.canDeleteDocuments);
     return account || administratorGroup
       ? {
           ...enrichedIdentity,
@@ -342,7 +357,13 @@ export class AuthService implements OnModuleInit {
           profilePhoto:
             account?.profilePhoto || adminPreference?.adminProfilePhoto,
           groups: [
-            ...new Set([...enrichedIdentity.groups, "ISMS-LOCAL-ADMINS"]),
+            ...new Set([
+              ...enrichedIdentity.groups,
+              ...(administrator ? ["ISMS-LOCAL-ADMINS"] : []),
+              ...(moderatorCanManage ? ["ISMS-MODERATOR-MANAGE"] : []),
+              ...(moderatorCanPublish ? ["ISMS-MODERATOR-PUBLISH"] : []),
+              ...(moderatorCanDelete ? ["ISMS-MODERATOR-ARCHIVE"] : []),
+            ]),
           ],
         }
       : enrichedIdentity;

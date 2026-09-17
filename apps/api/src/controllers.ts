@@ -25,7 +25,7 @@ import { register } from "prom-client";
 import { Prisma } from "@prisma/client";
 import type { Response } from "express";
 import type { IsmsRequest } from "./types";
-import { AdminOnly, isAdminIdentity } from "./security";
+import { AdminOnly, isAdminIdentity, isModeratorIdentity, moderatorCan } from "./security";
 import { PrismaService } from "./prisma.service";
 import { AuthorizationService, type Permission } from "./authorization.service";
 import { ImportCertificateDto } from "./certificate.dto";
@@ -203,6 +203,7 @@ export class IdentityController {
   @Get()
   async get(@Req() req: IsmsRequest) {
     const administrator = isAdminIdentity(req.identity.groups);
+    const moderator = isModeratorIdentity(req.identity.groups);
     const matchedGroupsPromise =
       !administrator && req.identity.groups.length > 0
         ? this.prisma.directoryGroup.findMany({
@@ -250,6 +251,7 @@ export class IdentityController {
         req.identity.profilePhoto ||
         null,
       isAdmin: administrator,
+      isModerator: moderator,
       primaryAdmin: adminAccount?.primary || false,
       locale: preference?.locale || null,
       preferences: {
@@ -282,12 +284,14 @@ export class IdentityController {
         permissions: Object.fromEntries(
           permissionNames.map((permission) => [
             permission,
-            (administrator && permission !== "download") ||
+            administrator || moderatorCan(req.identity.groups, permission) ||
               accessRules.some((rule) => Boolean(rule[permission])),
           ]),
         ),
         accessExplanation: administrator
           ? { type: "administrator", groups: [] }
+          : moderator
+            ? { type: "moderator", groups: [] }
           : space.ownerGroup &&
               space.ownerGroup.active &&
               req.identity.groups.some(
@@ -1211,6 +1215,15 @@ export class DocumentsController {
       else response.destroy();
     });
     stream.pipe(response);
+  }
+
+  @Delete(":id")
+  async removeByModerator(@Req() req: IsmsRequest, @Param("id") id: string) {
+    const document = await this.prisma.document.findFirst({ where: { id, deletedAt: null }, select: { id: true, spaceId: true } });
+    if (!document || !(await this.authorization.can(req.identity.groups, document.spaceId, "archive"))) throw new NotFoundException();
+    await this.prisma.document.update({ where: { id }, data: { deletedAt: new Date(), status: "ARCHIVED" } });
+    await this.audit.record(req, "document.delete", `document:${id}`, "success");
+    return { deleted: true };
   }
 
   private async canManageDocument(req: IsmsRequest, spaceId: string) {

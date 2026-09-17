@@ -172,6 +172,7 @@ type Identity = {
   displayName: string;
   username: string;
   isAdmin: boolean;
+  isModerator?: boolean;
   locale: Locale | null;
   preferences?: {
     viewMode: ViewMode;
@@ -430,6 +431,7 @@ function DocumentRows({
   onOpen,
   onEdit,
   onTransition,
+  onDelete,
   onFavorite,
   viewMode = "list",
 }: {
@@ -443,6 +445,7 @@ function DocumentRows({
     document: PortalDocument,
     action: "publish" | "archive" | "restore",
   ) => void;
+  onDelete: (document: PortalDocument) => void;
   onFavorite: (document: PortalDocument) => void;
   viewMode?: ViewMode;
 }) {
@@ -614,6 +617,11 @@ function DocumentRows({
                         {t.restore}
                       </button>
                     )}
+                  {document.permissions.archive && (
+                    <button type="button" className="danger" onClick={() => onDelete(document)}>
+                      {locale === "fr" ? "Supprimer" : "Delete"}
+                    </button>
+                  )}
                 </span>
               )}
             </span>
@@ -1207,6 +1215,14 @@ export function Portal({
     closeDocument();
     await loadDocuments();
   };
+  const deleteDocument = async (document: PortalDocument) => {
+    if (!window.confirm(locale === "fr" ? "Supprimer ce document ?" : "Delete this document?")) return;
+    setActionError("");
+    const response = await fetch(`/api/documents/${document.id}`, { method: "DELETE" });
+    if (!response.ok) { setActionError(t.error); return; }
+    closeDocument();
+    await loadDocuments();
+  };
   const selectSpace = (next: string) => {
     if (!explorerMode) {
       router.push(`/explorer?space=${encodeURIComponent(next)}`);
@@ -1734,6 +1750,7 @@ export function Portal({
                     : t.localAdminSession}
               </span>
               {identity?.isAdmin && <a href="/admin">{t.administration}</a>}
+              {identity?.isModerator && <a href="/explorer">{locale === "fr" ? "Gestion documentaire" : "Document management"}</a>}
               <button
                 type="button"
                 onClick={() => {
@@ -2290,6 +2307,7 @@ export function Portal({
                   onTransition={(document, action) =>
                     void transitionDocument(document, action)
                   }
+                  onDelete={(document) => void deleteDocument(document)}
                   onFavorite={(document) => void toggleFavorite(document)}
                   viewMode={viewMode}
                 />

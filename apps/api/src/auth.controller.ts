@@ -29,6 +29,7 @@ import {
   DirectoryLoginDto,
   LoginDto,
   MfaConfirmDto,
+  ModeratorPermissionsDto,
   ProfileDto,
 } from "./admin.dto";
 import { safeSsoPath } from "./http-security";
@@ -183,6 +184,7 @@ export class AdminAccountsController {
         name: selected.name,
         distinguishedName: selected.distinguishedName,
         justification: body.justification.trim(),
+        role: body.role || "ADMIN",
         ...this.lifecycle(body.validUntil, body.validFrom),
       },
     });
@@ -231,6 +233,17 @@ export class AdminAccountsController {
     return group;
   }
 
+  @Put("groups/:id/permissions")
+  async updateModeratorGroupPermissions(@Req() request: IsmsRequest, @Param("id") id: string, @Body() body: ModeratorPermissionsDto) {
+    if (!body.canManageDocuments && (body.canPublishDocuments || body.canDeleteDocuments))
+      throw new BadRequestException("Document management is required to publish, archive or delete");
+    const existing = await this.prisma.adminDirectoryGroup.findUnique({ where: { id }, select: { role: true } });
+    if (existing?.role !== "MODERATOR") throw new BadRequestException("Only moderator permissions can be edited here");
+    const group = await this.prisma.adminDirectoryGroup.update({ where: { id }, data: body });
+    await this.audit.record(request, "moderator-directory-group.permissions", `moderator-group:${id}`, "success");
+    return group;
+  }
+
   @Get()
   list() {
     return this.prisma.adminAccount.findMany({
@@ -243,6 +256,10 @@ export class AdminAccountsController {
         mfaEnabled: true,
         active: true,
         primary: true,
+        role: true,
+        canManageDocuments: true,
+        canPublishDocuments: true,
+        canDeleteDocuments: true,
         justification: true,
         validUntil: true,
         validFrom: true,
@@ -272,6 +289,7 @@ export class AdminAccountsController {
         username: body.username.trim(),
         displayName: body.displayName.trim(),
         source: body.source,
+        role: body.role || "ADMIN",
         justification: body.justification.trim(),
         ...this.lifecycle(body.validUntil, body.validFrom),
         passwordHash:
@@ -315,6 +333,17 @@ export class AdminAccountsController {
       `admin:${id}`,
       "success",
     );
+    return account;
+  }
+
+  @Put(":id/permissions")
+  async updateModeratorPermissions(@Req() request: IsmsRequest, @Param("id") id: string, @Body() body: ModeratorPermissionsDto) {
+    if (!body.canManageDocuments && (body.canPublishDocuments || body.canDeleteDocuments))
+      throw new BadRequestException("Document management is required to publish, archive or delete");
+    const existing = await this.prisma.adminAccount.findUnique({ where: { id }, select: { role: true } });
+    if (existing?.role !== "MODERATOR") throw new BadRequestException("Only moderator permissions can be edited here");
+    const account = await this.prisma.adminAccount.update({ where: { id }, data: body });
+    await this.audit.record(request, "moderator.permissions", `moderator:${id}`, "success");
     return account;
   }
 

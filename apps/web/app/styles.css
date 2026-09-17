@@ -4322,6 +4322,19 @@ svg {
   flex-wrap: wrap;
   gap: 10px;
 }
+.admin-account-list > form {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid #d5deeb;
+  border-radius: 7px;
+}
+.admin-account-list > form > span { min-width: 180px; flex: 1 1 220px; }
+.admin-account-list > form label { display: inline-flex; align-items: center; gap: 6px; margin: 0; white-space: nowrap; font-size: 13px; }
+.admin-account-list > form input[type="checkbox"] { width: 16px; height: 16px; margin: 0; }
 
 @media (max-width: 1350px) {
   .explorer-controls {
@@ -4522,7 +4535,7 @@ svg {
 .explorer-heading + .documents {
   border-radius: 0;
 }
-.document-breadcrumb {
+.shell .document-breadcrumb {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -4586,6 +4599,12 @@ svg {
 .document-list .document {
   min-height: 58px;
   padding: 7px 16px;
+}
+.document-list .document-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .document-space,
 .document-updated {
@@ -4717,7 +4736,13 @@ svg {
 @media (max-width: 1280px) {
   .document-list-header { display: none; }
   .document-list .document {
-    grid-template-columns: 48px minmax(180px, 2fr) 110px minmax(160px, auto);
+    grid-template-columns: 48px minmax(0, 1fr) 76px minmax(148px, auto);
+  }
+  .document-list .document-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .document-list .document-space,
   .document-list .category,

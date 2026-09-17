@@ -5,7 +5,7 @@ import type {
   DocumentSpace,
 } from "@prisma/client";
 import { PrismaService } from "./prisma.service";
-import { isAdminIdentity } from "./security";
+import { isAdminIdentity, isModeratorIdentity, moderatorCan } from "./security";
 
 type SpaceWithRule = DocumentSpace & {
   accessRules: Array<AccessRule & { group?: { name: string } }>;
@@ -48,6 +48,7 @@ export class AuthorizationService {
     );
     if (groups.length === 0 || permissions.length === 0) return result;
     const administrator = isAdminIdentity(groups);
+    const moderator = isModeratorIdentity(groups);
     const now = new Date();
     const groupFilter = {
       active: true,
@@ -58,7 +59,7 @@ export class AuthorizationService {
     const spaces = (await this.prisma.documentSpace.findMany({
       where: {
         deletedAt: null,
-        ...(!administrator
+        ...(!administrator && !moderator
           ? {
               OR: [
                 {
@@ -129,12 +130,8 @@ export class AuthorizationService {
     for (const permission of permissions) {
       result.set(
         permission,
-        administrator
-          ? permission === "download"
-            ? spaces.filter((space) =>
-                space.accessRules.some((rule) => rule.download),
-              )
-            : spaces
+        administrator || moderatorCan(groups, permission)
+          ? spaces
           : spaces.filter((space) =>
               permission !== "download" &&
               space.ownerGroup &&
@@ -160,10 +157,10 @@ export class AuthorizationService {
   }
 
   async can(groups: string[], spaceId: string, permission: Permission) {
-    if (isAdminIdentity(groups) && permission !== "download") return true;
+    if (isAdminIdentity(groups) || moderatorCan(groups, permission)) return true;
     if (groups.length === 0) return false;
     const now = new Date();
-    const administrator = isAdminIdentity(groups);
+    const administrator = isAdminIdentity(groups) || isModeratorIdentity(groups);
     const groupNames = groups.map((name) => ({
       name: { equals: name, mode: "insensitive" as const },
     }));
