@@ -319,10 +319,27 @@ boutons **Précédent** et **Suivant**, le numéro de page et le total restent
 cohérents avec les filtres et sont conservés dans l’URL.
 
 Dans **Administration → Documents**, les actions permettent de publier,
-archiver, restaurer ou supprimer définitivement un document. La suppression,
-réservée aux administrateurs, demande une confirmation puis retire les
-traductions, versions, analyses antivirus, métadonnées et fichiers du volume
-POSIX.
+archiver, restaurer ou supprimer définitivement un document. La suppression
+administrative retire les traductions, versions, analyses antivirus,
+métadonnées et fichiers du volume POSIX.
+
+## Modérateurs documentaires
+
+Les administrateurs configurent les modérateurs dans
+**Configuration → Moderators**, pour un compte local, un utilisateur Active
+Directory ou un groupe Active Directory. Le rôle `MODERATOR` ne donne aucun
+accès à la configuration, aux comptes administrateurs ou aux secrets.
+
+Par défaut, un modérateur peut gérer les documents dans les espaces autorisés.
+L’administrateur peut modifier trois ACL : **Manage** (pré-requis),
+**Publish** et **Archive / delete**. Sans `Manage`, les permissions de
+publication et de suppression ne sont pas effectives. Le lien **Document
+management** apparaît dans le profil du modérateur et ouvre l’explorateur
+documentaire avec les actions autorisées.
+
+La suppression par modérateur demande une confirmation, retire le document du
+catalogue et produit une entrée d’audit. La suppression définitive et le
+nettoyage des fichiers restent des opérations administratives contrôlées.
 
 Le journal d’audit conserve automatiquement les 50 événements les plus récents.
 Chaque nouvel événement déclenche, dans la même transaction PostgreSQL, la
