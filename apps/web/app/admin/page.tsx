@@ -98,7 +98,8 @@ type Tab =
   | "audit"
   | "observability"
   | "health"
-  | "settings";
+  | "settings"
+  | "moderators";
 type Group = {
   id: string;
   name: string;
@@ -156,6 +157,72 @@ function flattenCategories(categories: Category[]) {
   for (const root of children.get(null) || []) append(root, 0);
   for (const item of categories) append(item, 0);
   return result;
+}
+
+function ModeratorsPanel({
+  onError,
+  onNotice,
+}: {
+  onError: (message: string) => void;
+  onNotice: (message: string) => void;
+}) {
+  type Moderator = { id: string; username: string; displayName: string; source: string; role?: string; justification: string | null; canManageDocuments: boolean; canPublishDocuments: boolean; canDeleteDocuments: boolean };
+  type ModeratorGroup = { id: string; name: string; distinguishedName: string; role?: string; justification: string; canManageDocuments: boolean; canPublishDocuments: boolean; canDeleteDocuments: boolean };
+  const [accounts, setAccounts] = useState<Moderator[]>([]);
+  const [groups, setGroups] = useState<ModeratorGroup[]>([]);
+  const [users, setUsers] = useState<Array<{ username: string; displayName: string; email: string | null }>>([]);
+  const [directoryQuery, setDirectoryQuery] = useState("");
+  const [selectedUser, setSelectedUser] = useState<{ username: string; displayName: string; email: string | null } | null>(null);
+  const [directoryJustification, setDirectoryJustification] = useState("");
+  const [groupQuery, setGroupQuery] = useState("");
+  const [groupSuggestions, setGroupSuggestions] = useState<DirectoryGroupSuggestion[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<DirectoryGroupSuggestion | null>(null);
+  const [groupJustification, setGroupJustification] = useState("");
+  const load = useCallback(() => {
+    void api<Moderator[]>("/api/admin/accounts").then((items) => setAccounts(items.filter((item) => item.role === "MODERATOR"))).catch((error) => onError(error.message));
+    void api<ModeratorGroup[]>("/api/admin/accounts/groups").then((items) => setGroups(items.filter((item) => item.role === "MODERATOR"))).catch((error) => onError(error.message));
+  }, [onError]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (directoryQuery.trim().length < 2) { setUsers([]); return; }
+    const timer = window.setTimeout(() => {
+      void api<typeof users>(`/api/admin/accounts/directory-users/${encodeURIComponent(directoryQuery)}`).then(setUsers).catch((error) => onError(error.message));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [directoryQuery, onError]);
+  useEffect(() => {
+    if (groupQuery.trim().length < 2) { setGroupSuggestions([]); return; }
+    const timer = window.setTimeout(() => {
+      void api<DirectoryGroupSuggestion[]>(`/api/admin/accounts/directory-groups/${encodeURIComponent(groupQuery)}`).then(setGroupSuggestions).catch((error) => onError(error.message));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [groupQuery, onError]);
+  const create = async (payload: Record<string, unknown>) => {
+    await api("/api/admin/accounts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, role: "MODERATOR" }) });
+    load(); onNotice("Moderator added.");
+  };
+  return <>
+    <h1>Moderators</h1>
+    <p className="lead">Moderators can manage, publish, version, archive and delete documents. They cannot access administrative configuration.</p>
+    <section className="admin-card"><h2>Configured moderators</h2>
+      <div className="admin-account-list">
+        {accounts.map((account) => <form key={account.id} onSubmit={(event) => { event.preventDefault(); const values = new FormData(event.currentTarget); void api(`/api/admin/accounts/${account.id}/permissions`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ canManageDocuments: values.get("manage") === "on", canPublishDocuments: values.get("publish") === "on", canDeleteDocuments: values.get("archive") === "on" }) }).then(() => { load(); onNotice("Moderator permissions updated."); }).catch((error) => onError(error.message)); }}><span><strong>{account.displayName}</strong><small>{account.username} · {account.source}</small></span><label><input name="manage" type="checkbox" defaultChecked={account.canManageDocuments} /> Manage</label><label><input name="publish" type="checkbox" defaultChecked={account.canPublishDocuments} /> Publish</label><label><input name="archive" type="checkbox" defaultChecked={account.canDeleteDocuments} /> Archive / delete</label><button type="submit">Save</button><button className="danger" type="button" onClick={() => void api(`/api/admin/accounts/${account.id}`, { method: "DELETE" }).then(() => { load(); onNotice("Moderator removed."); }).catch((error) => onError(error.message))}>Remove</button></form>)}
+        {groups.map((group) => <form key={group.id} onSubmit={(event) => { event.preventDefault(); const values = new FormData(event.currentTarget); void api(`/api/admin/accounts/groups/${group.id}/permissions`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ canManageDocuments: values.get("manage") === "on", canPublishDocuments: values.get("publish") === "on", canDeleteDocuments: values.get("archive") === "on" }) }).then(() => { load(); onNotice("Moderator group permissions updated."); }).catch((error) => onError(error.message)); }}><span><strong>{group.name}</strong><small>Active Directory group</small></span><label><input name="manage" type="checkbox" defaultChecked={group.canManageDocuments} /> Manage</label><label><input name="publish" type="checkbox" defaultChecked={group.canPublishDocuments} /> Publish</label><label><input name="archive" type="checkbox" defaultChecked={group.canDeleteDocuments} /> Archive / delete</label><button type="submit">Save</button><button className="danger" type="button" onClick={() => void api(`/api/admin/accounts/groups/${group.id}`, { method: "DELETE" }).then(() => { load(); onNotice("Moderator group removed."); }).catch((error) => onError(error.message))}>Remove</button></form>)}
+        {!accounts.length && !groups.length && <p className="admin-empty compact">No moderator configured.</p>}
+      </div>
+    </section>
+    <section className="admin-grid two-columns">
+      <form className="admin-card admin-form" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); void create({ displayName: form.get("displayName"), username: form.get("username"), password: form.get("password"), source: "LOCAL", justification: form.get("justification") }).then(() => event.currentTarget.reset()).catch((error) => onError(error.message)); }}>
+        <h2>Add a local moderator</h2><label>Display name<input name="displayName" required /></label><label>Username<input name="username" required /></label><label>Strong password<input name="password" type="password" minLength={14} required /></label><label>Privilege justification<textarea name="justification" minLength={3} required /></label><button className="primary">Add moderator</button>
+      </form>
+      <form className="admin-card admin-form" onSubmit={(event) => { event.preventDefault(); if (!selectedUser) { onError("Select an Active Directory user."); return; } void create({ displayName: selectedUser.displayName, username: selectedUser.email || selectedUser.username, source: "DIRECTORY", justification: directoryJustification }).then(() => { setDirectoryQuery(""); setSelectedUser(null); setDirectoryJustification(""); }).catch((error) => onError(error.message)); }}>
+        <h2>Add an Active Directory user</h2><label>Search Active Directory<input value={selectedUser ? `${selectedUser.displayName} (${selectedUser.email || selectedUser.username})` : directoryQuery} onChange={(event) => { setSelectedUser(null); setDirectoryQuery(event.target.value); }} placeholder="Name or email" /></label>{!selectedUser && users.map((user) => <button className="directory-suggestion" type="button" key={user.username} onClick={() => { setSelectedUser(user); setUsers([]); }}><strong>{user.displayName}</strong><small>{user.email || user.username}</small></button>)}<label>Privilege justification<textarea minLength={3} required value={directoryJustification} onChange={(event) => setDirectoryJustification(event.target.value)} /></label><button className="primary">Add moderator</button>
+      </form>
+      <form className="admin-card admin-form" onSubmit={(event) => { event.preventDefault(); if (!selectedGroup) { onError("Select an Active Directory group."); return; } const submit = async () => { if (selectedGroup.memberCount > 100 && !window.confirm(`This group contains ${selectedGroup.memberCount} members. Continue?`)) return; await api("/api/admin/accounts/groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: selectedGroup.name, distinguishedName: selectedGroup.distinguishedName, justification: groupJustification, largeGroupConfirmed: selectedGroup.memberCount > 100, role: "MODERATOR" }) }); load(); setGroupQuery(""); setSelectedGroup(null); setGroupJustification(""); onNotice("Moderator group added."); }; void submit().catch((error) => onError(error.message)); }}>
+        <h2>Add an Active Directory group</h2><label>Search Active Directory<input value={selectedGroup ? selectedGroup.name : groupQuery} onChange={(event) => { setSelectedGroup(null); setGroupQuery(event.target.value); }} placeholder="Group name" /></label>{!selectedGroup && groupSuggestions.map((group) => <button className="directory-suggestion" type="button" key={group.distinguishedName} onClick={() => { setSelectedGroup(group); setGroupSuggestions([]); }}><strong>{group.name}</strong><small>{group.memberCount} members</small></button>)}<label>Privilege justification<textarea minLength={3} required value={groupJustification} onChange={(event) => setGroupJustification(event.target.value)} /></label><button className="primary">Add moderator group</button>
+      </form>
+    </section>
+  </>;
 }
 type Rule = {
   id: string;
@@ -303,6 +370,7 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["observability", "health", "Observabilité", "Observability"],
   ["health", "health", "Santé des services", "Service health"],
   ["settings", "settings", "Configuration", "Settings"],
+  ["moderators", "groups", "Modérateurs", "Moderators"],
 ];
 const permissionKeys = [
   "showMenu",
@@ -756,7 +824,8 @@ export default function Admin() {
                 ["overview", t("Vue d’ensemble"), tabs.slice(0, 1)],
                 ["content", t("Contenu et accès"), tabs.slice(1, 8)],
                 ["infrastructure", t("Infrastructure"), tabs.slice(8, 11)],
-                ["system", t("Système"), tabs.slice(11)],
+                ["system", t("Système"), tabs.slice(11, 13)],
+                ["configuration", t("Configuration"), tabs.slice(13)],
               ].map(([groupId, groupLabel, groupTabs]) => (
                 <div
                   className={`admin-navigation-group ${expandedNavigationGroups.has(groupId as string) ? "expanded" : ""}`}
@@ -1094,6 +1163,9 @@ export default function Admin() {
                     onError={setError}
                     onNotice={setNotice}
                   />
+                )}
+                {tab === "moderators" && (
+                  <ModeratorsPanel onError={setError} onNotice={setNotice} />
                 )}
               </>
             )}

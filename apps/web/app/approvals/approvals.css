@@ -1,6 +1,23 @@
-.approvals-shell .approval-card { min-width: 0; overflow-wrap: anywhere; }
+.approvals-shell { min-height: 100vh; padding: 32px 24px; background: #f5f8fc; color: #092957; }
+.approvals-panel { width: min(1040px, 100%); margin: 0 auto; }
+.approvals-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding-bottom: 18px; border-bottom: 1px solid #d9e3ef; }
+.approvals-heading h1 { margin: 0; font-size: 28px; line-height: 1.2; letter-spacing: 0; }
+.approvals-heading p { margin: 5px 0 0; color: #587093; }
+.approvals-heading a { color: #075fc8; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.approvals-heading a:hover { text-decoration: underline; }
+.approvals-shell .approval-card { min-width: 0; overflow-wrap: anywhere; padding: 18px 20px; border: 1px solid #d5e0ed; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px #14345b0d; }
+.approvals-list { display: grid; gap: 12px; }
+.approvals-shell .approval-card > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.approvals-shell .approval-card strong { font-size: 16px; }
+.approval-status { flex: none; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 750; white-space: nowrap; }
+.approval-status.pending, .approval-status.in_review { background: #fff1c9; color: #7b5700; }
+.approval-status.approved { background: #dff5e8; color: #087344; }
+.approval-status.rejected { background: #fbe7e7; color: #ad2424; }
+.approval-target { display: block; margin-top: 8px; color: #31557f; }
+.approvals-shell .approval-card p { margin: 12px 0 8px; line-height: 1.45; }
+.approvals-shell .approval-card small { display: block; margin-top: 4px; color: #5b6b83; }
 .approvals-shell .approval-card > div { flex-wrap: wrap; }
-.approvals-shell .approval-card .button-row { justify-content: flex-start; }
+.approvals-shell .approval-card .button-row { display: flex; justify-content: flex-start; gap: 9px; margin-top: 14px; }
 .approvals-shell button { display: inline-flex; gap: 8px; align-items: center; min-height: 40px; }
 .approvals-shell button:disabled { opacity: .5; cursor: wait; }
 .approvals-shell button svg { width: 18px; height: 18px; flex: none; }
@@ -8,4 +25,4 @@
 .approvals-shell .approval-toolbar { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 20px; }
 .approvals-shell select { min-height: 40px; margin-left: 12px; border: 1px solid #bbcbdc; border-radius: 4px; padding: 8px; background: white; }
 .approvals-shell .approval-toolbar button { justify-content: center; width: 40px; border: 1px solid #bbcbdc; border-radius: 4px; background: white; }
-@media (max-width: 480px) { .approvals-shell .approval-card { padding: 16px; } .approvals-shell h1 { font-size: 25px; } }
+@media (max-width: 600px) { .approvals-shell { padding: 20px 14px; } .approvals-heading { align-items: flex-start; } .approvals-heading h1 { font-size: 24px; } .approvals-shell .approval-card { padding: 15px; } .approvals-shell .approval-card .button-row { display: grid; grid-template-columns: 1fr 1fr; } .approvals-shell .approval-card .button-row button { justify-content: center; } }

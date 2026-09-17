@@ -57,6 +57,7 @@ export class CreateAdminDto {
   @IsString() @MinLength(3) @MaxLength(500) justification!: string;
   @IsOptional() @IsDateString() validFrom?: string;
   @IsOptional() @IsDateString() validUntil?: string;
+  @IsOptional() @IsIn(["ADMIN", "MODERATOR"]) role?: "ADMIN" | "MODERATOR";
 }
 
 export class CreateAdminDirectoryGroupDto {
@@ -66,10 +67,17 @@ export class CreateAdminDirectoryGroupDto {
   @IsOptional() @IsDateString() validFrom?: string;
   @IsOptional() @IsDateString() validUntil?: string;
   @IsOptional() @IsBoolean() largeGroupConfirmed?: boolean;
+  @IsOptional() @IsIn(["ADMIN", "MODERATOR"]) role?: "ADMIN" | "MODERATOR";
 }
 
 export class AdminActiveDto {
   @IsBoolean() active!: boolean;
+}
+
+export class ModeratorPermissionsDto {
+  @IsBoolean() canManageDocuments!: boolean;
+  @IsBoolean() canPublishDocuments!: boolean;
+  @IsBoolean() canDeleteDocuments!: boolean;
 }
 
 export class SpaceDto {
