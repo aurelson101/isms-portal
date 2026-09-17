@@ -27,7 +27,20 @@ applicatifs et de données sont internes à Docker.
 
 ## Prérequis
 
-Configuration recommandée pour une installation autonome :
+Dimensionnement minimal et recommandé pour une installation autonome :
+
+| Ressource | Minimum (pilote) | Recommandé (production) |
+| --- | ---: | ---: |
+| Processeur | 2 vCPU | 4 vCPU |
+| Mémoire | 4 Gio | 8 Gio |
+| Stockage SSD disponible | 30 Gio | 80 Gio + rétention documentaire |
+| Système | Ubuntu Server 22.04 LTS | Ubuntu Server 24.04 LTS |
+
+Prévoir un volume séparé, sauvegardé et supervisé pour les documents. Ajouter
+de la RAM et du stockage lorsque ClamAV analyse plusieurs fichiers ou que la
+prévisualisation Office est fortement utilisée.
+
+Les prérequis logiciels et réseau sont les suivants :
 
 - Ubuntu Server 24.04 LTS ou distribution Linux équivalente ;
 - 4 vCPU, 8 Gio de RAM et 40 Gio d’espace disponible ;
@@ -359,6 +372,33 @@ résultat de l’envoi. Les secrets déjà enregistrés restent masqués dans
 l’interface. Le certificat privé doit rester exclusivement sur le serveur ou
 dans un gestionnaire de secrets ; seul le certificat public est importé dans
 Entra ID.
+
+### Configuration Microsoft Graph avec certificat
+
+1. Dans **Microsoft Entra ID → App registrations**, créer une application
+   mono-tenant dédiée à ISMS et noter son **Tenant ID** et son **Client ID**.
+2. Dans **Certificates & secrets**, importer le certificat public X.509 (`.cer`
+   ou `.pem`). Conserver la clé privée et son mot de passe seulement sur le
+   serveur ISMS ou dans le gestionnaire de secrets.
+3. Dans **API permissions**, ajouter **Microsoft Graph → Application
+   permissions → Mail.Send**, puis sélectionner **Grant admin consent**. Les
+   permissions `Mail.Read` et `Mail.ReadWrite` ne sont pas nécessaires à
+   l’envoi d’alertes.
+4. Restreindre l’application à la boîte partagée expéditrice au moyen de
+   l’Exchange Online Application RBAC ou, pour les environnements qui
+   l’utilisent encore, d’une Application Access Policy. Sans ce contrôle,
+   `Mail.Send` applicatif peut envoyer comme toute boîte du locataire.
+5. Dans **Supervision → Configuration des canaux d’alerte → Microsoft Graph**,
+   enregistrer le Tenant ID, Client ID, adresse expéditrice, chemin sécurisé de
+   la clé privée et son empreinte si demandée. Enregistrer puis utiliser le
+   bouton de test vers une adresse interne.
+
+L’envoi est effectué via `POST /users/{shared-mailbox}/sendMail` avec un jeton
+`client_credentials`. Un succès Graph (`202 Accepted`) confirme la prise en
+charge du message ; vérifier ensuite les éléments envoyés de la boîte partagée
+et la réception du destinataire. Références Microsoft :
+[sendMail](https://learn.microsoft.com/en-us/graph/api/user-sendmail?view=graph-rest-1.0)
+et [Mail.Send](https://learn.microsoft.com/en-us/graph/permissions-reference).
 
 Les notifications sont rédigées en anglais avec un modèle HTML responsive et
 une référence d’audit. Elles couvrent notamment :
