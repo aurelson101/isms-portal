@@ -341,6 +341,47 @@ La suppression par modérateur demande une confirmation, retire le document du
 catalogue et produit une entrée d’audit. La suppression définitive et le
 nettoyage des fichiers restent des opérations administratives contrôlées.
 
+## Alertes, approbations et e-mails
+
+La configuration se fait dans **Supervision → Configuration des canaux
+d’alerte**. Les deux canaux sont volontairement indépendants :
+
+- **Microsoft Graph** : renseigner Tenant ID, Client ID, l’adresse expéditrice
+  partagée et le certificat applicatif (ou son empreinte et le chemin du
+  certificat selon le déploiement). L’application utilise un jeton
+  `client_credentials` et l’autorisation Microsoft Graph `Mail.Send`
+  consentie par un administrateur du locataire.
+- **SMTP** : configuration manuelle distincte pour un relais tiers tel que
+  Mailjet. Aucun secret Graph n’est réutilisé par SMTP.
+
+Le bouton de test envoie un message réel au destinataire indiqué et affiche le
+résultat de l’envoi. Les secrets déjà enregistrés restent masqués dans
+l’interface. Le certificat privé doit rester exclusivement sur le serveur ou
+dans un gestionnaire de secrets ; seul le certificat public est importé dans
+Entra ID.
+
+Les notifications sont rédigées en anglais avec un modèle HTML responsive et
+une référence d’audit. Elles couvrent notamment :
+
+- une demande d’approbation ou de revue, envoyée aux modérateurs et
+  administrateurs valides ;
+- une décision approuvée ou refusée, envoyée au demandeur et aux responsables
+  concernés ;
+- un signalement et son évolution ;
+- la publication d’un document ou d’une nouvelle version, envoyée aux
+  utilisateurs ayant un accès de lecture via les ACL de l’espace ou de la
+  catégorie, y compris les groupes AD.
+
+Les destinataires sont résolus à partir de l’attribut Active Directory `mail`.
+Une adresse vide est ignorée. Les groupes AD sont développés lors de la
+résolution afin que leurs membres disposant d’une adresse e-mail reçoivent la
+notification. Les permissions du document restent appliquées au lien inclus
+dans le message.
+
+Les demandes, décisions et commentaires sont consultables dans
+**Approvals and Reviews** ; les administrateurs disposent également des
+éléments en attente dans leur espace de supervision et du journal d’audit.
+
 Le journal d’audit conserve automatiquement les 50 événements les plus récents.
 Chaque nouvel événement déclenche, dans la même transaction PostgreSQL, la
 suppression des événements plus anciens. Les exports CSV/JSON suivent cette
