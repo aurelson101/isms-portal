@@ -2682,6 +2682,18 @@ export class DocumentAdminController {
     return pageValue ? { items, page, limit, total } : items;
   }
 
+  @Get("trash")
+  async trash() {
+    return this.prisma.document.findMany({ where: { deletedAt: { not: null } }, select: { id: true, slug: true, deletedAt: true, translations: { select: { title: true } } }, orderBy: { deletedAt: "desc" }, take: 100 });
+  }
+
+  @Post(":id/trash/restore")
+  async restoreFromTrash(@Req() req: IsmsRequest, @Param("id") id: string) {
+    const document = await this.prisma.document.update({ where: { id }, data: { deletedAt: null, status: "ARCHIVED" } });
+    await this.audit.record(req, "document.trash.restore", `document:${id}`, "success");
+    return document;
+  }
+
   @Post()
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(
