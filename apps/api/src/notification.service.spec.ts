@@ -8,6 +8,7 @@ function setup() {
     document: { findUnique: vi.fn().mockResolvedValue({ id: "doc", slug: "test", spaceId: "it", status: "PUBLISHED", deletedAt: null, translations: [{ locale: "en", title: "Policy <script>" }], space: { nameEn: "IT", deletedAt: null }, category: { nameEn: "Security" }, versions: [{ version: 2 }] }) },
     documentReview: { findUnique: vi.fn().mockResolvedValue({ owner: "alice", reviewer: "bob", approver: "carol", documentId: "doc", status: "REJECTED", decisionComment: "Needs revision", dueAt: new Date() }) },
     documentReport: { findUnique: vi.fn().mockResolvedValue({ identity: "alice", documentId: "doc", status: "OPEN", reason: "OUTDATED" }) },
+    documentVersion: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     adminAccount: { findMany: vi.fn().mockResolvedValue([{ username: "admin" }]) },
     adminDirectoryGroup: { findMany: vi.fn().mockResolvedValue([{ distinguishedName: "CN=Admin" }]) },
   };
@@ -40,6 +41,12 @@ describe("Notification routing", () => {
     expect(h.directory.emailsForGroup).toHaveBeenCalledWith("CN=Admin");
     expect(h.auth.can).not.toHaveBeenCalled();
   });
+  it("routes annual document reviews to staff only", async () => {
+    const h = setup(); const result = await h.service.prepare({ ...event, action: "document.review.annual" });
+    expect(result?.recipients).toEqual(expect.arrayContaining(["user@example.com", "member@example.com"]));
+    expect(h.auth.can).not.toHaveBeenCalled();
+    expect(result?.subject).toContain("annual review due");
+  });
   it("routes reports to managers and the reporter", async () => {
     const h = setup(); const result = await h.service.prepare({ ...event, action: "document-report.create", resource: "document-report:report" });
     expect(result?.recipients).toEqual(expect.arrayContaining(["user@example.com", "member@example.com"]));
@@ -53,6 +60,11 @@ describe("Notification routing", () => {
     expect(h.alerts.sendPreferredTo).toHaveBeenCalledTimes(1);
     expect(h.alerts.sendPreferredTo.mock.calls[0][0]).toEqual(["second@example.com"]);
     expect(job.updateData).toHaveBeenCalledWith(expect.objectContaining({ accepted: ["first@example.com", "second@example.com"] }));
+  });
+  it("marks an annual review version only after delivery", async () => {
+    const h = setup(); vi.spyOn(h.service, "prepare").mockResolvedValue({ recipients: ["staff@example.com"], subject: "Subject", text: "Body", link: "https://isms.deftagroup.com/" });
+    await h.service.process({ data: { ...event, action: "document.review.annual", documentVersionId: "version" }, updateData: vi.fn() } as never);
+    expect(h.prisma.documentVersion.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "version", annualReviewNotifiedAt: null } }));
   });
   it("fails visibly on an empty audience", async () => {
     const h = setup(); h.prisma.directoryGroup.findMany.mockResolvedValue([]);

@@ -181,6 +181,10 @@ export class DocumentMetadataDto {
   @IsString()
   @MaxLength(2000)
   changeSummary?: string;
+
+  @IsOptional()
+  @IsUUID("4")
+  categoryId?: string | null;
 }
 
 export class DirectoryGroupDto {

@@ -831,7 +831,7 @@ export class DocumentsController {
   ) {
     const document = await this.prisma.document.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true, spaceId: true },
+      select: { id: true, spaceId: true, categoryId: true, translations: { where: { locale: body.locale }, select: { title: true, description: true } } },
     });
     if (
       !document ||
@@ -842,26 +842,27 @@ export class DocumentsController {
       ))
     )
       throw new NotFoundException();
-    const translation = await this.prisma.documentTranslation.upsert({
-      where: { documentId_locale: { documentId: id, locale: body.locale } },
-      update: {
-        title: body.title.trim(),
-        description: body.description?.trim() || null,
-      },
-      create: {
-        documentId: id,
-        locale: body.locale,
-        title: body.title.trim(),
-        description: body.description?.trim() || null,
-      },
-    });
+    if (body.categoryId) {
+      const category = await this.prisma.documentCategory.findFirst({ where: { id: body.categoryId, spaceId: document.spaceId, deletedAt: null }, select: { id: true } });
+      if (!category) throw new BadRequestException("Invalid category for this document space");
+    }
+    const title = body.title.trim();
+    const description = body.description?.trim() || null;
+    const existing = document.translations[0];
+    const metadataChanged = !existing || existing.title !== title || existing.description !== description;
+    const categoryChanged = body.categoryId !== undefined && body.categoryId !== document.categoryId;
+    const [translation] = await this.prisma.$transaction([
+      this.prisma.documentTranslation.upsert({ where: { documentId_locale: { documentId: id, locale: body.locale } }, update: { title, description }, create: { documentId: id, locale: body.locale, title, description } }),
+      ...(categoryChanged ? [this.prisma.document.update({ where: { id }, data: { categoryId: body.categoryId || null } })] : []),
+    ]);
     await this.audit.record(
       req,
-      "document.metadata.update",
+      categoryChanged && !metadataChanged ? "document.category.update" : "document.metadata.update",
       `document:${id}`,
       "success",
       {
         locale: body.locale,
+        categoryId: body.categoryId,
       },
     );
     return translation;
@@ -2942,6 +2943,9 @@ export class DocumentAdminController {
     );
     const storedFileIds = storedFiles.map((file) => file.id);
     await this.prisma.$transaction([
+      this.prisma.applicationSetting.deleteMany({
+        where: { key: `document-annual-review:${id}` },
+      }),
       this.prisma.antivirusScan.deleteMany({
         where: { storedFileId: { in: storedFileIds } },
       }),

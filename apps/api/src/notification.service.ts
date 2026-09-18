@@ -10,7 +10,7 @@ export const notificationLabels: Record<string, string> = {
   "document.publish": "Document published", "document.published": "Document published",
   "document.upload": "Document awaiting publication", "document.version.upload": "New version awaiting publication",
   "document.metadata.update": "Document updated", "document.delete": "Document deleted",
-  "document.version.overdue": "Document version overdue",
+  "document.version.overdue": "Document version overdue", "document.review.annual": "Annual document review due",
   "document-report.create": "Document issue reported", "document-report.resolve": "Document report resolved",
   "security-report.create": "Security report submitted", "security-report.resolve": "Security report resolved",
   "access-request.create": "Access request submitted", "access-request.review": "Access request decision",
@@ -19,7 +19,7 @@ export const notificationLabels: Record<string, string> = {
   "risk-exception.create": "Risk exception submitted", "risk-exception.decision": "Risk exception decision",
   "incident-case.create": "Incident assigned", "corrective-action.create": "Corrective action assigned",
 };
-export type NotificationJob = { action: string; resource: string; actor: string; at: string; accepted?: string[] };
+export type NotificationJob = { action: string; resource: string; actor: string; at: string; accepted?: string[]; documentVersionId?: string };
 export type EmailTestType = "document" | "approval" | "review" | "report";
 const emailTemplate = (action: string): EmailTemplate => action.startsWith("document-report") || action.startsWith("security-report") ? "report" : action.startsWith("access-request") ? "access" : action.startsWith("sensitive-approval") || action.startsWith("document-review") ? "approval" : action.startsWith("document") ? "document" : action.startsWith("risk-") || action.startsWith("incident-") || action.startsWith("corrective-") ? "governance" : "service";
 export const notificationConnection = () => {
@@ -156,10 +156,11 @@ export class NotificationService {
       }
       if (action !== "document.delete" && (doc.deletedAt || doc.space.deletedAt)) return null;
       const published = ["document.publish", "document.published"].includes(action);
+      const annualReview = action === "document.review.annual";
       if (published && doc.status !== "PUBLISHED") return null;
       if (resource.startsWith("document:")) {
         const permission = action === "document.delete" ? "archive" : "publish";
-        recipients = published ? await this.spaceAudience(doc.spaceId, "read") : [...await this.staff(permission), ...await this.spaceAudience(doc.spaceId, permission)];
+        recipients = annualReview ? await this.staff("edit") : published ? await this.spaceAudience(doc.spaceId, "read") : [...await this.staff(permission), ...await this.spaceAudience(doc.spaceId, permission)];
       }
       const translation = doc.translations.find((item) => item.locale === "en") || doc.translations[0];
       const title = translation?.title || doc.slug;
@@ -170,6 +171,12 @@ export class NotificationService {
         const isNewVersion = String(version) !== "1";
         const metadata = [`Recorded at: ${event.at}`, `Action by: ${actor}`, `Reference: ${id}`];
         return { recipients: [...new Set(recipients)], subject: `[ISMS DEFTA Portal] ${title}${isNewVersion ? ` version ${version}` : ""} published`, text: `A ${isNewVersion ? `new version of this document is` : "new document is"} now available in the ${category} category within ${doc.space.nameEn || doc.space.nameFr}.\n\nDocument description:\n${description}\n\nVersion: ${version}\n---\n${metadata.join("\n")}`, link: portalLink(`/documents/${encodeURIComponent(doc.slug)}`) };
+      }
+      if (annualReview) {
+        const description = translation?.description?.trim() || "No description was provided for this document.";
+        const version = doc.versions[0]?.version || "-";
+        const metadata = [`Recorded at: ${event.at}`, `Action by: ${actor}`, `Reference: ${id}`];
+        return { recipients: [...new Set(recipients)], subject: `[ISMS DEFTA Portal] ${title} annual review due`, text: `This document requires its annual review. Please review its current content and publish a new version when changes are required.\n\nDocument description:\n${description}\n\nLocation: ${doc.space.nameEn || doc.space.nameFr} / ${category}\nVersion: ${version}\n---\n${metadata.join("\n")}`, link: portalLink(`/documents/${encodeURIComponent(doc.slug)}`) };
       }
       lines.push(`Document: ${title}`, `Space: ${doc.space.nameEn || doc.space.nameFr}`, `Category: ${category}`, `Version: ${doc.versions[0]?.version || "-"}`, `Document status: ${doc.status}`);
       path = action === "document.delete" ? "/" : resource.startsWith("document-review:") ? "/approvals" : `/documents/${encodeURIComponent(doc.slug)}`;
@@ -188,6 +195,9 @@ export class NotificationService {
       if (!result.delivered) throw new Error("Microsoft Graph is not configured");
       accepted.add(address);
       await job.updateData({ ...job.data, accepted: [...accepted] });
+    }
+    if (job.data.action === "document.review.annual" && job.data.documentVersionId) {
+      await this.prisma.documentVersion.updateMany({ where: { id: job.data.documentVersionId, annualReviewNotifiedAt: null }, data: { annualReviewNotifiedAt: new Date() } });
     }
     return { accepted: accepted.size, audience: message.recipients.length };
   }

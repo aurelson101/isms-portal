@@ -316,6 +316,7 @@ model DocumentVersion {
   distributedStoredFileId String?
   distributedStoredFile   StoredFile?      @relation("DistributedDocumentVersion", fields: [distributedStoredFileId], references: [id])
   createdAt               DateTime         @default(now())
+  annualReviewNotifiedAt  DateTime?
   changeSummary           String?
   changeDetails           Json?
   reviews                 DocumentReview[]
@@ -323,6 +324,7 @@ model DocumentVersion {
   @@unique([documentId, locale, version])
   @@index([storedFileId])
   @@index([distributedStoredFileId])
+  @@index([annualReviewNotifiedAt])
 }
 
 model DocumentAcknowledgement {
