@@ -52,8 +52,9 @@ type CategoryTreeItem = Category & { depth: number };
 
 const populatedCategories = (space: Space): CategoryTreeItem[] => {
   const children = new Map<string | null, Category[]>();
-  const categoryIds = new Set(space.categories.map((category) => category.id));
-  for (const category of space.categories) {
+  const categories = space.categories || [];
+  const categoryIds = new Set(categories.map((category) => category.id));
+  for (const category of categories) {
     const parentId =
       category.parentId && categoryIds.has(category.parentId)
         ? category.parentId
@@ -464,7 +465,7 @@ function DocumentRows({
     >
       {viewMode === "list" && (
         <div className="document-list-header" aria-hidden="true">
-          <span>Type</span><span>{locale === "fr" ? "Titre" : "Title"}</span><span>{locale === "fr" ? "Espace" : "Space"}</span><span>{locale === "fr" ? "Catégorie" : "Category"}</span><span>Version</span><span>{locale === "fr" ? "État" : "Status"}</span><span>{locale === "fr" ? "Mis à jour" : "Updated"}</span><span>{locale === "fr" ? "Langue" : "Language"}</span><span>Actions</span>
+          <span>Type</span><span>{locale === "fr" ? "Titre" : "Title"}</span><span>{locale === "fr" ? "Espace" : "Section"}</span><span>{locale === "fr" ? "Catégorie" : "Category"}</span><span>Version</span><span>{locale === "fr" ? "État" : "Status"}</span><span>{locale === "fr" ? "Mis à jour" : "Updated"}</span><span>{locale === "fr" ? "Langue" : "Language"}</span><span>Actions</span>
         </div>
       )}
       {documents.map((document) => {
@@ -1852,7 +1853,7 @@ export function Portal({
             : explorerMode
               ? locale === "fr"
                 ? "Choisissez une catégorie ou un espace, puis ouvrez vos documents dans le lecteur sécurisé."
-                : "Choose a category or space, then open your documents in the secure viewer."
+                : "Choose a category or section, then open your documents in the secure viewer."
               : t.subtitle}
         </p>
         {!reportsMode && (
@@ -3724,18 +3725,14 @@ export function Portal({
               className="admin-form"
               onSubmit={async (event) => {
                 event.preventDefault();
-                const values = Object.fromEntries(
-                  new FormData(event.currentTarget),
-                );
-                const response = await fetch(
-                  `/api/documents/${editing.id}/metadata`,
-                  {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(values),
-                  },
-                );
-                if (!response.ok) {
+                const values = Object.fromEntries(new FormData(event.currentTarget));
+                const categoryId = String(values.categoryId || "") || null;
+                const currentCategoryId = editing.category?.id || null;
+                const currentTranslation = editing.translations.find((translation) => translation.locale === String(values.locale));
+                const metadataChanged = String(values.title).trim() !== (currentTranslation?.title || "") || String(values.description || "").trim() !== (currentTranslation?.description || "");
+                const categoryChanged = categoryId !== currentCategoryId;
+                const response = metadataChanged || categoryChanged ? await fetch(`/api/documents/${editing.id}/metadata`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ locale: values.locale, title: values.title, description: values.description, categoryId }) }) : null;
+                if (response && !response.ok) {
                   setActionError(t.error);
                   return;
                 }
@@ -3768,6 +3765,13 @@ export function Portal({
                     )?.description || ""
                   }
                 />
+              </label>
+              <label>
+                {locale === "fr" ? "Catégorie" : "Category"}
+                <select name="categoryId" defaultValue={editing.category?.id || ""}>
+                  <option value="">{locale === "fr" ? "Sans catégorie" : "No category"}</option>
+                  {populatedCategories(identity?.spaces.find((space) => space.id === editing.space.id) || editing.space).map((category) => <option key={category.id} value={category.id}>{"  ".repeat(category.depth)}{locale === "fr" ? category.nameFr : category.nameEn}</option>)}
+                </select>
               </label>
               <div className="button-row">
                 <button className="primary">{t.save}</button>

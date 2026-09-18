@@ -107,59 +107,10 @@ async function schedule() {
   const expiredGrants = await prisma.temporaryAccessGrant.deleteMany({
     where: { validUntil: { lte: new Date(now) } },
   });
-  const documentAlertPolicy = await alerts.documentAlertPolicy();
-  let overdueDocumentVersions = 0;
-  if (
-    documentAlertPolicy.enabled &&
-    documentAlertPolicy.documentVersionOverdue
-  ) {
-    const cutoff = new Date(
-      now - documentAlertPolicy.documentVersionMaxAgeDays * 86400000,
-    );
-    const overdueDocuments = await prisma.document.findMany({
-      where: {
-        deletedAt: null,
-        status: "PUBLISHED",
-        versions: { some: {}, none: { createdAt: { gt: cutoff } } },
-      },
-      select: {
-        id: true,
-        translations: { select: { title: true }, take: 1 },
-        versions: {
-          select: { version: true, createdAt: true },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-        },
-      },
-      take: 100,
-    });
-    overdueDocumentVersions = overdueDocuments.length;
-    if (overdueDocuments.length) {
-      const cooldown = await prisma.applicationSetting.findUnique({
-        where: { key: "observability.document-version-overdue-last-sent" },
-      });
-      const lastSent = Date.parse(
-        String((cooldown?.value as { at?: string } | undefined)?.at || ""),
-      );
-      if (!Number.isFinite(lastSent) || now - lastSent >= 86400000) {
-        for (const document of overdueDocuments) {
-          await notifications.enqueue({ action: "document.version.overdue", resource: `document:${document.id}`, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `overdue-${document.id}-${new Date(now).toISOString().slice(0, 10)}`);
-        }
-        {
-          const value = { at: new Date(now).toISOString() };
-          await prisma.applicationSetting.upsert({
-            where: {
-              key: "observability.document-version-overdue-last-sent",
-            },
-            update: { value },
-            create: {
-              key: "observability.document-version-overdue-last-sent",
-              value,
-            },
-          });
-        }
-      }
-    }
+  const annualReviewVersions = await prisma.documentVersion.findMany({ where: { annualReviewNotifiedAt: null, createdAt: { lte: new Date(now - 365 * 86400000) }, document: { deletedAt: null, status: "PUBLISHED" } }, select: { id: true, documentId: true }, orderBy: { createdAt: "asc" }, take: 100 });
+  const overdueDocumentVersions = annualReviewVersions.length;
+  for (const version of annualReviewVersions) {
+    await notifications.enqueue({ action: "document.review.annual", resource: `document:${version.documentId}`, documentVersionId: version.id, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `annual-review-${version.documentId}-${version.id}-${new Date(now).toISOString().slice(0, 10)}`);
   }
   const connections = await prisma.directoryConnection.findMany({
     where: { enabled: true },
