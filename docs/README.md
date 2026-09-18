@@ -59,6 +59,7 @@ document volume as a single backup and restore unit.
 | Security controls and incident response | [security.md](security.md), [troubleshooting.md](troubleshooting.md) |
 | Backup, restore, and functional restore test | [backup-restore.md](backup-restore.md) |
 | API routes | [routes.md](routes.md) |
+| Developer modules, functions, workers, and workflow reference | [developer-reference.md](developer-reference.md) |
 | Release versioning | [VERSIONING.md](VERSIONING.md) |
 | User-facing behavior | [user-guide-en.md](user-guide-en.md), [user-guide-fr.md](user-guide-fr.md) |
 
