@@ -98,6 +98,84 @@ document volume as a single backup and restore unit.
 - Do not remove Docker volumes, databases, or document files during routine
   image cleanup.
 
+## Identity, LDAP, certificates, and ACLs
+
+### LDAP and LDAPS
+
+Directory configuration is managed from **Administration -> LDAP
+synchronization**. The service account is read-only and is used only to query
+users, groups, nested memberships, and the `mail` attribute.
+
+- Prefer **LDAPS on TCP/636**. Use the fully qualified DNS name of each domain
+  controller so TLS hostname validation succeeds.
+- Import only the public CA certificate or chain in **Administration -> CA
+  certificates**. PEM, DER, and PKCS#7 chain exports are accepted; never copy a
+  private CA key to ISMS.
+- Use the connection **Test** action before synchronization. It checks DNS,
+  TCP, TLS chain, hostname, bind, and directory search.
+- Synchronization imports the directory groups used by ACLs. It does not change
+  Active Directory. A failed or incomplete synchronization must not be followed
+  by a directory-group purge.
+- Email recipients are resolved from the Active Directory `mail` attribute.
+  Accounts or group members without a non-empty valid address are skipped.
+
+### ACL model
+
+Access control is deny-by-default and evaluated server-side for every request.
+Navigation visibility is only a convenience and never grants a permission.
+
+ACLs are assigned to AD groups at the document section or category level. The
+effective permissions are: `showMenu`, `read`, `search`, `preview`, `download`,
+`upload`, `edit`, `publish`, and `archive`. Category access must remain within
+its parent section. Test any new rule with the access simulation before making
+it available to users.
+
+Administrators have full configuration access. Moderators are configured in
+**Configuration -> Moderators** for a local account, AD user, or AD group. They
+do not gain administrative configuration access. Their document-management
+rights are independently controlled by **Manage**, **Publish**, and
+**Archive/delete**; `Manage` is required for the other moderator rights to be
+effective.
+
+## Document lifecycle and governance
+
+Documents follow the lifecycle `Draft -> Review -> Published -> Archived ->
+Trash`. A new file creates the next version while retaining version history and
+audit evidence. The current version remains the distributed file; a permanent
+deletion is restricted to administrators and removes related files and metadata.
+
+- Changing a document category from **Edit** changes only metadata. It does not
+  create a new version and does not send the publication email.
+- The dedicated **Document trash** screen supports restoration and confirmed
+  permanent deletion. Restoration returns a document as `Archived` so that it
+  requires an explicit publication decision.
+- Every published document enters an annual review cycle after 365 days without
+  a newer version. Only eligible administrators and moderators receive the
+  English review notification. Publishing a new version starts a new annual
+  cycle.
+- Approvals, review decisions, reports, publication, archival, deletion, and
+  category changes are recorded in the audit trail.
+
+## Alerts, approvals, and email
+
+Alert channels are configured under **Supervision -> Alert channel
+configuration**. Microsoft Graph and SMTP are independent channels. Store
+credentials and certificates on the server or in the enterprise secret manager,
+never in Git.
+
+For Microsoft Graph, use an Entra application with an X.509 certificate and
+application permission `Mail.Send` granted by tenant administrator consent.
+Restrict the application in Exchange to the approved shared sender mailbox.
+Record the Tenant ID, Client ID, sender mailbox, private-key path, and
+certificate thumbprint in the protected channel configuration, then run the
+recipient test.
+
+Graph and SMTP notifications use responsive English HTML templates. Publication
+and new-version emails go only to readers resolved through the relevant ACL and
+AD groups. Approval, review, annual-review, and report notifications go to the
+eligible administrators and moderators. The notification delivery history and
+retry controls are available in Supervision.
+
 ## Useful commands
 
 ```bash
