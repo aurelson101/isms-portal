@@ -39,7 +39,10 @@ versions. Configure lifecycle rules and backup retention on the provider.
 
 ## SMB/CIFS
 
-Mount the share on the Linux host before starting Docker. Keep Windows/share
+Mount the share on the Linux host before starting Docker. SMB 3.x is mandatory;
+use `vers=3.1.1` (or `vers=3.0` only when the NAS cannot negotiate 3.1.1).
+The API reads the mounted CIFS options and refuses SMB1/SMB2 or an unmounted
+directory during both the connection test and document operations. Keep Windows/share
 credentials in a root-readable OS credentials file, not in the application or
 Compose file. Use SMB3 and appropriate encryption, and grant the container UID
 read/write/delete access. Determine the UID/GID with `docker compose exec api id`.

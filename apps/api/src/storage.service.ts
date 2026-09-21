@@ -5,7 +5,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { constants } from "fs";
-import { access, mkdir, open, rename, rm, stat, statfs, lstat, realpath } from "fs/promises";
+import { access, mkdir, open, rename, rm, stat, statfs, lstat, realpath, readFile } from "fs/promises";
 import { createReadStream } from "fs";
 import { dirname, resolve, sep } from "path";
 import { randomUUID } from "crypto";
@@ -76,6 +76,18 @@ export class StorageService implements OnModuleInit {
     return { Bucket: target.bucket!, Key: target.prefix ? `${target.prefix}/${key}` : key };
   }
 
+  private async assertSmb3(root: string) {
+    const unescapeMountPath = (value: string) => value.replace(/\\040/g, " ").replace(/\\011/g, "\t").replace(/\\134/g, "\\");
+    const mounts = (await readFile("/proc/mounts", "utf8")).split("\n").map((line) => line.split(" "));
+    const mount = mounts
+      .filter((parts) => parts[2] === "cifs")
+      .map((parts) => ({ path: unescapeMountPath(parts[1] || ""), options: parts[3] || "" }))
+      .filter((item) => root === item.path || root.startsWith(`${item.path}/`))
+      .sort((left, right) => right.path.length - left.path.length)[0];
+    if (!mount || !/(?:^|,)vers=3(?:\.\d+)?(?:,|$)/.test(mount.options))
+      throw new ServiceUnavailableException("SMB 3.x share is required");
+  }
+
   private async localPath(key: string, target: StorageTarget | null) {
     let root = this.root;
     if (target) {
@@ -84,6 +96,7 @@ export class StorageService implements OnModuleInit {
       // Refuse a missing share instead of silently writing onto the Docker disk.
       if ((await realpath(root)) !== root || (Number((await statfs(root)).type) >>> 0) !== 0xff534d42)
         throw new ServiceUnavailableException("SMB/CIFS share is not mounted");
+      await this.assertSmb3(root);
     }
     const path = this.pathFor(key, root);
     let current = root;
