@@ -1791,6 +1791,13 @@ h1 {
   color: #42516b;
   font-weight: 650;
 }
+.document-pagination .page-numbers { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.document-pagination button.page-number { min-width: 40px; padding: 7px; }
+.document-pagination button.page-number[aria-current="page"] { color: #fff; border-color: #0768ea; background: #0768ea; }
+.category-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 8px 10px 2px; }
+.category-pagination button { min-width: 28px; min-height: 28px; border: 1px solid #7191b7; border-radius: 4px; background: transparent; color: #fff; cursor: pointer; }
+.category-pagination button.active { border-color: #fff; background: #2b65e8; }
+.category-pagination span { color: #b8c8e1; }
 @media (max-width: 600px) {
   .mobile-filter-toggle {
     display: inline-flex;

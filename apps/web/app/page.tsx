@@ -77,6 +77,13 @@ const populatedCategories = (space: Space): CategoryTreeItem[] => {
   for (const root of children.get(null) || []) append(root, 0);
   return result;
 };
+
+const paginationItems = (current: number, total: number): Array<number | "ellipsis"> => {
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
+  const pages = new Set([1, total, current - 1, current, current + 1]);
+  return [...pages].filter((item) => item >= 1 && item <= total).sort((left, right) => left - right)
+    .flatMap((item, index, values) => index && item - values[index - 1] > 1 ? ["ellipsis" as const, item] : [item]);
+};
 type Translation = {
   locale: string;
   title: string;
@@ -726,6 +733,8 @@ export function Portal({
   const [expandedSpaces, setExpandedSpaces] = useState<Set<string>>(
     () => new Set(),
   );
+  const [categoryPages, setCategoryPages] = useState<Record<string, number>>({});
+  const [spacePage, setSpacePage] = useState(1);
   const [incidentReports, setIncidentReports] = useState<
     PublishedIncidentReport[]
   >([]);
@@ -849,7 +858,7 @@ export function Portal({
       if (documentSensitivity) parameters.set("sensitive", documentSensitivity);
       parameters.set("sort", documentSort);
       parameters.set("page", String(page));
-      parameters.set("limit", "10");
+      parameters.set("limit", "15");
       try {
         const response = await fetch(`/api/documents?${parameters}`, {
           signal,
@@ -1565,6 +1574,10 @@ export function Portal({
     );
   }
 
+  const navigationSpaces = identity?.spaces || [];
+  const navigationSpacePages = Math.ceil(navigationSpaces.length / 15);
+  const visibleNavigationSpaces = navigationSpaces.slice((spacePage - 1) * 15, spacePage * 15);
+
   return (
     <div
       className={`shell density-${density}${highContrast ? " high-contrast" : ""}${reducedMotion ? " reduced-motion" : ""}`}
@@ -1623,10 +1636,13 @@ export function Portal({
               <Icon name="audit" /> <span>{t.annualIncidentReports}</span>
             </button>
           )}
-          {identity?.spaces.map((item) => {
+          {visibleNavigationSpaces.map((item) => {
             const categories = populatedCategories(item);
             const expanded = expandedSpaces.has(item.slug);
             const submenuId = `space-submenu-${item.id}`;
+            const categoryTotalPages = Math.ceil(categories.length / 15);
+            const categoryPage = Math.min(categoryPages[item.id] || 1, Math.max(1, categoryTotalPages));
+            const visibleCategories = categories.slice((categoryPage - 1) * 15, categoryPage * 15);
             return (
               <div
                 className={`navigation-space ${expanded ? "expanded" : ""}`}
@@ -1671,7 +1687,7 @@ export function Portal({
                       <Icon name="documents" />{" "}
                       <span>{t.allSpaceDocuments}</span>
                     </button>
-                    {categories.map((itemCategory) => (
+                    {visibleCategories.map((itemCategory) => (
                       <button
                         type="button"
                         className={`category-menu category-depth-${Math.min(itemCategory.depth, 4)} ${category === itemCategory.id ? "active" : ""}`}
@@ -1688,11 +1704,21 @@ export function Portal({
                         </span>
                       </button>
                     ))}
+                    {categoryTotalPages > 1 && (
+                      <nav className="category-pagination" aria-label={`${locale === "fr" ? "Pages des catégories" : "Category pages"} — ${locale === "fr" ? item.nameFr : item.nameEn}`}>
+                        {paginationItems(categoryPage, categoryTotalPages).map((itemPage, index) => itemPage === "ellipsis" ? <span key={`ellipsis-${index}`} aria-hidden="true">…</span> : <button key={itemPage} type="button" className={itemPage === categoryPage ? "active" : ""} aria-current={itemPage === categoryPage ? "page" : undefined} onClick={() => setCategoryPages((current) => ({ ...current, [item.id]: itemPage }))}>{itemPage}</button>)}
+                      </nav>
+                    )}
                   </div>
                 )}
               </div>
             );
           })}
+          {navigationSpacePages > 1 && (
+            <nav className="category-pagination navigation-pagination" aria-label={locale === "fr" ? "Pages des espaces" : "Area pages"}>
+              {paginationItems(spacePage, navigationSpacePages).map((itemPage, index) => itemPage === "ellipsis" ? <span key={`ellipsis-${index}`} aria-hidden="true">…</span> : <button key={itemPage} type="button" className={itemPage === spacePage ? "active" : ""} aria-current={itemPage === spacePage ? "page" : undefined} onClick={() => setSpacePage(itemPage)}>{itemPage}</button>)}
+            </nav>
+          )}
         </nav>
         <div className="secure">
           ✓ <span>{t.secured}</span>
@@ -2330,9 +2356,9 @@ export function Portal({
                     >
                       ← {t.previous}
                     </button>
-                    <span aria-live="polite">
-                      {t.page} {page} {t.of} {Math.max(1, totalPages)}
-                    </span>
+                    <div className="page-numbers" aria-label={`${t.page} ${page} ${t.of} ${Math.max(1, totalPages)}`}>
+                      {paginationItems(page, totalPages).map((itemPage, index) => itemPage === "ellipsis" ? <span key={`ellipsis-${index}`} aria-hidden="true">…</span> : <button key={itemPage} type="button" className="page-number" aria-current={itemPage === page ? "page" : undefined} onClick={() => changePage(itemPage)}>{itemPage}</button>)}
+                    </div>
                     <button
                       type="button"
                       disabled={page >= totalPages}
