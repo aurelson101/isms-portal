@@ -25,7 +25,9 @@ function periodWhere(year?: string, month?: string) {
   if (!Number.isInteger(parsedYear) || parsedYear < 2020 || parsedYear > 2100 || (parsedMonth !== undefined && (!Number.isInteger(parsedMonth) || parsedMonth < 1 || parsedMonth > 12)))
     throw new BadRequestException("Invalid approval period");
   const start = new Date(Date.UTC(parsedYear, parsedMonth ? parsedMonth - 1 : 0, 1));
-  const end = new Date(Date.UTC(parsedMonth === 12 ? parsedYear + 1 : parsedYear, parsedMonth === 12 ? 0 : parsedMonth || 0, 1));
+  const end = parsedMonth
+    ? new Date(Date.UTC(parsedMonth === 12 ? parsedYear + 1 : parsedYear, parsedMonth === 12 ? 0 : parsedMonth, 1))
+    : new Date(Date.UTC(parsedYear + 1, 0, 1));
   return { createdAt: { gte: start, lt: end } };
 }
 
