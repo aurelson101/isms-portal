@@ -309,6 +309,27 @@ les capacités autorisées et l’interface masque le téléchargement lorsqu’
 n’est pas accordé. Les fichiers sont conservés dans le volume Docker
 `document-storage`, monté dans `/data/documents`.
 
+### Stockage documentaire optionnel
+
+Le volume principal reste la destination par défaut. Depuis
+**Administration → Configuration → Stockage**, un administrateur peut ajouter
+une cible optionnelle **S3 compatible** ou **SMB/CIFS**, la tester, puis la
+rendre disponible à l'upload. Chaque document conserve la référence de sa
+destination : désactiver une cible empêche les nouveaux dépôts mais ne rend pas
+ses documents existants illisibles.
+
+- **S3 compatible** : endpoint HTTPS, bucket privé, droits limités à la
+  lecture, l'écriture et la suppression du préfixe choisi. Les identifiants
+  sont chiffrés avec `ENCRYPTION_KEY` et ne sont jamais renvoyés à l'interface.
+- **SMB/CIFS** : le partage est monté sur l'hôte Linux et bind-mounté dans les
+  conteneurs API et worker sous `/data/smb`. SMB 3.x est obligatoire ; le test
+  refuse SMB1, SMB2, un chemin local ou un montage absent.
+
+Le bouton **Tester la connexion** vérifie une écriture, une lecture et une
+suppression sur une sonde temporaire. Une cible doit réussir ce test avant de
+pouvoir recevoir des documents. La procédure de montage et les limites de
+compatibilité sont détaillées dans [la documentation de stockage](docs/document-storage.md).
+
 Lorsqu’un document est marqué **sensible**, la publication génère une copie de
 diffusion portant définitivement la mention `SENSITIVE DOCUMENT` en en-tête,
 au centre ou en pied de page. Cette copie PDF, DOCX ou XLSX est de nouveau
