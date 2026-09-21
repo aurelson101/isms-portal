@@ -132,7 +132,15 @@ export class WatermarkService {
       version: number;
       sha256: string;
     }> = [];
-    for (const version of document.versions) {
+    const latestVersions = document.versions.filter(
+      (version) =>
+        !document.versions.some(
+          (candidate) =>
+            candidate.locale === version.locale &&
+            candidate.version > version.version,
+        ),
+    );
+    for (const version of latestVersions) {
       if (version.distributedStoredFileId) continue;
       const source = await this.storage.getBuffer(version.storedFile.objectKey);
       const watermarked = await applyPermanentWatermark(
@@ -147,7 +155,7 @@ export class WatermarkService {
         );
       const sha256 = createHash("sha256").update(watermarked).digest("hex");
       const extension = extname(version.storedFile.originalName).toLowerCase();
-      const objectKey = `documents/${document.id}/${version.locale}/distributed/${randomUUID()}${extension}`;
+      const objectKey = this.storage.derivedKey(version.storedFile.objectKey, `documents/${document.id}/${version.locale}/distributed/${randomUUID()}${extension}`);
       await this.storage.putObject(objectKey, watermarked, {
         "Content-Type": version.storedFile.mimeType,
         "X-Amz-Meta-Sha256": sha256,

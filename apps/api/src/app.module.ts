@@ -16,6 +16,8 @@ import { PrismaService } from "./prisma.service";
 import { AuthorizationService } from "./authorization.service";
 import { AuditService } from "./audit.service";
 import { StorageService } from "./storage.service";
+import { StorageTargetsService } from "./storage-targets.service";
+import { StorageTargetsController, StorageOptionsController } from "./storage-targets.controller";
 import { AntivirusService } from "./antivirus.service";
 import { CryptoService } from "./crypto.service";
 import { DirectoryService } from "./directory.service";
@@ -36,6 +38,8 @@ import { NotificationService } from "./notification.service";
 
 @Module({
   controllers: [
+    StorageTargetsController,
+    StorageOptionsController,
     ReviewInboxController,
     HealthController,
     IdentityController,
@@ -59,6 +63,7 @@ import { NotificationService } from "./notification.service";
     AuthorizationService,
     AuditService,
     StorageService,
+    StorageTargetsService,
     AntivirusService,
     CryptoService,
     DirectoryService,

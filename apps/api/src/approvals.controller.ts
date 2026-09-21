@@ -8,6 +8,7 @@ import {
   NotFoundException,
   Param,
   Put,
+  Query,
   Req,
 } from "@nestjs/common";
 import { AuditService } from "./audit.service";
@@ -16,6 +17,17 @@ import { ApproverOnly } from "./security";
 import { isAdminIdentity } from "./security";
 import { ReviewDecisionDto } from "./governance.dto";
 import type { IsmsRequest } from "./types";
+
+function periodWhere(year?: string, month?: string) {
+  if (!year) return {};
+  const parsedYear = Number(year);
+  const parsedMonth = month ? Number(month) : undefined;
+  if (!Number.isInteger(parsedYear) || parsedYear < 2020 || parsedYear > 2100 || (parsedMonth !== undefined && (!Number.isInteger(parsedMonth) || parsedMonth < 1 || parsedMonth > 12)))
+    throw new BadRequestException("Invalid approval period");
+  const start = new Date(Date.UTC(parsedYear, parsedMonth ? parsedMonth - 1 : 0, 1));
+  const end = new Date(Date.UTC(parsedMonth === 12 ? parsedYear + 1 : parsedYear, parsedMonth === 12 ? 0 : parsedMonth || 0, 1));
+  return { createdAt: { gte: start, lt: end } };
+}
 
 @Controller("approvals")
 @ApproverOnly()
@@ -26,9 +38,10 @@ export class ApprovalsController {
   ) {}
 
   @Get()
-  async list(@Req() req: IsmsRequest) {
+  async list(@Req() req: IsmsRequest, @Query("year") year?: string, @Query("month") month?: string) {
     if (!isAdminIdentity(req.identity.groups)) return [];
     const approvals = await this.prisma.sensitiveOperationApproval.findMany({
+      where: periodWhere(year, month),
       orderBy: { createdAt: "desc" },
       take: 300,
     });
@@ -88,10 +101,11 @@ export class ReviewInboxController {
   constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
 
   @Get()
-  async list(@Req() req: IsmsRequest) {
+  async list(@Req() req: IsmsRequest, @Query("year") year?: string, @Query("month") month?: string) {
     const identity = { equals: req.identity.username, mode: "insensitive" as const };
+    const period = periodWhere(year, month);
     const reviews = await this.prisma.documentReview.findMany({
-      where: isAdminIdentity(req.identity.groups) ? {} : { OR: [{ owner: identity }, { reviewer: identity }, { approver: identity }] },
+      where: isAdminIdentity(req.identity.groups) ? period : { AND: [period, { OR: [{ owner: identity }, { reviewer: identity }, { approver: identity }] }] },
       include: { document: { select: { slug: true, translations: true } } }, orderBy: { createdAt: "desc" }, take: 200,
     });
     return reviews.map((review) => ({ ...review, canDecide: review.owner.toLowerCase() !== req.identity.username.toLowerCase() && (isAdminIdentity(req.identity.groups) || review.approver.toLowerCase() === req.identity.username.toLowerCase()) }));

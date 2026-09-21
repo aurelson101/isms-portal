@@ -13,6 +13,7 @@ import { Icon } from "./icons";
 import { portalCatalog as copy } from "./i18n/catalogs";
 import { initialLocale, rememberLocale, type Locale } from "./i18n/locale";
 import { useBranding } from "./branding";
+import { StorageSelect } from "./storage-select";
 
 type ViewMode = "list" | "grid";
 type DocumentSort = "recent" | "popular";
@@ -3865,6 +3866,7 @@ export function Portal({
                 />
               </label>
               <small>{t.acceptedFiles}</small>
+              <StorageSelect spaceId={selectedSpace.id} locale={locale} />
               {actionError && <p className="error-state">{actionError}</p>}
               <div className="button-row">
                 <button className="primary">{t.deposit}</button>

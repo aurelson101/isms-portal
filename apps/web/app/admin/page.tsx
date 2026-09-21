@@ -21,6 +21,8 @@ import {
   type PortalBranding,
 } from "../branding";
 import { GovernancePanel } from "./governance-panel";
+import { StoragePanel } from "./storage-panel";
+import { StorageSelect } from "../storage-select";
 
 type Authentication = {
   source: string;
@@ -100,6 +102,7 @@ type Tab =
   | "observability"
   | "health"
   | "settings"
+  | "storage"
   | "moderators";
 type Group = {
   id: string;
@@ -373,6 +376,7 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["health", "health", "Santé des services", "Service health"],
   ["settings", "settings", "Configuration", "Settings"],
   ["moderators", "groups", "Modérateurs", "Moderators"],
+  ["storage", "folder", "Stockage", "Storage"],
 ];
 const permissionKeys = [
   "showMenu",
@@ -535,7 +539,7 @@ export default function Admin() {
           ? "content"
           : tabs.findIndex(([key]) => key === tab) < 11
             ? "infrastructure"
-            : "system";
+            : tabs.findIndex(([key]) => key === tab) < 13 ? "system" : "configuration";
     setExpandedNavigationGroups((current) =>
       current.has(activeGroup) ? current : new Set([...current, activeGroup]),
     );
@@ -1162,6 +1166,7 @@ export default function Admin() {
                   />
                 )}
                 {tab === "health" && <HealthPanel health={health} />}
+                {tab === "storage" && <StoragePanel locale={locale} />}
                 {tab === "settings" && (
                   <SettingsPanel
                     identity={identity}
@@ -3031,6 +3036,7 @@ function DocumentsPanel({
           {t("Fichier")}
           <input name="file" type="file" required accept=".pdf,.docx,.xlsx" />
         </label>
+        <StorageSelect spaceId={spaceId} locale={locale} admin />
         <label className="check">
           <input
             name="sensitive"

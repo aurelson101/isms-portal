@@ -4,6 +4,8 @@ This folder is the operational entry point for a developer taking over ISMS
 Portal. Read this page before changing infrastructure, authentication, access
 control, document storage, or notification delivery.
 
+Optional S3 and SMB/CIFS targets: [Document storage](document-storage.md).
+
 ## System at a glance
 
 ISMS Portal is a Docker Compose application:

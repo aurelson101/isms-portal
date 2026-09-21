@@ -99,6 +99,7 @@ export class NotificationService {
     let recipients: string[] = [];
     let documentId: string | null = null;
     let path = "/";
+    let reviewContext: { status: string; dueAt: Date; owner: string; reviewer: string; approver: string; comment: string | null; decidedBy: string | null } | null = null;
     const lines = [`${notificationLabels[action] || "ISMS notification"}`, `Recorded at: ${event.at}`, `Action by: ${actor}`, `Reference: ${id}`];
     if (resource.startsWith("document:")) {
       documentId = id;
@@ -108,6 +109,8 @@ export class NotificationService {
       recipients = [...await this.directory.emailsForIdentities([item.owner, item.reviewer, item.approver, ...(item.decidedBy ? [item.decidedBy] : [])]), ...await this.staff("edit", true)];
       lines.push(`Status: ${item.status}`, `Due date: ${item.dueAt.toISOString()}`, `Comment: ${item.decisionComment || "No comment provided."}`);
       documentId = item.documentId;
+      path = `/approvals#review-${id}`;
+      reviewContext = { status: item.status, dueAt: item.dueAt, owner: item.owner, reviewer: item.reviewer, approver: item.approver, comment: item.decisionComment, decidedBy: item.decidedBy };
     } else if (resource.startsWith("document-report:")) {
       const item = await this.prisma.documentReport.findUnique({ where: { id } });
       if (!item) return null;
@@ -120,8 +123,10 @@ export class NotificationService {
       const item = await this.prisma.sensitiveOperationApproval.findUnique({ where: { id } });
       if (!item) return null;
       recipients = [...await this.staff("edit", true), ...await this.directory.emailsForIdentities([item.requestedBy, ...(item.approvedBy ? [item.approvedBy] : [])])];
-      lines.push(`Status: ${item.status}`, `Requested by: ${item.requestedBy}`, `Operation: ${item.operation}`, `Request reason: ${item.reason}`, `Decision by: ${item.approvedBy || "Pending"}`);
-      path = "/approvals";
+      const decided = item.status !== "PENDING";
+      const heading = decided ? `Approval decision: ${item.status}` : `Approval required: ${item.operation.replace(/_/gu, " ")}`;
+      const body = [`${decided ? "A decision has been recorded for this privileged operation." : "A privileged operation is waiting for approval."}`, "", `Operation: ${item.operation.replace(/_/gu, " ")}`, `Target: ${item.targetType} · ${item.targetId}`, `Requested by: ${item.requestedBy}`, `Reason: ${item.reason}`, `Status: ${item.status}`, ...(decided ? [`Decision by: ${item.approvedBy || "Unknown"}`] : ["A second administrator must approve or reject this request."]), "---", `Recorded at: ${event.at}`, `Action by: ${actor}`, `Reference: ${id}`];
+      return { recipients: [...new Set(recipients)], subject: `[ISMS ExampleOrg Portal] ${heading}`, text: body.join("\n"), link: portalLink(`/approvals#approval-${id}`) };
     } else if (resource.startsWith("access-request:")) {
       const item = await this.prisma.accessRequest.findUnique({ where: { id } });
       if (!item) return null;
@@ -165,6 +170,22 @@ export class NotificationService {
       const translation = doc.translations.find((item) => item.locale === "en") || doc.translations[0];
       const title = translation?.title || doc.slug;
       const category = doc.category?.nameEn || doc.category?.nameFr || "Uncategorized";
+      if (reviewContext) {
+        const decided = reviewContext.status === "APPROVED" || reviewContext.status === "REJECTED" || reviewContext.status === "CANCELLED";
+        const heading = decided ? `Document review decision: ${reviewContext.status}` : `Document review assigned: ${title}`;
+        const body = [
+          decided ? "A decision has been recorded for a document review." : "A document review has been assigned to you.", "",
+          `Document: ${title}`, `Location: ${doc.space.nameEn || doc.space.nameFr} / ${category}`,
+          `Version: ${doc.versions[0]?.version || "-"}`, `Requested by: ${reviewContext.owner}`,
+          `Reviewer: ${reviewContext.reviewer}`, `Approver: ${reviewContext.approver}`,
+          `Due date: ${reviewContext.dueAt.toISOString()}`, `Status: ${reviewContext.status}`,
+          ...(reviewContext.comment ? [`Comment: ${reviewContext.comment}`] : []),
+          ...(reviewContext.decidedBy ? [`Decision by: ${reviewContext.decidedBy}`] : []),
+          ...(decided ? ["Open ISMS ExampleOrg Portal to view the decision history."] : ["Open ISMS ExampleOrg Portal to approve or reject this review."]),
+          "---", `Recorded at: ${event.at}`, `Action by: ${actor}`, `Reference: ${id}`,
+        ];
+        return { recipients: [...new Set(recipients)], subject: `[ISMS ExampleOrg Portal] ${heading}`, text: body.join("\n"), link: portalLink(path) };
+      }
       if (published) {
         const description = translation?.description?.trim() || "No description was provided for this document.";
         const version = doc.versions[0]?.version || "-";

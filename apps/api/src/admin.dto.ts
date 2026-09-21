@@ -187,6 +187,12 @@ export class DocumentMetadataDto {
   categoryId?: string | null;
 }
 
+export class DocumentCategoryAssignmentDto {
+  @IsOptional()
+  @IsUUID("4")
+  categoryId?: string | null;
+}
+
 export class DirectoryGroupDto {
   @IsString() @MinLength(2) @MaxLength(160) name!: string;
   @IsString() @MinLength(3) @MaxLength(1024) distinguishedName!: string;

@@ -37,6 +37,7 @@ import {
   AnnualIncidentReportDto,
   CategoryDto,
   DirectoryConnectionDto,
+  DocumentCategoryAssignmentDto,
   DirectoryGroupDto,
   DocumentMetadataDto,
   ImportDirectoryGroupDto,
@@ -56,6 +57,20 @@ import { compareDocumentVersions } from "./document-diff";
 import { SensitiveApprovalService } from "./sensitive-approval.service";
 import { ObservabilityService } from "./observability.service";
 import { safeSsoPath } from "./http-security";
+
+async function prepareVersionComparison(
+  prisma: PrismaService, storage: StorageService, documentId: string,
+  locale: string, content: Buffer, extension: string,
+) {
+  const previous = await prisma.documentVersion.findFirst({
+    where: { documentId, locale }, orderBy: { version: "desc" }, include: { storedFile: true },
+  });
+  // Remote file I/O must not hold a database transaction open.
+  const change = previous
+    ? compareDocumentVersions(await storage.getBuffer(previous.storedFile.objectKey), content, extension)
+    : { details: { added: [], removed: [], modified: [] }, summary: "Initial version" };
+  return { previousId: previous?.id, change };
+}
 
 const tcpCheck = (host: string, port: number, timeout = 1200) =>
   new Promise<boolean>((resolve) => {
@@ -734,8 +749,9 @@ export class DocumentsController {
       throw new BadRequestException("Invalid space or category");
     const scan = await this.antivirus.scan(file.buffer);
     const documentId = existing?.id || randomUUID();
-    const objectKey = `${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${randomUUID()}${extension}`;
+    const objectKey = await this.storage.uploadKey(`${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${randomUUID()}${extension}`, body.storageTargetId);
     const sha256 = createHash("sha256").update(file.buffer).digest("hex");
+    const comparison = await prepareVersionComparison(this.prisma, this.storage, documentId, body.locale, file.buffer, extension);
     await this.storage.putObject(objectKey, file.buffer, {
       "Content-Type": file.mimetype,
       "X-Amz-Meta-Sha256": sha256,
@@ -759,16 +775,8 @@ export class DocumentsController {
         orderBy: { version: "desc" },
         include: { storedFile: true },
       });
-      const automatedChange = latest
-        ? compareDocumentVersions(
-            await this.storage.getBuffer(latest.storedFile.objectKey),
-            file.buffer,
-            extension,
-          )
-        : {
-            details: { added: [], removed: [], modified: [] },
-            summary: "Initial version",
-          };
+      if (latest?.id !== comparison.previousId) throw new ConflictException("Another version was uploaded; refresh and retry");
+      const automatedChange = comparison.change;
       const storedFile = await tx.storedFile.create({
         data: {
           objectKey,
@@ -812,6 +820,9 @@ export class DocumentsController {
         where: { id: documentId },
         include: { translations: true, versions: true },
       });
+    }).catch(async (error) => {
+      await this.storage.removeObject(objectKey).catch(() => undefined);
+      throw error;
     });
     await this.audit.record(
       req,
@@ -866,6 +877,23 @@ export class DocumentsController {
       },
     );
     return translation;
+  }
+
+  @Put(":id/category")
+  async updateCategory(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: DocumentCategoryAssignmentDto,
+  ) {
+    const document = await this.prisma.document.findFirst({ where: { id, deletedAt: null }, select: { id: true, spaceId: true, categoryId: true } });
+    if (!document || !(await this.authorization.can(req.identity.groups, document.spaceId, "edit"))) throw new NotFoundException();
+    if (body.categoryId) {
+      const category = await this.prisma.documentCategory.findFirst({ where: { id: body.categoryId, spaceId: document.spaceId, deletedAt: null }, select: { id: true } });
+      if (!category) throw new BadRequestException("Invalid category for this document space");
+    }
+    const updated = await this.prisma.document.update({ where: { id }, data: { categoryId: body.categoryId || null }, select: { id: true, categoryId: true } });
+    await this.audit.record(req, "document.category.update", `document:${id}`, "success", { before: document.categoryId, after: updated.categoryId });
+    return updated;
   }
 
   @Post(":id/publish")
@@ -2752,7 +2780,8 @@ export class DocumentAdminController {
       throw new BadRequestException("Invalid space or category");
     const scan = await this.antivirus.scan(file.buffer);
     const documentId = existing?.id || randomUUID();
-    const objectKey = `${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${randomUUID()}${extension}`;
+    const objectKey = await this.storage.uploadKey(`${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${randomUUID()}${extension}`, body.storageTargetId);
+    const comparison = await prepareVersionComparison(this.prisma, this.storage, documentId, body.locale, file.buffer, extension);
     await this.storage.putObject(objectKey, file.buffer, {
       "Content-Type": file.mimetype,
       "X-Amz-Meta-Sha256": createHash("sha256")
@@ -2779,16 +2808,8 @@ export class DocumentAdminController {
         orderBy: { version: "desc" },
         include: { storedFile: true },
       });
-      const automatedChange = latest
-        ? compareDocumentVersions(
-            await this.storage.getBuffer(latest.storedFile.objectKey),
-            file.buffer,
-            extension,
-          )
-        : {
-            details: { added: [], removed: [], modified: [] },
-            summary: "Initial version",
-          };
+      if (latest?.id !== comparison.previousId) throw new ConflictException("Another version was uploaded; refresh and retry");
+      const automatedChange = comparison.change;
       const storedFile = await tx.storedFile.create({
         data: {
           objectKey,
@@ -2832,6 +2853,9 @@ export class DocumentAdminController {
         where: { id: documentId },
         include: { translations: true, versions: true },
       });
+    }).catch(async (error) => {
+      await this.storage.removeObject(objectKey).catch(() => undefined);
+      throw error;
     });
     await this.audit.record(
       req,

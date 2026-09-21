@@ -1,4 +1,6 @@
 import "./styles.css";
+import "./admin/storage.css";
+import "./document-layout.css";
 import { VersionFooter } from "./version-footer";
 export const metadata = {
   title: "ISMS Portal",

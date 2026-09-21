@@ -25,7 +25,7 @@ describe("Notification routing", () => {
     const result = await h.service.prepare({ ...event, action });
     expect(result?.recipients).toEqual(["member@example.com"]);
     expect(result?.link).toMatch(/\/documents\/test$/u);
-    expect(result?.text).toContain("Category: Security");
+    expect(result?.text).toContain("Security category within IT");
     expect(h.directory.emailsForGroup).toHaveBeenCalledTimes(1);
     expect(h.directory.emailsForGroup).toHaveBeenCalledWith("CN=IT", "dc");
     expect(h.auth.can).toHaveBeenCalledWith(["expired"], "it", "read");
@@ -78,5 +78,21 @@ describe("Notification routing", () => {
     expect(html).toContain('lang="en"');
     expect(html).toContain("max-width:600px");
     expect(() => notificationHtml("x", "y", "https://evil.example/")).toThrow("Invalid notification link");
+  });
+  it("creates direct, contextual approval and review messages", async () => {
+    const h = setup();
+    h.prisma.sensitiveOperationApproval = { findUnique: vi.fn().mockResolvedValue({ operation: "PERMANENT_DELETE", targetType: "DOCUMENT", targetId: "doc", requestedBy: "alice", reason: "Retention expired", status: "PENDING", approvedBy: null }) };
+    const approval = await h.service.prepare({ ...event, action: "sensitive-approval.request", resource: "sensitive-approval:approval" });
+    expect(approval?.subject).toContain("Approval required");
+    expect(approval?.link).toMatch(/\/approvals#approval-approval$/u);
+    expect(approval?.text).toContain("A second administrator");
+    h.prisma.documentReview.findUnique.mockResolvedValueOnce({ owner: "alice", reviewer: "bob", approver: "carol", documentId: "doc", status: "PENDING", decisionComment: null, decidedBy: null, dueAt: new Date() });
+    const review = await h.service.prepare({ ...event, action: "document-review.create", resource: "document-review:review" });
+    expect(review?.subject).toContain("Document review assigned");
+    expect(review?.link).toMatch(/\/approvals#review-review$/u);
+    const html = notificationHtml(review!.subject, review!.text, review!.link, "approval");
+    expect(html).toContain("ACTION REQUIRED");
+    expect(html).toContain("Review request");
+    expect(html).toContain("Due date");
   });
 });
