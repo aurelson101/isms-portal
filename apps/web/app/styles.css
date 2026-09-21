@@ -5575,6 +5575,17 @@ svg {
   display: grid;
   gap: 1rem;
 }
+.governance-panel .section-heading > button {
+  min-height: 40px;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid #8eb5e7;
+  border-radius: 4px;
+  background: #fff;
+  color: #0759bd;
+  font-weight: 700;
+}
+.governance-panel .section-heading > button:hover,
+.governance-panel .section-heading > button:focus-visible { border-color: #0759bd; background: #edf5ff; color: #064c9e; }
 
 .governance-refreshing {
   width: fit-content;
