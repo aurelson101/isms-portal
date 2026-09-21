@@ -3853,6 +3853,20 @@ export function Portal({
                 <textarea name="description" maxLength={2000} />
               </label>
               <label>
+                {locale === "fr" ? "Catégorie" : "Category"}
+                <select
+                  name="categoryId"
+                  defaultValue={selectedSpace.categories.some((item) => item.id === category) ? category : ""}
+                >
+                  <option value="">{locale === "fr" ? "Sans catégorie" : "No category"}</option>
+                  {populatedCategories(selectedSpace).map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {`${"— ".repeat(item.depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
                 {locale === "fr" ? "Résumé des changements" : "Change summary"}
                 <textarea name="changeSummary" maxLength={2000} />
               </label>
