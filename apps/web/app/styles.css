@@ -5040,6 +5040,7 @@ svg {
   margin-top: 0.25rem;
   color: #60728b;
 }
+.personal-tools-heading > div { min-width: 0; }
 
 .personal-tools-summary {
   display: flex;
@@ -5066,6 +5067,10 @@ svg {
   color: #0759bd;
   font-size: 1.2rem;
   font-weight: 800;
+}
+@media (max-width: 1020px) {
+  .personal-tools-heading { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+  .personal-tools-summary { grid-column: 1 / -1; justify-self: end; margin: 0; }
 }
 
 .personal-tools-content {
@@ -5232,6 +5237,8 @@ svg {
   color: #40536e;
   font-weight: 650;
 }
+.personal-tools-preferences label:has(input[type="checkbox"]) { display: flex; align-items: center; min-height: 40px; gap: 0.65rem; cursor: pointer; }
+.personal-tools-preferences label input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: #1764bd; }
 
 .personal-tools-preferences select {
   width: 100%;
