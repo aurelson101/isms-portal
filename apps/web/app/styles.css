@@ -5590,6 +5590,12 @@ svg {
   color: #064c9e;
 }
 
+/* This nav lives inside .admin-shell, whose primary sidebar buttons are white. */
+.admin-shell .governance-tabs button { width: 100%; padding: 0.6rem 0.85rem; border: 1px solid #c7d5e6; background: #fff; color: #294564; text-align: left; }
+.admin-shell .governance-tabs button:hover { background: #edf5ff; color: #064c9e; }
+.admin-shell .governance-tabs button.active,
+.admin-shell .governance-tabs button.active:hover { border-color: #1764bd; background: #e1efff; color: #064c9e; }
+
 .governance-tabs button span {
   display: inline-flex;
   min-width: 1.4rem;
@@ -5600,6 +5606,8 @@ svg {
   background: #dce9f7;
   font-size: 0.76rem;
 }
+.admin-shell .governance-tabs button span { color: #31557f; background: #dce9f7; }
+.admin-shell .governance-tabs button.active span { color: #064c9e; background: #c7e0fb; }
 
 .governance-grid {
   display: grid;
