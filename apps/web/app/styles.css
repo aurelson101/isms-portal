@@ -4974,9 +4974,17 @@ svg {
 .shell .personal-tools-tabs button:focus-visible {
   color: #0759bd;
 }
+.shell .personal-tools-tabs button.active,
+.shell .personal-tools-tabs button.active:hover {
+  border-color: #1764bd;
+  background: #e1efff;
+  color: #064c9e;
+  box-shadow: inset 3px 0 0 #1764bd;
+}
 .shell .personal-tools-tabs button small {
   color: #0759bd;
 }
+.shell .personal-tools-tabs button.active small { background: #c7e0fb; color: #064c9e; }
 
 .personal-tools-modal > .modal-close {
   display: grid;
