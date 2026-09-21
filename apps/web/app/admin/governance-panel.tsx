@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Icon } from "../icons";
 
 type Locale = "fr" | "en";
+const governanceSectionKeys = ["reviews", "access", "controls", "retention", "identity", "incidents", "views", "risks", "dashboard"] as const;
 type DocumentItem = {
   id: string;
   translations: Array<{ locale: string; title: string }>;
@@ -340,6 +341,15 @@ export function GovernancePanel({
       sensitiveApprovals.filter((item) => item.status === "PENDING").length,
     ],
   ] as const;
+  const activateSection = (key: (typeof governanceSectionKeys)[number]) => {
+    setSection(key);
+    window.history.replaceState(null, "", `#governance-${key}`);
+  };
+
+  useEffect(() => {
+    const requested = window.location.hash.replace("#governance-", "");
+    if (governanceSectionKeys.includes(requested as (typeof governanceSectionKeys)[number])) setSection(requested);
+  }, []);
 
   return (
     <section className="governance-panel" aria-busy={refreshing}>
@@ -362,13 +372,14 @@ export function GovernancePanel({
           {t("Actualisation en arrière-plan…", "Refreshing in background…")}
         </span>
       )}
-      <div
-        className="governance-tabs"
-        role="tablist"
-        aria-label={t("Rubriques de gouvernance", "Governance sections")}
-      >
-        {sections.map(([key, fr, en, count]) => (
-          <button
+      <div className="governance-navigation-layout">
+        <nav
+          className="governance-tabs"
+          role="tablist"
+          aria-label={t("Rubriques de gouvernance", "Governance sections")}
+        >
+          {sections.map(([key, fr, en, count]) => (
+            <button
             type="button"
             role="tab"
             id={`governance-tab-${key}`}
@@ -377,7 +388,7 @@ export function GovernancePanel({
             aria-selected={section === key}
             tabIndex={section === key ? 0 : -1}
             className={section === key ? "active" : ""}
-            onClick={() => setSection(key)}
+            onClick={() => activateSection(key)}
             onKeyDown={(event) => {
               const tabs = Array.from(
                 event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
@@ -397,21 +408,21 @@ export function GovernancePanel({
                         : null;
               if (!target) return;
               event.preventDefault();
-              setSection(target.dataset.section || "reviews");
+              activateSection((target.dataset.section || "reviews") as (typeof governanceSectionKeys)[number]);
               target.focus();
             }}
             key={key}
-          >
-            {locale === "fr" ? fr : en} <span>{count}</span>
-          </button>
-        ))}
-      </div>
-      {initialLoading ? (
+            >
+              {locale === "fr" ? fr : en} <span>{count}</span>
+            </button>
+          ))}
+        </nav>
+        {initialLoading ? (
         <div
           className="admin-skeleton"
           aria-label={t("Actualisation", "Refreshing")}
         />
-      ) : (
+        ) : (
         <div
           role="tabpanel"
           id={`governance-panel-${section}`}
@@ -494,7 +505,8 @@ export function GovernancePanel({
             />
           )}
         </div>
-      )}
+        )}
+      </div>
     </section>
   );
 }

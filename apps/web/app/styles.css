@@ -5568,20 +5568,17 @@ svg {
   font-weight: 700;
 }
 
-.governance-tabs {
-  display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-  padding: 0.25rem 0 0.65rem;
-  scrollbar-width: thin;
-}
+.governance-navigation-layout { display: grid; grid-template-columns: minmax(190px, 230px) minmax(0, 1fr); gap: 1rem; align-items: start; }
+.governance-tabs { display: grid; gap: 0.35rem; padding: 0.2rem; border: 1px solid #d7e2ef; border-radius: 7px; background: #f8fbff; }
 
 .governance-tabs button {
-  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   min-height: 44px;
   padding: 0.6rem 0.85rem;
   border: 1px solid #c7d5e6;
-  border-radius: 999px;
+  border-radius: 4px;
   background: #fff;
   color: #294564;
   font-weight: 750;
@@ -5892,13 +5889,17 @@ svg {
 }
 
 @media (max-width: 760px) {
+  .governance-navigation-layout { grid-template-columns: 1fr; }
   .governance-grid {
     grid-template-columns: 1fr;
   }
 
   .governance-tabs {
+    display: flex;
+    overflow-x: auto;
     margin-inline: -0.25rem;
   }
+  .governance-tabs button { flex: 0 0 auto; }
 
   .governance-card .actions > button,
   .governance-form > button {
