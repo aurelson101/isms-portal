@@ -5774,6 +5774,10 @@ svg {
   flex-wrap: wrap;
   gap: 0.6rem;
 }
+.governance-pagination { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding-top: 8px; }
+.governance-pagination button { min-width: 38px; min-height: 36px; border: 1px solid #75a4df; border-radius: 4px; background: #fff; color: #075fc8; font-weight: 700; cursor: pointer; }
+.governance-pagination button.active { border-color: #075fc8; background: #075fc8; color: #fff; }
+.governance-pagination span { align-self: center; color: #587093; }
 
 .governance-decision-proof {
   display: grid;

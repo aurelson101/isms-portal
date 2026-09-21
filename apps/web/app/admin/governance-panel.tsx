@@ -158,6 +158,20 @@ const statusLabels: Record<string, [string, string]> = {
 const statusLabel = (locale: Locale, value: string) =>
   statusLabels[value]?.[locale === "fr" ? 0 : 1] || value;
 
+const governancePageItems = (current: number, total: number): Array<number | "ellipsis"> => {
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
+  const pages = new Set([1, total, current - 1, current, current + 1]);
+  return [...pages].filter((item) => item >= 1 && item <= total).sort((left, right) => left - right)
+    .flatMap((item, index, values) => index && item - values[index - 1] > 1 ? ["ellipsis" as const, item] : [item]);
+};
+
+function GovernancePagination({ locale, page, total, onChange }: { locale: Locale; page: number; total: number; onChange: (page: number) => void }) {
+  if (total <= 1) return null;
+  return <nav className="governance-pagination" aria-label={locale === "fr" ? "Pages de résultats" : "Result pages"}>
+    {governancePageItems(page, total).map((item, index) => item === "ellipsis" ? <span key={`ellipsis-${index}`} aria-hidden="true">…</span> : <button key={item} type="button" className={item === page ? "active" : ""} aria-current={item === page ? "page" : undefined} onClick={() => onChange(item)}>{item}</button>)}
+  </nav>;
+}
+
 const sectionsForErrors = (locale: Locale) =>
   locale === "fr"
     ? [
@@ -810,6 +824,7 @@ function ReviewsSection({
     status: "APPROVED" | "REJECTED";
     comment: string;
   } | null>(null);
+  const [reviewPage, setReviewPage] = useState(1);
   const create = async (event: FormEvent) => {
     event.preventDefault();
     await submit("/api/admin/governance/reviews", {
@@ -889,7 +904,7 @@ function ReviewsSection({
       </form>
       <div className="governance-list">
         <h2>{t("Revues en cours", "Current reviews")}</h2>
-        {reviews.map((review) => (
+        {reviews.slice((reviewPage - 1) * 15, reviewPage * 15).map((review) => (
           <article className="governance-card" key={review.id}>
             <strong>{titleFor(review.document, locale)}</strong>
             <span className={`status ${review.status.toLowerCase()}`}>
@@ -971,6 +986,7 @@ function ReviewsSection({
             )}
           </article>
         ))}
+        <GovernancePagination locale={locale} page={reviewPage} total={Math.ceil(reviews.length / 15)} onChange={setReviewPage} />
       </div>
       {decision && (
         <div className="confirmation-backdrop" role="presentation">
@@ -1234,6 +1250,7 @@ function AccessSection({
   ) => Promise<void>;
 }) {
   const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const [accessPage, setAccessPage] = useState(1);
   return (
     <div className="governance-list">
       <div className="notice">
@@ -1242,7 +1259,7 @@ function AccessSection({
           "Lifetime means permanent: no expiry date or automatic recertification deadline. Manual confirmation remains audited.",
         )}
       </div>
-      {rules.map((rule) => (
+      {rules.slice((accessPage - 1) * 15, accessPage * 15).map((rule) => (
         <article className="governance-card" key={rule.id}>
           <strong>{rule.group.name}</strong>
           <p>{locale === "fr" ? rule.space.nameFr : rule.space.nameEn}</p>
@@ -1298,6 +1315,7 @@ function AccessSection({
           </div>
         </article>
       ))}
+      <GovernancePagination locale={locale} page={accessPage} total={Math.ceil(rules.length / 15)} onChange={setAccessPage} />
     </div>
   );
 }
@@ -1328,6 +1346,7 @@ function ControlsSection({
     justification: "",
     evidenceDocumentId: "",
   });
+  const [controlPage, setControlPage] = useState(1);
   const create = async (event: FormEvent) => {
     event.preventDefault();
     await submit("/api/admin/governance/controls", draft);
@@ -1427,7 +1446,7 @@ function ControlsSection({
         <h2>
           {t("Déclaration d’applicabilité", "Statement of applicability")}
         </h2>
-        {controls.map((control) => (
+        {controls.slice((controlPage - 1) * 15, controlPage * 15).map((control) => (
           <article className="governance-card" key={control.id}>
             <strong>
               {control.framework} {control.reference}
@@ -1440,6 +1459,7 @@ function ControlsSection({
             <small>{control.owner}</small>
           </article>
         ))}
+        <GovernancePagination locale={locale} page={controlPage} total={Math.ceil(controls.length / 15)} onChange={setControlPage} />
       </div>
     </div>
   );
@@ -1467,6 +1487,7 @@ function RetentionSection({
     legalHold: false,
     reason: "",
   });
+  const [retentionPage, setRetentionPage] = useState(1);
   const save = async (event: FormEvent) => {
     event.preventDefault();
     await submit(
@@ -1535,7 +1556,7 @@ function RetentionSection({
         <button className="primary">{t("Enregistrer", "Save")}</button>
       </form>
       <div className="governance-list">
-        {policies.map((policy) => (
+        {policies.slice((retentionPage - 1) * 15, retentionPage * 15).map((policy) => (
           <article className="governance-card" key={policy.id}>
             <strong>{titleFor(policy.document, locale)}</strong>
             <span
@@ -1611,6 +1632,7 @@ function RetentionSection({
             )}
           </article>
         ))}
+        <GovernancePagination locale={locale} page={retentionPage} total={Math.ceil(policies.length / 15)} onChange={setRetentionPage} />
       </div>
     </div>
   );
@@ -1790,6 +1812,7 @@ function IncidentsSection({
     lessonsLearned: "",
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [incidentPage, setIncidentPage] = useState(1);
   const create = async (event: FormEvent) => {
     event.preventDefault();
     await submit(
@@ -1922,7 +1945,7 @@ function IncidentsSection({
         </div>
       </form>
       <div className="governance-list">
-        {incidents.map((incident) => (
+        {incidents.slice((incidentPage - 1) * 15, incidentPage * 15).map((incident) => (
           <article className="governance-card" key={incident.id}>
             <label className="bulk-select">
               <input
@@ -2008,6 +2031,7 @@ function IncidentsSection({
             </button>
           </article>
         ))}
+        <GovernancePagination locale={locale} page={incidentPage} total={Math.ceil(incidents.length / 15)} onChange={setIncidentPage} />
       </div>
     </div>
   );
