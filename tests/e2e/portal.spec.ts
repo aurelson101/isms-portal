@@ -490,7 +490,7 @@ test("slash focuses the document search without affecting form fields", async ({
   await expect(search).toHaveValue("VPN/Access");
 });
 
-test("document explorer paginates ten documents with next and previous controls", async ({
+test("document explorer paginates fifteen documents with numbered controls", async ({
   page,
   request,
 }) => {
@@ -498,7 +498,7 @@ test("document explorer paginates ten documents with next and previous controls"
     await request.get("/api/documents")
   ).json()) as Array<Record<string, unknown>>;
   expect(sourceDocuments.length).toBeGreaterThan(0);
-  const documents = Array.from({ length: 11 }, (_, index) => ({
+  const documents = Array.from({ length: 16 }, (_, index) => ({
     ...sourceDocuments[0],
     id: `pagination-document-${index + 1}`,
     translations: [
@@ -516,13 +516,13 @@ test("document explorer paginates ten documents with next and previous controls"
       return;
     }
     const currentPage = Number(url.searchParams.get("page")) || 1;
-    const start = (currentPage - 1) * 10;
+    const start = (currentPage - 1) * 15;
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
-        items: documents.slice(start, start + 10),
+        items: documents.slice(start, start + 15),
         page: currentPage,
-        limit: 10,
+        limit: 15,
         total: documents.length,
         totalPages: 2,
       }),
@@ -530,16 +530,46 @@ test("document explorer paginates ten documents with next and previous controls"
   });
 
   await page.goto("/explorer?space=general");
-  await expect(page.locator(".documents > *")).toHaveCount(10);
+  await expect(page.locator(".documents > *")).toHaveCount(15);
+  await page.locator(".document-pagination").getByRole("button", { name: "2", exact: true }).click();
+  await expect(page).toHaveURL(/page=2/);
+  await expect(page.getByText("Document pagination 16")).toBeVisible();
+  await expect(page.locator(".documents > *")).toHaveCount(1);
+  await page.locator(".document-pagination").getByRole("button", { name: "1", exact: true }).click();
+  await expect(page).not.toHaveURL(/page=2/);
   await page.getByRole("button", { name: /Suivant/ }).click();
   await expect(page).toHaveURL(/page=2/);
-  await expect(page.getByText("Document pagination 11")).toBeVisible();
+  await expect(page.getByText("Document pagination 16")).toBeVisible();
   await expect(page.locator(".documents > *")).toHaveCount(1);
   await page.getByRole("button", { name: /Précédent/ }).click();
   await expect(page).not.toHaveURL(/page=2/);
   await expect(
     page.getByRole("button", { name: "Document pagination 1", exact: true }),
   ).toBeVisible();
+});
+
+test("menu subcategories paginate after fifteen items", async ({ page, request }) => {
+  const identity = (await (await request.get("/api/me?refresh=1")).json()) as {
+    spaces: Array<{ id: string; slug: string; nameFr: string; nameEn: string; categories: unknown[] }>;
+  };
+  const firstSpace = identity.spaces[0];
+  expect(firstSpace).toBeTruthy();
+  firstSpace.categories = Array.from({ length: 16 }, (_, index) => ({
+    id: `pagination-category-${index + 1}`,
+    slug: `pagination-category-${index + 1}`,
+    nameFr: `Catégorie pagination ${index + 1}`,
+    nameEn: `Pagination category ${index + 1}`,
+    spaceId: firstSpace.id,
+    parentId: null,
+  }));
+  await page.route("**/api/me?refresh=1", async (route) => route.fulfill({ json: identity }));
+  await page.goto("/explorer");
+  await page.locator("aside .space-menu[aria-controls]").first().click();
+  await expect(page.getByText("Catégorie pagination 15", { exact: true })).toBeVisible();
+  await expect(page.getByText("Catégorie pagination 16", { exact: true })).toHaveCount(0);
+  const pagination = page.locator("aside .category-pagination").first();
+  await pagination.getByRole("button", { name: "2", exact: true }).click();
+  await expect(page.getByText("Catégorie pagination 16", { exact: true })).toBeVisible();
 });
 
 test("administration uses live APIs and every menu opens a section", async ({
