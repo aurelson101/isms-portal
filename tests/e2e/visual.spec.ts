@@ -91,4 +91,18 @@ for (const viewport of viewports) {
       maxDiffPixelRatio: 0.01,
     });
   });
+
+  test(`administration documents visual regression - ${viewport.name}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.addInitScript(() => localStorage.setItem("isms-locale", "fr"));
+    await page.goto("/admin#documents");
+    await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
+    await expect(page).toHaveScreenshot(`admin-documents-${viewport.name}.png`, {
+      animations: "disabled",
+      fullPage: true,
+      maxDiffPixelRatio: 0.01,
+    });
+  });
 }
