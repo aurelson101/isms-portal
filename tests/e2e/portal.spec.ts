@@ -961,9 +961,17 @@ test("successful asynchronous forms reset without losing their element", async (
     await expect(uploadForm.locator('input[name="title"]')).toHaveValue("");
     await expect(uploadForm.locator('input[name="file"]')).toHaveValue("");
 
-    await page
+    const configurationGroup = page
       .locator(".admin-navigation-heading")
-      .filter({ hasText: "Configuration" })
+      .filter({ hasText: "Configuration" });
+    if ((await configurationGroup.getAttribute("aria-expanded")) !== "true")
+      await configurationGroup.click();
+    const configurationGroupId = await configurationGroup.getAttribute(
+      "aria-controls",
+    );
+    await page
+      .locator(`#${configurationGroupId}`)
+      .getByRole("button", { name: "Configuration" })
       .click();
     const accountForm = page.locator("form").filter({
       has: page.getByRole("heading", {
