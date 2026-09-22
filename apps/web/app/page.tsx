@@ -3392,7 +3392,7 @@ export function Portal({
                 >
                   ×
                 </button>
-                {opened.permissions.download && (
+                {opened.permissions.preview && (
                   <a
                     href={openedContentUrl}
                     target="_blank"
