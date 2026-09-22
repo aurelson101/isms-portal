@@ -73,4 +73,22 @@ for (const viewport of viewports) {
       maxDiffPixelRatio: 0.01,
     });
   });
+
+  test(`personal workspace visual regression - ${viewport.name}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.addInitScript(() => localStorage.setItem("isms-locale", "fr"));
+    await page.goto("/explorer");
+    await page.locator(".account-button").click();
+    await page.getByRole("button", { name: "Mon espace personnel" }).click();
+    const workspace = page.getByRole("dialog", {
+      name: "Mon espace personnel",
+    });
+    await expect(workspace).toBeVisible();
+    await expect(workspace).toHaveScreenshot(`workspace-${viewport.name}.png`, {
+      animations: "disabled",
+      maxDiffPixelRatio: 0.01,
+    });
+  });
 }
