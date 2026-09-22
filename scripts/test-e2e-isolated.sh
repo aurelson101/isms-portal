@@ -3,6 +3,7 @@ set -eu
 
 project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 project_name=isms-portal-e2e
+node_modules_volume=${project_name}_node_modules
 compose_args="-p $project_name -f $project_root/docker-compose.yml -f $project_root/deploy/compose/verify.yml --env-file $project_root/.env"
 
 cleanup() {
@@ -14,6 +15,7 @@ cleanup() {
     docker compose $compose_args logs --no-color >&2 || true
   fi
   docker compose $compose_args down --volumes --remove-orphans >/dev/null 2>&1 || true
+  docker volume rm "$node_modules_volume" >/dev/null 2>&1 || true
   exit "$exit_status"
 }
 trap cleanup EXIT INT TERM
@@ -23,7 +25,10 @@ if [ ! -f "$project_root/.env" ]; then
   exit 1
 fi
 
-docker compose $compose_args up -d --build --wait
+# Browser tests exercise the portal through the API. The background worker is
+# intentionally excluded so this disposable stack remains viable beside a
+# production deployment on a small host.
+docker compose $compose_args up -d --build --wait reverse-proxy
 docker compose $compose_args exec -T api node prisma/seed.js
 
 docker run --rm \
@@ -31,6 +36,7 @@ docker run --rm \
   --env-file "$project_root/.env" \
   -e PLAYWRIGHT_BASE_URL=http://127.0.0.1:18080 \
   -v "$project_root:/workspace" \
+  -v "$node_modules_volume:/workspace/node_modules" \
   -w /workspace \
   mcr.microsoft.com/playwright:v1.55.1-noble \
-  npm run test:e2e -- ${PLAYWRIGHT_ARGS:-}
+  sh -c "npm ci --include=dev && npm run test:e2e -- ${PLAYWRIGHT_ARGS:-}"

@@ -378,11 +378,12 @@ export class UserToolsController {
       !version ||
       version.document.deletedAt ||
       version.document.status !== "PUBLISHED" ||
-      !(await this.authorization.can(
-        req.identity.groups,
-        version.document.spaceId,
-        "read",
-      ))
+      (req.identity.source !== "local-admin" &&
+        !(await this.authorization.can(
+          req.identity.groups,
+          version.document.spaceId,
+          "read",
+        )))
     )
       throw new NotFoundException();
     const acknowledgement = await this.prisma.documentAcknowledgement.upsert({

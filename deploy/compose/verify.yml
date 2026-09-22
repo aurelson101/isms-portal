@@ -1,4 +1,9 @@
 services:
+  api:
+    environment:
+      # The disposable Playwright stack is served over local HTTP on port 18080.
+      COOKIE_SECURE: "false"
+
   reverse-proxy:
     ports: !override
       - "18080:8080"

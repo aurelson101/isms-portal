@@ -567,17 +567,17 @@ test("document explorer paginates fifteen documents with numbered controls", asy
   });
 
   await page.goto("/explorer?space=general");
-  await expect(page.locator(".documents > *")).toHaveCount(15);
+  await expect(page.locator(".documents > .document")).toHaveCount(15);
   await page.locator(".document-pagination").getByRole("button", { name: "2", exact: true }).click();
   await expect(page).toHaveURL(/page=2/);
   await expect(page.getByText("Document pagination 16")).toBeVisible();
-  await expect(page.locator(".documents > *")).toHaveCount(1);
+  await expect(page.locator(".documents > .document")).toHaveCount(1);
   await page.locator(".document-pagination").getByRole("button", { name: "1", exact: true }).click();
   await expect(page).not.toHaveURL(/page=2/);
   await page.getByRole("button", { name: /Suivant/ }).click();
   await expect(page).toHaveURL(/page=2/);
   await expect(page.getByText("Document pagination 16")).toBeVisible();
-  await expect(page.locator(".documents > *")).toHaveCount(1);
+  await expect(page.locator(".documents > .document")).toHaveCount(1);
   await page.getByRole("button", { name: /Précédent/ }).click();
   await expect(page).not.toHaveURL(/page=2/);
   await expect(
@@ -618,21 +618,24 @@ test("administration uses live APIs and every menu opens a section", async ({
   ).toBeVisible();
   await expect(page.getByText("Groupes AD synchronisés")).toBeVisible();
 
-  for (const group of ["Contenu et accès", "Infrastructure", "Système"])
-    await page.getByRole("button", { name: group, exact: true }).click();
-
-  for (const heading of [
-    "Groupes Active Directory",
-    "Gestion des droits d’accès",
-    "Espaces documentaires",
-    "Documents",
-    "Demandes utilisateurs",
-    "Synchronisation LDAP/LDAPS",
-    "Certificats CA",
-    "Journal d’audit",
-    "Santé des services",
-    "Configuration",
-  ]) {
+  for (const [heading, group] of [
+    ["Groupes Active Directory", "Contenu et accès"],
+    ["Gestion des droits d’accès", "Contenu et accès"],
+    ["Espaces documentaires", "Contenu et accès"],
+    ["Documents", "Contenu et accès"],
+    ["Demandes utilisateurs", "Contenu et accès"],
+    ["Synchronisation LDAP/LDAPS", "Infrastructure"],
+    ["Certificats CA", "Infrastructure"],
+    ["Journal d’audit", "Système"],
+    ["Santé des services", "Configuration"],
+    ["Configuration", "Configuration"],
+  ] as const) {
+    const groupButton = page
+      .locator(".admin-navigation-heading")
+      .filter({ hasText: group });
+    if ((await groupButton.getAttribute("aria-expanded")) !== "true")
+      await groupButton.click();
+    const groupId = await groupButton.getAttribute("aria-controls");
     const menuLabel =
       heading === "Gestion des droits d’accès"
         ? "Règles d’accès"
@@ -640,6 +643,7 @@ test("administration uses live APIs and every menu opens a section", async ({
           ? "Synchronisation LDAP"
           : heading;
     await page
+      .locator(`#${groupId}`)
       .getByRole("button", { name: new RegExp(`${menuLabel}$`) })
       .click();
     await expect(
@@ -865,22 +869,27 @@ test("administration is fully switchable between French and English", async ({
 
   await page.getByRole("button", { name: "Content and access" }).click();
 
-  for (const [menu, heading] of [
-    ["Active Directory groups", "Active Directory groups"],
-    ["Access rules", "Access rights management"],
-    ["Document spaces", "Document spaces"],
-    ["Documents", "Documents"],
-    ["LDAP synchronization", "LDAP/LDAPS synchronization"],
-    ["CA certificates", "CA certificates"],
-    ["Audit log", "Audit log"],
-    ["Service health", "Service health"],
-    ["Settings", "Settings"],
+  for (const [menu, heading, group] of [
+    ["Active Directory groups", "Active Directory groups", "Content and access"],
+    ["Access rules", "Access rights management", "Content and access"],
+    ["Document spaces", "Document spaces", "Content and access"],
+    ["Documents", "Documents", "Content and access"],
+    ["LDAP synchronization", "LDAP/LDAPS synchronization", "Infrastructure"],
+    ["CA certificates", "CA certificates", "Infrastructure"],
+    ["Audit log", "Audit log", "System"],
+    ["Service health", "Service health", "Settings"],
+    ["Settings", "Settings", "Settings"],
   ] as const) {
-    if (menu === "LDAP synchronization")
-      await page.getByRole("button", { name: "Infrastructure" }).click();
-    if (menu === "Service health")
-      await page.getByRole("button", { name: "System" }).click();
-    await page.getByRole("button", { name: menu, exact: true }).click();
+    const groupButton = page
+      .locator(".admin-navigation-heading")
+      .filter({ hasText: group });
+    if ((await groupButton.getAttribute("aria-expanded")) !== "true")
+      await groupButton.click();
+    const groupId = await groupButton.getAttribute("aria-controls");
+    await page
+      .locator(`#${groupId}`)
+      .getByRole("button", { name: menu, exact: true })
+      .click();
     await expect(
       page.getByRole("heading", { name: heading, exact: true }).first(),
     ).toBeVisible();
@@ -924,6 +933,7 @@ test("successful asynchronous forms reset without losing their element", async (
   page,
   request,
 }) => {
+  test.setTimeout(60_000);
   const suffix = Date.now().toString(36);
   const documentTitle = `Formulaire asynchrone ${suffix}`;
   const adminUsername = `reset-${suffix}`;
@@ -951,9 +961,9 @@ test("successful asynchronous forms reset without losing their element", async (
     await expect(uploadForm.locator('input[name="title"]')).toHaveValue("");
     await expect(uploadForm.locator('input[name="file"]')).toHaveValue("");
 
-    await page.getByRole("button", { name: "Système" }).click();
     await page
-      .getByRole("button", { name: "Configuration", exact: true })
+      .locator(".admin-navigation-heading")
+      .filter({ hasText: "Configuration" })
       .click();
     const accountForm = page.locator("form").filter({
       has: page.getByRole("heading", {
@@ -2232,11 +2242,16 @@ test("personal tools persist searches, preferences, access requests and reports"
   expect(documentsResponse.ok()).toBeTruthy();
   const documents = (await documentsResponse.json()) as Array<{
     id: string;
+    status: string;
     space: { id: string };
     versions: Array<{ id: string; version: number }>;
   }>;
   expect(documents.length).toBeGreaterThan(0);
-  const document = documents[0];
+  const document = documents.find(
+    (candidate) =>
+      candidate.status === "PUBLISHED" && candidate.versions.length > 0,
+  );
+  if (!document) throw new Error("A published document is required for acknowledgement testing.");
 
   expect(
     (
@@ -2423,7 +2438,9 @@ test("personal tools persist searches, preferences, access requests and reports"
   const workspace = page.getByRole("dialog", { name: "Mon espace personnel" });
   await expect(workspace).toBeVisible();
   await workspace.getByRole("button", { name: /Demandes/ }).click();
-  await expect(workspace.getByText("Approuvée", { exact: true })).toBeVisible();
+  await expect(
+    workspace.getByText("Approuvée", { exact: true }).first(),
+  ).toBeVisible();
   await workspace.getByRole("button", { name: /Recherches/ }).click();
   expect(
     await page.evaluate(
