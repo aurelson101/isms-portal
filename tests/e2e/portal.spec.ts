@@ -335,8 +335,45 @@ test("download actions stay hidden when the ACL denies download", async ({
     0,
   );
   await expect(dialog.locator("iframe")).toHaveAttribute("src", /#toolbar=0&/);
-  await expect(dialog.locator('a[target="_blank"]')).toHaveCount(0);
+  const openInNewTab = dialog.getByRole("link", {
+    name: "Ouvrir dans un nouvel onglet",
+  });
+  await expect(openInNewTab).toHaveAttribute("target", "_blank");
+  await expect(openInNewTab).toHaveAttribute("href", /\/content\?locale=fr$/);
   await expect(dialog.getByText("Lecture seule")).toBeVisible();
+});
+
+test("account menu remains fully visible at every supported viewport", async ({
+  page,
+}) => {
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 768, height: 1024 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/explorer");
+    await page.locator(".account-button").click();
+    const menu = page.locator(".account-menu");
+    await expect(menu).toBeVisible();
+    expect(
+      await menu.evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        return (
+          bounds.left >= 0 &&
+          bounds.right <= window.innerWidth &&
+          bounds.top >= 0 &&
+          bounds.bottom <= window.innerHeight
+        );
+      }),
+    ).toBeTruthy();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBeTruthy();
+    await page.locator(".account-button").click();
+  }
 });
 
 test("category explorer supports window and list views with an expandable reader", async ({

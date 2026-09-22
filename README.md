@@ -477,6 +477,8 @@ backup_target="backups/$(date +%Y%m%d-%H%M%S)"
 git fetch origin
 git pull --ff-only origin main
 docker compose config --quiet
+# Recette UI isolee: lecteurs, menus, espace personnel, administration et gouvernance.
+./scripts/test-e2e-isolated.sh
 docker compose up -d --build --wait
 docker compose exec -T api node node_modules/prisma/build/index.js \
   migrate deploy --schema prisma/schema.prisma
