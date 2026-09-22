@@ -438,8 +438,10 @@ textarea:focus-visible {
   box-shadow: 0 10px 30px #122a4a2b;
   padding: 16px;
   display: grid;
-  z-index: 10;
+  z-index: 130;
   min-width: 230px;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
 }
 .account-menu small {
   color: #66758f;
