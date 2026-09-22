@@ -85,6 +85,22 @@ const localizedStatus = (locale: Locale, value: string) => {
   const label = labels[value.toUpperCase()];
   return label ? label[locale === "fr" ? 0 : 1] : value;
 };
+const paginationItems = (
+  current: number,
+  total: number,
+): Array<number | "ellipsis"> => {
+  if (total <= 7)
+    return Array.from({ length: total }, (_, index) => index + 1);
+  const pages = new Set([1, total, current - 1, current, current + 1]);
+  return [...pages]
+    .filter((item) => item >= 1 && item <= total)
+    .sort((left, right) => left - right)
+    .flatMap((item, index, values) =>
+      index && item - values[index - 1] > 1
+        ? (["ellipsis" as const, item] as const)
+        : ([item] as const),
+    );
+};
 
 type Tab =
   | "dashboard"
@@ -2945,6 +2961,19 @@ function DocumentsPanel({
   const [watermarkPosition, setWatermarkPosition] = useState<
     "HEADER" | "CENTER" | "FOOTER"
   >("CENTER");
+  const [documentPage, setDocumentPage] = useState(1);
+  const documentPageSize = 20;
+  const documentPageCount = Math.max(
+    1,
+    Math.ceil(documents.length / documentPageSize),
+  );
+  const pageDocuments = documents.slice(
+    (documentPage - 1) * documentPageSize,
+    documentPage * documentPageSize,
+  );
+  useEffect(() => {
+    setDocumentPage((page) => Math.min(page, documentPageCount));
+  }, [documentPageCount]);
   const selectedSpace = spaces.find((space) => space.id === spaceId);
   return (
     <>
@@ -3102,7 +3131,7 @@ function DocumentsPanel({
                 </td>
               </tr>
             )}
-            {documents.map((document) => (
+            {pageDocuments.map((document) => (
               <tr key={document.id}>
                 <td>
                   {document.translations.map((item) => item.title).join(" / ")}
@@ -3243,6 +3272,50 @@ function DocumentsPanel({
           </tbody>
         </table>
       </div>
+      {documentPageCount > 1 && (
+        <nav
+          className="document-pagination"
+          aria-label={t("Pagination des documents", "Document pagination")}
+        >
+          <button
+            type="button"
+            disabled={documentPage <= 1}
+            onClick={() => setDocumentPage((page) => page - 1)}
+          >
+            ← {t("Précédent", "Previous")}
+          </button>
+          <div
+            className="page-numbers"
+            aria-label={`${t("Page")} ${documentPage} ${t("sur", "of")} ${documentPageCount}`}
+          >
+            {paginationItems(documentPage, documentPageCount).map(
+              (item, index) =>
+                item === "ellipsis" ? (
+                  <span key={`ellipsis-${index}`} aria-hidden="true">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    className="page-number"
+                    aria-current={item === documentPage ? "page" : undefined}
+                    onClick={() => setDocumentPage(item)}
+                  >
+                    {item}
+                  </button>
+                ),
+            )}
+          </div>
+          <button
+            type="button"
+            disabled={documentPage >= documentPageCount}
+            onClick={() => setDocumentPage((page) => page + 1)}
+          >
+            {t("Suivant", "Next")} →
+          </button>
+        </nav>
+      )}
     </>
   );
 }
