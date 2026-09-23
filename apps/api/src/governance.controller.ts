@@ -491,7 +491,7 @@ export class GovernanceController {
       annualReviewDueAt.setFullYear(annualReviewDueAt.getFullYear() + 1);
       await this.prisma.documentVersion.update({
         where: { id: review.versionId },
-        data: { annualReviewDueAt, annualReviewNotifiedAt: null },
+        data: { annualReviewDueAt, annualReviewNotifiedAt: null, annualReviewReminderAt: null, annualReviewOverdueAt: null },
       });
     }
     if (closed)

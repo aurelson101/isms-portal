@@ -1273,12 +1273,13 @@ export class DocumentsController {
   async removeByModerator(@Req() req: IsmsRequest, @Param("id") id: string) {
     const document = await this.prisma.document.findFirst({ where: { id, deletedAt: null }, select: { id: true, spaceId: true } });
     if (!document || !(await this.authorization.can(req.identity.groups, document.spaceId, "archive"))) throw new NotFoundException();
-    const reviewIds = await this.prisma.documentReview.findMany({ where: { documentId: id }, select: { id: true } });
+    const reviewIds = await this.prisma.documentReview.findMany({ where: { documentId: id }, select: { id: true, evidenceObjectKey: true } });
     await this.prisma.$transaction([
       this.prisma.userNotification.deleteMany({ where: { resourceType: "document-review", resourceId: { in: reviewIds.map((review) => review.id) } } }),
       this.prisma.documentReview.deleteMany({ where: { documentId: id } }),
       this.prisma.document.update({ where: { id }, data: { deletedAt: new Date(), status: "ARCHIVED" } }),
     ]);
+    await Promise.allSettled(reviewIds.flatMap((review) => review.evidenceObjectKey ? [this.storage.removeObject(review.evidenceObjectKey)] : []));
     await this.audit.record(req, "document.delete", `document:${id}`, "success");
     return { deleted: true };
   }
@@ -2986,7 +2987,7 @@ export class DocumentAdminController {
             },
           },
         },
-        reviews: { select: { id: true } },
+        reviews: { select: { id: true, evidenceObjectKey: true } },
       },
     });
     if (!document) throw new NotFoundException();
@@ -3021,9 +3022,10 @@ export class DocumentAdminController {
         },
       }),
     ]);
-    const cleanupResults = await Promise.allSettled(
-      storedFiles.map((file) => this.storage.removeObject(file.objectKey)),
-    );
+    const cleanupResults = await Promise.allSettled([
+      ...storedFiles.map((file) => this.storage.removeObject(file.objectKey)),
+      ...document.reviews.flatMap((review) => review.evidenceObjectKey ? [this.storage.removeObject(review.evidenceObjectKey)] : []),
+    ]);
     const storageCleanupFailures = cleanupResults.filter(
       (result) => result.status === "rejected",
     ).length;
