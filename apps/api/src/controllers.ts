@@ -1273,7 +1273,12 @@ export class DocumentsController {
   async removeByModerator(@Req() req: IsmsRequest, @Param("id") id: string) {
     const document = await this.prisma.document.findFirst({ where: { id, deletedAt: null }, select: { id: true, spaceId: true } });
     if (!document || !(await this.authorization.can(req.identity.groups, document.spaceId, "archive"))) throw new NotFoundException();
-    await this.prisma.document.update({ where: { id }, data: { deletedAt: new Date(), status: "ARCHIVED" } });
+    const reviewIds = await this.prisma.documentReview.findMany({ where: { documentId: id }, select: { id: true } });
+    await this.prisma.$transaction([
+      this.prisma.userNotification.deleteMany({ where: { resourceType: "document-review", resourceId: { in: reviewIds.map((review) => review.id) } } }),
+      this.prisma.documentReview.deleteMany({ where: { documentId: id } }),
+      this.prisma.document.update({ where: { id }, data: { deletedAt: new Date(), status: "ARCHIVED" } }),
+    ]);
     await this.audit.record(req, "document.delete", `document:${id}`, "success");
     return { deleted: true };
   }
@@ -2718,7 +2723,7 @@ export class DocumentAdminController {
       where,
       include: {
         translations: true,
-        versions: {
+      versions: {
           select: { id: true, locale: true, version: true, createdAt: true },
         },
         category: true,
@@ -2981,6 +2986,7 @@ export class DocumentAdminController {
             },
           },
         },
+        reviews: { select: { id: true } },
       },
     });
     if (!document) throw new NotFoundException();
@@ -2997,6 +3003,7 @@ export class DocumentAdminController {
     );
     const storedFileIds = storedFiles.map((file) => file.id);
     await this.prisma.$transaction([
+      this.prisma.userNotification.deleteMany({ where: { resourceType: "document-review", resourceId: { in: document.reviews.map((review) => review.id) } } }),
       this.prisma.applicationSetting.deleteMany({
         where: { key: `document-annual-review:${id}` },
       }),
