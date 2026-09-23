@@ -54,6 +54,7 @@ document volume as a single backup and restore unit.
 | --- | --- |
 | Installation and host prerequisites | [installation.md](installation.md), [docker.md](docker.md) |
 | Architecture and service boundaries | [architecture.md](architecture.md) |
+| Azure architecture and risk analysis | [risk-analysis-azure.md](risk-analysis-azure.md) |
 | Active Directory and LDAPS | [active-directory.md](active-directory.md), [ldaps-certificates.md](ldaps-certificates.md) |
 | Entra ID / SSO | [sso.md](sso.md) |
 | Access model and ACLs | [permissions.md](permissions.md) |
