@@ -54,6 +54,7 @@ document volume as a single backup and restore unit.
 | --- | --- |
 | Installation and host prerequisites | [installation.md](installation.md), [docker.md](docker.md) |
 | Architecture and service boundaries | [architecture.md](architecture.md) |
+| Complete ISMS Portal application description | [application-description.md](application-description.md) |
 | Azure architecture and risk analysis | [risk-analysis-azure.md](risk-analysis-azure.md) |
 | Reusable architecture risk-analysis template | [templates/architecture-risk-analysis-template.md](templates/architecture-risk-analysis-template.md) |
 | Active Directory and LDAPS | [active-directory.md](active-directory.md), [ldaps-certificates.md](ldaps-certificates.md) |
