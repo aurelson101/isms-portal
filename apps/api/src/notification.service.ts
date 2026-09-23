@@ -10,7 +10,7 @@ export const notificationLabels: Record<string, string> = {
   "document.publish": "Document published", "document.published": "Document published",
   "document.upload": "Document awaiting publication", "document.version.upload": "New version awaiting publication",
   "document.metadata.update": "Document updated", "document.delete": "Document deleted",
-  "document.version.overdue": "Document version overdue", "document.review.annual": "Annual document review due",
+  "document.version.overdue": "Document version overdue", "document.review.annual": "Annual document review due", "document.review.reminder": "Annual document review reminder", "document.review.overdue": "Annual document review overdue",
   "document-report.create": "Document issue reported", "document-report.resolve": "Document report resolved",
   "security-report.create": "Security report submitted", "security-report.resolve": "Security report resolved",
   "access-request.create": "Access request submitted", "access-request.review": "Access request decision",
@@ -161,7 +161,7 @@ export class NotificationService {
       }
       if (action !== "document.delete" && (doc.deletedAt || doc.space.deletedAt)) return null;
       const published = ["document.publish", "document.published"].includes(action);
-      const annualReview = action === "document.review.annual";
+      const annualReview = ["document.review.reminder", "document.review.annual", "document.review.overdue"].includes(action);
       if (published && doc.status !== "PUBLISHED") return null;
       if (resource.startsWith("document:")) {
         const permission = action === "document.delete" ? "archive" : "publish";
@@ -197,7 +197,9 @@ export class NotificationService {
         const description = translation?.description?.trim() || "No description was provided for this document.";
         const version = doc.versions[0]?.version || "-";
         const metadata = [`Recorded at: ${event.at}`, `Action by: ${actor}`, `Reference: ${id}`];
-        return { recipients: [...new Set(recipients)], subject: `[ISMS ExampleOrg Portal] ${title} annual review due`, text: `This document requires its annual review. Please review its current content and publish a new version when changes are required.\n\nDocument description:\n${description}\n\nLocation: ${doc.space.nameEn || doc.space.nameFr} / ${category}\nVersion: ${version}\n---\n${metadata.join("\n")}`, link: portalLink(`/documents/${encodeURIComponent(doc.slug)}`) };
+        const state = action === "document.review.reminder" ? "will be due in 30 days" : action === "document.review.overdue" ? "is overdue" : "is due now";
+        const instruction = action === "document.review.reminder" ? "Please plan the review with the assigned participants." : "Please review the current content and record one moderator or administrator decision in ISMS ExampleOrg Portal.";
+        return { recipients: [...new Set(recipients)], subject: `[ISMS ExampleOrg Portal] ${title} annual review ${state}`, text: `This document's annual review ${state}. ${instruction}\n\nDocument description:\n${description}\n\nLocation: ${doc.space.nameEn || doc.space.nameFr} / ${category}\nVersion: ${version}\n---\n${metadata.join("\n")}`, link: portalLink("/approvals") };
       }
       lines.push(`Document: ${title}`, `Space: ${doc.space.nameEn || doc.space.nameFr}`, `Category: ${category}`, `Version: ${doc.versions[0]?.version || "-"}`, `Document status: ${doc.status}`);
       path = action === "document.delete" ? "/" : resource.startsWith("document-review:") ? "/approvals" : `/documents/${encodeURIComponent(doc.slug)}`;
@@ -217,8 +219,9 @@ export class NotificationService {
       accepted.add(address);
       await job.updateData({ ...job.data, accepted: [...accepted] });
     }
-    if (job.data.action === "document.review.annual" && job.data.documentVersionId) {
-      await this.prisma.documentVersion.updateMany({ where: { id: job.data.documentVersionId, annualReviewNotifiedAt: null }, data: { annualReviewNotifiedAt: new Date() } });
+    if (job.data.documentVersionId && ["document.review.reminder", "document.review.annual", "document.review.overdue"].includes(job.data.action)) {
+      const field = job.data.action === "document.review.reminder" ? "annualReviewReminderAt" : job.data.action === "document.review.overdue" ? "annualReviewOverdueAt" : "annualReviewNotifiedAt";
+      await this.prisma.documentVersion.updateMany({ where: { id: job.data.documentVersionId, [field]: null }, data: { [field]: new Date() } });
     }
     return { accepted: accepted.size, audience: message.recipients.length };
   }

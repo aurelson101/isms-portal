@@ -318,6 +318,8 @@ model DocumentVersion {
   createdAt               DateTime         @default(now())
   annualReviewDueAt       DateTime?
   annualReviewNotifiedAt  DateTime?
+  annualReviewReminderAt  DateTime?
+  annualReviewOverdueAt   DateTime?
   changeSummary           String?
   changeDetails           Json?
   reviews                 DocumentReview[]
@@ -327,6 +329,8 @@ model DocumentVersion {
   @@index([distributedStoredFileId])
   @@index([annualReviewNotifiedAt])
   @@index([annualReviewDueAt])
+  @@index([annualReviewReminderAt])
+  @@index([annualReviewOverdueAt])
 }
 
 model DocumentAcknowledgement {

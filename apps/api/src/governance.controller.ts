@@ -33,6 +33,7 @@ import {
   SensitiveApprovalDto,
 } from "./governance.dto";
 import { PrismaService } from "./prisma.service";
+import { NotificationService } from "./notification.service";
 import { AdminOnly, ApproverOnly } from "./security";
 import type { IsmsRequest } from "./types";
 
@@ -45,6 +46,7 @@ export class GovernanceController {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly sensitiveApprovalGate: SensitiveApprovalService,
+    private readonly notifications: NotificationService,
   ) {}
 
   private async refreshRiskExceptions() {
@@ -440,6 +442,7 @@ export class GovernanceController {
         dueAt: review.dueAt,
       },
     );
+    await this.notifications.enqueue({ action: "document-review.create", resource: `document-review:${review.id}`, actor: req.identity.username, at: new Date().toISOString() }, `document-review-create-${review.id}`);
     return review;
   }
 
@@ -504,6 +507,8 @@ export class GovernanceController {
         after: review.status,
       },
     );
+    if (closed)
+      await this.notifications.enqueue({ action: "document-review.decision", resource: `document-review:${id}`, actor: req.identity.username, at: new Date().toISOString() }, `document-review-decision-${id}`);
     return review;
   }
 

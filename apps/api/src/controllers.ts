@@ -964,6 +964,14 @@ export class DocumentsController {
         where: { documentId: id, annualReviewDueAt: null },
         data: { annualReviewDueAt },
       });
+      const versions = await this.prisma.documentVersion.findMany({
+        where: { documentId: id, annualReviewDueAt: { not: null }, reviews: { none: { automaticAnnual: true } } },
+        select: { id: true, annualReviewDueAt: true },
+      });
+      if (versions.length)
+        await this.prisma.documentReview.createMany({
+          data: versions.map((version) => ({ documentId: id, versionId: version.id, owner: "ISMS scheduler", reviewer: "ISMS moderators", approver: "ISMS administrators", dueAt: version.annualReviewDueAt!, automaticAnnual: true })),
+        });
     }
     await this.audit.record(
       req,
