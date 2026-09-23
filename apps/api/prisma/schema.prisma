@@ -316,6 +316,7 @@ model DocumentVersion {
   distributedStoredFileId String?
   distributedStoredFile   StoredFile?      @relation("DistributedDocumentVersion", fields: [distributedStoredFileId], references: [id])
   createdAt               DateTime         @default(now())
+  annualReviewDueAt       DateTime?
   annualReviewNotifiedAt  DateTime?
   changeSummary           String?
   changeDetails           Json?
@@ -325,6 +326,7 @@ model DocumentVersion {
   @@index([storedFileId])
   @@index([distributedStoredFileId])
   @@index([annualReviewNotifiedAt])
+  @@index([annualReviewDueAt])
 }
 
 model DocumentAcknowledgement {
@@ -472,12 +474,14 @@ model DocumentReview {
   decisionComment String?
   decidedBy       String?
   decidedAt       DateTime?
+  automaticAnnual Boolean          @default(false)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
   @@index([status, dueAt])
   @@index([documentId, createdAt])
   @@index([versionId])
+  @@index([automaticAnnual, status])
 }
 
 model ComplianceControl {

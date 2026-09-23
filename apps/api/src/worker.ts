@@ -107,9 +107,29 @@ async function schedule() {
   const expiredGrants = await prisma.temporaryAccessGrant.deleteMany({
     where: { validUntil: { lte: new Date(now) } },
   });
-  const annualReviewVersions = await prisma.documentVersion.findMany({ where: { annualReviewNotifiedAt: null, createdAt: { lte: new Date(now - 365 * 86400000) }, document: { deletedAt: null, status: "PUBLISHED" } }, select: { id: true, documentId: true }, orderBy: { createdAt: "asc" }, take: 100 });
+  const annualReviewVersions = await prisma.documentVersion.findMany({ where: { annualReviewNotifiedAt: null, annualReviewDueAt: { lte: new Date(now) }, document: { deletedAt: null, status: "PUBLISHED" } }, select: { id: true, documentId: true }, orderBy: { annualReviewDueAt: "asc" }, take: 100 });
   const overdueDocumentVersions = annualReviewVersions.length;
   for (const version of annualReviewVersions) {
+    const existingReview = await prisma.documentReview.findFirst({
+      where: {
+        versionId: version.id,
+        automaticAnnual: true,
+        status: { in: ["PENDING", "IN_REVIEW"] },
+      },
+      select: { id: true },
+    });
+    if (!existingReview)
+      await prisma.documentReview.create({
+        data: {
+          documentId: version.documentId,
+          versionId: version.id,
+          owner: "ISMS scheduler",
+          reviewer: "ISMS moderators",
+          approver: "ISMS administrators",
+          dueAt: new Date(now),
+          automaticAnnual: true,
+        },
+      });
     await notifications.enqueue({ action: "document.review.annual", resource: `document:${version.documentId}`, documentVersionId: version.id, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `annual-review-${version.documentId}-${version.id}-${new Date(now).toISOString().slice(0, 10)}`);
   }
   const connections = await prisma.directoryConnection.findMany({

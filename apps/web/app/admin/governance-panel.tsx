@@ -27,6 +27,7 @@ type Review = {
   decisionComment: string | null;
   decidedBy: string | null;
   decidedAt: string | null;
+  automaticAnnual: boolean;
   document: DocumentItem;
 };
 type Control = {
@@ -922,6 +923,11 @@ function ReviewsSection({
             <span className={`status ${review.status.toLowerCase()}`}>
               {statusLabel(locale, review.status)}
             </span>
+            {review.automaticAnnual && (
+              <small>
+                {t("Revue annuelle automatique", "Automatic annual review")}
+              </small>
+            )}
             <p>
               {review.owner} → {review.reviewer} → {review.approver}
             </p>

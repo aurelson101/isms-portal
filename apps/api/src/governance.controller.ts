@@ -468,6 +468,14 @@ export class GovernanceController {
     });
     if (changed.count !== 1) throw new ConflictException("Review is already closed");
     const review = await this.prisma.documentReview.findUniqueOrThrow({ where: { id } });
+    if (closed && review.automaticAnnual && review.versionId) {
+      const annualReviewDueAt = new Date();
+      annualReviewDueAt.setFullYear(annualReviewDueAt.getFullYear() + 1);
+      await this.prisma.documentVersion.update({
+        where: { id: review.versionId },
+        data: { annualReviewDueAt, annualReviewNotifiedAt: null },
+      });
+    }
     if (closed)
       await this.prisma.userNotification.createMany({
         data: [

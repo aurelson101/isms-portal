@@ -949,13 +949,22 @@ export class DocumentsController {
       status === "PUBLISHED"
         ? await this.watermark.prepareForPublication(document.id)
         : [];
+    const publishedAt = new Date();
     const updated = await this.prisma.document.update({
       where: { id },
       data: {
         status,
-        ...(status === "PUBLISHED" ? { publishedAt: new Date() } : {}),
+        ...(status === "PUBLISHED" ? { publishedAt } : {}),
       },
     });
+    if (status === "PUBLISHED") {
+      const annualReviewDueAt = new Date(publishedAt);
+      annualReviewDueAt.setFullYear(annualReviewDueAt.getFullYear() + 1);
+      await this.prisma.documentVersion.updateMany({
+        where: { documentId: id, annualReviewDueAt: null },
+        data: { annualReviewDueAt },
+      });
+    }
     await this.audit.record(
       req,
       `document.${status.toLowerCase()}`,
