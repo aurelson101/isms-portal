@@ -12,8 +12,15 @@ import {
   Put,
   Query,
   Req,
+  Res,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { Prisma } from "@prisma/client";
+import type { Response } from "express";
+import { createHash, randomUUID } from "crypto";
+import { basename, extname } from "path";
 import { AuditService } from "./audit.service";
 import { SensitiveApprovalService } from "./sensitive-approval.service";
 import {
@@ -34,10 +41,14 @@ import {
 } from "./governance.dto";
 import { PrismaService } from "./prisma.service";
 import { NotificationService } from "./notification.service";
+import { StorageService } from "./storage.service";
+import { AntivirusService } from "./antivirus.service";
 import { AdminOnly, ApproverOnly } from "./security";
 import type { IsmsRequest } from "./types";
 
 const clean = (value?: string) => value?.trim() || null;
+const reviewEvidenceTypes: Record<string, string[]> = { ".png": ["image/png"], ".jpg": ["image/jpeg"], ".jpeg": ["image/jpeg"] };
+const validReviewEvidence = (buffer: Buffer, extension: string) => extension === ".png" ? buffer.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex")) : buffer[0] === 0xff && buffer[1] === 0xd8;
 
 @Controller("admin/governance")
 @AdminOnly()
@@ -47,6 +58,8 @@ export class GovernanceController {
     private readonly audit: AuditService,
     private readonly sensitiveApprovalGate: SensitiveApprovalService,
     private readonly notifications: NotificationService,
+    private readonly storage: StorageService,
+    private readonly antivirus: AntivirusService,
   ) {}
 
   private async refreshRiskExceptions() {
@@ -510,6 +523,42 @@ export class GovernanceController {
     if (closed)
       await this.notifications.enqueue({ action: "document-review.decision", resource: `document-review:${id}`, actor: req.identity.username, at: new Date().toISOString() }, `document-review-decision-${id}`);
     return review;
+  }
+
+  @Post("reviews/:id/evidence")
+  @ApproverOnly()
+  @UseInterceptors(FileInterceptor("evidence", { limits: { fileSize: 2 * 1024 * 1024, files: 1 } }))
+  async attachReviewEvidence(@Req() req: IsmsRequest, @Param("id") id: string, @UploadedFile() evidence?: Express.Multer.File) {
+    if (!evidence) throw new BadRequestException("A PNG or JPEG evidence file is required");
+    const review = await this.prisma.documentReview.findUnique({ where: { id } });
+    if (!review) throw new NotFoundException();
+    if (!review.decidedAt || review.decidedBy?.toLowerCase() !== req.identity.username.toLowerCase()) throw new ForbiddenException("Only the decision author can attach evidence");
+    const extension = extname(evidence.originalname).toLowerCase();
+    if (!reviewEvidenceTypes[extension]?.includes(evidence.mimetype) || !validReviewEvidence(evidence.buffer, extension)) throw new BadRequestException("Evidence must be a PNG or JPEG image");
+    const scan = await this.antivirus.scan(evidence.buffer);
+    if (scan.status !== "CLEAN") throw new BadRequestException("Evidence was rejected by antivirus");
+    const sha256 = createHash("sha256").update(evidence.buffer).digest("hex");
+    const objectKey = `review-evidence/${review.id}/${randomUUID()}${extension}`;
+    await this.storage.putObject(objectKey, evidence.buffer, { "Content-Type": evidence.mimetype, "X-Isms-Sha256": sha256 });
+    try {
+      await this.prisma.documentReview.update({ where: { id }, data: { evidenceObjectKey: objectKey, evidenceOriginalName: basename(evidence.originalname).replace(/[^a-zA-Z0-9._ -]/g, "_"), evidenceMimeType: evidence.mimetype, evidenceSize: evidence.size, evidenceSha256: sha256 } });
+    } catch (error) {
+      await this.storage.removeObject(objectKey).catch(() => undefined);
+      throw error;
+    }
+    if (review.evidenceObjectKey) await this.storage.removeObject(review.evidenceObjectKey).catch(() => undefined);
+    await this.audit.record(req, "document-review.evidence", `document-review:${id}`, "success", { size: evidence.size, sha256 });
+    return { name: basename(evidence.originalname).replace(/[^a-zA-Z0-9._ -]/g, "_"), size: evidence.size };
+  }
+
+  @Get("reviews/:id/evidence")
+  @ApproverOnly()
+  async reviewEvidence(@Param("id") id: string, @Res() response: Response) {
+    const review = await this.prisma.documentReview.findUnique({ where: { id } });
+    if (!review?.evidenceObjectKey) throw new NotFoundException();
+    response.setHeader("Content-Type", review.evidenceMimeType || "application/octet-stream");
+    response.setHeader("Content-Disposition", `inline; filename="${(review.evidenceOriginalName || "evidence").replace(/["\\]/g, "_")}"`);
+    (await this.storage.getObject(review.evidenceObjectKey)).pipe(response);
   }
 
   @Get("access-certifications")

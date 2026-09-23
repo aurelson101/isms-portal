@@ -27,6 +27,7 @@ type Review = {
   decisionComment: string | null;
   decidedBy: string | null;
   decidedAt: string | null;
+  evidenceOriginalName?: string | null;
   automaticAnnual: boolean;
   document: DocumentItem;
 };
@@ -838,6 +839,7 @@ function ReviewsSection({
     id: string;
     status: "APPROVED" | "REJECTED";
     comment: string;
+    evidence: File | null;
   } | null>(null);
   const [reviewPage, setReviewPage] = useState(1);
   const [reviewFilter, setReviewFilter] = useState<"overdue" | "active" | "closed" | "all">("active");
@@ -964,6 +966,7 @@ function ReviewsSection({
                       id: review.id,
                       status: "APPROVED",
                       comment: "",
+                      evidence: null,
                     })
                   }
                 >
@@ -977,6 +980,7 @@ function ReviewsSection({
                       id: review.id,
                       status: "REJECTED",
                       comment: "",
+                      evidence: null,
                     })
                   }
                 >
@@ -994,6 +998,7 @@ function ReviewsSection({
                     ? ` · ${new Date(review.decidedAt).toLocaleString(locale)}`
                     : ""}
                 </small>
+                {review.evidenceOriginalName && <a href={`/api/admin/governance/reviews/${review.id}/evidence`} target="_blank" rel="noreferrer">{t("Ouvrir la preuve jointe", "Open attached evidence")}</a>}
                 {review.status === "APPROVED" && !review.automaticAnnual && (
                   <button
                     type="button"
@@ -1043,7 +1048,15 @@ function ReviewsSection({
                 `/api/admin/governance/reviews/${decision.id}/decision`,
                 { status: decision.status, comment: decision.comment },
                 "PUT",
-              ).then(() => setDecision(null));
+              ).then(async () => {
+                if (decision.evidence) {
+                  const data = new FormData();
+                  data.append("evidence", decision.evidence);
+                  const response = await fetch(`/api/admin/governance/reviews/${decision.id}/evidence`, { method: "POST", body: data });
+                  if (!response.ok) throw new Error("Evidence upload failed");
+                }
+                setDecision(null);
+              });
             }}
           >
             <h2 id="review-decision-title">
@@ -1069,6 +1082,11 @@ function ReviewsSection({
                   setDecision({ ...decision, comment: event.target.value })
                 }
               />
+            </label>
+            <label>
+              {t("Preuve jointe facultative", "Optional supporting evidence")}
+              <input type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" onChange={(event) => setDecision({ ...decision, evidence: event.target.files?.[0] || null })} />
+              <small>{t("PNG ou JPEG, 2 Mo maximum.", "PNG or JPEG, 2 MB maximum.")}</small>
             </label>
             <div className="confirmation-actions">
               <button type="button" onClick={() => setDecision(null)}>

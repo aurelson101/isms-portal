@@ -479,6 +479,11 @@ model DocumentReview {
   decisionComment String?
   decidedBy       String?
   decidedAt       DateTime?
+  evidenceObjectKey String?
+  evidenceOriginalName String?
+  evidenceMimeType String?
+  evidenceSize Int?
+  evidenceSha256 String?
   automaticAnnual Boolean          @default(false)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
