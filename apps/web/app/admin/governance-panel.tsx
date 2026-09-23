@@ -170,7 +170,9 @@ const governancePageItems = (current: number, total: number): Array<number | "el
 function GovernancePagination({ locale, page, total, onChange }: { locale: Locale; page: number; total: number; onChange: (page: number) => void }) {
   if (total <= 1) return null;
   return <nav className="governance-pagination" aria-label={locale === "fr" ? "Pages de résultats" : "Result pages"}>
+    <button type="button" disabled={page === 1} onClick={() => onChange(page - 1)}>{locale === "fr" ? "Précédent" : "Previous"}</button>
     {governancePageItems(page, total).map((item, index) => item === "ellipsis" ? <span key={`ellipsis-${index}`} aria-hidden="true">…</span> : <button key={item} type="button" className={item === page ? "active" : ""} aria-current={item === page ? "page" : undefined} onClick={() => onChange(item)}>{item}</button>)}
+    <button type="button" disabled={page === total} onClick={() => onChange(page + 1)}>{locale === "fr" ? "Suivant" : "Next"}</button>
   </nav>;
 }
 
@@ -838,6 +840,22 @@ function ReviewsSection({
     comment: string;
   } | null>(null);
   const [reviewPage, setReviewPage] = useState(1);
+  const [reviewFilter, setReviewFilter] = useState<"overdue" | "active" | "closed" | "all">("active");
+  const closedStatuses = ["APPROVED", "REJECTED", "CANCELLED"];
+  const now = Date.now();
+  const filteredReviews = reviews.filter((review) => {
+    const closed = closedStatuses.includes(review.status);
+    if (reviewFilter === "closed") return closed;
+    if (reviewFilter === "all") return true;
+    if (closed) return false;
+    return reviewFilter === "overdue" ? new Date(review.dueAt).getTime() < now : new Date(review.dueAt).getTime() >= now;
+  });
+  const reviewCounts = {
+    overdue: reviews.filter((review) => !closedStatuses.includes(review.status) && new Date(review.dueAt).getTime() < now).length,
+    active: reviews.filter((review) => !closedStatuses.includes(review.status) && new Date(review.dueAt).getTime() >= now).length,
+    closed: reviews.filter((review) => closedStatuses.includes(review.status)).length,
+    all: reviews.length,
+  };
   const create = async (event: FormEvent) => {
     event.preventDefault();
     await submit("/api/admin/governance/reviews", {
@@ -916,8 +934,15 @@ function ReviewsSection({
         </button>
       </form>
       <div className="governance-list">
-        <h2>{t("Revues en cours", "Current reviews")}</h2>
-        {reviews.slice((reviewPage - 1) * 15, reviewPage * 15).map((review) => (
+        <h2>{t("File de gestion des revues", "Review management queue")}</h2>
+        <div className="review-queue-filters" role="group" aria-label={t("Filtrer les revues", "Filter reviews")}>
+          {(["overdue", "active", "closed", "all"] as const).map((filter) => (
+            <button key={filter} type="button" className={reviewFilter === filter ? "active" : ""} onClick={() => { setReviewFilter(filter); setReviewPage(1); }}>
+              {filter === "overdue" ? t("En retard", "Overdue") : filter === "active" ? t("En cours", "In progress") : filter === "closed" ? t("Terminées", "Completed") : t("Toutes", "All")} <span>{reviewCounts[filter]}</span>
+            </button>
+          ))}
+        </div>
+        {filteredReviews.slice((reviewPage - 1) * 15, reviewPage * 15).map((review) => (
           <article className="governance-card" key={review.id}>
             <strong>{titleFor(review.document, locale)}</strong>
             <span className={`status ${review.status.toLowerCase()}`}>
@@ -925,12 +950,10 @@ function ReviewsSection({
             </span>
             {review.automaticAnnual && (
               <small>
-                {t("Revue annuelle automatique", "Automatic annual review")}
+                {t("Revue annuelle automatique : une seule décision de modérateur ou administrateur est requise.", "Automatic annual review: one moderator or administrator decision is required.")}
               </small>
             )}
-            <p>
-              {review.owner} → {review.reviewer} → {review.approver}
-            </p>
+            {!review.automaticAnnual && <p>{review.owner} → {review.reviewer} → {review.approver}</p>}
             <small>{new Date(review.dueAt).toLocaleString(locale)}</small>
             {!["APPROVED", "REJECTED", "CANCELLED"].includes(review.status) && (
               <div className="actions">
@@ -971,7 +994,7 @@ function ReviewsSection({
                     ? ` · ${new Date(review.decidedAt).toLocaleString(locale)}`
                     : ""}
                 </small>
-                {review.status === "APPROVED" && (
+                {review.status === "APPROVED" && !review.automaticAnnual && (
                   <button
                     type="button"
                     className="primary schedule-next-review"
@@ -1004,7 +1027,8 @@ function ReviewsSection({
             )}
           </article>
         ))}
-        <GovernancePagination locale={locale} page={reviewPage} total={Math.ceil(reviews.length / 15)} onChange={setReviewPage} />
+        {!filteredReviews.length && <p className="empty-state">{t("Aucune revue dans cette vue.", "No reviews in this view.")}</p>}
+        <GovernancePagination locale={locale} page={reviewPage} total={Math.ceil(filteredReviews.length / 15)} onChange={setReviewPage} />
       </div>
       {decision && (
         <div className="confirmation-backdrop" role="presentation">

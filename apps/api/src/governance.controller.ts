@@ -33,7 +33,7 @@ import {
   SensitiveApprovalDto,
 } from "./governance.dto";
 import { PrismaService } from "./prisma.service";
-import { AdminOnly } from "./security";
+import { AdminOnly, ApproverOnly } from "./security";
 import type { IsmsRequest } from "./types";
 
 const clean = (value?: string) => value?.trim() || null;
@@ -363,6 +363,7 @@ export class GovernanceController {
   }
 
   @Get("reviews")
+  @ApproverOnly()
   reviews() {
     return this.prisma.documentReview.findMany({
       include: {
@@ -443,6 +444,7 @@ export class GovernanceController {
   }
 
   @Put("reviews/:id/decision")
+  @ApproverOnly()
   async decideReview(
     @Req() req: IsmsRequest,
     @Param("id") id: string,

@@ -1,4 +1,5 @@
 import {
+  applyDecorators,
   CanActivate,
   ExecutionContext,
   ForbiddenException,
@@ -11,7 +12,8 @@ import type { IsmsRequest } from "./types";
 const ADMIN_KEY = "admin";
 const APPROVER_KEY = "approver";
 export const AdminOnly = () => SetMetadata(ADMIN_KEY, true);
-export const ApproverOnly = () => SetMetadata(APPROVER_KEY, true);
+export const ApproverOnly = () =>
+  applyDecorators(SetMetadata(ADMIN_KEY, false), SetMetadata(APPROVER_KEY, true));
 export const isAdminIdentity = (groups: string[]) =>
   groups.includes("ISMS-LOCAL-ADMINS");
 export const isModeratorIdentity = (groups: string[]) =>
