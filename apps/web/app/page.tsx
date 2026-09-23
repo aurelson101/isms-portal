@@ -3907,6 +3907,12 @@ export function Portal({
               </label>
               <small>{t.acceptedFiles}</small>
               <StorageSelect spaceId={selectedSpace.id} locale={locale} />
+              <label className="check">
+                <input name="suppressEmailNotifications" value="true" type="checkbox" />
+                {locale === "fr"
+                  ? "Ne pas envoyer d’alerte e-mail pour ce dépôt ou sa publication"
+                  : "Do not send email notifications for this upload or publication"}
+              </label>
               {actionError && <p className="error-state">{actionError}</p>}
               <div className="button-row">
                 <button className="primary">{t.deposit}</button>
