@@ -180,6 +180,7 @@ model Document {
   status            DocumentStatus         @default(DRAFT)
   sensitive         Boolean                @default(false)
   watermarkPosition WatermarkPosition      @default(CENTER)
+  suppressEmailNotifications Boolean       @default(false)
   viewCount         Int                    @default(0)
   downloadCount     Int                    @default(0)
   publishedAt       DateTime?

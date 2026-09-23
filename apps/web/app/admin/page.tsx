@@ -3067,6 +3067,9 @@ function DocumentsPanel({
         </label>
         <StorageSelect spaceId={spaceId} locale={locale} admin />
         <label className="check">
+          <input name="suppressEmailNotifications" value="true" type="checkbox" /> {t("Ne pas envoyer d’alerte e-mail pour ce dépôt ou sa publication", "Do not send email notifications for this upload or publication")}
+        </label>
+        <label className="check">
           <input
             name="sensitive"
             value="true"

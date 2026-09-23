@@ -702,6 +702,7 @@ export class DocumentsController {
     if (!body.spaceId || !body.title?.trim())
       throw new BadRequestException("spaceId and title are required");
     const sensitive = body.sensitive === "true";
+    const suppressEmailNotifications = body.suppressEmailNotifications === "true";
     const watermarkPosition = parseWatermarkPosition(body.watermarkPosition);
     const existing = body.documentId
       ? await this.prisma.document.findFirst({
@@ -766,6 +767,7 @@ export class DocumentsController {
             categoryId: body.categoryId || null,
             sensitive,
             watermarkPosition,
+            suppressEmailNotifications,
             status: scan.status === "CLEAN" ? "DRAFT" : "QUARANTINED",
           },
         });
@@ -776,6 +778,8 @@ export class DocumentsController {
         include: { storedFile: true },
       });
       if (latest?.id !== comparison.previousId) throw new ConflictException("Another version was uploaded; refresh and retry");
+      if (existing)
+        await tx.document.update({ where: { id: documentId }, data: { suppressEmailNotifications } });
       const automatedChange = comparison.change;
       const storedFile = await tx.storedFile.create({
         data: {
@@ -829,7 +833,8 @@ export class DocumentsController {
       existing ? "document.version.upload" : "document.upload",
       `document:${documentId}`,
       scan.status === "CLEAN" ? "success" : "failure",
-      { locale: body.locale, scanStatus: scan.status, size: file.size, sha256 },
+      { locale: body.locale, scanStatus: scan.status, size: file.size, sha256, notificationSuppressed: suppressEmailNotifications },
+      { notify: !suppressEmailNotifications },
     );
     return result;
   }
@@ -979,6 +984,7 @@ export class DocumentsController {
       `document:${id}`,
       "success",
       distributedFiles.length ? { distributedFiles } : undefined,
+      { notify: !document.suppressEmailNotifications },
     );
     if (status === "PUBLISHED" && document.favorites.length > 0) {
       const title =
@@ -2758,6 +2764,7 @@ export class DocumentAdminController {
     if (!body.spaceId || !body.title?.trim())
       throw new BadRequestException("spaceId and title are required");
     const sensitive = body.sensitive === "true";
+    const suppressEmailNotifications = body.suppressEmailNotifications === "true";
     const watermarkPosition = parseWatermarkPosition(body.watermarkPosition);
     const existing = body.documentId
       ? await this.prisma.document.findFirst({
@@ -2816,6 +2823,7 @@ export class DocumentAdminController {
               categoryId: body.categoryId || null,
               sensitive,
               watermarkPosition,
+              suppressEmailNotifications,
               status: scan.status === "CLEAN" ? "DRAFT" : "QUARANTINED",
             },
           });
@@ -2826,6 +2834,8 @@ export class DocumentAdminController {
         include: { storedFile: true },
       });
       if (latest?.id !== comparison.previousId) throw new ConflictException("Another version was uploaded; refresh and retry");
+      if (existing)
+        await tx.document.update({ where: { id: documentId }, data: { suppressEmailNotifications } });
       const automatedChange = comparison.change;
       const storedFile = await tx.storedFile.create({
         data: {
@@ -2884,7 +2894,9 @@ export class DocumentAdminController {
         scanStatus: scan.status,
         size: file.size,
         sha256: createHash("sha256").update(file.buffer).digest("hex"),
+        notificationSuppressed: suppressEmailNotifications,
       },
+      { notify: !suppressEmailNotifications },
     );
     return result;
   }
@@ -2920,6 +2932,7 @@ export class DocumentAdminController {
       `document:${id}`,
       "success",
       distributedFiles.length ? { distributedFiles } : undefined,
+      { notify: !document.suppressEmailNotifications },
     );
     return updated;
   }

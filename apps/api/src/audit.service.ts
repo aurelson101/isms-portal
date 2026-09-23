@@ -20,6 +20,7 @@ export class AuditService {
     resource: string,
     result: "success" | "failure" | "denied",
     details?: unknown,
+    options?: { notify?: boolean },
   ) {
     const safeDetails =
       details === undefined
@@ -73,7 +74,7 @@ export class AuditService {
         `${JSON.stringify({ level: "error", service: "api", event: "alert.delivery.failed", message: error.message })}\n`,
       );
     });
-    if (result === "success" && notificationLabels[action]) {
+    if (result === "success" && options?.notify !== false && notificationLabels[action]) {
       try {
         await this.notifications.enqueue({ action, resource, actor: event.identity, at: event.occurredAt.toISOString() }, event.id);
       } catch {
