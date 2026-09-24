@@ -321,7 +321,7 @@ type AdminDocument = {
   status: string;
   sensitive: boolean;
   watermarkPosition: "HEADER" | "CENTER" | "FOOTER";
-  translations: Array<{ locale: string; title: string }>;
+  translations: Array<{ locale: string; title: string; description?: string | null }>;
   space: Space;
   category?: Category;
   createdAt: string;
@@ -2957,6 +2957,8 @@ function DocumentsPanel({
   const { locale, t } = useAdminI18n();
   const confirmAction = useContext(ConfirmContext);
   const [spaceId, setSpaceId] = useState("");
+  const [versionUploadDocument, setVersionUploadDocument] =
+    useState<AdminDocument | null>(null);
   const [sensitive, setSensitive] = useState(false);
   const [watermarkPosition, setWatermarkPosition] = useState<
     "HEADER" | "CENTER" | "FOOTER"
@@ -2975,10 +2977,18 @@ function DocumentsPanel({
     setDocumentPage((page) => Math.min(page, documentPageCount));
   }, [documentPageCount]);
   const selectedSpace = spaces.find((space) => space.id === spaceId);
+  const versionTranslation = versionUploadDocument?.translations.find(
+    (translation) => translation.locale === locale,
+  ) ?? versionUploadDocument?.translations[0];
+  const nextVersion = versionUploadDocument
+    ? Math.max(0, ...versionUploadDocument.versions.map((version) => version.version)) + 1
+    : null;
   return (
     <>
       <h1>{t("Documents")}</h1>
       <form
+        key={versionUploadDocument?.id || "new-document"}
+        id="document-upload-form"
         className="admin-form upload-form"
         onSubmit={async (event: FormEvent<HTMLFormElement>) => {
           event.preventDefault();
@@ -2988,6 +2998,7 @@ function DocumentsPanel({
             .then(async () => {
               formElement.reset();
               setSpaceId("");
+              setVersionUploadDocument(null);
               setSensitive(false);
               setWatermarkPosition("CENTER");
               await onChanged();
@@ -2995,7 +3006,13 @@ function DocumentsPanel({
             .catch((error) => onError(error.message));
         }}
       >
-        <h2>{t("Déposer une version")}</h2>
+        <input name="documentId" type="hidden" value={versionUploadDocument?.id || ""} />
+        <h2>{versionUploadDocument ? t("Éditer et déposer une nouvelle version", "Edit and upload a new version") : t("Déposer une version")}</h2>
+        {versionUploadDocument && (
+          <p className="notice">
+            {t("Document sélectionné", "Selected document")}: <strong>{versionTranslation?.title}</strong> · {t("prochaine version", "next version")} v{nextVersion}
+          </p>
+        )}
         <p>
           {t(
             "Formats acceptés : PDF, Word DOCX et Excel XLSX. Les utilisateurs les consultent en lecture seule.",
@@ -3047,11 +3064,11 @@ function DocumentsPanel({
         </fieldset>
         <label>
           {t("Titre")}
-          <input name="title" required maxLength={255} />
+          <input name="title" required maxLength={255} defaultValue={versionTranslation?.title || ""} />
         </label>
         <label>
           {t("Description")}
-          <textarea name="description" maxLength={2000} />
+          <textarea name="description" maxLength={2000} defaultValue={versionTranslation?.description || ""} />
         </label>
         <label>
           {t("Résumé des changements")}
@@ -3109,7 +3126,10 @@ function DocumentsPanel({
             </div>
           </section>
         )}
-        <button className="primary">{t("Déposer et analyser")}</button>
+        <div className="button-row">
+          <button className="primary">{versionUploadDocument ? t("Déposer la nouvelle version", "Upload new version") : t("Déposer et analyser")}</button>
+          {versionUploadDocument && <button type="button" onClick={() => { setVersionUploadDocument(null); setSpaceId(""); setSensitive(false); setWatermarkPosition("CENTER"); }}>{t("Annuler la modification", "Cancel editing")}</button>}
+        </div>
       </form>
       <div className="admin-table-wrap">
         <table className="admin-actions-table">
@@ -3202,6 +3222,20 @@ function DocumentsPanel({
                 <td>{localizedStatus(locale, document.status)}</td>
                 <td>
                   <div className="document-actions">
+                    <button
+                      type="button"
+                      className="document-action"
+                      onClick={() => {
+                        setVersionUploadDocument(document);
+                        setSpaceId(document.space.id);
+                        setSensitive(document.sensitive);
+                        setWatermarkPosition(document.watermarkPosition);
+                        window.setTimeout(() => window.document.getElementById("document-upload-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+                      }}
+                    >
+                      <Icon name="documents" />
+                      {t("Éditer / nouvelle version", "Edit / new version")}
+                    </button>
                     {document.status !== "PUBLISHED" && (
                       <button
                         className="document-action publish"
