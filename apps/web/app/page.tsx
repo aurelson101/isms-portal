@@ -1778,7 +1778,7 @@ export function Portal({
                     : t.localAdminSession}
               </span>
               {identity?.isAdmin && <a href="/admin">{t.administration}</a>}
-              {identity?.isModerator && <a href="/explorer">{locale === "fr" ? "Gestion documentaire" : "Document management"}</a>}
+              {identity?.isModerator && <a href="/moderator">{locale === "fr" ? "Espace modérateur" : "Moderator workspace"}</a>}
               <button
                 type="button"
                 onClick={() => {
