@@ -4,9 +4,9 @@ import { notificationHtml } from "./notification-email";
 
 function setup() {
   const prisma = {
+    documentReview: { findMany: vi.fn().mockResolvedValue([]), updateMany: vi.fn().mockResolvedValue({ count: 1 }), findUnique: vi.fn().mockResolvedValue({ owner: "alice", reviewer: "bob", approver: "carol", documentId: "doc", status: "REJECTED", decisionComment: "Needs revision", dueAt: new Date() }) },
     directoryGroup: { findMany: vi.fn().mockResolvedValue([{ name: "IT", distinguishedName: "CN=IT", directoryConnectionId: "dc" }, { name: "expired", distinguishedName: "CN=expired" }]) },
     document: { findUnique: vi.fn().mockResolvedValue({ id: "doc", slug: "test", spaceId: "it", status: "PUBLISHED", deletedAt: null, translations: [{ locale: "en", title: "Policy <script>" }], space: { nameEn: "IT", deletedAt: null }, category: { nameEn: "Security" }, versions: [{ version: 2 }] }) },
-    documentReview: { findUnique: vi.fn().mockResolvedValue({ owner: "alice", reviewer: "bob", approver: "carol", documentId: "doc", status: "REJECTED", decisionComment: "Needs revision", dueAt: new Date() }) },
     documentReport: { findUnique: vi.fn().mockResolvedValue({ identity: "alice", documentId: "doc", status: "OPEN", reason: "OUTDATED" }) },
     documentVersion: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     adminAccount: { findMany: vi.fn().mockResolvedValue([{ username: "admin" }]) },
@@ -20,6 +20,18 @@ function setup() {
 }
 const event = { action: "document.publish", resource: "document:doc", actor: "publisher", at: "2026-09-11T12:00:00Z" };
 describe("Notification routing", () => {
+  it("sends one overdue publication-review digest to staff and marks it only after acceptance", async () => {
+    const h = setup();
+    h.prisma.documentReview.findMany.mockResolvedValue([{ id: "review", documentId: "doc", dueAt: new Date("2026-08-01T00:00:00Z"), document: { translations: [{ locale: "fr", title: "Politique de voyage" }] } }]);
+    vi.spyOn(h.service, "staff").mockResolvedValue(["moderator@example.com", "admin@example.com"]);
+    const digest = { ...event, action: "document-review.overdue", resource: "review-overdue:batch", reviewIds: ["review"] };
+    const message = await h.service.prepare(digest);
+    expect(message?.recipients).toEqual(["moderator@example.com", "admin@example.com"]);
+    expect(message?.text).toContain("Politique de voyage");
+    const job = { data: digest, updateData: vi.fn() };
+    await h.service.process(job as never);
+    expect(h.prisma.documentReview.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { overdueNotifiedAt: expect.any(Date) } }));
+  });
   it("shows pending, delayed and completed mail with full queue counts", async () => {
     const h = setup();
     const job = (id: string, timestamp: number) => ({ id, data: event, timestamp, attemptsMade: 0, finishedOn: undefined, failedReason: undefined, returnvalue: undefined });

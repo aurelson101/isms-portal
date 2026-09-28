@@ -754,6 +754,8 @@ export const adminEnglishCatalog = {
   "Éditer et déposer une nouvelle version": "Edit and upload a new version",
   "Déposer une nouvelle version": "Upload a new version",
   "Nouvelle version": "New version",
+  "Éditer les métadonnées": "Edit metadata",
+  "Langue des métadonnées": "Metadata language",
   "Document sélectionné": "Selected document",
   "prochaine version": "next version",
   "Ne pas envoyer d’alerte e-mail pour ce dépôt ou sa publication":

@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { createHash } from "crypto";
 import { Queue, Worker } from "bullmq";
 import { PrismaService } from "./prisma.service";
 import { CryptoService } from "./crypto.service";
@@ -69,6 +70,15 @@ worker.on("failed", (job, error) => {
 
 async function schedule() {
   const now = Date.now();
+  const overduePublicationReviews = await prisma.documentReview.findMany({
+    where: { automaticPublication: true, status: { in: ["PENDING", "IN_REVIEW"] }, overdueNotifiedAt: null, dueAt: { lte: new Date(now) }, document: { status: "PUBLISHED", deletedAt: null } },
+    select: { id: true }, orderBy: { dueAt: "asc" }, take: 100,
+  });
+  if (overduePublicationReviews.length) {
+    const reviewIds = overduePublicationReviews.map((review) => review.id);
+    const batchId = createHash("sha256").update(reviewIds.slice().sort().join(",")).digest("hex").slice(0, 24);
+    await notifications.enqueue({ action: "document-review.overdue", resource: `review-overdue:${batchId}`, reviewIds, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `publication-review-overdue-${batchId}`);
+  }
   const reviewAt = new Date(now + 30 * 86400000);
   const dueExceptions = await prisma.riskException.findMany({
     where: {

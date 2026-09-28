@@ -485,6 +485,8 @@ model DocumentReview {
   evidenceSize Int?
   evidenceSha256 String?
   automaticAnnual Boolean          @default(false)
+  automaticPublication Boolean     @default(false)
+  overdueNotifiedAt DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 

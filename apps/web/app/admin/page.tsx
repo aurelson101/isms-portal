@@ -2959,9 +2959,12 @@ function DocumentsPanel({
   const [spaceId, setSpaceId] = useState("");
   const [versionUploadDocument, setVersionUploadDocument] =
     useState<AdminDocument | null>(null);
-  const [editingCategoryDocumentId, setEditingCategoryDocumentId] = useState<string | null>(null);
+  const [editingMetadataDocument, setEditingMetadataDocument] = useState<AdminDocument | null>(null);
   const [editedCategoryId, setEditedCategoryId] = useState("");
-  const [savingCategory, setSavingCategory] = useState(false);
+  const [editedLocale, setEditedLocale] = useState<"fr" | "en">("fr");
+  const [editedTitle, setEditedTitle] = useState("");
+  const [editedDescription, setEditedDescription] = useState("");
+  const [savingMetadata, setSavingMetadata] = useState(false);
   const [sensitive, setSensitive] = useState(false);
   const [watermarkPosition, setWatermarkPosition] = useState<
     "HEADER" | "CENTER" | "FOOTER"
@@ -2986,6 +2989,12 @@ function DocumentsPanel({
   const nextVersion = versionUploadDocument
     ? Math.max(0, ...versionUploadDocument.versions.map((version) => version.version)) + 1
     : null;
+  const selectMetadataLocale = (document: AdminDocument, documentLocale: "fr" | "en") => {
+    const translation = document.translations.find((item) => item.locale === documentLocale);
+    setEditedLocale(documentLocale);
+    setEditedTitle(translation?.title || "");
+    setEditedDescription(translation?.description || "");
+  };
   return (
     <>
       <h1>{t("Documents")}</h1>
@@ -3138,6 +3147,47 @@ function DocumentsPanel({
           {versionUploadDocument && <button type="button" onClick={() => { setVersionUploadDocument(null); setSpaceId(""); setSensitive(false); setWatermarkPosition("CENTER"); }}>{t("Annuler la modification")}</button>}
         </div>
       </form>
+      {editingMetadataDocument && (
+        <form id="document-metadata-form" className="admin-form upload-form" onSubmit={async (event) => {
+          event.preventDefault();
+          setSavingMetadata(true);
+          try {
+            await api(`/api/documents/${editingMetadataDocument.id}/metadata`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ locale: editedLocale, title: editedTitle.trim(), description: editedDescription.trim(), categoryId: editedCategoryId || null }),
+            });
+            setEditingMetadataDocument(null);
+            await onChanged();
+          } catch (error) {
+            onError(error instanceof Error ? error.message : String(error));
+          } finally {
+            setSavingMetadata(false);
+          }
+        }}>
+          <h2>{t("Éditer les métadonnées")}</h2>
+          <p>{editingMetadataDocument.translations.map((item) => item.title).join(" / ")}</p>
+          <label>{t("Langue des métadonnées")}
+            <select value={editedLocale} onChange={(event) => selectMetadataLocale(editingMetadataDocument, event.target.value as "fr" | "en")}>
+              <option value="fr">FR</option><option value="en">EN</option>
+            </select>
+          </label>
+          <label>{t("Titre")}<input required maxLength={255} value={editedTitle} onChange={(event) => setEditedTitle(event.target.value)} /></label>
+          <label>{t("Description")}<textarea maxLength={2000} value={editedDescription} onChange={(event) => setEditedDescription(event.target.value)} /></label>
+          <label>{t("Catégorie")}
+            <select value={editedCategoryId} onChange={(event) => setEditedCategoryId(event.target.value)}>
+              <option value="">{t("Sans catégorie")}</option>
+              {flattenCategories(spaces.find((space) => space.id === editingMetadataDocument.space.id)?.categories || []).map(({ item, depth }) => (
+                <option key={item.id} value={item.id}>{`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}</option>
+              ))}
+            </select>
+          </label>
+          <div className="button-row">
+            <button className="primary" disabled={savingMetadata || !editedTitle.trim()}>{t("Enregistrer")}</button>
+            <button type="button" disabled={savingMetadata} onClick={() => setEditingMetadataDocument(null)}>{t("Annuler")}</button>
+          </div>
+        </form>
+      )}
       <div className="admin-table-wrap">
         <table className="admin-actions-table">
           <thead>
@@ -3209,36 +3259,7 @@ function DocumentsPanel({
                     : document.space.nameEn}
                 </td>
                 <td data-label={t("Catégorie")}>
-                  {editingCategoryDocumentId === document.id ? (
-                    <form onSubmit={async (event) => {
-                      event.preventDefault();
-                      setSavingCategory(true);
-                      try {
-                        await api(`/api/documents/${document.id}/category`, {
-                          method: "PUT",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ categoryId: editedCategoryId || null }),
-                        });
-                        setEditingCategoryDocumentId(null);
-                        await onChanged();
-                      } catch (error) {
-                        onError(error instanceof Error ? error.message : String(error));
-                      } finally {
-                        setSavingCategory(false);
-                      }
-                    }}>
-                      <select aria-label={t("Catégorie")} value={editedCategoryId} onChange={(event) => setEditedCategoryId(event.target.value)}>
-                        <option value="">{t("Sans catégorie")}</option>
-                        {flattenCategories(spaces.find((space) => space.id === document.space.id)?.categories || []).map(({ item, depth }) => (
-                          <option key={item.id} value={item.id}>{`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}</option>
-                        ))}
-                      </select>
-                      <div className="button-row">
-                        <button type="submit" disabled={savingCategory || editedCategoryId === (document.category?.id || "")}>{t("Enregistrer")}</button>
-                        <button type="button" disabled={savingCategory} onClick={() => setEditingCategoryDocumentId(null)}>{t("Annuler")}</button>
-                      </div>
-                    </form>
-                  ) : document.category ? (locale === "fr" ? document.category.nameFr : document.category.nameEn) : t("Sans catégorie")}
+                  {document.category ? (locale === "fr" ? document.category.nameFr : document.category.nameEn) : t("Sans catégorie")}
                 </td>
                 <td data-label={t("Langue du document")}>
                   <div
@@ -3266,12 +3287,14 @@ function DocumentsPanel({
                       type="button"
                       className="document-action"
                       onClick={() => {
-                        setEditingCategoryDocumentId(document.id);
+                        setEditingMetadataDocument(document);
                         setEditedCategoryId(document.category?.id || "");
+                        selectMetadataLocale(document, document.translations.some((item) => item.locale === locale) ? locale : document.translations[0]?.locale === "en" ? "en" : "fr");
+                        window.setTimeout(() => window.document.getElementById("document-metadata-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
                       }}
                     >
-                      <Icon name="folder" />
-                      {t("Modifier la catégorie")}
+                      <Icon name="documents" />
+                      {t("Éditer les métadonnées")}
                     </button>
                     <button
                       type="button"
@@ -3284,7 +3307,7 @@ function DocumentsPanel({
                         window.setTimeout(() => window.document.getElementById("document-upload-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
                       }}
                     >
-                      <Icon name="documents" />
+                      <Icon name="upload" />
                       {t("Nouvelle version")}
                     </button>
                     {document.status !== "PUBLISHED" && (

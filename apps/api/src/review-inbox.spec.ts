@@ -2,11 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 import { ApprovalsController, ReviewInboxController } from "./approvals.controller";
 
 function setup(username = "approver", groups: string[] = []) {
-  const item = { id: "review", owner: "owner", reviewer: "reviewer", approver: "approver", status: "PENDING" };
+  const item = { id: "review", documentId: "doc", owner: "owner", reviewer: "reviewer", approver: "approver", status: "PENDING" };
   const prisma = {
+    $transaction: vi.fn(),
     documentReview: { findUnique: vi.fn().mockResolvedValue(item), findUniqueOrThrow: vi.fn().mockResolvedValue({ ...item, status: "APPROVED" }), findMany: vi.fn().mockResolvedValue([item]), updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    document: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    documentVersion: { update: vi.fn().mockResolvedValue({}) },
     userNotification: { createMany: vi.fn() },
   };
+  prisma.$transaction.mockImplementation((callback) => callback(prisma));
   const audit = { record: vi.fn() };
   return { prisma, audit, controller: new ReviewInboxController(prisma as never, audit as never), req: { identity: { username, groups } } as never };
 }

@@ -29,6 +29,7 @@ type Review = {
   decidedAt: string | null;
   evidenceOriginalName?: string | null;
   automaticAnnual: boolean;
+  automaticPublication: boolean;
   document: DocumentItem;
 };
 type Control = {
@@ -961,7 +962,10 @@ function ReviewsSection({
                 {t("Revue annuelle automatique : une seule décision de modérateur ou administrateur est requise.", "Automatic annual review: one moderator or administrator decision is required.")}
               </small>
             )}
-            {!review.automaticAnnual && <p>{review.owner} → {review.reviewer} → {review.approver}</p>}
+            {review.automaticPublication && (
+              <small>{t("Revue automatique après publication : décision attendue sous 30 jours. Un refus archive le document.", "Automatic publication review: a decision is due within 30 days. Rejection archives the document.")}</small>
+            )}
+            {!review.automaticAnnual && !review.automaticPublication && <p>{review.owner} → {review.reviewer} → {review.approver}</p>}
             <small>{new Date(review.dueAt).toLocaleString(locale)}</small>
             {!["APPROVED", "REJECTED", "CANCELLED"].includes(review.status) && (
               <div className="actions">
@@ -1005,7 +1009,7 @@ function ReviewsSection({
                     : ""}
                 </small>
                 {review.evidenceOriginalName && <a href={`/api/admin/governance/reviews/${review.id}/evidence`} target="_blank" rel="noreferrer">{t("Ouvrir la preuve jointe", "Open attached evidence")}</a>}
-                {review.status === "APPROVED" && !review.automaticAnnual && (
+                {review.status === "APPROVED" && !review.automaticAnnual && !review.automaticPublication && (
                   <button
                     type="button"
                     className="primary schedule-next-review"

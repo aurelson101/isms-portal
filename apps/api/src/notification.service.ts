@@ -15,11 +15,12 @@ export const notificationLabels: Record<string, string> = {
   "security-report.create": "Security report submitted", "security-report.resolve": "Security report resolved",
   "access-request.create": "Access request submitted", "access-request.review": "Access request decision",
   "document-review.create": "Document review assigned", "document-review.decision": "Document review decision",
+  "document-review.overdue": "Publication reviews overdue",
   "sensitive-approval.request": "Approval required", "sensitive-approval.decision": "Approval decision",
   "risk-exception.create": "Risk exception submitted", "risk-exception.decision": "Risk exception decision",
   "incident-case.create": "Incident assigned", "corrective-action.create": "Corrective action assigned",
 };
-export type NotificationJob = { action: string; resource: string; actor: string; at: string; accepted?: string[]; documentVersionId?: string };
+export type NotificationJob = { action: string; resource: string; actor: string; at: string; accepted?: string[]; documentVersionId?: string; reviewIds?: string[] };
 export type EmailTestType = "document" | "approval" | "review" | "report";
 const emailTemplate = (action: string): EmailTemplate => action.startsWith("document-report") || action.startsWith("security-report") ? "report" : action.startsWith("access-request") ? "access" : action.startsWith("sensitive-approval") || action.startsWith("document-review") ? "approval" : action.startsWith("document") ? "document" : action.startsWith("risk-") || action.startsWith("incident-") || action.startsWith("corrective-") ? "governance" : "service";
 export const notificationConnection = () => {
@@ -115,6 +116,19 @@ export class NotificationService {
 
   async prepare(event: NotificationJob) {
     const { action, actor, resource } = event;
+    if (action === "document-review.overdue") {
+      if (!event.reviewIds?.length) return null;
+      const reviews = await this.prisma.documentReview.findMany({
+        where: { id: { in: event.reviewIds }, automaticPublication: true, status: { in: ["PENDING", "IN_REVIEW"] }, overdueNotifiedAt: null, dueAt: { lte: new Date() }, document: { status: "PUBLISHED", deletedAt: null } },
+        include: { document: { include: { translations: true } } },
+        orderBy: { dueAt: "asc" },
+      });
+      if (!reviews.length) return null;
+      const summary = reviews.map((review) => `- ${review.document.translations.find((item) => item.locale === "fr")?.title || review.document.translations[0]?.title || review.documentId} (due ${review.dueAt.toISOString().slice(0, 10)})`);
+      const subject = `[ISMS ExampleOrg Portal] ${reviews.length} publication review(s) overdue / revue(s) en retard`;
+      const text = [`${reviews.length} publication review(s) have been awaiting a decision for at least 30 days.`, "Les revues suivantes attendent une approbation ou un refus depuis au moins 30 jours.", "", ...summary, "", "Open the approvals page to approve or reject each review.", "Ouvrez la page des approbations pour décider de chaque revue.", "---", `Recorded at: ${event.at}`].join("\n");
+      return { recipients: await this.staff("edit"), subject, text, link: portalLink("/approvals") };
+    }
     const id = resource.slice(resource.indexOf(":") + 1);
     let recipients: string[] = [];
     let documentId: string | null = null;
@@ -126,7 +140,9 @@ export class NotificationService {
     } else if (resource.startsWith("document-review:")) {
       const item = await this.prisma.documentReview.findUnique({ where: { id } });
       if (!item) return null;
-      recipients = [...await this.directory.emailsForIdentities([item.owner, item.reviewer, item.approver, ...(item.decidedBy ? [item.decidedBy] : [])]), ...await this.staff("edit", true)];
+      recipients = item.automaticAnnual || item.automaticPublication
+        ? await this.staff("edit")
+        : [...await this.directory.emailsForIdentities([item.owner, item.reviewer, item.approver, ...(item.decidedBy ? [item.decidedBy] : [])]), ...await this.staff("edit", true)];
       lines.push(`Status: ${item.status}`, `Due date: ${item.dueAt.toISOString()}`, `Comment: ${item.decisionComment || "No comment provided."}`);
       documentId = item.documentId;
       path = `/approvals#review-${id}`;
@@ -239,6 +255,11 @@ export class NotificationService {
       accepted.add(address);
       await job.updateData({ ...job.data, accepted: [...accepted] });
     }
+    if (job.data.action === "document-review.overdue" && job.data.reviewIds?.length)
+      await this.prisma.documentReview.updateMany({
+        where: { id: { in: job.data.reviewIds }, automaticPublication: true, status: { in: ["PENDING", "IN_REVIEW"] }, overdueNotifiedAt: null, document: { status: "PUBLISHED", deletedAt: null } },
+        data: { overdueNotifiedAt: new Date() },
+      });
     if (job.data.documentVersionId && ["document.review.reminder", "document.review.annual", "document.review.overdue"].includes(job.data.action)) {
       const field = job.data.action === "document.review.reminder" ? "annualReviewReminderAt" : job.data.action === "document.review.overdue" ? "annualReviewOverdueAt" : "annualReviewNotifiedAt";
       await this.prisma.documentVersion.updateMany({ where: { id: job.data.documentVersionId, [field]: null }, data: { [field]: new Date() } });

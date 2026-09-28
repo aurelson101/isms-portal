@@ -57,6 +57,7 @@ import { compareDocumentVersions } from "./document-diff";
 import { SensitiveApprovalService } from "./sensitive-approval.service";
 import { ObservabilityService } from "./observability.service";
 import { safeSsoPath } from "./http-security";
+import { publishWithReview } from "./publication-review";
 
 async function prepareVersionComparison(
   prisma: PrismaService, storage: StorageService, documentId: string,
@@ -888,6 +889,17 @@ export class DocumentsController {
     return translation;
   }
 
+  @Get(":id/categories")
+  async editableCategories(@Req() req: IsmsRequest, @Param("id") id: string) {
+    const document = await this.prisma.document.findFirst({ where: { id, deletedAt: null }, select: { spaceId: true } });
+    if (!document || !(await this.authorization.can(req.identity.groups, document.spaceId, "edit"))) throw new NotFoundException();
+    return this.prisma.documentCategory.findMany({
+      where: { spaceId: document.spaceId, deletedAt: null },
+      select: { id: true, parentId: true, nameFr: true, nameEn: true },
+      orderBy: { nameFr: "asc" },
+    });
+  }
+
   @Put(":id/category")
   async updateCategory(
     @Req() req: IsmsRequest,
@@ -959,29 +971,10 @@ export class DocumentsController {
         ? await this.watermark.prepareForPublication(document.id)
         : [];
     const publishedAt = new Date();
-    const updated = await this.prisma.document.update({
-      where: { id },
-      data: {
-        status,
-        ...(status === "PUBLISHED" ? { publishedAt } : {}),
-      },
-    });
-    if (status === "PUBLISHED") {
-      const annualReviewDueAt = new Date(publishedAt);
-      annualReviewDueAt.setFullYear(annualReviewDueAt.getFullYear() + 1);
-      await this.prisma.documentVersion.updateMany({
-        where: { documentId: id, annualReviewDueAt: null },
-        data: { annualReviewDueAt },
-      });
-      const versions = await this.prisma.documentVersion.findMany({
-        where: { documentId: id, annualReviewDueAt: { not: null }, reviews: { none: { automaticAnnual: true } } },
-        select: { id: true, annualReviewDueAt: true },
-      });
-      if (versions.length)
-        await this.prisma.documentReview.createMany({
-          data: versions.map((version) => ({ documentId: id, versionId: version.id, owner: "ISMS scheduler", reviewer: "ISMS moderators", approver: "ISMS administrators", dueAt: version.annualReviewDueAt!, automaticAnnual: true })),
-        });
-    }
+    const publication = status === "PUBLISHED"
+      ? await publishWithReview(this.prisma, id, document.versions.slice().sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0]?.id || null, !document.publishedAt, publishedAt)
+      : null;
+    const updated = publication?.document || await this.prisma.document.update({ where: { id }, data: { status } });
     await this.audit.record(
       req,
       `document.${status.toLowerCase()}`,
@@ -990,6 +983,8 @@ export class DocumentsController {
       distributedFiles.length ? { distributedFiles } : undefined,
       { notify: !document.suppressEmailNotifications },
     );
+    if (publication?.review)
+      await this.audit.record(req, "document-review.create", `document-review:${publication.review.id}`, "success", { documentId: id, dueAt: publication.review.dueAt });
     if (status === "PUBLISHED" && document.favorites.length > 0) {
       const title =
         document.translations.find((item) => item.locale === "fr")?.title ||
@@ -2932,10 +2927,8 @@ export class DocumentAdminController {
       );
     }
     const distributedFiles = await this.watermark.prepareForPublication(id);
-    const updated = await this.prisma.document.update({
-      where: { id },
-      data: { status: "PUBLISHED", publishedAt: new Date() },
-    });
+    const publication = await publishWithReview(this.prisma, id, document.versions.slice().sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0]?.id || null, !document.publishedAt, new Date());
+    const updated = publication.document;
     await this.audit.record(
       req,
       "document.publish",
@@ -2944,6 +2937,8 @@ export class DocumentAdminController {
       distributedFiles.length ? { distributedFiles } : undefined,
       { notify: !document.suppressEmailNotifications },
     );
+    if (publication.review)
+      await this.audit.record(req, "document-review.create", `document-review:${publication.review.id}`, "success", { documentId: id, dueAt: publication.review.dueAt });
     return updated;
   }
 

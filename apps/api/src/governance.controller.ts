@@ -45,6 +45,7 @@ import { StorageService } from "./storage.service";
 import { AntivirusService } from "./antivirus.service";
 import { AdminOnly, ApproverOnly } from "./security";
 import type { IsmsRequest } from "./types";
+import { recordReviewDecision } from "./review-decision";
 
 const clean = (value?: string) => value?.trim() || null;
 const reviewEvidenceTypes: Record<string, string[]> = { ".png": ["image/png"], ".jpg": ["image/jpeg"], ".jpeg": ["image/jpeg"] };
@@ -475,25 +476,7 @@ export class GovernanceController {
     if (existing.owner.toLowerCase() === req.identity.username.toLowerCase())
       throw new ForbiddenException("The owner cannot approve their own review");
     const closed = body.status !== "IN_REVIEW";
-    const changed = await this.prisma.documentReview.updateMany({
-      where: { id, status: { in: ["PENDING", "IN_REVIEW"] } },
-      data: {
-        status: body.status,
-        decisionComment: body.comment.trim(),
-        decidedBy: closed ? req.identity.username : null,
-        decidedAt: closed ? new Date() : null,
-      },
-    });
-    if (changed.count !== 1) throw new ConflictException("Review is already closed");
-    const review = await this.prisma.documentReview.findUniqueOrThrow({ where: { id } });
-    if (closed && review.automaticAnnual && review.versionId) {
-      const annualReviewDueAt = new Date();
-      annualReviewDueAt.setFullYear(annualReviewDueAt.getFullYear() + 1);
-      await this.prisma.documentVersion.update({
-        where: { id: review.versionId },
-        data: { annualReviewDueAt, annualReviewNotifiedAt: null, annualReviewReminderAt: null, annualReviewOverdueAt: null },
-      });
-    }
+    const { review, archived } = await recordReviewDecision(this.prisma, id, existing.documentId, body, req.identity.username);
     if (closed)
       await this.prisma.userNotification.createMany({
         data: [
@@ -520,6 +503,7 @@ export class GovernanceController {
         after: review.status,
       },
     );
+    if (archived) await this.audit.record(req, "document.archive", `document:${existing.documentId}`, "success", { reason: "review.rejected", reviewId: id });
     if (closed)
       await this.notifications.enqueue({ action: "document-review.decision", resource: `document-review:${id}`, actor: req.identity.username, at: new Date().toISOString() }, `document-review-decision-${id}`);
     return review;
