@@ -1023,6 +1023,11 @@ export class OperationsController {
     return this.notifications.deliveryHistory();
   }
 
+  @Get("email-deliveries/counts")
+  emailDeliveryCounts() {
+    return this.notifications.deliveryCounts();
+  }
+
   @Post("email-deliveries/:id/retry")
   async retryEmailDelivery(@Req() req: IsmsRequest, @Param("id") id: string) {
     try { await this.notifications.retryDelivery(id); }

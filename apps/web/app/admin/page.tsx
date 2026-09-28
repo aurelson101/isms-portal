@@ -4830,14 +4830,15 @@ function ObservabilityPanel({
   const [testingAlertChannel, setTestingAlertChannel] = useState<
     "email" | "teams" | "slack" | "webhook" | null
   >(null);
-  const [emailDeliveries, setEmailDeliveries] = useState<Array<{ id: string; action: string; status: "ACCEPTED" | "FAILED"; attempts: number; createdAt: string; finishedAt: string | null; accepted: number; error: string | null }>>([]);
+  const [emailDeliveries, setEmailDeliveries] = useState<Array<{ id: string; action: string; status: "WAITING" | "ACTIVE" | "DELAYED" | "ACCEPTED" | "FAILED"; attempts: number; createdAt: string; finishedAt: string | null; accepted: number; error: string | null }>>([]);
+  const [emailQueueCounts, setEmailQueueCounts] = useState({ waiting: 0, active: 0, delayed: 0, completed: 0, failed: 0 });
   const [emailTestRecipient, setEmailTestRecipient] = useState("");
   const [emailTestType, setEmailTestType] = useState<"document" | "approval" | "review" | "report">("approval");
   const [emailBusy, setEmailBusy] = useState(false);
   const emailCopy = locale === "fr" ? {
-    title: "Suivi des e-mails", recipient: "Destinataire", template: "Modèle d’e-mail", document: "Publication documentaire", approval: "Demande d’approbation", review: "Revue documentaire", report: "Signalement", sending: "Envoi…", test: "Envoyer un e-mail de test", event: "Événement", status: "État", recipients: "Destinataires", completed: "Terminé", action: "Action", empty: "Aucun envoi récent.", retry: "Relancer", accepted: "Accepté par Graph", deliveryNote: "L’acceptation par Microsoft Graph ne garantit pas la réception. Vérifiez la trace des messages dans Exchange.",
+    title: "Suivi des e-mails", recipient: "Destinataire", template: "Modèle d’e-mail", document: "Publication documentaire", approval: "Demande d’approbation", review: "Revue documentaire", report: "Signalement", sending: "Envoi…", test: "Envoyer un e-mail de test", event: "Événement", status: "État", recipients: "Acceptés", completed: "Date", action: "Action", empty: "Aucun envoi récent.", retry: "Relancer", accepted: "Accepté par Graph", waiting: "En attente", active: "En cours", delayed: "Différé", failed: "Échoué", deliveryNote: "L’acceptation par Microsoft Graph ne garantit pas la réception. Vérifiez la trace des messages dans Exchange.",
   } : {
-    title: "Email delivery", recipient: "Recipient", template: "Email template", document: "Document publication", approval: "Approval request", review: "Document review", report: "Issue report", sending: "Sending…", test: "Send template test", event: "Event", status: "Status", recipients: "Recipients", completed: "Completed", action: "Action", empty: "No recent email deliveries.", retry: "Retry", accepted: "Accepted by Graph", deliveryNote: "Microsoft Graph acceptance does not guarantee inbox delivery. Check the Exchange message trace.",
+    title: "Email delivery", recipient: "Recipient", template: "Email template", document: "Document publication", approval: "Approval request", review: "Document review", report: "Issue report", sending: "Sending…", test: "Send template test", event: "Event", status: "Status", recipients: "Accepted", completed: "Date", action: "Action", empty: "No recent email deliveries.", retry: "Retry", accepted: "Accepted by Graph", waiting: "Waiting", active: "Processing", delayed: "Delayed", failed: "Failed", deliveryNote: "Microsoft Graph acceptance does not guarantee inbox delivery. Check the Exchange message trace.",
   };
   const reloadOperations = useCallback(async () => {
     const [
@@ -4847,6 +4848,7 @@ function ObservabilityPanel({
       policyResponse,
       channelsResponse,
       deliveriesResponse,
+      deliveryCountsResponse,
     ] = await Promise.all([
       fetch("/api/admin/operations/summary", { cache: "no-store" }),
       fetch("/api/admin/operations/work-items", { cache: "no-store" }),
@@ -4854,6 +4856,7 @@ function ObservabilityPanel({
       fetch("/api/admin/operations/alert-policy", { cache: "no-store" }),
       fetch("/api/admin/operations/alert-channels", { cache: "no-store" }),
       fetch("/api/admin/operations/email-deliveries", { cache: "no-store" }),
+      fetch("/api/admin/operations/email-deliveries/counts", { cache: "no-store" }),
     ]);
     if (summaryResponse.ok) setOperations(await summaryResponse.json());
     if (workResponse.ok) setWorkItems(await workResponse.json());
@@ -4876,6 +4879,7 @@ function ObservabilityPanel({
       setAlertChannels((current) => ({ ...current, ...channels }));
     }
     if (deliveriesResponse.ok) setEmailDeliveries(await deliveriesResponse.json());
+    if (deliveryCountsResponse.ok) setEmailQueueCounts(await deliveryCountsResponse.json());
   }, []);
   useEffect(() => {
     void reloadOperations();
@@ -5451,6 +5455,7 @@ function ObservabilityPanel({
       </form>
       <section className="operations-work-items">
         <h2>{emailCopy.title}</h2>
+        <p>{emailCopy.waiting}: {emailQueueCounts.waiting} · {emailCopy.active}: {emailQueueCounts.active} · {emailCopy.delayed}: {emailQueueCounts.delayed} · {emailCopy.failed}: {emailQueueCounts.failed}</p>
         <form className="admin-form observability-policy" onSubmit={(event) => void testEmailTemplate(event)}>
           <label>{emailCopy.recipient}<input required type="email" value={emailTestRecipient} onChange={(event) => setEmailTestRecipient(event.target.value)} /></label>
           <label>{emailCopy.template}<select value={emailTestType} onChange={(event) => setEmailTestType(event.target.value as typeof emailTestType)}><option value="document">{emailCopy.document}</option><option value="approval">{emailCopy.approval}</option><option value="review">{emailCopy.review}</option><option value="report">{emailCopy.report}</option></select></label>
@@ -5459,7 +5464,7 @@ function ObservabilityPanel({
         <div className="admin-table-wrap">
           <table><thead><tr><th>{emailCopy.event}</th><th>{emailCopy.status}</th><th>{emailCopy.recipients}</th><th>{emailCopy.completed}</th><th>{emailCopy.action}</th></tr></thead><tbody>
             {!emailDeliveries.length && <tr><td colSpan={5}>{emailCopy.empty}</td></tr>}
-            {emailDeliveries.map((delivery) => <tr key={delivery.id}><td>{delivery.action}</td><td>{delivery.status === "ACCEPTED" ? <span title={emailCopy.deliveryNote}>{emailCopy.accepted}</span> : `${delivery.status}${delivery.error ? `: ${delivery.error}` : ""}`}</td><td>{delivery.accepted}</td><td>{delivery.finishedAt ? new Date(delivery.finishedAt).toLocaleString(locale) : "-"}</td><td>{delivery.status === "FAILED" && <button type="button" disabled={emailBusy} onClick={() => void retryEmailDelivery(delivery.id)}>{emailCopy.retry}</button>}</td></tr>)}
+            {emailDeliveries.map((delivery) => <tr key={delivery.id}><td>{delivery.action}</td><td>{delivery.status === "ACCEPTED" ? <span title={emailCopy.deliveryNote}>{emailCopy.accepted}</span> : `${emailCopy[delivery.status.toLowerCase() as "waiting" | "active" | "delayed" | "failed"]}${delivery.error ? `: ${delivery.error}` : ""}`}</td><td>{delivery.accepted}</td><td>{new Date(delivery.finishedAt || delivery.createdAt).toLocaleString(locale)}</td><td>{delivery.status === "FAILED" && <button type="button" disabled={emailBusy} onClick={() => void retryEmailDelivery(delivery.id)}>{emailCopy.retry}</button>}</td></tr>)}
           </tbody></table>
         </div>
       </section>

@@ -20,6 +20,22 @@ function setup() {
 }
 const event = { action: "document.publish", resource: "document:doc", actor: "publisher", at: "2026-09-11T12:00:00Z" };
 describe("Notification routing", () => {
+  it("shows pending, delayed and completed mail with full queue counts", async () => {
+    const h = setup();
+    const job = (id: string, timestamp: number) => ({ id, data: event, timestamp, attemptsMade: 0, finishedOn: undefined, failedReason: undefined, returnvalue: undefined });
+    const queue = {
+      getJobCounts: vi.fn().mockResolvedValue({ waiting: 201, active: 1, delayed: 2, completed: 3, failed: 0 }),
+      getWaiting: vi.fn().mockResolvedValue([job("waiting", 1)]),
+      getActive: vi.fn().mockResolvedValue([job("active", 2)]),
+      getDelayed: vi.fn().mockResolvedValue([job("delayed", 3)]),
+      getCompleted: vi.fn().mockResolvedValue([job("completed", 4)]),
+      getFailed: vi.fn().mockResolvedValue([]),
+    };
+    Object.defineProperty(h.service, "queue", { value: queue });
+    const result = await h.service.deliveryHistory();
+    expect(await h.service.deliveryCounts()).toEqual({ waiting: 201, active: 1, delayed: 2, completed: 3, failed: 0 });
+    expect(result.map(({ status }) => status)).toEqual(["ACCEPTED", "DELAYED", "ACTIVE", "WAITING"]);
+  });
   it("uses ACL credentials and TLS for a rediss connection", () => {
     vi.stubEnv("REDIS_URL", "rediss://queue-user:p%40ss@redis.example:6380");
     try {

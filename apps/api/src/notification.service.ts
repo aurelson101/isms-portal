@@ -57,12 +57,26 @@ export class NotificationService {
 
   async deliveryHistory() {
     const queue = this.queueHandle();
-    const [completed, failed] = await Promise.all([queue.getCompleted(0, 99), queue.getFailed(0, 99)]);
-    return [...completed, ...failed].sort((left, right) => (right.finishedOn || right.timestamp) - (left.finishedOn || left.timestamp)).slice(0, 100).map((job) => ({
-      id: String(job.id), action: job.data.action, resource: job.data.resource, status: job.failedReason ? "FAILED" : "ACCEPTED", attempts: job.attemptsMade,
-      createdAt: new Date(job.timestamp).toISOString(), finishedAt: job.finishedOn ? new Date(job.finishedOn).toISOString() : null,
-      accepted: job.returnvalue?.accepted || job.data.accepted?.length || 0, error: job.failedReason || null,
-    }));
+    const [waiting, active, delayed, completed, failed] = await Promise.all([
+      queue.getWaiting(0, 99), queue.getActive(0, 99), queue.getDelayed(0, 99),
+      queue.getCompleted(0, 99), queue.getFailed(0, 99),
+    ]);
+    const entries = [
+      ...waiting.map((job) => ({ job, status: "WAITING" as const })),
+      ...active.map((job) => ({ job, status: "ACTIVE" as const })),
+      ...delayed.map((job) => ({ job, status: "DELAYED" as const })),
+      ...completed.map((job) => ({ job, status: "ACCEPTED" as const })),
+      ...failed.map((job) => ({ job, status: "FAILED" as const })),
+    ];
+    return entries.sort((left, right) => (right.job.finishedOn || right.job.timestamp) - (left.job.finishedOn || left.job.timestamp)).slice(0, 100).map(({ job, status }) => ({
+        id: String(job.id), action: job.data.action, resource: job.data.resource, status, attempts: job.attemptsMade,
+        createdAt: new Date(job.timestamp).toISOString(), finishedAt: job.finishedOn ? new Date(job.finishedOn).toISOString() : null,
+        accepted: job.returnvalue?.accepted || job.data.accepted?.length || 0, error: job.failedReason || null,
+      }));
+  }
+
+  async deliveryCounts() {
+    return this.queueHandle().getJobCounts("waiting", "active", "delayed", "completed", "failed");
   }
 
   async retryDelivery(id: string) {
