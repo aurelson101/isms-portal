@@ -751,4 +751,23 @@ export const adminEnglishCatalog = {
   Tester: "Test",
   Titre: "Title",
   "Valeur JSON": "JSON value",
+  "Éditer et déposer une nouvelle version": "Edit and upload a new version",
+  "Document sélectionné": "Selected document",
+  "prochaine version": "next version",
+  "Ne pas envoyer d’alerte e-mail pour ce dépôt ou sa publication":
+    "Do not send email notifications for this upload or publication",
+  "Déposer la nouvelle version": "Upload new version",
+  "Annuler la modification": "Cancel editing",
+  "Éditer / nouvelle version": "Edit / new version",
+  "Pagination des documents": "Document pagination",
+  "Précédent": "Previous",
+  "sur": "of",
+  "Suivant": "Next",
+  "Corbeille documentaire": "Document trash",
+  "Les documents supprimés peuvent être restaurés ou supprimés définitivement.":
+    "Deleted documents can be restored or permanently deleted.",
+  "Aucun document supprimé.": "No deleted documents.",
+  "Supprimer définitivement ce document et ses fichiers ?":
+    "Permanently delete this document and its files?",
+  "Supprimer définitivement": "Delete permanently",
 } as const;

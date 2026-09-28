@@ -51,7 +51,7 @@ services:
     build: { context: ., dockerfile: apps/api/Dockerfile }
     restart: unless-stopped
     env_file:
-      - path: .env
+      - path: .env.app
         required: false
     depends_on:
       postgres: { condition: service_healthy }
@@ -81,7 +81,7 @@ services:
     command: ["node", "dist/worker.js"]
     restart: unless-stopped
     env_file:
-      - path: .env
+      - path: .env.app
         required: false
     depends_on:
       api: { condition: service_healthy }
@@ -138,10 +138,13 @@ services:
   redis:
     image: redis:7.4.2-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "384mb", "--maxmemory-policy", "noeviction"]
+    env_file:
+      - path: .env.redis
+        required: false
+    command: ["sh", "-c", "test -n \"$${REDIS_PASSWORD}\" || exit 1; exec docker-entrypoint.sh redis-server --appendonly yes --maxmemory 384mb --maxmemory-policy noeviction --requirepass \"$${REDIS_PASSWORD}\""]
     volumes: [redis-data:/data]
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping 2>/dev/null | grep -q PONG"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -153,6 +156,21 @@ services:
       resources:
         limits: { cpus: "1.00", memory: 512M }
         reservations: { memory: 64M }
+
+  migrate:
+    profiles: [maintenance]
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    env_file:
+      - path: .env
+        required: true
+    command: ["sh", "-c", "node prisma/prepare-migrations.js && node node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [data]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
 
   storage-init:
     image: alpine:3.21

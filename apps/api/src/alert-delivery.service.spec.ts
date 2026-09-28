@@ -7,7 +7,7 @@ import {
 describe("AlertDeliveryService", () => {
   it("uses valid AD mail recipients and HTML without SMTP fallback", async () => {
     const service = new AlertDeliveryService({ applicationSetting: { findUnique: vi.fn().mockResolvedValue({ value: { graphTenantId: "tenant", graphClientId: "client", graphCertificatePemEncrypted: "cert", graphPrivateKeyPemEncrypted: "key" } }) } } as never, {} as never);
-    const graph = vi.spyOn(service as any, "graph").mockResolvedValue(undefined);
+    const graph = vi.spyOn(service as unknown as { graph: (...args: unknown[]) => Promise<void> }, "graph").mockResolvedValue(undefined);
     await service.sendPreferredTo(["First.Last@example.com", "first.last@example.com", "invalid"], "Document published", "Content");
     expect(graph).toHaveBeenCalledWith(expect.anything(), "Document published", "Content", ["first.last@example.com"], expect.stringContaining('lang="en"'));
     await expect(service.sendPreferredTo(["not an email"], "Title", "Content")).rejects.toThrow("No eligible mail recipients");

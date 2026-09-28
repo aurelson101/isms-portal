@@ -111,7 +111,7 @@ export class ReviewInboxController {
       where: isAdminIdentity(req.identity.groups) ? period : moderator ? { AND: [period, { OR: [{ automaticAnnual: true }, { owner: identity }, { reviewer: identity }, { approver: identity }] }] } : { AND: [period, { OR: [{ owner: identity }, { reviewer: identity }, { approver: identity }] }] },
       include: { document: { select: { slug: true, translations: true } } }, orderBy: { createdAt: "desc" }, take: 200,
     });
-    return reviews.map((review) => ({ ...review, canDecide: review.owner.toLowerCase() !== req.identity.username.toLowerCase() && (isAdminIdentity(req.identity.groups) || (moderator && review.automaticAnnual) || review.approver.toLowerCase() === req.identity.username.toLowerCase()) }));
+    return reviews.map((review) => ({ ...review, canDecide: review.owner.toLowerCase() !== req.identity.username.toLowerCase() && (isAdminIdentity(req.identity.groups) || (moderator && (review.automaticAnnual || review.approver.toLowerCase() === req.identity.username.toLowerCase()))) }));
   }
 
   @Put(":id/decision")
@@ -119,7 +119,8 @@ export class ReviewInboxController {
     const item = await this.prisma.documentReview.findUnique({ where: { id } });
     if (!item) throw new NotFoundException();
     const actor = req.identity.username.toLowerCase();
-    const allowed = isAdminIdentity(req.identity.groups) || (item.automaticAnnual && isModeratorIdentity(req.identity.groups)) || item.approver.toLowerCase() === actor || (body.status === "IN_REVIEW" && item.reviewer.toLowerCase() === actor);
+    const moderator = isModeratorIdentity(req.identity.groups);
+    const allowed = isAdminIdentity(req.identity.groups) || (moderator && (item.automaticAnnual || item.approver.toLowerCase() === actor)) || (body.status === "IN_REVIEW" && item.reviewer.toLowerCase() === actor);
     if (!allowed) throw new ForbiddenException();
     if (actor === item.owner.toLowerCase()) throw new ForbiddenException("The owner cannot approve their own review");
     const closed = body.status !== "IN_REVIEW";

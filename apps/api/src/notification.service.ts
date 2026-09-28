@@ -59,7 +59,7 @@ export class NotificationService {
     const queue = this.queueHandle();
     const [completed, failed] = await Promise.all([queue.getCompleted(0, 99), queue.getFailed(0, 99)]);
     return [...completed, ...failed].sort((left, right) => (right.finishedOn || right.timestamp) - (left.finishedOn || left.timestamp)).slice(0, 100).map((job) => ({
-      id: String(job.id), action: job.data.action, resource: job.data.resource, status: job.failedReason ? "FAILED" : "SENT", attempts: job.attemptsMade,
+      id: String(job.id), action: job.data.action, resource: job.data.resource, status: job.failedReason ? "FAILED" : "ACCEPTED", attempts: job.attemptsMade,
       createdAt: new Date(job.timestamp).toISOString(), finishedAt: job.finishedOn ? new Date(job.finishedOn).toISOString() : null,
       accepted: job.returnvalue?.accepted || job.data.accepted?.length || 0, error: job.failedReason || null,
     }));

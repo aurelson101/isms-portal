@@ -26,4 +26,4 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack 
 USER isms
 EXPOSE 3001
 ENTRYPOINT ["/usr/local/bin/isms-entrypoint"]
-CMD ["sh", "-c", "node prisma/prepare-migrations.js && node node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma && node dist/main.js"]
+CMD ["node", "dist/main.js"]

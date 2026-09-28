@@ -29,7 +29,7 @@ export const storageTargetId = (id: string) => {
 };
 const inputString = (body: Record<string, unknown>, key: string, max = 255) => {
   const value = body[key];
-  if (typeof value !== "string" || !value.trim() || value.length > max || /[\x00-\x1f]/.test(value))
+  if (typeof value !== "string" || !value.trim() || value.length > max || Array.from(value).some((character) => character.charCodeAt(0) < 32))
     throw new BadRequestException(`Invalid ${key}`);
   return value.trim();
 };

@@ -1,4 +1,6 @@
 .env
+.env.app
+.env.redis
 credentials.txt
 node_modules/
 .next/

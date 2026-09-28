@@ -3007,10 +3007,10 @@ function DocumentsPanel({
         }}
       >
         <input name="documentId" type="hidden" value={versionUploadDocument?.id || ""} />
-        <h2>{versionUploadDocument ? t("Éditer et déposer une nouvelle version", "Edit and upload a new version") : t("Déposer une version")}</h2>
+        <h2>{versionUploadDocument ? t("Éditer et déposer une nouvelle version") : t("Déposer une version")}</h2>
         {versionUploadDocument && (
           <p className="notice">
-            {t("Document sélectionné", "Selected document")}: <strong>{versionTranslation?.title}</strong> · {t("prochaine version", "next version")} v{nextVersion}
+            {t("Document sélectionné")}: <strong>{versionTranslation?.title}</strong> · {t("prochaine version")} v{nextVersion}
           </p>
         )}
         <p>
@@ -3084,7 +3084,7 @@ function DocumentsPanel({
         </label>
         <StorageSelect spaceId={spaceId} locale={locale} admin />
         <label className="check">
-          <input name="suppressEmailNotifications" value="true" type="checkbox" /> {t("Ne pas envoyer d’alerte e-mail pour ce dépôt ou sa publication", "Do not send email notifications for this upload or publication")}
+          <input name="suppressEmailNotifications" value="true" type="checkbox" /> {t("Ne pas envoyer d’alerte e-mail pour ce dépôt ou sa publication")}
         </label>
         <label className="check">
           <input
@@ -3127,8 +3127,8 @@ function DocumentsPanel({
           </section>
         )}
         <div className="button-row">
-          <button className="primary">{versionUploadDocument ? t("Déposer la nouvelle version", "Upload new version") : t("Déposer et analyser")}</button>
-          {versionUploadDocument && <button type="button" onClick={() => { setVersionUploadDocument(null); setSpaceId(""); setSensitive(false); setWatermarkPosition("CENTER"); }}>{t("Annuler la modification", "Cancel editing")}</button>}
+          <button className="primary">{versionUploadDocument ? t("Déposer la nouvelle version") : t("Déposer et analyser")}</button>
+          {versionUploadDocument && <button type="button" onClick={() => { setVersionUploadDocument(null); setSpaceId(""); setSensitive(false); setWatermarkPosition("CENTER"); }}>{t("Annuler la modification")}</button>}
         </div>
       </form>
       <div className="admin-table-wrap">
@@ -3234,7 +3234,7 @@ function DocumentsPanel({
                       }}
                     >
                       <Icon name="documents" />
-                      {t("Éditer / nouvelle version", "Edit / new version")}
+                      {t("Éditer / nouvelle version")}
                     </button>
                     {document.status !== "PUBLISHED" && (
                       <button
@@ -3312,18 +3312,18 @@ function DocumentsPanel({
       {documentPageCount > 1 && (
         <nav
           className="document-pagination"
-          aria-label={t("Pagination des documents", "Document pagination")}
+          aria-label={t("Pagination des documents")}
         >
           <button
             type="button"
             disabled={documentPage <= 1}
             onClick={() => setDocumentPage((page) => page - 1)}
           >
-            ← {t("Précédent", "Previous")}
+            ← {t("Précédent")}
           </button>
           <div
             className="page-numbers"
-            aria-label={`${t("Page")} ${documentPage} ${t("sur", "of")} ${documentPageCount}`}
+            aria-label={`${t("Page")} ${documentPage} ${t("sur")} ${documentPageCount}`}
           >
             {paginationItems(documentPage, documentPageCount).map(
               (item, index) =>
@@ -3349,7 +3349,7 @@ function DocumentsPanel({
             disabled={documentPage >= documentPageCount}
             onClick={() => setDocumentPage((page) => page + 1)}
           >
-            {t("Suivant", "Next")} →
+            {t("Suivant")} →
           </button>
         </nav>
       )}
@@ -4006,7 +4006,7 @@ function DocumentTrashPanel({ onChanged, onError }: { onChanged: () => Promise<v
   const [trash, setTrash] = useState<Array<{ id: string; slug: string; deletedAt: string; translations: Array<{ title: string }> }>>([]);
   const loadTrash = useCallback(() => api<typeof trash>("/api/admin/documents/trash").then(setTrash).catch((error) => onError(error.message)), [onError]);
   useEffect(() => { void loadTrash(); }, [loadTrash]);
-  return <><h1>{t("Corbeille documentaire", "Document trash")}</h1><section className="admin-card"><p>{t("Les documents supprimés peuvent être restaurés ou supprimés définitivement.", "Deleted documents can be restored or permanently deleted.")}</p>{!trash.length && <p className="admin-empty compact">{t("Aucun document supprimé.", "No deleted documents.")}</p>}<div className="admin-account-list">{trash.map((document) => <div key={document.id}><span><strong>{document.translations[0]?.title || document.slug}</strong><small>{new Date(document.deletedAt).toLocaleString(locale)}</small></span><button type="button" onClick={() => void api(`/api/admin/documents/${document.id}/trash/restore`, { method: "POST" }).then(async () => { await loadTrash(); await onChanged(); }).catch((error) => onError(error.message))}>{t("Restaurer", "Restore")}</button><button className="danger" type="button" onClick={() => void confirmAction(t("Supprimer définitivement ce document et ses fichiers ?", "Permanently delete this document and its files?")).then(async (confirmed) => { if (!confirmed) return; await api(`/api/admin/documents/${document.id}`, { method: "DELETE" }); await loadTrash(); await onChanged(); }).catch((error) => onError(error.message))}>{t("Supprimer définitivement", "Delete permanently")}</button></div>)}</div></section></>;
+  return <><h1>{t("Corbeille documentaire")}</h1><section className="admin-card"><p>{t("Les documents supprimés peuvent être restaurés ou supprimés définitivement.")}</p>{!trash.length && <p className="admin-empty compact">{t("Aucun document supprimé.")}</p>}<div className="admin-account-list">{trash.map((document) => <div key={document.id}><span><strong>{document.translations[0]?.title || document.slug}</strong><small>{new Date(document.deletedAt).toLocaleString(locale)}</small></span><button type="button" onClick={() => void api(`/api/admin/documents/${document.id}/trash/restore`, { method: "POST" }).then(async () => { await loadTrash(); await onChanged(); }).catch((error) => onError(error.message))}>{t("Restaurer")}</button><button className="danger" type="button" onClick={() => void confirmAction(t("Supprimer définitivement ce document et ses fichiers ?")).then(async (confirmed) => { if (!confirmed) return; await api(`/api/admin/documents/${document.id}`, { method: "DELETE" }); await loadTrash(); await onChanged(); }).catch((error) => onError(error.message))}>{t("Supprimer définitivement")}</button></div>)}</div></section></>;
 }
 
 function IncidentReportsPanel({
@@ -4830,14 +4830,14 @@ function ObservabilityPanel({
   const [testingAlertChannel, setTestingAlertChannel] = useState<
     "email" | "teams" | "slack" | "webhook" | null
   >(null);
-  const [emailDeliveries, setEmailDeliveries] = useState<Array<{ id: string; action: string; status: "SENT" | "FAILED"; attempts: number; createdAt: string; finishedAt: string | null; accepted: number; error: string | null }>>([]);
+  const [emailDeliveries, setEmailDeliveries] = useState<Array<{ id: string; action: string; status: "ACCEPTED" | "FAILED"; attempts: number; createdAt: string; finishedAt: string | null; accepted: number; error: string | null }>>([]);
   const [emailTestRecipient, setEmailTestRecipient] = useState("");
   const [emailTestType, setEmailTestType] = useState<"document" | "approval" | "review" | "report">("approval");
   const [emailBusy, setEmailBusy] = useState(false);
   const emailCopy = locale === "fr" ? {
-    title: "Suivi des e-mails", recipient: "Destinataire", template: "Modèle d’e-mail", document: "Publication documentaire", approval: "Demande d’approbation", review: "Revue documentaire", report: "Signalement", sending: "Envoi…", test: "Envoyer un e-mail de test", event: "Événement", status: "État", recipients: "Destinataires", completed: "Terminé", action: "Action", empty: "Aucun envoi récent.", retry: "Relancer",
+    title: "Suivi des e-mails", recipient: "Destinataire", template: "Modèle d’e-mail", document: "Publication documentaire", approval: "Demande d’approbation", review: "Revue documentaire", report: "Signalement", sending: "Envoi…", test: "Envoyer un e-mail de test", event: "Événement", status: "État", recipients: "Destinataires", completed: "Terminé", action: "Action", empty: "Aucun envoi récent.", retry: "Relancer", accepted: "Accepté par Graph", deliveryNote: "L’acceptation par Microsoft Graph ne garantit pas la réception. Vérifiez la trace des messages dans Exchange.",
   } : {
-    title: "Email delivery", recipient: "Recipient", template: "Email template", document: "Document publication", approval: "Approval request", review: "Document review", report: "Issue report", sending: "Sending…", test: "Send template test", event: "Event", status: "Status", recipients: "Recipients", completed: "Completed", action: "Action", empty: "No recent email deliveries.", retry: "Retry",
+    title: "Email delivery", recipient: "Recipient", template: "Email template", document: "Document publication", approval: "Approval request", review: "Document review", report: "Issue report", sending: "Sending…", test: "Send template test", event: "Event", status: "Status", recipients: "Recipients", completed: "Completed", action: "Action", empty: "No recent email deliveries.", retry: "Retry", accepted: "Accepted by Graph", deliveryNote: "Microsoft Graph acceptance does not guarantee inbox delivery. Check the Exchange message trace.",
   };
   const reloadOperations = useCallback(async () => {
     const [
@@ -5459,7 +5459,7 @@ function ObservabilityPanel({
         <div className="admin-table-wrap">
           <table><thead><tr><th>{emailCopy.event}</th><th>{emailCopy.status}</th><th>{emailCopy.recipients}</th><th>{emailCopy.completed}</th><th>{emailCopy.action}</th></tr></thead><tbody>
             {!emailDeliveries.length && <tr><td colSpan={5}>{emailCopy.empty}</td></tr>}
-            {emailDeliveries.map((delivery) => <tr key={delivery.id}><td>{delivery.action}</td><td>{delivery.status}{delivery.error && `: ${delivery.error}`}</td><td>{delivery.accepted}</td><td>{delivery.finishedAt ? new Date(delivery.finishedAt).toLocaleString(locale) : "-"}</td><td>{delivery.status === "FAILED" && <button type="button" disabled={emailBusy} onClick={() => void retryEmailDelivery(delivery.id)}>{emailCopy.retry}</button>}</td></tr>)}
+            {emailDeliveries.map((delivery) => <tr key={delivery.id}><td>{delivery.action}</td><td>{delivery.status === "ACCEPTED" ? <span title={emailCopy.deliveryNote}>{emailCopy.accepted}</span> : `${delivery.status}${delivery.error ? `: ${delivery.error}` : ""}`}</td><td>{delivery.accepted}</td><td>{delivery.finishedAt ? new Date(delivery.finishedAt).toLocaleString(locale) : "-"}</td><td>{delivery.status === "FAILED" && <button type="button" disabled={emailBusy} onClick={() => void retryEmailDelivery(delivery.id)}>{emailCopy.retry}</button>}</td></tr>)}
           </tbody></table>
         </div>
       </section>

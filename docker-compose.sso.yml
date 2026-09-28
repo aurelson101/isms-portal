@@ -9,7 +9,7 @@ services:
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.3@sha256:10a1165743a192e1940b4708fb9647027185ce11a681a1c5519b442ff7f1f561
     restart: unless-stopped
     env_file:
-      - path: .env
+      - path: .env.app
         required: true
     environment:
       OAUTH2_PROXY_PROVIDER: entra-id
@@ -37,7 +37,6 @@ services:
       OAUTH2_PROXY_COOKIE_CSRF_PER_REQUEST: "true"
       OAUTH2_PROXY_COOKIE_CSRF_EXPIRE: 10m
       OAUTH2_PROXY_SESSION_STORE_TYPE: redis
-      OAUTH2_PROXY_REDIS_CONNECTION_URL: redis://redis:6379
     depends_on:
       redis: { condition: service_healthy }
     networks: [edge, app, data]

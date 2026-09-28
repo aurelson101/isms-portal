@@ -844,7 +844,13 @@ function ReviewsSection({
   const [reviewPage, setReviewPage] = useState(1);
   const [reviewFilter, setReviewFilter] = useState<"overdue" | "active" | "closed" | "all">("active");
   const closedStatuses = ["APPROVED", "REJECTED", "CANCELLED"];
-  const now = Date.now();
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    const refreshNow = () => setNow(Date.now());
+    refreshNow();
+    const interval = window.setInterval(refreshNow, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
   const filteredReviews = reviews.filter((review) => {
     const closed = closedStatuses.includes(review.status);
     if (reviewFilter === "closed") return closed;

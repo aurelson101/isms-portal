@@ -10,6 +10,13 @@ if [ -e "$target" ] && [ -n "$(find "$target" -mindepth 1 -maxdepth 1 -print -qu
   printf 'La destination existe et n’est pas vide : %s\n' "$target" >&2
   exit 1
 fi
+external_targets=$(docker compose exec -T postgres \
+  psql -U "${POSTGRES_USER:-isms}" "${POSTGRES_DB:-isms}" -Atc \
+  "SELECT count(*) FROM \"ApplicationSetting\" WHERE key LIKE 'document-storage.target.%'")
+if [ "$external_targets" != 0 ]; then
+  printf 'Sauvegarde refusée : %s cible(s) S3/SMB nécessitent une procédure de sauvegarde et de restauration dédiée.\n' "$external_targets" >&2
+  exit 1
+fi
 mkdir -p "$target/configuration"
 target=$(CDPATH= cd -- "$target" && pwd)
 

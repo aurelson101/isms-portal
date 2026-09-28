@@ -7,9 +7,11 @@ sont internes ; seul Nginx publie TCP/8080.
 
 ```bash
 ./scripts/generate-secrets.sh
+docker compose up -d postgres
+./scripts/provision-runtime-credentials.sh
 docker compose config --quiet
+docker compose run --rm migrate
 docker compose up -d --build --wait
-docker compose exec api node node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma
 docker compose ps
 curl -fsS http://localhost:8080/api/health/ready
 ```
@@ -21,8 +23,10 @@ installation à conserver.
 Le réseau `antivirus-egress` donne uniquement à ClamAV la sortie nécessaire à
 l'actualisation de ses signatures. Aucun port ClamAV n'est publié sur l'hôte ;
 l'API et le worker l'interrogent exclusivement sur le réseau interne `data`.
-Le worker attend que l'API soit saine afin de ne pas interroger PostgreSQL avant
-la fin des migrations d'une installation neuve.
+Exécuter les migrations avec le service éphémère `migrate`, qui est seul à
+recevoir le compte propriétaire PostgreSQL. L’API et le worker utilisent
+`.env.app` et ne lancent plus de migrations au démarrage. Le worker attend que
+l’API soit saine.
 
 Les limites Compose constituent une base : les ajuster après mesure CPU/RAM.
 Les secrets doivent venir du gestionnaire approuvé ; `.env` et

@@ -737,7 +737,7 @@ export class DirectoryService {
         }
       } catch (error) {
         if (!connectionId && (error as { code?: number }).code === 32) continue;
-        throw new Error(`LDAP recipient resolution failed on connection ${connection.id}`);
+        throw new Error(`LDAP recipient resolution failed on connection ${connection.id}`, { cause: error });
       } finally { await client?.unbind().catch(() => undefined); }
     }
     return [...emails];

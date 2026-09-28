@@ -15,7 +15,7 @@ describe("AuthorizationService", () => {
     count.mockReset();
   });
 
-  it("keeps download ACL-controlled for an administrator", async () => {
+  it("grants all permissions to an administrator", async () => {
     findMany.mockResolvedValue([
       { id: "space-it", slug: "it", accessRules: [] },
     ]);
@@ -33,19 +33,17 @@ describe("AuthorizationService", () => {
     for (const permission of permissions)
       await expect(
         service.can(["ISMS-LOCAL-ADMINS"], "space-it", permission),
-      ).resolves.toBe(permission !== "download");
+      ).resolves.toBe(true);
     const permitted = await service.permittedSpacesFor(
       ["ISMS-LOCAL-ADMINS"],
       permissions,
     );
     for (const permission of permissions)
-      expect(permitted.get(permission)).toHaveLength(
-        permission === "download" ? 0 : 1,
-      );
-    expect(count).toHaveBeenCalledTimes(1);
+      expect(permitted.get(permission)).toHaveLength(1);
+    expect(count).not.toHaveBeenCalled();
   });
 
-  it("allows an administrator download only when an active ACL grants it", async () => {
+  it("allows administrator download without an ACL", async () => {
     count.mockResolvedValue(1);
     findMany.mockResolvedValue([
       { id: "space-it", slug: "it", accessRules: [{ download: true }] },
@@ -62,28 +60,7 @@ describe("AuthorizationService", () => {
       ["download"],
     );
     expect(permitted.get("download")).toHaveLength(1);
-    expect(count).toHaveBeenCalledWith({
-      where: expect.objectContaining({
-        OR: expect.arrayContaining([
-          expect.objectContaining({
-            accessRules: {
-              some: expect.objectContaining({
-                group: expect.objectContaining({
-                  OR: expect.arrayContaining([
-                    {
-                      name: {
-                        equals: "Allowed-Downloads",
-                        mode: "insensitive",
-                      },
-                    },
-                  ]),
-                }),
-              }),
-            },
-          }),
-        ]),
-      }),
-    });
+    expect(count).not.toHaveBeenCalled();
   });
 
   it("denies by default when no group rule grants the permission", async () => {

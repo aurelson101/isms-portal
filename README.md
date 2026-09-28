@@ -68,10 +68,11 @@ git clone https://github.com/<ORGANISATION>/isms-portal.git
 cd isms-portal
 ./scripts/generate-secrets.sh
 sudo ./scripts/configure-host.sh
+docker compose up -d postgres
+./scripts/provision-runtime-credentials.sh
 docker compose config --quiet
+docker compose run --rm migrate
 docker compose up -d --build --wait
-docker compose exec -T api node node_modules/prisma/build/index.js \
-  migrate deploy --schema prisma/schema.prisma
 docker compose ps
 curl -fsS http://127.0.0.1:8080/api/health/ready
 ```
@@ -80,6 +81,8 @@ Le générateur crée `.env` et `credentials.txt` en mode `600`. Conserver ces
 fichiers hors Git et déplacer les identifiants vers le gestionnaire de secrets
 de l’entreprise. Le compte de secours initial se connecte uniquement sur
 `/admin/login`.
+Le provisionnement ajoute `.env.app` et `.env.redis` en mode `600` ; l’API et le
+worker utilisent un rôle PostgreSQL limité et Redis exige un mot de passe.
 
 En développement ou sur un poste isolé, le portail est disponible sur
 <http://localhost:8080>. En production, ne pas exposer directement ce port.
@@ -479,9 +482,8 @@ git pull --ff-only origin main
 docker compose config --quiet
 # Recette UI isolee: lecteurs, menus, espace personnel, administration et gouvernance.
 ./scripts/test-e2e-isolated.sh
+docker compose run --rm migrate
 docker compose up -d --build --wait
-docker compose exec -T api node node_modules/prisma/build/index.js \
-  migrate deploy --schema prisma/schema.prisma
 ./scripts/diagnose.sh
 ```
 

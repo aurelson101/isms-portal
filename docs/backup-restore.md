@@ -8,6 +8,11 @@ Une sauvegarde contient :
 - `.env.example` et `docker-compose.yml` sans secret ;
 - un manifeste SHA-256.
 
+Le script refuse une sauvegarde dite complète si une cible S3 ou SMB est configurée :
+les objets de ces cibles ne sont pas contenus dans `documents.tar`. Sauvegarder
+séparément ces cibles et valider leur restauration avant de les utiliser en
+production.
+
 ```bash
 ./scripts/backup.sh backups/20260730-120000
 ./scripts/verify-backup.sh backups/20260730-120000
