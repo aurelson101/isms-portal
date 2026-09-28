@@ -1,0 +1,9 @@
+{
+  "idToken": [
+    {
+      "name": "email",
+      "essential": true,
+      "additionalProperties": []
+    }
+  ]
+}

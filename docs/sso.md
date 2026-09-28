@@ -39,6 +39,52 @@ Pour Microsoft 365, déclarer dans Entra l’URI
 racine du portail déclenche alors le SSO automatiquement. `/login` reste le
 repli LDAP/LDAPS manuel et `/admin/login` le repli administrateur local.
 
+## Activation progressive Entra ID (postes Entra et hybrides)
+
+La production utilise par défaut la connexion AD directe. Le proxy SSO est une
+surcouche facultative : ne pas l'activer avant d'avoir testé la connexion d'un
+utilisateur pilote et le repli AD. Une ouverture de session Windows seule ne
+prouve pas qu'un navigateur possède un jeton Entra utilisable ; contrôler le
+PRT du poste pilote avec `dsregcmd /status` (`AzureAdPrt : YES`) et tester Edge.
+
+1. Créer une application **mono-tenant** `ISMS Portal SSO` dans Entra ID, de
+   type Web, avec l'URI de redirection exacte
+   `https://isms.example.com/oauth2/callback`. Ajouter la revendication
+   facultative `email` au jeton d'identité. Dans l'application d'entreprise,
+   exiger une affectation et n'affecter d'abord qu'un groupe pilote.
+   Le modèle de revendication se trouve dans
+   `deploy/entra-optional-claims.json`; l'application ne demande aucune
+   permission Microsoft Graph supplémentaire.
+2. Placer le Tenant ID, le Client ID et le secret client dans `.env` sur le
+   serveur, jamais dans Git. Vérifier aussi
+   `OAUTH2_PROXY_REDIRECT_URL=https://isms.example.com/oauth2/callback` et
+   un `OAUTH2_PROXY_COOKIE_SECRET` aléatoire. Le proxy stocke ses sessions dans
+   Redis DB 2, séparément des clés applicatives. Le secret n'est pas transmis
+   aux autres conteneurs par `env_file`.
+3. Activer la surcouche Compose SSO et définir
+   `SSO_PILOT_URL=/oauth2/start?rd=/` dans `.env.app`, en laissant
+   `SSO_LOGIN_URL` **vide**. Définir aussi
+   `SSO_LOGOUT_URL=/oauth2/sign_out?rd=/login` pour la session Entra. La page `/login` conserve le formulaire AD et
+   propose un bouton Entra aux pilotes. Aucun utilisateur n'est redirigé
+   automatiquement à cette étape. La surcouche continue d'accepter les sessions
+   AD existantes.
+4. Vérifier sur un poste pilote : connexion Entra, correspondance exacte avec
+   l'attribut AD `mail`, groupes et ACL, lecteur documentaire, administration
+   de l'utilisateur, déconnexion, et connexion AD via `/login?local=1` si Entra
+   est indisponible. Un utilisateur non affecté à l'application doit être refusé.
+   L'administration reste accessible par la connexion AD ou locale pendant
+   le pilote ; ne pas supposer que le cookie Entra suffit pour `/admin`.
+5. Après validation, définir aussi
+   `SSO_LOGIN_URL=/oauth2/start?rd=/` dans `.env.app` pour la redirection
+   automatique depuis `/login`. Retirer cette seule variable pour revenir au
+   mode pilote sans couper la connexion AD. Pour désactiver entièrement la
+   surcouche, revenir aux fichiers Compose de production habituels et laisser
+   `SSO_PILOT_URL` vide.
+
+La surcouche ne s'active pas tant que l'application Entra et ses secrets ne sont
+pas provisionnés. Une simple modification de `.env` sans déploiement contrôlé
+et tests de connexion n'est pas une activation du SSO.
+
 ## Connexion AD directe par login ou attribut mail
 
 L’utilisateur saisit son login court ou l’adresse exacte de son attribut AD

@@ -282,7 +282,7 @@ export class IdentityController {
         ssoConnected: req.identity.source === "trusted-proxy",
         sessionExpiresAt: req.identity.sessionExpiresAt || null,
         loginUrl: safeSsoPath(process.env.SSO_LOGIN_URL),
-        logoutUrl: safeSsoPath(process.env.SSO_LOGOUT_URL),
+        logoutUrl: req.identity.source === "trusted-proxy" ? safeSsoPath(process.env.SSO_LOGOUT_URL) : null,
         diagnostics: {
           groupCount: req.identity.groups.length,
           matchedGroups: matchedGroups.map((group) => group.name),
@@ -1573,7 +1573,7 @@ export class AdminController {
         ssoConnected: req.identity.source === "trusted-proxy",
         sessionExpiresAt: req.identity.sessionExpiresAt || null,
         loginUrl: safeSsoPath(process.env.SSO_LOGIN_URL),
-        logoutUrl: safeSsoPath(process.env.SSO_LOGOUT_URL),
+        logoutUrl: req.identity.source === "trusted-proxy" ? safeSsoPath(process.env.SSO_LOGOUT_URL) : null,
         diagnostics: {
           groupCount: req.identity.groups.length,
           mappedSpaceCount,

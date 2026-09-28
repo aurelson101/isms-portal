@@ -8,6 +8,7 @@ type AuthConfig = {
   directoryLoginEnabled: boolean;
   ssoEnabled: boolean;
   ssoLoginUrl: string | null;
+  ssoPilotUrl: string | null;
 };
 
 const copy = {
@@ -27,6 +28,7 @@ const copy = {
     rememberDevice: "Reconnaître cet équipement pendant 14 jours",
     ssoUnavailable:
       "La connexion automatique n’a pas pu être démarrée. Utilisez vos identifiants.",
+    ssoPilot: "Se connecter avec Microsoft Entra ID",
   },
   en: {
     title: "Sign in",
@@ -44,8 +46,16 @@ const copy = {
     rememberDevice: "Remember this device for 14 days",
     ssoUnavailable:
       "Automatic sign-in could not be started. Use your credentials.",
+    ssoPilot: "Sign in with Microsoft Entra ID",
   },
 } as const;
+
+const ssoDestination = (value: string, requested: string | null) => {
+  const url = new URL(value, window.location.origin);
+  if (url.origin !== window.location.origin || !url.pathname.startsWith("/oauth2/")) return null;
+  url.searchParams.set("rd", requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/");
+  return `${url.pathname}${url.search}`;
+};
 
 export default function LoginPage() {
   const branding = useBranding();
@@ -55,6 +65,7 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [loggedOut, setLoggedOut] = useState(false);
   const [detectingSso, setDetectingSso] = useState(false);
+  const [pilotSsoUrl, setPilotSsoUrl] = useState<string | null>(null);
   const t = copy[locale];
 
   useEffect(() => {
@@ -69,6 +80,8 @@ export default function LoginPage() {
       .then((response) => response.json())
       .then((config: AuthConfig) => {
         setAvailable(config.directoryLoginEnabled);
+        const pilot = config.ssoPilotUrl ? ssoDestination(config.ssoPilotUrl, parameters.get("return")) : null;
+        setPilotSsoUrl(pilot);
         if (
           !config.ssoEnabled ||
           !config.ssoLoginUrl ||
@@ -77,23 +90,13 @@ export default function LoginPage() {
         )
           return;
 
-        const ssoUrl = new URL(config.ssoLoginUrl, window.location.origin);
-        if (
-          ssoUrl.origin !== window.location.origin ||
-          !ssoUrl.pathname.startsWith("/oauth2/")
-        ) {
+        const destination = ssoDestination(config.ssoLoginUrl, parameters.get("return"));
+        if (!destination) {
           setError(copy[preferred].ssoUnavailable);
           return;
         }
-
-        const requested = parameters.get("return");
-        const safeReturn =
-          requested?.startsWith("/") && !requested.startsWith("//")
-            ? requested
-            : "/";
-        ssoUrl.searchParams.set("rd", safeReturn);
         setDetectingSso(true);
-        window.location.replace(`${ssoUrl.pathname}${ssoUrl.search}`);
+        window.location.replace(destination);
       })
       .catch(() => setAvailable(false));
   }, []);
@@ -172,6 +175,7 @@ export default function LoginPage() {
           </p>
         )}
         {!available && <p className="login-warning">{t.unavailable}</p>}
+        {pilotSsoUrl && !detectingSso && <a className="login-back" href={pilotSsoUrl}>{t.ssoPilot}</a>}
         <form onSubmit={submit} className="login-form" aria-busy={detectingSso}>
           <label>
             {t.identifier}

@@ -41,9 +41,11 @@ export class AuthController {
   @Get("config")
   async config() {
     const ssoLoginUrl = safeSsoPath(process.env.SSO_LOGIN_URL);
+    const ssoPilotUrl = safeSsoPath(process.env.SSO_PILOT_URL);
     return {
-      ssoEnabled: Boolean(ssoLoginUrl),
+      ssoEnabled: Boolean(ssoLoginUrl || ssoPilotUrl),
       ssoLoginUrl,
+      ssoPilotUrl,
       directoryLoginEnabled: await this.auth.directoryLoginEnabled(),
       localAdminEnabled: true,
     };
