@@ -113,6 +113,7 @@ type Tab =
   | "requests"
   | "governance"
   | "directory"
+  | "sso"
   | "certificates"
   | "audit"
   | "observability"
@@ -386,6 +387,7 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["requests", "rules", "Demandes utilisateurs", "User requests"],
   ["governance", "shield", "Gouvernance ISMS", "ISMS governance"],
   ["directory", "sync", "Synchronisation LDAP", "LDAP synchronization"],
+  ["sso", "shield", "Connexion SSO", "SSO sign-in"],
   ["certificates", "certificate", "Certificats CA", "CA certificates"],
   ["audit", "audit", "Journal d’audit", "Audit log"],
   ["observability", "health", "Observabilité", "Observability"],
@@ -553,9 +555,9 @@ export default function Admin() {
         ? "overview"
         : tabs.findIndex(([key]) => key === tab) < 8
           ? "content"
-          : tabs.findIndex(([key]) => key === tab) < 11
+          : tabs.findIndex(([key]) => key === tab) < 12
             ? "infrastructure"
-            : tabs.findIndex(([key]) => key === tab) < 13 ? "system" : "configuration";
+            : tabs.findIndex(([key]) => key === tab) < 14 ? "system" : "configuration";
     setExpandedNavigationGroups((current) =>
       current.has(activeGroup) ? current : new Set([...current, activeGroup]),
     );
@@ -845,9 +847,9 @@ export default function Admin() {
               {[
                 ["overview", t("Vue d’ensemble"), tabs.slice(0, 1)],
                 ["content", t("Contenu et accès"), tabs.slice(1, 8)],
-                ["infrastructure", t("Infrastructure"), tabs.slice(8, 11)],
-                ["system", t("Système"), tabs.slice(11, 13)],
-                ["configuration", t("Configuration"), tabs.slice(13)],
+                ["infrastructure", t("Infrastructure"), tabs.slice(8, 12)],
+                ["system", t("Système"), tabs.slice(12, 14)],
+                ["configuration", t("Configuration"), tabs.slice(14)],
               ].map(([groupId, groupLabel, groupTabs]) => (
                 <div
                   className={`admin-navigation-group ${expandedNavigationGroups.has(groupId as string) ? "expanded" : ""}`}
@@ -1164,6 +1166,7 @@ export default function Admin() {
                     onNotice={setNotice}
                   />
                 )}
+                {tab === "sso" && <SsoPanel identity={identity} />}
                 {tab === "certificates" && (
                   <CertificatesPanel
                     certificates={certificates}
@@ -3427,6 +3430,112 @@ function DocumentsPanel({
           </button>
         </nav>
       )}
+    </>
+  );
+}
+
+function SsoPanel({ identity }: { identity: { authentication: Authentication } | null }) {
+  const { t } = useAdminI18n();
+  const [config, setConfig] = useState<{
+    ssoLoginUrl: string | null;
+    ssoPilotUrl: string | null;
+    directoryLoginEnabled: boolean;
+  } | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [testing, setTesting] = useState<"entra" | "proxy" | null>(null);
+  const [testResults, setTestResults] = useState<Partial<Record<"entra" | "proxy", boolean>>>({});
+  const tenantId = "00000000-0000-4000-8000-000000000001";
+  const clientId = "00000000-0000-4000-8000-000000000002";
+
+  useEffect(() => {
+    fetch("/api/auth/config", { cache: "no-store" })
+      .then((response) => {
+        if (!response.ok) throw new Error("SSO configuration unavailable");
+        return response.json();
+      })
+      .then(setConfig)
+      .catch(() => setLoadFailed(true));
+  }, []);
+
+  const runTest = async (target: "entra" | "proxy") => {
+    setTesting(target);
+    try {
+      const result = await api<{ ok: boolean }>(
+        `/api/auth/sso/test?target=${target}&tenant=${tenantId}`,
+      );
+      setTestResults((current) => ({ ...current, [target]: result.ok }));
+    } catch {
+      setTestResults((current) => ({ ...current, [target]: false }));
+    } finally {
+      setTesting(null);
+    }
+  };
+
+  const mode = config?.ssoLoginUrl
+    ? t("Connexion automatique")
+    : config?.ssoPilotUrl
+      ? t("Pilote")
+      : t("Désactivé");
+
+  return (
+    <>
+      <h1>{t("Connexion SSO")}</h1>
+      <section className="admin-card sso-diagnostic">
+        <h2>{t("État de la connexion")}</h2>
+        {loadFailed ? (
+          <p role="alert">{t("État indisponible")}</p>
+        ) : !config ? (
+          <p>{t("Chargement…")}</p>
+        ) : (
+          <dl>
+            <dt>{t("Mode Entra")}</dt>
+            <dd>{mode}</dd>
+            <dt>{t("Connexion AD directe")}</dt>
+            <dd>{config.directoryLoginEnabled ? t("Activée") : t("Désactivée")}</dd>
+            <dt>{t("Identité de cette session")}</dt>
+            <dd>{identity?.authentication.source || "—"}</dd>
+            <dt>{t("Groupes associés")}</dt>
+            <dd>{identity?.authentication.diagnostics.groupCount ?? "—"}</dd>
+            <dt>{t("Espaces associés")}</dt>
+            <dd>{identity?.authentication.diagnostics.mappedSpaceCount ?? "—"}</dd>
+          </dl>
+        )}
+      </section>
+      <section className="admin-card sso-diagnostic">
+        <h2>{t("Configuration Entra ID")}</h2>
+        <dl>
+          <dt>Tenant ID</dt>
+          <dd><code>{tenantId}</code></dd>
+          <dt>Client ID</dt>
+          <dd><code>{clientId}</code></dd>
+          <dt>{t("URL de retour")}</dt>
+          <dd><code>https://isms.example.com/oauth2/callback</code></dd>
+          <dt>{t("Application Entra")}</dt>
+          <dd>ISMS Portal SSO</dd>
+          <dt>{t("Affectations")}</dt>
+          <dd>{t("À gérer dans Entra ID")}</dd>
+          <dt>{t("Identifiants et secret")}</dt>
+          <dd>{t("À configurer sur le serveur ISMS")}</dd>
+          <dt>{t("Permissions demandées")}</dt>
+          <dd><code>openid profile email</code> · {t("Aucune permission Microsoft Graph")}</dd>
+          <dt>{t("Authentification du client")}</dt>
+          <dd>{t("Secret client actuellement. Certificat non pris en charge par le proxy SSO actuel.")}</dd>
+        </dl>
+        <div className="administrator-row-actions">
+          <button type="button" disabled={testing !== null} onClick={() => void runTest("entra")}>
+            {testing === "entra" ? t("Test en cours…") : t("Tester Entra ID")}
+          </button>
+          <button type="button" disabled={testing !== null} onClick={() => void runTest("proxy")}>
+            {testing === "proxy" ? t("Test en cours…") : t("Tester le proxy SSO")}
+          </button>
+        </div>
+        {(Object.keys(testResults) as Array<"entra" | "proxy">).map((target) => (
+          <p key={target} role="status">
+            {target === "entra" ? "Entra ID" : t("Proxy SSO")}: {testResults[target] ? t("Joignable") : t("Indisponible")}
+          </p>
+        ))}
+        <p>{t("L'activation nécessite une affectation pilote, un secret client installé sur le serveur et un déploiement contrôlé. Aucun secret n'est saisi ou affiché ici.")}</p>
+      </section>
     </>
   );
 }
@@ -6749,62 +6858,6 @@ function SettingsPanel({
           </div>
         </section>
       )}
-      <section
-        className="sso-diagnostic"
-        aria-labelledby="sso-diagnostic-title"
-      >
-        <h2 id="sso-diagnostic-title">{t("Diagnostic SSO sécurisé")}</h2>
-        <p>
-          {t(
-            "Seuls les totaux et les correspondances d’autorisation sont affichés. Les claims bruts ne sont jamais exposés.",
-            "Only counts and authorization mappings are displayed. Raw claims are never exposed.",
-          )}
-        </p>
-        <dl>
-          <dt>{t("Source d’identité")}</dt>
-          <dd>{identity?.authentication.source || "—"}</dd>
-          <dt>{t("Groupes reçus")}</dt>
-          <dd>{identity?.authentication.diagnostics.groupCount ?? "—"}</dd>
-          <dt>{t("Espaces associés")}</dt>
-          <dd>
-            {identity?.authentication.diagnostics.mappedSpaceCount ?? "—"}
-          </dd>
-          <dt>{t("Compte administrateur associé")}</dt>
-          <dd>
-            {identity?.authentication.diagnostics.administratorAccount
-              ? t("Oui")
-              : t("Non")}
-          </dd>
-          <dt>{t("Expiration de session")}</dt>
-          <dd>
-            {identity?.authentication.sessionExpiresAt
-              ? new Date(
-                  identity.authentication.sessionExpiresAt,
-                ).toLocaleString()
-              : t("Non communiquée")}
-          </dd>
-        </dl>
-        {identity?.authentication.logoutUrl && (
-          <a className="button-link" href={identity.authentication.logoutUrl}>
-            {t("Se déconnecter du SSO")}
-          </a>
-        )}
-        {["local-admin", "directory-session"].includes(
-          identity?.authentication.source || "",
-        ) && (
-          <button
-            type="button"
-            className="button-link"
-            onClick={() =>
-              api("/api/auth/logout?scope=admin", { method: "POST" }).then(() =>
-                window.location.assign("/admin/login?loggedout=1"),
-              )
-            }
-          >
-            {t("Se déconnecter")}
-          </button>
-        )}
-      </section>
       <form
         className="admin-form"
         onSubmit={async (event) => {

@@ -41,6 +41,21 @@ repli LDAP/LDAPS manuel et `/admin/login` le repli administrateur local.
 
 ## Activation progressive Entra ID (postes Entra et hybrides)
 
+L'onglet administrateur `/admin#sso` indique le mode de connexion et propose
+deux tests sans ouvrir de session : découverte OIDC du tenant et disponibilité
+du proxy SSO. Un résultat positif ne valide ni le secret client, ni
+l'affectation Entra, ni la correspondance des groupes AD ; un essai avec un
+compte pilote reste nécessaire. Les tests sont réservés aux administrateurs.
+
+L'application `ISMS Portal SSO` ne demande que les scopes OIDC `openid profile
+email`. Aucune permission Microsoft Graph n'est nécessaire : les groupes sont
+résolus via le connecteur AD de l'ISMS. Ne pas ajouter `User.Read`, `Mail.Send`
+ou des permissions d'application Graph au seul motif d'activer le SSO.
+L'enregistrement Entra peut posséder un certificat, mais oauth2-proxy 7.15.3
+utilise ici un secret client ; son fournisseur Entra ne propose pas
+`private_key_jwt` pour ce flux. La bascule vers un certificat requiert un
+connecteur OIDC compatible, son test complet et une migration contrôlée.
+
 La production utilise par défaut la connexion AD directe. Le proxy SSO est une
 surcouche facultative : ne pas l'activer avant d'avoir testé la connexion d'un
 utilisateur pilote et le repli AD. Une ouverture de session Windows seule ne

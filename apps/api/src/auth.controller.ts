@@ -51,6 +51,39 @@ export class AuthController {
     };
   }
 
+  @AdminOnly()
+  @Get("sso/test")
+  async testSso(
+    @Query("target") target?: string,
+    @Query("tenant") tenant?: string,
+  ) {
+    if (target !== "entra" && target !== "proxy") {
+      throw new BadRequestException("Unknown SSO test target");
+    }
+    if (target === "entra" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenant || "")) {
+      throw new BadRequestException("Invalid Entra tenant ID");
+    }
+
+    try {
+      if (target === "proxy") {
+        const response = await fetch("http://oauth2-proxy:4180/ping", {
+          signal: AbortSignal.timeout(5000),
+        });
+        return { target, ok: response.ok };
+      }
+
+      const issuer = `https://login.microsoftonline.com/${tenant}/v2.0`;
+      const response = await fetch(`${issuer}/.well-known/openid-configuration`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!response.ok) return { target, ok: false };
+      const metadata = (await response.json()) as { issuer?: string };
+      return { target, ok: metadata.issuer === issuer };
+    } catch {
+      return { target, ok: false };
+    }
+  }
+
   @Post("directory-login")
   directoryLogin(
     @Body() body: DirectoryLoginDto,
