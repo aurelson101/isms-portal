@@ -2959,6 +2959,9 @@ function DocumentsPanel({
   const [spaceId, setSpaceId] = useState("");
   const [versionUploadDocument, setVersionUploadDocument] =
     useState<AdminDocument | null>(null);
+  const [editingCategoryDocumentId, setEditingCategoryDocumentId] = useState<string | null>(null);
+  const [editedCategoryId, setEditedCategoryId] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
   const [sensitive, setSensitive] = useState(false);
   const [watermarkPosition, setWatermarkPosition] = useState<
     "HEADER" | "CENTER" | "FOOTER"
@@ -3007,7 +3010,7 @@ function DocumentsPanel({
         }}
       >
         <input name="documentId" type="hidden" value={versionUploadDocument?.id || ""} />
-        <h2>{versionUploadDocument ? t("Éditer et déposer une nouvelle version") : t("Déposer une version")}</h2>
+        <h2>{versionUploadDocument ? t("Déposer une nouvelle version") : t("Déposer une version")}</h2>
         {versionUploadDocument && (
           <p className="notice">
             {t("Document sélectionné")}: <strong>{versionTranslation?.title}</strong> · {t("prochaine version")} v{nextVersion}
@@ -3021,10 +3024,12 @@ function DocumentsPanel({
         </p>
         <label>
           {t("Espace")}
+          {versionUploadDocument && <input type="hidden" name="spaceId" value={spaceId} />}
           <select
-            name="spaceId"
+            name={versionUploadDocument ? undefined : "spaceId"}
             required
             value={spaceId}
+            disabled={Boolean(versionUploadDocument)}
             onChange={(event) => setSpaceId(event.target.value)}
           >
             <option value="">{t("Sélectionner…")}</option>
@@ -3035,28 +3040,30 @@ function DocumentsPanel({
             ))}
           </select>
         </label>
-        <label>
-          {t("Catégorie")}
-          <select name="categoryId">
-            <option value="">{t("Sans catégorie")}</option>
-            {flattenCategories(selectedSpace?.categories || []).map(
-              ({ item, depth }) => (
-                <option value={item.id} key={item.id}>
-                  {`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}
-                </option>
-              ),
-            )}
-          </select>
-        </label>
+        {!versionUploadDocument && (
+          <label>
+            {t("Catégorie")}
+            <select name="categoryId">
+              <option value="">{t("Sans catégorie")}</option>
+              {flattenCategories(selectedSpace?.categories || []).map(
+                ({ item, depth }) => (
+                  <option value={item.id} key={item.id}>
+                    {`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
+        )}
         <fieldset className="document-language-field">
           <legend>{t("Langue du document")}</legend>
           <div className="document-language-options">
             <label className="document-language-option">
-              <input name="locale" type="radio" value="fr" defaultChecked />
+              <input name="locale" type="radio" value="fr" defaultChecked={versionTranslation?.locale !== "en"} />
               <span>FR</span>
             </label>
             <label className="document-language-option">
-              <input name="locale" type="radio" value="en" />
+              <input name="locale" type="radio" value="en" defaultChecked={versionTranslation?.locale === "en"} />
               <span>EN</span>
             </label>
           </div>
@@ -3137,6 +3144,7 @@ function DocumentsPanel({
             <tr>
               <th>{t("Titre")}</th>
               <th>{t("Espace")}</th>
+              <th>{t("Catégorie")}</th>
               <th>{t("Langue du document")}</th>
               <th>{t("État")}</th>
               <th>{t("Actions")}</th>
@@ -3145,7 +3153,7 @@ function DocumentsPanel({
           <tbody>
             {documents.length === 0 && (
               <tr>
-                <td colSpan={5}>
+                <td colSpan={6}>
                   <EmptyState
                     compact
                     fr="Aucun document n’a encore été déposé."
@@ -3156,7 +3164,7 @@ function DocumentsPanel({
             )}
             {pageDocuments.map((document) => (
               <tr key={document.id}>
-                <td>
+                <td data-label={t("Titre")}>
                   {document.translations.map((item) => item.title).join(" / ")}
                   <details className="document-lifecycle">
                     <summary>{t("Chronologie")}</summary>
@@ -3195,12 +3203,44 @@ function DocumentsPanel({
                     </ol>
                   </details>
                 </td>
-                <td>
+                <td data-label={t("Espace")}>
                   {locale === "fr"
                     ? document.space.nameFr
                     : document.space.nameEn}
                 </td>
-                <td>
+                <td data-label={t("Catégorie")}>
+                  {editingCategoryDocumentId === document.id ? (
+                    <form onSubmit={async (event) => {
+                      event.preventDefault();
+                      setSavingCategory(true);
+                      try {
+                        await api(`/api/documents/${document.id}/category`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ categoryId: editedCategoryId || null }),
+                        });
+                        setEditingCategoryDocumentId(null);
+                        await onChanged();
+                      } catch (error) {
+                        onError(error instanceof Error ? error.message : String(error));
+                      } finally {
+                        setSavingCategory(false);
+                      }
+                    }}>
+                      <select aria-label={t("Catégorie")} value={editedCategoryId} onChange={(event) => setEditedCategoryId(event.target.value)}>
+                        <option value="">{t("Sans catégorie")}</option>
+                        {flattenCategories(spaces.find((space) => space.id === document.space.id)?.categories || []).map(({ item, depth }) => (
+                          <option key={item.id} value={item.id}>{`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}</option>
+                        ))}
+                      </select>
+                      <div className="button-row">
+                        <button type="submit" disabled={savingCategory || editedCategoryId === (document.category?.id || "")}>{t("Enregistrer")}</button>
+                        <button type="button" disabled={savingCategory} onClick={() => setEditingCategoryDocumentId(null)}>{t("Annuler")}</button>
+                      </div>
+                    </form>
+                  ) : document.category ? (locale === "fr" ? document.category.nameFr : document.category.nameEn) : t("Sans catégorie")}
+                </td>
+                <td data-label={t("Langue du document")}>
                   <div
                     className="document-language-badges"
                     aria-label={t("Langue du document")}
@@ -3219,9 +3259,20 @@ function DocumentsPanel({
                     ))}
                   </div>
                 </td>
-                <td>{localizedStatus(locale, document.status)}</td>
-                <td>
+                <td data-label={t("État")}>{localizedStatus(locale, document.status)}</td>
+                <td data-label={t("Actions")}>
                   <div className="document-actions">
+                    <button
+                      type="button"
+                      className="document-action"
+                      onClick={() => {
+                        setEditingCategoryDocumentId(document.id);
+                        setEditedCategoryId(document.category?.id || "");
+                      }}
+                    >
+                      <Icon name="folder" />
+                      {t("Modifier la catégorie")}
+                    </button>
                     <button
                       type="button"
                       className="document-action"
@@ -3234,7 +3285,7 @@ function DocumentsPanel({
                       }}
                     >
                       <Icon name="documents" />
-                      {t("Éditer / nouvelle version")}
+                      {t("Nouvelle version")}
                     </button>
                     {document.status !== "PUBLISHED" && (
                       <button

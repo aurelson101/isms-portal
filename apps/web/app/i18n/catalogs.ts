@@ -752,6 +752,8 @@ export const adminEnglishCatalog = {
   Titre: "Title",
   "Valeur JSON": "JSON value",
   "Éditer et déposer une nouvelle version": "Edit and upload a new version",
+  "Déposer une nouvelle version": "Upload a new version",
+  "Nouvelle version": "New version",
   "Document sélectionné": "Selected document",
   "prochaine version": "next version",
   "Ne pas envoyer d’alerte e-mail pour ce dépôt ou sa publication":
