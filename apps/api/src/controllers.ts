@@ -364,6 +364,7 @@ export class DocumentsController {
     @Query("format") format = "",
     @Query("locale") documentLocale = "",
     @Query("sensitive") sensitive = "",
+    @Query("managed") managed = "false",
   ) {
     const q = query.trim().slice(0, 200);
     const requestedPage = Math.max(1, Number(pageValue) || 1);
@@ -512,10 +513,12 @@ export class DocumentsController {
     if (q && fullTextMatches.length === 0) return emptyResult;
     const where: Prisma.DocumentWhereInput = {
       deletedAt: null,
-      OR: [
-        { status: "PUBLISHED", spaceId: { in: readableSpaceIds } },
-        { spaceId: { in: managedSpaceIds } },
-      ],
+      OR: managed === "true"
+        ? [{ spaceId: { in: managedSpaceIds } }]
+        : [
+            { status: "PUBLISHED", spaceId: { in: readableSpaceIds } },
+            { spaceId: { in: managedSpaceIds } },
+          ],
       ...(q
         ? { id: { in: fullTextMatches.map((match) => match.documentId) } }
         : {}),
@@ -582,6 +585,7 @@ export class DocumentsController {
             },
           },
           orderBy: { version: "desc" },
+          ...(managed === "true" ? { take: 1 } : {}),
         },
         reviews: {
           where: { status: "APPROVED", decidedAt: { not: null } },

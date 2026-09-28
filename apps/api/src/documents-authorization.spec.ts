@@ -105,6 +105,21 @@ describe("DocumentsController ACL scoping", () => {
     });
   });
 
+  it("counts only manageable spaces for the moderator queue", async () => {
+    grant({ read: [general, itSpace], edit: [itSpace] });
+
+    await controller.list(
+      request, "", undefined, undefined, undefined,
+      "recent", "1", "20", "false", "", "", "", "true",
+    );
+
+    expect(count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        OR: [{ spaceId: { in: ["space-it"] } }],
+      }),
+    });
+  });
+
   it("does not let management permissions bypass the search permission", async () => {
     grant({ search: [itSpace], edit: [general, itSpace] });
     queryRaw.mockResolvedValue([{ documentId: "document-it" }]);
