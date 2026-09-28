@@ -14,6 +14,9 @@ describe("DocumentsController ACL scoping", () => {
   const categoryFindFirst = vi.fn();
   const categoryFindMany = vi.fn().mockResolvedValue([]);
   const updateDocument = vi.fn().mockResolvedValue({});
+  const findVersion = vi.fn();
+  const updateVersion = vi.fn().mockResolvedValue({});
+  const upsertTranslation = vi.fn().mockResolvedValue({ locale: "en", title: "Guide" });
   const upsertActivity = vi.fn().mockResolvedValue({});
   const upsertFavorite = vi.fn();
   const queryRaw = vi.fn().mockResolvedValue([]);
@@ -23,6 +26,8 @@ describe("DocumentsController ACL scoping", () => {
       findFirst: categoryFindFirst,
       findMany: categoryFindMany,
     },
+    documentVersion: { findFirst: findVersion, update: updateVersion },
+    documentTranslation: { upsert: upsertTranslation },
     userDocumentActivity: { upsert: upsertActivity },
     userFavorite: { upsert: upsertFavorite },
     $queryRaw: queryRaw,
@@ -37,9 +42,9 @@ describe("DocumentsController ACL scoping", () => {
   const controller = new DocumentsController(
     prisma,
     authorization,
+    {} as never,
+    {} as never,
     { record: vi.fn().mockResolvedValue(undefined) } as never,
-    {} as never,
-    {} as never,
     {} as never,
   );
   const request = {
@@ -59,6 +64,9 @@ describe("DocumentsController ACL scoping", () => {
     categoryFindFirst.mockReset();
     categoryFindMany.mockReset().mockResolvedValue([]);
     updateDocument.mockClear();
+    findVersion.mockReset();
+    updateVersion.mockClear();
+    upsertTranslation.mockClear();
     upsertActivity.mockClear();
     upsertFavorite.mockReset();
     can.mockReset();
@@ -303,5 +311,26 @@ describe("DocumentsController ACL scoping", () => {
       expect.objectContaining({ id: "draft-1", status: "DRAFT" }),
     );
     expect(updateDocument).toHaveBeenCalled();
+  });
+
+  it("updates the selected file language together with its metadata", async () => {
+    findFirst.mockResolvedValue({ id: "doc-1", spaceId: general.id, categoryId: null, translations: [] });
+    findVersion.mockResolvedValueOnce({ id: "version-1", locale: "fr", version: 1 }).mockResolvedValueOnce(null);
+    can.mockResolvedValue(true);
+
+    await controller.updateMetadata(request, "doc-1", { locale: "en", versionId: "version-1", title: "Guide" });
+
+    expect(updateVersion).toHaveBeenCalledWith({ where: { id: "version-1" }, data: { locale: "en" } });
+    expect(upsertTranslation).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ locale: "en", title: "Guide" }) }));
+  });
+
+  it("refuses to overwrite an existing version in the target language", async () => {
+    findFirst.mockResolvedValue({ id: "doc-1", spaceId: general.id, categoryId: null, translations: [] });
+    findVersion.mockResolvedValueOnce({ id: "version-1", locale: "fr", version: 1 }).mockResolvedValueOnce({ id: "version-en" });
+    can.mockResolvedValue(true);
+
+    await expect(controller.updateMetadata(request, "doc-1", { locale: "en", versionId: "version-1", title: "Guide" })).rejects.toThrow("already exists");
+    expect(updateVersion).not.toHaveBeenCalled();
+    expect(upsertTranslation).not.toHaveBeenCalled();
   });
 });

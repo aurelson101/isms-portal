@@ -867,6 +867,16 @@ export class DocumentsController {
       const category = await this.prisma.documentCategory.findFirst({ where: { id: body.categoryId, spaceId: document.spaceId, deletedAt: null }, select: { id: true } });
       if (!category) throw new BadRequestException("Invalid category for this document space");
     }
+    const version = body.versionId ? await this.prisma.documentVersion.findFirst({
+      where: { id: body.versionId, documentId: id }, select: { id: true, locale: true, version: true },
+    }) : null;
+    if (body.versionId && !version) throw new BadRequestException("Invalid document version");
+    if (version && version.locale !== body.locale) {
+      const duplicate = await this.prisma.documentVersion.findFirst({
+        where: { documentId: id, locale: body.locale, version: version.version, id: { not: version.id } }, select: { id: true },
+      });
+      if (duplicate) throw new ConflictException("This document version already exists in the selected language");
+    }
     const title = body.title.trim();
     const description = body.description?.trim() || null;
     const existing = document.translations[0];
@@ -875,6 +885,7 @@ export class DocumentsController {
     const [translation] = await this.prisma.$transaction([
       this.prisma.documentTranslation.upsert({ where: { documentId_locale: { documentId: id, locale: body.locale } }, update: { title, description }, create: { documentId: id, locale: body.locale, title, description } }),
       ...(categoryChanged ? [this.prisma.document.update({ where: { id }, data: { categoryId: body.categoryId || null } })] : []),
+      ...(version && version.locale !== body.locale ? [this.prisma.documentVersion.update({ where: { id: version.id }, data: { locale: body.locale } })] : []),
     ]);
     await this.audit.record(
       req,
@@ -883,6 +894,8 @@ export class DocumentsController {
       "success",
       {
         locale: body.locale,
+        versionId: version?.id,
+        previousLocale: version?.locale,
         categoryId: body.categoryId,
       },
     );
@@ -2725,6 +2738,7 @@ export class DocumentAdminController {
         translations: true,
       versions: {
           select: { id: true, locale: true, version: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
         },
         category: true,
         space: true,

@@ -2992,8 +2992,8 @@ function DocumentsPanel({
   const selectMetadataLocale = (document: AdminDocument, documentLocale: "fr" | "en") => {
     const translation = document.translations.find((item) => item.locale === documentLocale);
     setEditedLocale(documentLocale);
-    setEditedTitle(translation?.title || "");
-    setEditedDescription(translation?.description || "");
+    setEditedTitle(translation?.title || document.translations[0]?.title || "");
+    setEditedDescription(translation?.description || document.translations[0]?.description || "");
   };
   return (
     <>
@@ -3155,7 +3155,7 @@ function DocumentsPanel({
             await api(`/api/documents/${editingMetadataDocument.id}/metadata`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ locale: editedLocale, title: editedTitle.trim(), description: editedDescription.trim(), categoryId: editedCategoryId || null }),
+              body: JSON.stringify({ locale: editedLocale, versionId: editingMetadataDocument.versions[0]?.id, title: editedTitle.trim(), description: editedDescription.trim(), categoryId: editedCategoryId || null }),
             });
             setEditingMetadataDocument(null);
             await onChanged();
@@ -3167,7 +3167,7 @@ function DocumentsPanel({
         }}>
           <h2>{t("Éditer les métadonnées")}</h2>
           <p>{editingMetadataDocument.translations.map((item) => item.title).join(" / ")}</p>
-          <label>{t("Langue des métadonnées")}
+          <label>{t("Langue du document")}
             <select value={editedLocale} onChange={(event) => selectMetadataLocale(editingMetadataDocument, event.target.value as "fr" | "en")}>
               <option value="fr">FR</option><option value="en">EN</option>
             </select>
@@ -3289,7 +3289,7 @@ function DocumentsPanel({
                       onClick={() => {
                         setEditingMetadataDocument(document);
                         setEditedCategoryId(document.category?.id || "");
-                        selectMetadataLocale(document, document.translations.some((item) => item.locale === locale) ? locale : document.translations[0]?.locale === "en" ? "en" : "fr");
+                        selectMetadataLocale(document, document.versions[0]?.locale === "en" ? "en" : "fr");
                         window.setTimeout(() => window.document.getElementById("document-metadata-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
                       }}
                     >

@@ -5,7 +5,7 @@ import { Icon } from "../icons";
 
 type Space = { id: string; nameFr: string; nameEn: string; permissions: Record<string, boolean> };
 type Identity = { displayName: string; username: string; isAdmin: boolean; isModerator?: boolean; locale: "fr" | "en" | null; spaces: Space[] };
-type Document = { id: string; status: string; space: { id: string; nameFr: string; nameEn: string }; category: { id: string; nameFr: string; nameEn: string } | null; translations: Array<{ locale: string; title: string; description: string | null }>; versions: Array<{ locale: string; version: number }> };
+type Document = { id: string; status: string; space: { id: string; nameFr: string; nameEn: string }; category: { id: string; nameFr: string; nameEn: string } | null; translations: Array<{ locale: string; title: string; description: string | null }>; versions: Array<{ id: string; locale: string; version: number }> };
 type Category = { id: string; parentId: string | null; nameFr: string; nameEn: string };
 
 const messageOf = async (response: Response) => {
@@ -66,8 +66,8 @@ export default function ModeratorPage() {
   const selectMetadataLocale = (document: Document, selected: "fr" | "en") => {
     const translation = document.translations.find((item) => item.locale === selected);
     setMetadataLocale(selected);
-    setMetadataTitle(translation?.title || "");
-    setMetadataDescription(translation?.description || "");
+    setMetadataTitle(translation?.title || document.translations[0]?.title || "");
+    setMetadataDescription(translation?.description || document.translations[0]?.description || "");
   };
   const openMetadata = async (document: Document) => {
     setError("");
@@ -75,7 +75,7 @@ export default function ModeratorPage() {
     if (!response.ok) throw new Error(await messageOf(response));
     setMetadataCategories(await response.json() as Category[]);
     setMetadataCategoryId(document.category?.id || "");
-    selectMetadataLocale(document, document.translations.some((item) => item.locale === locale) ? locale : document.translations[0]?.locale === "en" ? "en" : "fr");
+    selectMetadataLocale(document, document.versions[0]?.locale === "en" ? "en" : "fr");
     setEditing(null);
     setMetadataEditing(document);
     window.setTimeout(() => window.document.getElementById("moderator-metadata-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
@@ -92,14 +92,14 @@ export default function ModeratorPage() {
         try {
           const response = await fetch(`/api/documents/${metadataEditing.id}/metadata`, {
             method: "PUT", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ locale: metadataLocale, title: metadataTitle.trim(), description: metadataDescription.trim(), categoryId: metadataCategoryId || null }),
+            body: JSON.stringify({ locale: metadataLocale, versionId: metadataEditing.versions[0]?.id, title: metadataTitle.trim(), description: metadataDescription.trim(), categoryId: metadataCategoryId || null }),
           });
           if (!response.ok) throw new Error(await messageOf(response));
           setMetadataEditing(null); setNotice(t("Métadonnées enregistrées.", "Metadata saved.")); await load(documentPage);
         } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
         finally { setMetadataBusy(false); }
       }}>
-        <label>{t("Langue des métadonnées", "Metadata language")}<select value={metadataLocale} onChange={(event) => selectMetadataLocale(metadataEditing, event.target.value as "fr" | "en")}><option value="fr">FR</option><option value="en">EN</option></select></label>
+        <label>{t("Langue du document", "Document language")}<select value={metadataLocale} onChange={(event) => selectMetadataLocale(metadataEditing, event.target.value as "fr" | "en")}><option value="fr">FR</option><option value="en">EN</option></select></label>
         <label>{t("Titre", "Title")}<input required maxLength={255} value={metadataTitle} onChange={(event) => setMetadataTitle(event.target.value)} /></label>
         <label>{t("Description", "Description")}<textarea maxLength={2000} value={metadataDescription} onChange={(event) => setMetadataDescription(event.target.value)} /></label>
         <label>{t("Catégorie", "Category")}<select value={metadataCategoryId} onChange={(event) => setMetadataCategoryId(event.target.value)}><option value="">{t("Sans catégorie", "No category")}</option>{metadataCategories.map((category) => <option key={category.id} value={category.id}>{locale === "fr" ? category.nameFr : category.nameEn}</option>)}</select></label>

@@ -688,6 +688,10 @@ export function Portal({
   const [securityReportOpen, setSecurityReportOpen] = useState(false);
   const [securityReportFeedback, setSecurityReportFeedback] = useState("");
   const [editing, setEditing] = useState<PortalDocument | null>(null);
+  const [editVersionId, setEditVersionId] = useState("");
+  const [editLocale, setEditLocale] = useState<Locale>("fr");
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const [depositOpen, setDepositOpen] = useState(false);
   const [actionError, setActionError] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
@@ -2331,7 +2335,16 @@ export function Portal({
                     }))
                   }
                   onOpen={setOpened}
-                  onEdit={setEditing}
+                  onEdit={(document) => {
+                    const version = document.versions.find((item) => item.locale === selectedLocales[document.id]) || document.versions[0];
+                    const documentLocale = version?.locale === "en" ? "en" : "fr";
+                    const translation = document.translations.find((item) => item.locale === documentLocale) || document.translations[0];
+                    setEditVersionId(version?.id || "");
+                    setEditLocale(documentLocale);
+                    setEditTitle(translation?.title || "");
+                    setEditDescription(translation?.description || "");
+                    setEditing(document);
+                  }}
                   onTransition={(document, action) =>
                     void transitionDocument(document, action)
                   }
@@ -3755,10 +3768,11 @@ export function Portal({
                 const values = Object.fromEntries(new FormData(event.currentTarget));
                 const categoryId = String(values.categoryId || "") || null;
                 const currentCategoryId = editing.category?.id || null;
-                const currentTranslation = editing.translations.find((translation) => translation.locale === String(values.locale));
+                const currentTranslation = editing.translations.find((translation) => translation.locale === editLocale);
                 const metadataChanged = String(values.title).trim() !== (currentTranslation?.title || "") || String(values.description || "").trim() !== (currentTranslation?.description || "");
                 const categoryChanged = categoryId !== currentCategoryId;
-                const response = metadataChanged || categoryChanged ? await fetch(`/api/documents/${editing.id}/metadata`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ locale: values.locale, title: values.title, description: values.description, categoryId }) }) : null;
+                const languageChanged = editing.versions.find((version) => version.id === editVersionId)?.locale !== editLocale;
+                const response = metadataChanged || categoryChanged || languageChanged ? await fetch(`/api/documents/${editing.id}/metadata`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ locale: editLocale, versionId: editVersionId, title: values.title, description: values.description, categoryId }) }) : null;
                 if (response && !response.ok) {
                   setActionError(t.error);
                   return;
@@ -3769,7 +3783,13 @@ export function Portal({
             >
               <label>
                 {locale === "fr" ? "Langue" : "Language"}
-                <select name="locale" defaultValue={locale}>
+                <select name="locale" value={editLocale} onChange={(event) => {
+                  const selected = event.target.value as Locale;
+                  const translation = editing.translations.find((item) => item.locale === selected);
+                  setEditLocale(selected);
+                  setEditTitle(translation?.title || editTitle);
+                  setEditDescription(translation?.description || editDescription);
+                }}>
                   <option value="fr">FR</option>
                   <option value="en">EN</option>
                 </select>
@@ -3779,18 +3799,16 @@ export function Portal({
                 <input
                   name="title"
                   required
-                  defaultValue={titleFor(editing, locale)}
+                  value={editTitle}
+                  onChange={(event) => setEditTitle(event.target.value)}
                 />
               </label>
               <label>
                 {locale === "fr" ? "Description" : "Description"}
                 <textarea
                   name="description"
-                  defaultValue={
-                    editing.translations.find(
-                      (translation) => translation.locale === locale,
-                    )?.description || ""
-                  }
+                  value={editDescription}
+                  onChange={(event) => setEditDescription(event.target.value)}
                 />
               </label>
               <label>

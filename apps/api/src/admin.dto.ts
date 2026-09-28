@@ -167,6 +167,10 @@ export class DocumentMetadataDto {
   @IsIn(["fr", "en"])
   locale!: "fr" | "en";
 
+  @IsOptional()
+  @IsUUID("4")
+  versionId?: string;
+
   @IsString()
   @MinLength(1)
   @MaxLength(255)
