@@ -1,4 +1,4 @@
-# Configuration LDAP/LDAPS — ExampleOrgGroup
+# Configuration LDAP/LDAPS — exemple générique
 
 > Ce guide ne contient aucun secret. Le mot de passe du compte de bind doit
 > être saisi dans l’administration et ne doit jamais être ajouté à Git.
@@ -7,13 +7,13 @@
 
 | Champ                 | Valeur                             |
 | --------------------- | ---------------------------------- |
-| Domaine               | `example.com`                   |
+| Domaine               | `example.com`                      |
 | Contrôleur primaire   | `<À_COMPLÉTER_FQDN_DC_PRIMAIRE>`   |
 | Contrôleur secondaire | `<À_COMPLÉTER_FQDN_DC_SECONDAIRE>` |
 | Protocole conseillé   | `LDAPS`                            |
 | Port LDAPS            | `636`                              |
-| Base DN               | `DC=ExampleOrgGroup,DC=com`             |
-| User Base DN          | `OU=ExampleOrg,DC=ExampleOrgGroup,DC=com`    |
+| Base DN               | `DC=example,DC=com`                |
+| User Base DN          | `OU=Users,DC=example,DC=com`       |
 | Group Base DN         | `<À_COMPLÉTER>`                    |
 | Bind DN fourni        | `isms_bind`                        |
 | Mot de passe Bind     | `<MOT_DE_PASSE_NON_STOCKE>`        |

@@ -667,9 +667,9 @@ nom, le DN et la description ; **Ajouter** relit ensuite le groupe dans AD
 avant de l’enregistrer avec la source **Synchronisé AD**. Une saisie manuelle
 reste possible et conserve volontairement la source **Ajout local**.
 
-La fiche de configuration préremplie pour ExampleOrgGroup est disponible dans
+Une fiche LDAP générique est disponible dans
 [README-LDAP-LOCAL.md](README-LDAP-LOCAL.md). Elle ne contient aucun mot de
-passe ; les contrôleurs et le Group Base DN restent à compléter.
+passe ; les contrôleurs et les DN doivent être adaptés à l'organisation.
 
 Test LDAP/LDAPS reproductible sans l’AD de production :
 
@@ -736,9 +736,11 @@ Compléter `.env` avec les valeurs de l’inscription et l’URL publique HTTPS 
 ENTRA_TENANT_ID=<TENANT_ID>
 ENTRA_CLIENT_ID=<CLIENT_ID>
 ENTRA_CLIENT_SECRET=<SECRET_DANS_GESTIONNAIRE_DE_SECRETS>
+PUBLIC_URL=https://isms.example.com
 OAUTH2_PROXY_COOKIE_SECRET=<GENERE_PAR_LE_SCRIPT>
 OAUTH2_PROXY_REDIRECT_URL=https://isms.example.com/oauth2/callback
-SSO_LOGIN_URL=/oauth2/start?rd=/
+SSO_PILOT_URL=/oauth2/start?rd=/
+SSO_LOGIN_VERIFIED=false
 # Remplacer les valeurs puis encoder toute l'URL Entra placée après rd=.
 SSO_LOGOUT_URL=/oauth2/sign_out?rd=<URL_ENTRA_END_SESSION_ENCODEE>
 SSO_DIRECTORY_GROUP_ENRICHMENT=true
@@ -746,6 +748,9 @@ SSO_DIRECTORY_CACHE_TTL_SECONDS=300
 SSO_DIRECTORY_NEGATIVE_CACHE_TTL_SECONDS=30
 COOKIE_SECURE=true
 ```
+
+Définir aussi `PUBLIC_URL` dans `.env.app`, chargé par l'API : les liens des
+notifications ne sont pas générés sans cette URL HTTPS explicite.
 
 Le portail doit impérativement être publié en HTTPS. Si TLS est terminé par un
 reverse proxy d’entreprise placé devant le port 8080, celui-ci doit transmettre
@@ -759,14 +764,19 @@ oauth2-proxy. Pour fermer également la session de l'application dans Entra,
 construire `SSO_LOGOUT_URL` avec le paramètre `rd` pointant vers l'endpoint
 tenant `https://login.microsoftonline.com/<TENANT_ID>/oauth2/v2.0/logout`, puis
 ajouter un `post_logout_redirect_uri` HTTPS enregistré dans l'application.
-Encoder deux fois l'URL de retour puisqu'elle est imbriquée dans `rd`. Le domaine
-Microsoft est explicitement autorisé dans `docker-compose.sso.yml` ; ne pas
-élargir cette liste. Pour le single sign-out entre applications, enregistrer
+Encoder deux fois l'URL de retour puisqu'elle est imbriquée dans `rd`. La
+redirection externe doit être validée avant usage. Pour le single sign-out
+entre applications, enregistrer
 également une URL front-channel Entra capable de supprimer la session locale
 avant de répondre HTTP 200.
 
-Lorsqu'un utilisateur ouvre `/` ou `/login`, le portail réutilise
-automatiquement la session Microsoft 365 déjà présente dans le navigateur. Le
+Avant validation du pilote, ouvrir directement `/oauth2/start?rd=/` avec un
+compte affecté à l'application Entra. Après vérification de la connexion, des
+droits AD et du repli LDAP, définir `SSO_LOGIN_VERIFIED=true` dans `.env.app`
+et redéployer l'API : le bouton « Connexion SSO » apparaît si le proxy répond.
+Définir ensuite `SSO_LOGIN_URL=/oauth2/start?rd=/` pour la redirection
+automatique. Le portail réutilise alors la session Microsoft 365 déjà présente
+dans le navigateur. Le
 fournisseur Entra ne redemande une interaction que si aucune session compatible
 n'existe, si plusieurs comptes nécessitent un choix ou si une politique d'accès
 conditionnel l'impose. Le paramètre `return` est conservé uniquement lorsqu'il

@@ -3444,8 +3444,8 @@ function SsoPanel({ identity }: { identity: { authentication: Authentication } |
   const [loadFailed, setLoadFailed] = useState(false);
   const [testing, setTesting] = useState<"entra" | "proxy" | null>(null);
   const [testResults, setTestResults] = useState<Partial<Record<"entra" | "proxy", boolean>>>({});
-  const tenantId = "00000000-0000-4000-8000-000000000001";
-  const clientId = "00000000-0000-4000-8000-000000000002";
+  const [tenantId, setTenantId] = useState("");
+  const validTenantId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantId);
 
   useEffect(() => {
     fetch("/api/auth/config", { cache: "no-store" })
@@ -3505,11 +3505,9 @@ function SsoPanel({ identity }: { identity: { authentication: Authentication } |
         <h2>{t("Configuration Entra ID")}</h2>
         <dl>
           <dt>Tenant ID</dt>
-          <dd><code>{tenantId}</code></dd>
-          <dt>Client ID</dt>
-          <dd><code>{clientId}</code></dd>
+          <dd><input aria-label="Tenant ID" value={tenantId} onChange={(event) => setTenantId(event.target.value.trim())} placeholder="00000000-0000-0000-0000-000000000000" /></dd>
           <dt>{t("URL de retour")}</dt>
-          <dd><code>https://isms.example.com/oauth2/callback</code></dd>
+          <dd><code>/oauth2/callback</code></dd>
           <dt>{t("Application Entra")}</dt>
           <dd>ISMS Portal SSO</dd>
           <dt>{t("Affectations")}</dt>
@@ -3522,7 +3520,7 @@ function SsoPanel({ identity }: { identity: { authentication: Authentication } |
           <dd>{t("Secret client actuellement. Certificat non pris en charge par le proxy SSO actuel.")}</dd>
         </dl>
         <div className="administrator-row-actions">
-          <button type="button" disabled={testing !== null} onClick={() => void runTest("entra")}>
+          <button type="button" disabled={testing !== null || !validTenantId} onClick={() => void runTest("entra")}>
             {testing === "entra" ? t("Test en cours…") : t("Tester Entra ID")}
           </button>
           <button type="button" disabled={testing !== null} onClick={() => void runTest("proxy")}>

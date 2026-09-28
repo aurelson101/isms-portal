@@ -1,6 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { NotificationService, notificationConnection } from "./notification.service";
 import { notificationHtml } from "./notification-email";
+
+const previousPublicUrl = process.env.PUBLIC_URL;
+beforeAll(() => { process.env.PUBLIC_URL = "https://isms.example.com"; });
+afterAll(() => {
+  if (previousPublicUrl === undefined) delete process.env.PUBLIC_URL;
+  else process.env.PUBLIC_URL = previousPublicUrl;
+});
 
 function setup() {
   const prisma = {
@@ -120,6 +127,11 @@ describe("Notification routing", () => {
     expect(html).toContain('lang="en"');
     expect(html).toContain("max-width:600px");
     expect(() => notificationHtml("x", "y", "https://evil.example/")).toThrow("Invalid notification link");
+  });
+  it("requires an explicit HTTPS public URL for notification links", () => {
+    delete process.env.PUBLIC_URL;
+    expect(() => notificationHtml("Subject", "Body")).toThrow("PUBLIC_URL is required");
+    process.env.PUBLIC_URL = "https://isms.example.com";
   });
   it("creates direct, contextual approval and review messages", async () => {
     const h = setup();

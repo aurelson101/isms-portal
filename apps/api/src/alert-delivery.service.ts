@@ -81,7 +81,7 @@ export class AlertDeliveryService {
     return {
       graphTenantId: value.graphTenantId || "",
       graphClientId: value.graphClientId || "",
-      graphSender: value.graphSender || "isms-app@example.com",
+      graphSender: value.graphSender || "",
       graphCertificatePem: value.graphCertificatePemEncrypted ? MASK : "",
       graphPrivateKeyPem: value.graphPrivateKeyPemEncrypted ? MASK : "",
       graphThumbprint: this.graphThumbprint(value),
@@ -132,7 +132,7 @@ export class AlertDeliveryService {
     const value: StoredChannels = {
       graphTenantId: String(input.graphTenantId || "").trim(),
       graphClientId: String(input.graphClientId || "").trim(),
-      graphSender: String(input.graphSender || "isms-app@example.com").trim(),
+      graphSender: String(input.graphSender || "").trim(),
       graphCertificatePemEncrypted: secret("graphCertificatePem", previous.graphCertificatePemEncrypted),
       graphPrivateKeyPemEncrypted: secret("graphPrivateKeyPem", previous.graphPrivateKeyPemEncrypted),
       smtpHost: String(input.smtpHost || "").trim(),

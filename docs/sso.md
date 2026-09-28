@@ -69,8 +69,8 @@ PRT du poste pilote avec `dsregcmd /status` (`AzureAdPrt : YES`) et tester Edge.
    facultative `email` au jeton d'identité. Dans l'application d'entreprise,
    exiger une affectation et n'affecter d'abord qu'un groupe pilote.
    Le modèle de revendication se trouve dans
-   `deploy/entra-optional-claims.json`; l'application ne demande aucune
-   permission Microsoft Graph supplémentaire.
+   `deploy/entra-optional-claims.json`. Les scopes OIDC délégués `openid`,
+   `profile` et `email` suffisent ; aucun accès aux données Graph n'est requis.
 2. Placer le Tenant ID, le Client ID et le secret client dans `.env` sur le
    serveur, jamais dans Git. Vérifier aussi
    `OAUTH2_PROXY_REDIRECT_URL=https://isms.example.com/oauth2/callback` et

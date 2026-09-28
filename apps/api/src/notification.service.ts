@@ -125,7 +125,7 @@ export class NotificationService {
       });
       if (!reviews.length) return null;
       const summary = reviews.map((review) => `- ${review.document.translations.find((item) => item.locale === "fr")?.title || review.document.translations[0]?.title || review.documentId} (due ${review.dueAt.toISOString().slice(0, 10)})`);
-      const subject = `[ISMS ExampleOrg Portal] ${reviews.length} publication review(s) overdue / revue(s) en retard`;
+      const subject = `[ISMS Portal] ${reviews.length} publication review(s) overdue / revue(s) en retard`;
       const text = [`${reviews.length} publication review(s) have been awaiting a decision for at least 30 days.`, "Les revues suivantes attendent une approbation ou un refus depuis au moins 30 jours.", "", ...summary, "", "Open the approvals page to approve or reject each review.", "Ouvrez la page des approbations pour décider de chaque revue.", "---", `Recorded at: ${event.at}`].join("\n");
       return { recipients: await this.staff("edit"), subject, text, link: portalLink("/approvals") };
     }
@@ -162,7 +162,7 @@ export class NotificationService {
       const decided = item.status !== "PENDING";
       const heading = decided ? `Approval decision: ${item.status}` : `Approval required: ${item.operation.replace(/_/gu, " ")}`;
       const body = [`${decided ? "A decision has been recorded for this privileged operation." : "A privileged operation is waiting for approval."}`, "", `Operation: ${item.operation.replace(/_/gu, " ")}`, `Target: ${item.targetType} · ${item.targetId}`, `Requested by: ${item.requestedBy}`, `Reason: ${item.reason}`, `Status: ${item.status}`, ...(decided ? [`Decision by: ${item.approvedBy || "Unknown"}`] : ["A second administrator must approve or reject this request."]), "---", `Recorded at: ${event.at}`, `Action by: ${actor}`, `Reference: ${id}`];
-      return { recipients: [...new Set(recipients)], subject: `[ISMS ExampleOrg Portal] ${heading}`, text: body.join("\n"), link: portalLink(`/approvals#approval-${id}`) };
+      return { recipients: [...new Set(recipients)], subject: `[ISMS Portal] ${heading}`, text: body.join("\n"), link: portalLink(`/approvals#approval-${id}`) };
     } else if (resource.startsWith("access-request:")) {
       const item = await this.prisma.accessRequest.findUnique({ where: { id } });
       if (!item) return null;
@@ -217,25 +217,25 @@ export class NotificationService {
           `Due date: ${reviewContext.dueAt.toISOString()}`, `Status: ${reviewContext.status}`,
           ...(reviewContext.comment ? [`Comment: ${reviewContext.comment}`] : []),
           ...(reviewContext.decidedBy ? [`Decision by: ${reviewContext.decidedBy}`] : []),
-          ...(decided ? ["Open ISMS ExampleOrg Portal to view the decision history."] : ["Open ISMS ExampleOrg Portal to approve or reject this review."]),
+          ...(decided ? ["Open ISMS Portal to view the decision history."] : ["Open ISMS Portal to approve or reject this review."]),
           "---", `Recorded at: ${event.at}`, `Action by: ${actor}`, `Reference: ${id}`,
         ];
-        return { recipients: [...new Set(recipients)], subject: `[ISMS ExampleOrg Portal] ${heading}`, text: body.join("\n"), link: portalLink(path) };
+        return { recipients: [...new Set(recipients)], subject: `[ISMS Portal] ${heading}`, text: body.join("\n"), link: portalLink(path) };
       }
       if (published) {
         const description = translation?.description?.trim() || "No description was provided for this document.";
         const version = doc.versions[0]?.version || "-";
         const isNewVersion = String(version) !== "1";
         const metadata = [`Recorded at: ${event.at}`, `Action by: ${actor}`, `Reference: ${id}`];
-        return { recipients: [...new Set(recipients)], subject: `[ISMS ExampleOrg Portal] ${title}${isNewVersion ? ` version ${version}` : ""} published`, text: `A ${isNewVersion ? `new version of this document is` : "new document is"} now available in the ${category} category within ${doc.space.nameEn || doc.space.nameFr}.\n\nDocument description:\n${description}\n\nVersion: ${version}\n---\n${metadata.join("\n")}`, link: portalLink(`/documents/${encodeURIComponent(doc.slug)}`) };
+        return { recipients: [...new Set(recipients)], subject: `[ISMS Portal] ${title}${isNewVersion ? ` version ${version}` : ""} published`, text: `A ${isNewVersion ? `new version of this document is` : "new document is"} now available in the ${category} category within ${doc.space.nameEn || doc.space.nameFr}.\n\nDocument description:\n${description}\n\nVersion: ${version}\n---\n${metadata.join("\n")}`, link: portalLink(`/documents/${encodeURIComponent(doc.slug)}`) };
       }
       if (annualReview) {
         const description = translation?.description?.trim() || "No description was provided for this document.";
         const version = doc.versions[0]?.version || "-";
         const metadata = [`Recorded at: ${event.at}`, `Action by: ${actor}`, `Reference: ${id}`];
         const state = action === "document.review.reminder" ? "will be due in 30 days" : action === "document.review.overdue" ? "is overdue" : "is due now";
-        const instruction = action === "document.review.reminder" ? "Please plan the review with the assigned participants." : "Please review the current content and record one moderator or administrator decision in ISMS ExampleOrg Portal.";
-        return { recipients: [...new Set(recipients)], subject: `[ISMS ExampleOrg Portal] ${title} annual review ${state}`, text: `This document's annual review ${state}. ${instruction}\n\nDocument description:\n${description}\n\nLocation: ${doc.space.nameEn || doc.space.nameFr} / ${category}\nVersion: ${version}\n---\n${metadata.join("\n")}`, link: portalLink("/approvals") };
+        const instruction = action === "document.review.reminder" ? "Please plan the review with the assigned participants." : "Please review the current content and record one moderator or administrator decision in ISMS Portal.";
+        return { recipients: [...new Set(recipients)], subject: `[ISMS Portal] ${title} annual review ${state}`, text: `This document's annual review ${state}. ${instruction}\n\nDocument description:\n${description}\n\nLocation: ${doc.space.nameEn || doc.space.nameFr} / ${category}\nVersion: ${version}\n---\n${metadata.join("\n")}`, link: portalLink("/approvals") };
       }
       lines.push(`Document: ${title}`, `Space: ${doc.space.nameEn || doc.space.nameFr}`, `Category: ${category}`, `Version: ${doc.versions[0]?.version || "-"}`, `Document status: ${doc.status}`);
       path = action === "document.delete" ? "/" : resource.startsWith("document-review:") ? "/approvals" : `/documents/${encodeURIComponent(doc.slug)}`;

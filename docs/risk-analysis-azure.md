@@ -74,7 +74,7 @@ les principaux points uniques de défaillance. Elle peut être mise en oeuvre pa
 étapes; AKS n'est pas nécessaire pour un premier déploiement maîtrisé.
 
 ```text
-Internet / réseau ExampleOrg
+Internet / réseau organisation
         |
 Azure Front Door Premium ou Application Gateway WAF
         |

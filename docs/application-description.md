@@ -1,8 +1,8 @@
-# Description complète - ISMS Portal ExampleOrg
+# Description complète - ISMS Portal
 
 ## Résumé exécutif
 
-ISMS Portal ExampleOrg est une application web de gestion documentaire et de gouvernance de la sécurité de l'information. Elle centralise les politiques, procédures, guides, preuves et documents de référence. Son objectif est de diffuser une documentation fiable, versionnée, contrôlée et accessible uniquement aux personnes autorisées.
+ISMS Portal est une application web de gestion documentaire et de gouvernance de la sécurité de l'information. Elle centralise les politiques, procédures, guides, preuves et documents de référence. Son objectif est de diffuser une documentation fiable, versionnée, contrôlée et accessible uniquement aux personnes autorisées.
 
 L'application est à la fois une GED et un outil de pilotage ISMS. Elle couvre le cycle de vie documentaire, les ACL, les approbations, les revues, les signalements, les demandes d'accès, les alertes, l'audit, les contrôles, les exceptions et les actions correctives.
 
