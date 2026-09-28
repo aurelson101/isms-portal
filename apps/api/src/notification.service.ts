@@ -24,7 +24,13 @@ export type EmailTestType = "document" | "approval" | "review" | "report";
 const emailTemplate = (action: string): EmailTemplate => action.startsWith("document-report") || action.startsWith("security-report") ? "report" : action.startsWith("access-request") ? "access" : action.startsWith("sensitive-approval") || action.startsWith("document-review") ? "approval" : action.startsWith("document") ? "document" : action.startsWith("risk-") || action.startsWith("incident-") || action.startsWith("corrective-") ? "governance" : "service";
 export const notificationConnection = () => {
   const url = new URL(process.env.REDIS_URL || "redis://redis:6379");
-  return { host: url.hostname, port: Number(url.port || 6379), ...(url.password ? { password: url.password } : {}), ...(url.protocol === "rediss:" ? { tls: {} } : {}) };
+  return {
+    host: url.hostname,
+    port: Number(url.port || 6379),
+    ...(url.username ? { username: decodeURIComponent(url.username) } : {}),
+    ...(url.password ? { password: decodeURIComponent(url.password) } : {}),
+    ...(url.protocol === "rediss:" ? { tls: {} } : {}),
+  };
 };
 const validity = (now: Date) => ({ active: true, AND: [{ OR: [{ validFrom: null }, { validFrom: { lte: now } }] }, { OR: [{ validUntil: null }, { validUntil: { gt: now } }] }] });
 

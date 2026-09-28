@@ -7,12 +7,7 @@ import { AlertDeliveryService } from "./alert-delivery.service";
 import { NotificationService, notificationConnection, type NotificationJob } from "./notification.service";
 import { AuthorizationService } from "./authorization.service";
 
-const redisUrl = new URL(process.env.REDIS_URL || "redis://redis:6379");
-const connection = {
-  host: redisUrl.hostname,
-  port: Number(redisUrl.port || 6379),
-  ...(redisUrl.password ? { password: redisUrl.password } : {}),
-};
+const connection = notificationConnection();
 const prisma = new PrismaService();
 const crypto = new CryptoService();
 const directory = new DirectoryService(prisma, crypto);

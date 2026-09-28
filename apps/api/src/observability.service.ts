@@ -3,6 +3,7 @@ import { Gauge, register } from "prom-client";
 import { Queue } from "bullmq";
 import { PrismaService } from "./prisma.service";
 import { StorageService } from "./storage.service";
+import { notificationConnection } from "./notification.service";
 
 const gauge = (name: string, help: string, labelNames: string[] = []) =>
   (register.getSingleMetric(name) as Gauge | undefined) ||
@@ -43,13 +44,8 @@ export class ObservabilityService implements OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
   ) {
-    const redisUrl = new URL(process.env.REDIS_URL || "redis://redis:6379");
     this.queue = new Queue("directory-sync", {
-      connection: {
-        host: redisUrl.hostname,
-        port: Number(redisUrl.port || 6379),
-        ...(redisUrl.password ? { password: redisUrl.password } : {}),
-      },
+      connection: notificationConnection(),
     });
   }
 

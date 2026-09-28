@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { NotificationService } from "./notification.service";
+import { NotificationService, notificationConnection } from "./notification.service";
 import { notificationHtml } from "./notification-email";
 
 function setup() {
@@ -20,6 +20,20 @@ function setup() {
 }
 const event = { action: "document.publish", resource: "document:doc", actor: "publisher", at: "2026-09-11T12:00:00Z" };
 describe("Notification routing", () => {
+  it("uses ACL credentials and TLS for a rediss connection", () => {
+    vi.stubEnv("REDIS_URL", "rediss://queue-user:p%40ss@redis.example:6380");
+    try {
+      expect(notificationConnection()).toEqual({
+        host: "redis.example",
+        port: 6380,
+        username: "queue-user",
+        password: "p@ss",
+        tls: {},
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
   it.each(["document.publish", "document.published"])("routes %s to authorized readers", async (action) => {
     const h = setup();
     const result = await h.service.prepare({ ...event, action });
@@ -45,7 +59,7 @@ describe("Notification routing", () => {
     const h = setup(); const result = await h.service.prepare({ ...event, action: "document.review.annual" });
     expect(result?.recipients).toEqual(expect.arrayContaining(["user@example.com", "member@example.com"]));
     expect(h.auth.can).not.toHaveBeenCalled();
-    expect(result?.subject).toContain("annual review due");
+    expect(result?.subject).toContain("annual review is due now");
   });
   it("routes reports to managers and the reporter", async () => {
     const h = setup(); const result = await h.service.prepare({ ...event, action: "document-report.create", resource: "document-report:report" });
