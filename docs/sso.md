@@ -47,9 +47,10 @@ du proxy SSO. Un résultat positif ne valide ni le secret client, ni
 l'affectation Entra, ni la correspondance des groupes AD ; un essai avec un
 compte pilote reste nécessaire. Les tests sont réservés aux administrateurs.
 
-L'application `ISMS Portal SSO` ne demande que les scopes OIDC `openid profile
-email`. Aucune permission Microsoft Graph n'est nécessaire : les groupes sont
-résolus via le connecteur AD de l'ISMS. Ne pas ajouter `User.Read`, `Mail.Send`
+L'application `ISMS Portal SSO` demande uniquement les permissions déléguées
+OIDC `openid profile email`, visibles sous Microsoft Graph dans Entra et
+consenties pour le tenant. Aucun accès aux données Graph n'est nécessaire :
+les groupes sont résolus via le connecteur AD de l'ISMS. Ne pas ajouter `User.Read`, `Mail.Send`
 ou des permissions d'application Graph au seul motif d'activer le SSO.
 L'enregistrement Entra peut posséder un certificat, mais oauth2-proxy 7.15.3
 utilise ici un secret client ; son fournisseur Entra ne propose pas

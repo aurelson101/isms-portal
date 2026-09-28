@@ -346,7 +346,7 @@ export const adminEnglishCatalog = {
   "Identifiants et secret": "IDs and secret",
   "À configurer sur le serveur ISMS": "Configure on the ISMS server",
   "Permissions demandées": "Requested permissions",
-  "Aucune permission Microsoft Graph": "No Microsoft Graph API permission",
+  "Aucun accès aux données Microsoft Graph": "No access to Microsoft Graph data",
   "Authentification du client": "Client authentication",
   "Secret client actuellement. Certificat non pris en charge par le proxy SSO actuel.":
     "Client secret currently. Certificates are not supported by the current SSO proxy.",

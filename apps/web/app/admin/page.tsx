@@ -3517,7 +3517,7 @@ function SsoPanel({ identity }: { identity: { authentication: Authentication } |
           <dt>{t("Identifiants et secret")}</dt>
           <dd>{t("À configurer sur le serveur ISMS")}</dd>
           <dt>{t("Permissions demandées")}</dt>
-          <dd><code>openid profile email</code> · {t("Aucune permission Microsoft Graph")}</dd>
+          <dd><code>openid profile email</code> · {t("Aucun accès aux données Microsoft Graph")}</dd>
           <dt>{t("Authentification du client")}</dt>
           <dd>{t("Secret client actuellement. Certificat non pris en charge par le proxy SSO actuel.")}</dd>
         </dl>
