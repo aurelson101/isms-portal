@@ -40,8 +40,19 @@ export class AuthController {
 
   @Get("config")
   async config() {
-    const ssoLoginUrl = safeSsoPath(process.env.SSO_LOGIN_URL);
-    const ssoPilotUrl = safeSsoPath(process.env.SSO_PILOT_URL);
+    let ssoReady = false;
+    if (process.env.SSO_LOGIN_VERIFIED === "true") {
+      try {
+        const response = await fetch("http://oauth2-proxy:4180/ping", {
+          signal: AbortSignal.timeout(1500),
+        });
+        ssoReady = response.ok;
+      } catch {
+        // Keep AD login available while the optional SSO proxy is down.
+      }
+    }
+    const ssoLoginUrl = ssoReady ? safeSsoPath(process.env.SSO_LOGIN_URL) : null;
+    const ssoPilotUrl = ssoReady ? safeSsoPath(process.env.SSO_PILOT_URL) : null;
     return {
       ssoEnabled: Boolean(ssoLoginUrl || ssoPilotUrl),
       ssoLoginUrl,

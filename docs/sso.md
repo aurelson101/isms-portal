@@ -79,18 +79,23 @@ PRT du poste pilote avec `dsregcmd /status` (`AzureAdPrt : YES`) et tester Edge.
    aux autres conteneurs par `env_file`.
 3. Activer la surcouche Compose SSO et définir
    `SSO_PILOT_URL=/oauth2/start?rd=/` dans `.env.app`, en laissant
-   `SSO_LOGIN_URL` **vide**. Définir aussi
+   `SSO_LOGIN_URL` **vide** et `SSO_LOGIN_VERIFIED=false`. Définir aussi
    `SSO_LOGOUT_URL=/oauth2/sign_out?rd=/login` pour la session Entra. La page `/login` conserve le formulaire AD et
-   propose un bouton Entra aux pilotes. Aucun utilisateur n'est redirigé
-   automatiquement à cette étape. La surcouche continue d'accepter les sessions
-   AD existantes.
+   ne montre pas encore le bouton SSO. Les pilotes ouvrent directement
+   `https://isms.example.com/oauth2/start?rd=/` pour l'essai. Aucun
+   utilisateur n'est redirigé automatiquement. Les sessions AD restent valides.
 4. Vérifier sur un poste pilote : connexion Entra, correspondance exacte avec
    l'attribut AD `mail`, groupes et ACL, lecteur documentaire, administration
    de l'utilisateur, déconnexion, et connexion AD via `/login?local=1` si Entra
    est indisponible. Un utilisateur non affecté à l'application doit être refusé.
    L'administration reste accessible par la connexion AD ou locale pendant
    le pilote ; ne pas supposer que le cookie Entra suffit pour `/admin`.
-5. Après validation, définir aussi
+5. Après cet essai complet, définir `SSO_LOGIN_VERIFIED=true` dans `.env.app`
+   et redéployer l'API : le bouton « Connexion SSO » apparaît sur `/login`
+   uniquement si le proxy répond. Le bouton disparaît si le proxy tombe.
+   Un simple test de découverte Entra ou du proxy ne suffit pas à valider le
+   parcours de connexion utilisateur.
+6. Pour la redirection automatique, définir aussi
    `SSO_LOGIN_URL=/oauth2/start?rd=/` dans `.env.app` pour la redirection
    automatique depuis `/login`. Retirer cette seule variable pour revenir au
    mode pilote sans couper la connexion AD. Pour désactiver entièrement la

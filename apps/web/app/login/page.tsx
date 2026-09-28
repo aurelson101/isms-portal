@@ -28,7 +28,7 @@ const copy = {
     rememberDevice: "Reconnaître cet équipement pendant 14 jours",
     ssoUnavailable:
       "La connexion automatique n’a pas pu être démarrée. Utilisez vos identifiants.",
-    ssoPilot: "Se connecter avec Microsoft Entra ID",
+    ssoPilot: "Connexion SSO",
   },
   en: {
     title: "Sign in",
@@ -46,7 +46,7 @@ const copy = {
     rememberDevice: "Remember this device for 14 days",
     ssoUnavailable:
       "Automatic sign-in could not be started. Use your credentials.",
-    ssoPilot: "Sign in with Microsoft Entra ID",
+    ssoPilot: "SSO login",
   },
 } as const;
 
@@ -80,7 +80,8 @@ export default function LoginPage() {
       .then((response) => response.json())
       .then((config: AuthConfig) => {
         setAvailable(config.directoryLoginEnabled);
-        const pilot = config.ssoPilotUrl ? ssoDestination(config.ssoPilotUrl, parameters.get("return")) : null;
+        const ssoUrl = config.ssoPilotUrl || config.ssoLoginUrl;
+        const pilot = ssoUrl ? ssoDestination(ssoUrl, parameters.get("return")) : null;
         setPilotSsoUrl(pilot);
         if (
           !config.ssoEnabled ||

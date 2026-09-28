@@ -3,6 +3,7 @@ import { AuthController } from "./auth.controller";
 
 const originalPilotUrl = process.env.SSO_PILOT_URL;
 const originalLoginUrl = process.env.SSO_LOGIN_URL;
+const originalVerified = process.env.SSO_LOGIN_VERIFIED;
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -10,6 +11,8 @@ afterEach(() => {
   else process.env.SSO_PILOT_URL = originalPilotUrl;
   if (originalLoginUrl === undefined) delete process.env.SSO_LOGIN_URL;
   else process.env.SSO_LOGIN_URL = originalLoginUrl;
+  if (originalVerified === undefined) delete process.env.SSO_LOGIN_VERIFIED;
+  else process.env.SSO_LOGIN_VERIFIED = originalVerified;
 });
 
 describe("SSO diagnostics", () => {
@@ -42,15 +45,36 @@ describe("SSO diagnostics", () => {
 describe("SSO login configuration", () => {
   const controller = new AuthController({ directoryLoginEnabled: vi.fn().mockResolvedValue(true) } as never);
 
-  it("exposes a pilot link without enabling automatic login", async () => {
+  it("hides the SSO link until the pilot is explicitly verified", async () => {
+    delete process.env.SSO_LOGIN_VERIFIED;
+    process.env.SSO_PILOT_URL = "/oauth2/start?rd=/";
+    process.env.SSO_LOGIN_URL = "/oauth2/start?rd=/";
+    const request = vi.fn();
+    vi.stubGlobal("fetch", request);
+    await expect(controller.config()).resolves.toMatchObject({ ssoEnabled: false, ssoPilotUrl: null, ssoLoginUrl: null });
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("exposes a verified pilot link when the proxy is healthy", async () => {
+    process.env.SSO_LOGIN_VERIFIED = "true";
     process.env.SSO_PILOT_URL = "/oauth2/start?rd=/";
     delete process.env.SSO_LOGIN_URL;
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
     await expect(controller.config()).resolves.toMatchObject({ ssoEnabled: true, ssoPilotUrl: "/oauth2/start?rd=/", ssoLoginUrl: null });
   });
 
+  it("hides the SSO link if the verified proxy becomes unavailable", async () => {
+    process.env.SSO_LOGIN_VERIFIED = "true";
+    process.env.SSO_PILOT_URL = "/oauth2/start?rd=/";
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("proxy down")));
+    await expect(controller.config()).resolves.toMatchObject({ ssoEnabled: false, ssoPilotUrl: null, ssoLoginUrl: null });
+  });
+
   it("ignores an invalid external pilot URL", async () => {
+    process.env.SSO_LOGIN_VERIFIED = "true";
     process.env.SSO_PILOT_URL = "https://untrusted.example/oauth2/start";
     delete process.env.SSO_LOGIN_URL;
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
     await expect(controller.config()).resolves.toMatchObject({ ssoEnabled: false, ssoPilotUrl: null, ssoLoginUrl: null });
   });
 });
