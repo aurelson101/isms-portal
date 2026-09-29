@@ -721,6 +721,16 @@ date d’expiration maîtrisée. Sa valeur, le Tenant ID et le Client ID doivent
 rester exclusivement dans `.env` ou dans le gestionnaire de secrets ; ne
 jamais les placer dans Git, le README ou `credentials.txt`.
 
+Dans **Autorisations API**, le SSO n'a besoin que des scopes OIDC délégués
+`openid`, `profile` et `email` ; supprimer `User.Read` s'il a été ajouté par
+défaut. Le portail résout les groupes via AD/LDAPS, sans lecture des données
+Microsoft Graph. L'envoi des notifications est un **autre flux** : utiliser
+une inscription dédiée avec `Mail.Send` applicatif et une restriction Exchange
+sur la boîte expéditrice (voir [Configuration Microsoft Graph avec certificat](#configuration-microsoft-graph-avec-certificat)).
+Ne jamais donner `Mail.Send` ni le certificat d'envoi à l'application SSO.
+La procédure pilote, les tests et le repli AD sont détaillés dans
+[docs/sso.md](docs/sso.md).
+
 Il n’est pas nécessaire d’envoyer les centaines de groupes de l’utilisateur
 dans le jeton Microsoft. Après validation de l’identité Entra, l’API recherche
 son adresse `mail` exacte avec le compte de service LDAP/LDAPS puis résout ses
@@ -738,6 +748,7 @@ ENTRA_CLIENT_ID=<CLIENT_ID>
 ENTRA_CLIENT_SECRET=<SECRET_DANS_GESTIONNAIRE_DE_SECRETS>
 PUBLIC_URL=https://isms.example.com
 OAUTH2_PROXY_COOKIE_SECRET=<GENERE_PAR_LE_SCRIPT>
+OAUTH2_PROXY_REDIS_PASSWORD=<MOT_DE_PASSE_REDIS>
 OAUTH2_PROXY_REDIRECT_URL=https://isms.example.com/oauth2/callback
 SSO_PILOT_URL=/oauth2/start?rd=/
 SSO_LOGIN_VERIFIED=false
@@ -773,7 +784,7 @@ avant de répondre HTTP 200.
 Avant validation du pilote, ouvrir directement `/oauth2/start?rd=/` avec un
 compte affecté à l'application Entra. Après vérification de la connexion, des
 droits AD et du repli LDAP, définir `SSO_LOGIN_VERIFIED=true` dans `.env.app`
-et redéployer l'API : le bouton « Connexion SSO » apparaît si le proxy répond.
+et redéployer l'API : le bouton « Continuer avec Microsoft » apparaît si le proxy répond.
 Définir ensuite `SSO_LOGIN_URL=/oauth2/start?rd=/` pour la redirection
 automatique. Le portail réutilise alors la session Microsoft 365 déjà présente
 dans le navigateur. Le

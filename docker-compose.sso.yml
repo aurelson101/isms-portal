@@ -32,6 +32,7 @@ services:
       OAUTH2_PROXY_COOKIE_CSRF_EXPIRE: 10m
       OAUTH2_PROXY_SESSION_STORE_TYPE: redis
       OAUTH2_PROXY_REDIS_CONNECTION_URL: redis://redis:6379/2
+      OAUTH2_PROXY_REDIS_PASSWORD: ${OAUTH2_PROXY_REDIS_PASSWORD:?OAUTH2_PROXY_REDIS_PASSWORD must be set}
     depends_on:
       redis: { condition: service_healthy }
     networks: [edge, app, data]

@@ -88,7 +88,7 @@ if [ "$mode" = sso-only ]; then
     printf 'OpenSSL est requis pour générer le secret SSO.\n' >&2
     exit 1
   }
-  sso_secret=$(openssl rand -base64 32 | tr -d '\n')
+  sso_secret=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '\n')
   env_tmp=$(mktemp "$project_root/.env.tmp.XXXXXX")
   credentials_tmp=$(mktemp "$project_root/.credentials.txt.tmp.XXXXXX")
   trap 'rm -f "$env_tmp" "$credentials_tmp"' EXIT HUP INT TERM
@@ -190,7 +190,7 @@ fi
 postgres_password=$(openssl rand -hex 32)
 encryption_key=$(openssl rand -base64 32 | tr -d '\n')
 admin_password=$(openssl rand -base64 32 | tr -d '\n')
-oauth2_proxy_cookie_secret=$(openssl rand -base64 32 | tr -d '\n')
+oauth2_proxy_cookie_secret=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '\n')
 
 env_tmp=$(mktemp "$project_root/.env.tmp.XXXXXX")
 credentials_tmp=$(mktemp "$project_root/.credentials.txt.tmp.XXXXXX")

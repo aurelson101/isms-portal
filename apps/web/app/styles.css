@@ -57,6 +57,31 @@ body {
   color: #075ad4;
   background: #f2f7ff;
 }
+.login-card > .login-sso {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 52px;
+  margin: 20px 0 16px;
+  padding: 10px 16px;
+  border: 1px solid #0955c4;
+  border-radius: 7px;
+  background: #075ad4;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  box-shadow: 0 3px 8px #075ad429;
+}
+.login-sso:hover {
+  background: #064bb0;
+}
+.login-sso:focus-visible {
+  outline: 3px solid #163d86;
+  outline-offset: 3px;
+}
 .login-toolbar {
   display: flex;
   align-items: center;

@@ -60,6 +60,28 @@ test("the user sign-in page automatically detects an existing SSO session", asyn
   );
 });
 
+test("verified SSO offers a prominent sign-in link without replacing AD login", async ({
+  page,
+}) => {
+  await page.route("**/api/auth/config", (route) =>
+    route.fulfill({
+      json: {
+        directoryLoginEnabled: true,
+        ssoEnabled: true,
+        ssoPilotUrl: "/oauth2/start?rd=/",
+        ssoLoginUrl: null,
+      },
+    }),
+  );
+  await page.goto("/login?return=/explorer");
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  const sso = page.getByRole("link", { name: "Continue with Microsoft" });
+  await expect(sso).toBeVisible();
+  await expect(sso).toHaveAttribute("href", "/oauth2/start?rd=%2Fexplorer");
+  await expect(sso).toHaveCSS("background-color", "rgb(7, 90, 212)");
+  await expect(page.getByLabel("Identifier", { exact: true })).toBeVisible();
+});
+
 for (const protectedRoute of [
   "/",
   "/explorer?q=iso&page=2",

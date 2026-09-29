@@ -28,7 +28,7 @@ const copy = {
     rememberDevice: "Reconnaître cet équipement pendant 14 jours",
     ssoUnavailable:
       "La connexion automatique n’a pas pu être démarrée. Utilisez vos identifiants.",
-    ssoPilot: "Connexion SSO",
+    ssoPilot: "Continuer avec Microsoft",
   },
   en: {
     title: "Sign in",
@@ -46,7 +46,7 @@ const copy = {
     rememberDevice: "Remember this device for 14 days",
     ssoUnavailable:
       "Automatic sign-in could not be started. Use your credentials.",
-    ssoPilot: "SSO login",
+    ssoPilot: "Continue with Microsoft",
   },
 } as const;
 
@@ -176,7 +176,11 @@ export default function LoginPage() {
           </p>
         )}
         {!available && <p className="login-warning">{t.unavailable}</p>}
-        {pilotSsoUrl && !detectingSso && <a className="login-back" href={pilotSsoUrl}>{t.ssoPilot}</a>}
+        {pilotSsoUrl && !detectingSso && (
+          <a className="login-sso" href={pilotSsoUrl}>
+            {t.ssoPilot}
+          </a>
+        )}
         <form onSubmit={submit} className="login-form" aria-busy={detectingSso}>
           <label>
             {t.identifier}

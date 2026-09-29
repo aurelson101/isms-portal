@@ -47,11 +47,18 @@ du proxy SSO. Un résultat positif ne valide ni le secret client, ni
 l'affectation Entra, ni la correspondance des groupes AD ; un essai avec un
 compte pilote reste nécessaire. Les tests sont réservés aux administrateurs.
 
-L'application `ISMS Portal SSO` demande uniquement les permissions déléguées
-OIDC `openid profile email`, visibles sous Microsoft Graph dans Entra et
-consenties pour le tenant. Aucun accès aux données Graph n'est nécessaire :
+L'application SSO demande uniquement les scopes OIDC délégués `openid`,
+`profile` et `email`, visibles sous Microsoft Graph dans Entra. Dans
+**Inscriptions d'applications → Autorisations API**, retirer `User.Read` s'il
+a été ajouté par défaut et ne conserver que ces scopes pour le SSO. Consentir
+selon la politique du locataire. Aucun accès aux données Graph n'est nécessaire :
 les groupes sont résolus via le connecteur AD de l'ISMS. Ne pas ajouter `User.Read`, `Mail.Send`
 ou des permissions d'application Graph au seul motif d'activer le SSO.
+Les e-mails de notification constituent une intégration **distincte** : créer
+une autre inscription d'application, avec `Mail.Send` **application** et
+consentement administrateur, puis restreindre sa portée à la boîte expéditrice
+dans Exchange Online. Ne pas ajouter `Mail.Send` à l'application SSO ni
+réutiliser son secret pour les e-mails. Voir [Configuration Graph des alertes](../README.md#configuration-microsoft-graph-avec-certificat).
 L'enregistrement Entra peut posséder un certificat, mais oauth2-proxy 7.15.3
 utilise ici un secret client ; son fournisseur Entra ne propose pas
 `private_key_jwt` pour ce flux. La bascule vers un certificat requiert un
@@ -74,8 +81,9 @@ PRT du poste pilote avec `dsregcmd /status` (`AzureAdPrt : YES`) et tester Edge.
 2. Placer le Tenant ID, le Client ID et le secret client dans `.env` sur le
    serveur, jamais dans Git. Vérifier aussi
    `OAUTH2_PROXY_REDIRECT_URL=https://isms.example.com/oauth2/callback` et
-   un `OAUTH2_PROXY_COOKIE_SECRET` aléatoire. Le proxy stocke ses sessions dans
-   Redis DB 2, séparément des clés applicatives. Le secret n'est pas transmis
+   un `OAUTH2_PROXY_COOKIE_SECRET` aléatoire. Définir aussi
+   `OAUTH2_PROXY_REDIS_PASSWORD` dans `.env` avec le mot de passe de `.env.redis`.
+   Le proxy stocke ses sessions dans Redis DB 2, séparément des clés applicatives. Le secret n'est pas transmis
    aux autres conteneurs par `env_file`.
 3. Activer la surcouche Compose SSO et définir
    `SSO_PILOT_URL=/oauth2/start?rd=/` dans `.env.app`, en laissant
@@ -91,7 +99,7 @@ PRT du poste pilote avec `dsregcmd /status` (`AzureAdPrt : YES`) et tester Edge.
    L'administration reste accessible par la connexion AD ou locale pendant
    le pilote ; ne pas supposer que le cookie Entra suffit pour `/admin`.
 5. Après cet essai complet, définir `SSO_LOGIN_VERIFIED=true` dans `.env.app`
-   et redéployer l'API : le bouton « Connexion SSO » apparaît sur `/login`
+   et redéployer l'API : le bouton « Continuer avec Microsoft » apparaît sur `/login`
    uniquement si le proxy répond. Le bouton disparaît si le proxy tombe.
    Un simple test de découverte Entra ou du proxy ne suffit pas à valider le
    parcours de connexion utilisateur.
