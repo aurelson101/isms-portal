@@ -17,6 +17,14 @@ démonstration anonymisées. Elles n'affichent aucun contenu de production.
 
 ![Explorateur et liste des documents](tests/e2e/visual.spec.ts-snapshots/explorer-desktop-linux.png)
 
+**Vue mobile**
+
+<img src="tests/e2e/visual.spec.ts-snapshots/portal-mobile-linux.png" alt="Accueil du portail sur mobile" width="280">
+
+**Espace personnel**
+
+![Espace personnel et documents récents](tests/e2e/visual.spec.ts-snapshots/workspace-desktop-linux.png)
+
 **Gestion des documents**
 
 ![Administration des documents](tests/e2e/visual.spec.ts-snapshots/admin-documents-desktop-linux.png)
