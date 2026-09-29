@@ -4,6 +4,23 @@ Portail documentaire ISMS/ISO 27001 bilingue, protégé par les groupes Active
 Directory. L’API applique un modèle _deny by default_ : espaces, recherche,
 consultation, téléchargement et administration sont filtrés côté serveur.
 
+## Captures d'écran
+
+Captures réelles du navigateur issues des tests Playwright, avec des données de
+démonstration anonymisées. Elles n'affichent aucun contenu de production.
+
+**Accueil documentaire**
+
+![Accueil du portail documentaire](tests/e2e/visual.spec.ts-snapshots/portal-desktop-linux.png)
+
+**Explorateur documentaire**
+
+![Explorateur et liste des documents](tests/e2e/visual.spec.ts-snapshots/explorer-desktop-linux.png)
+
+**Gestion des documents**
+
+![Administration des documents](tests/e2e/visual.spec.ts-snapshots/admin-documents-desktop-linux.png)
+
 ## Architecture
 
 ```text
