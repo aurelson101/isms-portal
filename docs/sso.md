@@ -5,7 +5,7 @@ L’API expose une abstraction `IdentityProvider` avec deux modes :
 - identité transmise par un proxy SSO de confiance.
 - session d’un administrateur local de secours ;
 
-Le fichier `docker-compose.sso.yml` ajoute oauth2-proxy 7.15.3 pour Microsoft
+Le fichier `docker-compose.sso.yml` ajoute oauth2-proxy 7.15.4 pour Microsoft
 Entra ID et charge `deploy/nginx/nginx.sso.conf`. Le frontal :
 
 1. supprime les en-têtes `X-Auth-*` venant du client ;
@@ -59,7 +59,7 @@ une autre inscription d'application, avec `Mail.Send` **application** et
 consentement administrateur, puis restreindre sa portée à la boîte expéditrice
 dans Exchange Online. Ne pas ajouter `Mail.Send` à l'application SSO ni
 réutiliser son secret pour les e-mails. Voir [Configuration Graph des alertes](../README.md#configuration-microsoft-graph-avec-certificat).
-L'enregistrement Entra peut posséder un certificat, mais oauth2-proxy 7.15.3
+L'enregistrement Entra peut posséder un certificat, mais oauth2-proxy 7.15.4
 utilise ici un secret client ; son fournisseur Entra ne propose pas
 `private_key_jwt` pour ce flux. La bascule vers un certificat requiert un
 connecteur OIDC compatible, son test complet et une migration contrôlée.

@@ -679,7 +679,7 @@ Test LDAP/LDAPS reproductible sans l’AD de production :
 
 ## Session SSO et diagnostic
 
-Le mode SSO Microsoft 365 utilise `oauth2-proxy` 7.15.3 devant l’API. Lorsqu’un
+Le mode SSO Microsoft 365 utilise `oauth2-proxy` 7.15.4 devant l’API. Lorsqu’un
 utilisateur ouvre le portail, Nginx vérifie sa session Entra ID. Un navigateur
 qui possède déjà une session professionnelle revient automatiquement au
 portail ; une règle MFA ou Conditional Access peut néanmoins demander une
