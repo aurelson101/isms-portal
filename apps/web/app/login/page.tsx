@@ -2,15 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useBranding } from "../branding";
-import { ssoDestination } from "../auth-navigation";
+import { ssoDestination, type AuthConfig } from "../auth-navigation";
 import { initialLocale, rememberLocale, type Locale } from "../i18n/locale";
-
-type AuthConfig = {
-  directoryLoginEnabled: boolean;
-  ssoEnabled: boolean;
-  ssoLoginUrl: string | null;
-  ssoPilotUrl: string | null;
-};
 
 const copy = {
   fr: {

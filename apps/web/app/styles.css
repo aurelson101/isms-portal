@@ -193,6 +193,20 @@ body {
   color: #657590;
   font-weight: 400;
 }
+.login-form .remember-device {
+  align-items: center;
+  display: flex;
+  gap: 0.65rem;
+}
+
+.login-form .remember-device input {
+  flex: 0 0 1rem;
+  height: 1rem;
+  min-height: 1rem;
+  margin: 0;
+  padding: 0;
+  width: 1rem;
+}
 .login-security,
 .login-success {
   padding: 10px 12px;
@@ -4530,22 +4544,6 @@ svg {
     width: 100%;
   }
 }
-.login-form .remember-device {
-  align-items: center;
-  display: flex;
-  flex-direction: row;
-  gap: 0.65rem;
-}
-
-.login-form .remember-device input {
-  flex: 0 0 1rem;
-  height: 1rem;
-  min-height: 1rem;
-  margin: 0;
-  padding: 0;
-  width: 1rem;
-}
-
 /* Compact document-management workspace */
 @media (min-width: 901px) {
   .shell,

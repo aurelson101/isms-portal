@@ -1,3 +1,10 @@
+export type AuthConfig = {
+  directoryLoginEnabled: boolean;
+  ssoEnabled: boolean;
+  ssoLoginUrl: string | null;
+  ssoPilotUrl: string | null;
+};
+
 export function ssoDestination(value: string, requested: string | null, fallback = "/") {
   try {
     const url = new URL(value, window.location.origin);

@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useBranding } from "../../branding";
-import { ssoDestination } from "../../auth-navigation";
+import { ssoDestination, type AuthConfig } from "../../auth-navigation";
 import { initialLocale, rememberLocale, type Locale } from "../../i18n/locale";
 
 type LoginMode = "local" | "directory";
@@ -60,7 +60,7 @@ export default function AdminLoginPage() {
     );
     fetch("/api/auth/config")
       .then((response) => response.json())
-      .then((config: { directoryLoginEnabled?: boolean; ssoEnabled?: boolean; ssoPilotUrl?: string; ssoLoginUrl?: string }) => {
+      .then((config: AuthConfig) => {
         setDirectoryAvailable(Boolean(config.directoryLoginEnabled));
         const value = config.ssoPilotUrl || config.ssoLoginUrl;
         if (config.ssoEnabled && value) setSsoUrl(ssoDestination(value, "/admin"));
