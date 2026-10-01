@@ -6056,3 +6056,35 @@ svg {
     max-width: 48px;
   }
 }
+.email-history-tools {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.email-history-tools label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.email-history-tools select {
+  min-height: 40px;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #b9c8dc;
+  border-radius: 6px;
+  background: white;
+  color: inherit;
+}
+.email-history-tools button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #b9c8dc;
+  border-radius: 6px;
+  background: white;
+  color: #0768ea;
+}

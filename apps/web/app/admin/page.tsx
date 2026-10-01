@@ -5039,16 +5039,37 @@ function ObservabilityPanel({
   const [testingAlertChannel, setTestingAlertChannel] = useState<
     "email" | "teams" | "slack" | "webhook" | null
   >(null);
-  const [emailDeliveries, setEmailDeliveries] = useState<Array<{ id: string; action: string; status: "WAITING" | "ACTIVE" | "DELAYED" | "ACCEPTED" | "SKIPPED" | "FAILED"; attempts: number; createdAt: string; finishedAt: string | null; accepted: number; error: string | null }>>([]);
+  const [emailDeliveries, setEmailDeliveries] = useState<Array<{ id: string; action: string; resource: string; status: "WAITING" | "ACTIVE" | "DELAYED" | "ACCEPTED" | "SKIPPED" | "FAILED"; attempts: number; createdAt: string; finishedAt: string | null; accepted: number; error: string | null }>>([]);
+  const [emailStatusFilter, setEmailStatusFilter] = useState("ALL");
+  const [emailError, setEmailError] = useState("");
   const [emailQueueCounts, setEmailQueueCounts] = useState({ waiting: 0, active: 0, delayed: 0, completed: 0, failed: 0 });
   const [emailTestRecipient, setEmailTestRecipient] = useState("");
   const [emailTestType, setEmailTestType] = useState<"document" | "approval" | "review" | "report">("approval");
   const [emailBusy, setEmailBusy] = useState(false);
   const emailCopy = locale === "fr" ? {
+    all: "Tous les états", attempts: "Tentatives", resource: "Ressource", refresh: "Actualiser les e-mails", refreshFailed: "Impossible de charger le suivi des e-mails.", retryFailed: "La relance a échoué. Actualisez le suivi avant de réessayer.",
     title: "Suivi des e-mails", recipient: "Destinataire", template: "Modèle d’e-mail", document: "Publication documentaire", approval: "Demande d’approbation", review: "Revue documentaire", report: "Signalement", sending: "Envoi…", test: "Envoyer un e-mail de test", event: "Événement", status: "État", recipients: "Acceptés", completed: "Date", action: "Action", empty: "Aucun envoi récent.", retry: "Relancer", accepted: "Accepté par le service d’envoi", waiting: "En attente", active: "En cours", delayed: "Différé", skipped: "Non envoyé", failed: "Échoué", deliveryNote: "L’acceptation par le service d’envoi ne garantit pas la réception. Vérifiez les journaux du fournisseur.",
   } : {
+    all: "All statuses", attempts: "Attempts", resource: "Resource", refresh: "Refresh email history", refreshFailed: "Unable to load email history.", retryFailed: "Retry failed. Refresh the history before trying again.",
     title: "Email delivery", recipient: "Recipient", template: "Email template", document: "Document publication", approval: "Approval request", review: "Document review", report: "Issue report", sending: "Sending…", test: "Send template test", event: "Event", status: "Status", recipients: "Accepted", completed: "Date", action: "Action", empty: "No recent email deliveries.", retry: "Retry", accepted: "Accepted by mail provider", waiting: "Waiting", active: "Processing", delayed: "Delayed", skipped: "Not sent", failed: "Failed", deliveryNote: "Mail provider acceptance does not guarantee inbox delivery. Check the provider delivery logs.",
   };
+  const filteredEmailDeliveries = emailDeliveries.filter((delivery) => emailStatusFilter === "ALL" || delivery.status === emailStatusFilter);
+  const reloadEmailDeliveries = useCallback(async () => {
+    setEmailBusy(true);
+    setEmailError("");
+    try {
+      const [history, counts] = await Promise.all([
+        api<typeof emailDeliveries>("/api/admin/operations/email-deliveries", { cache: "no-store" }),
+        api<typeof emailQueueCounts>("/api/admin/operations/email-deliveries/counts", { cache: "no-store" }),
+      ]);
+      setEmailDeliveries(history);
+      setEmailQueueCounts(counts);
+    } catch {
+      setEmailError(emailCopy.refreshFailed);
+    } finally {
+      setEmailBusy(false);
+    }
+  }, [emailCopy.refreshFailed]);
   const reloadOperations = useCallback(async () => {
     const [
       summaryResponse,
@@ -5056,16 +5077,13 @@ function ObservabilityPanel({
       integrationsResponse,
       policyResponse,
       channelsResponse,
-      deliveriesResponse,
-      deliveryCountsResponse,
     ] = await Promise.all([
       fetch("/api/admin/operations/summary", { cache: "no-store" }),
       fetch("/api/admin/operations/work-items", { cache: "no-store" }),
       fetch("/api/admin/operations/integrations", { cache: "no-store" }),
       fetch("/api/admin/operations/alert-policy", { cache: "no-store" }),
       fetch("/api/admin/operations/alert-channels", { cache: "no-store" }),
-      fetch("/api/admin/operations/email-deliveries", { cache: "no-store" }),
-      fetch("/api/admin/operations/email-deliveries/counts", { cache: "no-store" }),
+      reloadEmailDeliveries(),
     ]);
     if (summaryResponse.ok) setOperations(await summaryResponse.json());
     if (workResponse.ok) setWorkItems(await workResponse.json());
@@ -5087,9 +5105,7 @@ function ObservabilityPanel({
       const channels = await channelsResponse.json();
       setAlertChannels((current) => ({ ...current, ...channels }));
     }
-    if (deliveriesResponse.ok) setEmailDeliveries(await deliveriesResponse.json());
-    if (deliveryCountsResponse.ok) setEmailQueueCounts(await deliveryCountsResponse.json());
-  }, []);
+  }, [reloadEmailDeliveries]);
   useEffect(() => {
     void reloadOperations();
   }, [reloadOperations]);
@@ -5195,15 +5211,22 @@ function ObservabilityPanel({
     try {
       const response = await fetch(`/api/admin/operations/email-tests/${emailTestType}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient: emailTestRecipient }) });
       onNotice(response.ok ? t("E-mail de test envoyé.") : t("Échec de l’envoi de test."));
-      if (response.ok) await reloadOperations();
+      if (response.ok) await reloadEmailDeliveries();
     } finally { setEmailBusy(false); }
   };
   const retryEmailDelivery = async (id: string) => {
     setEmailBusy(true);
+    setEmailError("");
     try {
       const response = await fetch(`/api/admin/operations/email-deliveries/${encodeURIComponent(id)}/retry`, { method: "POST" });
-      onNotice(response.ok ? t("Relance de l’e-mail enregistrée.") : t("La relance a échoué."));
-      await reloadOperations();
+      if (!response.ok) {
+        setEmailError(emailCopy.retryFailed);
+        return;
+      }
+      onNotice(t("Relance de l’e-mail enregistrée."));
+      await reloadEmailDeliveries();
+    } catch {
+      setEmailError(emailCopy.retryFailed);
     } finally { setEmailBusy(false); }
   };
 
@@ -5663,7 +5686,17 @@ function ObservabilityPanel({
         <button>{t("Enregistrer la politique")}</button>
       </form>
       <section className="operations-work-items">
-        <h2>{emailCopy.title}</h2>
+        <div className="section-heading">
+          <h2>{emailCopy.title}</h2>
+          <div className="email-history-tools">
+            <label>{emailCopy.status}<select value={emailStatusFilter} onChange={(event) => setEmailStatusFilter(event.target.value)}>
+              <option value="ALL">{emailCopy.all}</option>
+              {(["WAITING", "ACTIVE", "DELAYED", "ACCEPTED", "SKIPPED", "FAILED"] as const).map((status) => <option key={status} value={status}>{emailCopy[status.toLowerCase() as "waiting" | "active" | "delayed" | "accepted" | "skipped" | "failed"]}</option>)}
+            </select></label>
+            <button type="button" title={emailCopy.refresh} aria-label={emailCopy.refresh} disabled={emailBusy} onClick={() => void reloadEmailDeliveries()}><Icon name="sync" /></button>
+          </div>
+        </div>
+        {emailError && <p className="error-message" role="alert">{emailError}</p>}
         <p>{emailCopy.waiting}: {emailQueueCounts.waiting} · {emailCopy.active}: {emailQueueCounts.active} · {emailCopy.delayed}: {emailQueueCounts.delayed} · {emailCopy.failed}: {emailQueueCounts.failed}</p>
         <form className="admin-form observability-policy" onSubmit={(event) => void testEmailTemplate(event)}>
           <label>{emailCopy.recipient}<input required type="email" value={emailTestRecipient} onChange={(event) => setEmailTestRecipient(event.target.value)} /></label>
@@ -5671,9 +5704,9 @@ function ObservabilityPanel({
           <button disabled={emailBusy}>{emailBusy ? emailCopy.sending : emailCopy.test}</button>
         </form>
         <div className="admin-table-wrap">
-          <table><thead><tr><th>{emailCopy.event}</th><th>{emailCopy.status}</th><th>{emailCopy.recipients}</th><th>{emailCopy.completed}</th><th>{emailCopy.action}</th></tr></thead><tbody>
-            {!emailDeliveries.length && <tr><td colSpan={5}>{emailCopy.empty}</td></tr>}
-            {emailDeliveries.map((delivery) => <tr key={delivery.id}><td>{delivery.action}</td><td>{delivery.status === "ACCEPTED" ? <span title={emailCopy.deliveryNote}>{emailCopy.accepted}</span> : `${emailCopy[delivery.status.toLowerCase() as "waiting" | "active" | "delayed" | "skipped" | "failed"]}${delivery.error ? `: ${delivery.error}` : ""}`}</td><td>{delivery.accepted}</td><td>{new Date(delivery.finishedAt || delivery.createdAt).toLocaleString(locale)}</td><td>{delivery.status === "FAILED" && <button type="button" disabled={emailBusy} onClick={() => void retryEmailDelivery(delivery.id)}>{emailCopy.retry}</button>}</td></tr>)}
+          <table><thead><tr><th>{emailCopy.event}</th><th>{emailCopy.resource}</th><th>{emailCopy.status}</th><th>{emailCopy.attempts}</th><th>{emailCopy.recipients}</th><th>{emailCopy.completed}</th><th>{emailCopy.action}</th></tr></thead><tbody>
+            {!filteredEmailDeliveries.length && <tr><td colSpan={7}>{emailCopy.empty}</td></tr>}
+            {filteredEmailDeliveries.map((delivery) => <tr key={delivery.id}><td>{delivery.action}</td><td>{delivery.resource}</td><td>{delivery.status === "ACCEPTED" ? <span title={emailCopy.deliveryNote}>{emailCopy.accepted}</span> : `${emailCopy[delivery.status.toLowerCase() as "waiting" | "active" | "delayed" | "skipped" | "failed"]}${delivery.error ? `: ${delivery.error}` : ""}`}</td><td>{delivery.attempts}</td><td>{delivery.accepted}</td><td>{new Date(delivery.finishedAt || delivery.createdAt).toLocaleString(locale)}</td><td>{delivery.status === "FAILED" && <button type="button" disabled={emailBusy} onClick={() => void retryEmailDelivery(delivery.id)}>{emailCopy.retry}</button>}</td></tr>)}
           </tbody></table>
         </div>
       </section>
