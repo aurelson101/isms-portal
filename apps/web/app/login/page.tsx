@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useBranding } from "../branding";
+import { ssoDestination } from "../auth-navigation";
 import { initialLocale, rememberLocale, type Locale } from "../i18n/locale";
 
 type AuthConfig = {
@@ -49,13 +50,6 @@ const copy = {
     ssoPilot: "Continue with Microsoft",
   },
 } as const;
-
-const ssoDestination = (value: string, requested: string | null) => {
-  const url = new URL(value, window.location.origin);
-  if (url.origin !== window.location.origin || !url.pathname.startsWith("/oauth2/")) return null;
-  url.searchParams.set("rd", requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/");
-  return `${url.pathname}${url.search}`;
-};
 
 export default function LoginPage() {
   const branding = useBranding();

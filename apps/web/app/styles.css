@@ -4445,6 +4445,7 @@ svg {
   .shell aside.navigation-open nav,
   .admin-shell > aside.navigation-open nav {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     margin-top: 14px;
     padding-top: 12px;
     border-top: 1px solid #ffffff2b;
@@ -4454,6 +4455,8 @@ svg {
   .admin-shell > aside.navigation-open nav button {
     width: 100%;
     min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
   .shell aside.navigation-open .back-link,
   .admin-shell > aside.navigation-open .back-link {
@@ -4544,13 +4547,15 @@ svg {
 }
 
 /* Compact document-management workspace */
-.shell,
-.admin-shell {
-  grid-template-columns: 248px minmax(0, 1fr);
-}
-.shell aside,
-.admin-shell > aside {
-  padding: 28px 12px 20px;
+@media (min-width: 901px) {
+  .shell,
+  .admin-shell {
+    grid-template-columns: 248px minmax(0, 1fr);
+  }
+  .shell aside,
+  .admin-shell > aside {
+    padding: 28px 12px 20px;
+  }
 }
 .shell nav,
 .admin-shell nav {

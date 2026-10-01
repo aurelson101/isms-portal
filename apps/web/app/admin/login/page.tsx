@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useBranding } from "../../branding";
+import { ssoDestination } from "../../auth-navigation";
 import { initialLocale, rememberLocale, type Locale } from "../../i18n/locale";
 
 type LoginMode = "local" | "directory";
@@ -19,6 +20,7 @@ const copy = {
     localMode: "Compte local",
     directoryMode: "Active Directory",
     directoryUnavailable: "La connexion Active Directory est indisponible.",
+    sso: "Continuer avec Microsoft",
   },
   en: {
     title: "Administrator sign in",
@@ -33,6 +35,7 @@ const copy = {
     localMode: "Local account",
     directoryMode: "Active Directory",
     directoryUnavailable: "Active Directory sign-in is unavailable.",
+    sso: "Continue with Microsoft",
   },
 } as const;
 
@@ -45,6 +48,7 @@ export default function AdminLoginPage() {
   const [loggedOut, setLoggedOut] = useState(false);
   const [mode, setMode] = useState<LoginMode>("local");
   const [directoryAvailable, setDirectoryAvailable] = useState(false);
+  const [ssoUrl, setSsoUrl] = useState<string | null>(null);
   const t = copy[locale];
 
   useEffect(() => {
@@ -56,9 +60,11 @@ export default function AdminLoginPage() {
     );
     fetch("/api/auth/config")
       .then((response) => response.json())
-      .then((config: { directoryLoginEnabled?: boolean }) =>
-        setDirectoryAvailable(Boolean(config.directoryLoginEnabled)),
-      )
+      .then((config: { directoryLoginEnabled?: boolean; ssoEnabled?: boolean; ssoPilotUrl?: string; ssoLoginUrl?: string }) => {
+        setDirectoryAvailable(Boolean(config.directoryLoginEnabled));
+        const value = config.ssoPilotUrl || config.ssoLoginUrl;
+        if (config.ssoEnabled && value) setSsoUrl(ssoDestination(value, "/admin"));
+      })
       .catch(() => setDirectoryAvailable(false));
   }, []);
 
@@ -132,6 +138,7 @@ export default function AdminLoginPage() {
         <h1>{t.title}</h1>
         <p>{t.subtitle}</p>
         {loggedOut && <p className="login-success">{t.loggedOut}</p>}
+        {ssoUrl && <a className="login-sso" href={ssoUrl}>{t.sso}</a>}
         <div className="login-tabs" role="tablist" aria-label={t.title}>
           <button
             type="button"
