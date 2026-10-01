@@ -490,7 +490,7 @@ export default function Admin() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [connections, setConnections] = useState<DirectoryConnection[]>([]);
-  const [documents, setDocuments] = useState<AdminDocument[]>([]);
+  const [documents, setDocuments] = useState<Pick<AdminDocument, "id" | "translations" | "versions">[]>([]);
   const [incidentReports, setIncidentReports] = useState<
     AnnualIncidentReport[]
   >([]);
@@ -611,7 +611,6 @@ export default function Admin() {
         rulesResult,
         certificatesResult,
         connectionsResult,
-        documentsResult,
         incidentReportsResult,
         auditResult,
         healthResult,
@@ -622,7 +621,6 @@ export default function Admin() {
         api<Rule[]>("/api/admin/access-rules"),
         api<Certificate[]>("/api/admin/certificates"),
         api<DirectoryConnection[]>("/api/admin/directory-connections"),
-        api<AdminDocument[]>("/api/admin/documents"),
         api<AnnualIncidentReport[]>("/api/admin/incident-reports"),
         api<{ items: Audit[] }>("/api/admin/audit?limit=100"),
         api<Health>("/api/health/details"),
@@ -633,7 +631,6 @@ export default function Admin() {
       setRules(rulesResult);
       setCertificates(certificatesResult);
       setConnections(connectionsResult);
-      setDocuments(documentsResult);
       setIncidentReports(incidentReportsResult);
       setAudit(auditResult.items);
       setHealth(healthResult);
@@ -645,6 +642,15 @@ export default function Admin() {
       setRefreshing(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (tab !== "governance" || !isAdmin || loading || refreshing) return;
+    let active = true;
+    void api<typeof documents>("/api/admin/documents?summary=true")
+      .then((items) => { if (active) setDocuments(items); })
+      .catch((error) => { if (active) setError(error.message); });
+    return () => { active = false; };
+  }, [tab, isAdmin, loading, refreshing]);
 
   const refreshAccessRules = useCallback(async () => {
     setRules(await api<Rule[]>("/api/admin/access-rules"));
@@ -1125,8 +1131,8 @@ export default function Admin() {
                 )}
                 {tab === "documents" && (
                   <DocumentsPanel
-                    documents={documents}
                     spaces={spaces}
+                    refreshing={refreshing}
                     onChanged={refresh}
                     onError={setError}
                   />
@@ -2947,13 +2953,13 @@ function SpacesPanel({
 }
 
 function DocumentsPanel({
-  documents,
   spaces,
+  refreshing,
   onChanged,
   onError,
 }: {
-  documents: AdminDocument[];
   spaces: Space[];
+  refreshing: boolean;
   onChanged: () => Promise<void>;
   onError: (message: string) => void;
 }) {
@@ -2973,18 +2979,38 @@ function DocumentsPanel({
     "HEADER" | "CENTER" | "FOOTER"
   >("CENTER");
   const [documentPage, setDocumentPage] = useState(1);
+  const [pageDocuments, setPageDocuments] = useState<AdminDocument[]>([]);
+  const [documentTotal, setDocumentTotal] = useState(0);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const documentRequest = useRef(0);
   const documentPageSize = 20;
   const documentPageCount = Math.max(
     1,
-    Math.ceil(documents.length / documentPageSize),
+    Math.ceil(documentTotal / documentPageSize),
   );
-  const pageDocuments = documents.slice(
-    (documentPage - 1) * documentPageSize,
-    documentPage * documentPageSize,
-  );
+  const loadDocuments = useCallback(async () => {
+    const request = ++documentRequest.current;
+    setDocumentsLoading(true);
+    setPageDocuments([]);
+    try {
+      const result = await api<{ items: AdminDocument[]; total: number }>(
+        `/api/admin/documents?page=${documentPage}&limit=${documentPageSize}`,
+      );
+      if (request !== documentRequest.current) return;
+      setPageDocuments(result.items);
+      setDocumentTotal(result.total);
+      setDocumentPage((page) => Math.min(page, Math.max(1, Math.ceil(result.total / documentPageSize))));
+    } catch (error) {
+      if (request === documentRequest.current) onError((error as Error).message);
+    } finally {
+      if (request === documentRequest.current) setDocumentsLoading(false);
+    }
+  }, [documentPage, onError]);
   useEffect(() => {
-    setDocumentPage((page) => Math.min(page, documentPageCount));
-  }, [documentPageCount]);
+    if (refreshing) return;
+    void loadDocuments();
+    return () => { documentRequest.current++; };
+  }, [loadDocuments, refreshing]);
   const selectedSpace = spaces.find((space) => space.id === spaceId);
   const versionTranslation = versionUploadDocument?.translations.find(
     (translation) => translation.locale === locale,
@@ -3192,7 +3218,7 @@ function DocumentsPanel({
         </form>
       )}
       <div className="admin-table-wrap">
-        <table className="admin-actions-table">
+        <table className="admin-actions-table" aria-busy={documentsLoading}>
           <thead>
             <tr>
               <th>{t("Titre")}</th>
@@ -3204,7 +3230,8 @@ function DocumentsPanel({
             </tr>
           </thead>
           <tbody>
-            {documents.length === 0 && (
+            {documentsLoading && <tr><td colSpan={6}><p className="loading-state" role="status">{t("Chargement…")}</p></td></tr>}
+            {!documentsLoading && pageDocuments.length === 0 && (
               <tr>
                 <td colSpan={6}>
                   <EmptyState
@@ -3393,7 +3420,7 @@ function DocumentsPanel({
         >
           <button
             type="button"
-            disabled={documentPage <= 1}
+            disabled={documentsLoading || documentPage <= 1}
             onClick={() => setDocumentPage((page) => page - 1)}
           >
             ← {t("Précédent")}
@@ -3414,6 +3441,7 @@ function DocumentsPanel({
                     type="button"
                     className="page-number"
                     aria-current={item === documentPage ? "page" : undefined}
+                    disabled={documentsLoading}
                     onClick={() => setDocumentPage(item)}
                   >
                     {item}
@@ -3423,7 +3451,7 @@ function DocumentsPanel({
           </div>
           <button
             type="button"
-            disabled={documentPage >= documentPageCount}
+            disabled={documentsLoading || documentPage >= documentPageCount}
             onClick={() => setDocumentPage((page) => page + 1)}
           >
             {t("Suivant")} →

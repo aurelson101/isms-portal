@@ -2712,6 +2712,7 @@ export class DocumentAdminController {
     @Query("limit") limitValue = "50",
     @Query("sort") sort = "updatedAt",
     @Query("order") order: "asc" | "desc" = "desc",
+    @Query("summary") summary?: string,
   ) {
     const q = query.trim().slice(0, 200);
     const where: Prisma.DocumentWhereInput = {
@@ -2724,8 +2725,19 @@ export class DocumentAdminController {
           }
         : {}),
     };
-    const page = Math.max(1, Number(pageValue) || 1);
-    const limit = Math.min(200, Math.max(1, Number(limitValue) || 50));
+    if (summary === "true") {
+      return this.prisma.document.findMany({
+        where,
+        select: {
+          id: true,
+          translations: { select: { locale: true, title: true } },
+          versions: { select: { id: true, locale: true, version: true } },
+        },
+        orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      });
+    }
+    const page = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Number(pageValue) : 1;
+    const limit = Math.min(200, Math.max(1, Math.floor(Number(limitValue) || 50)));
     const orderBy =
       sort === "status"
         ? { status: order }
@@ -2743,7 +2755,7 @@ export class DocumentAdminController {
         category: true,
         space: true,
       },
-      orderBy,
+      orderBy: [orderBy, { id: "asc" }],
       ...(pageValue ? { skip: (page - 1) * limit, take: limit } : {}),
     };
     const [items, total] = await Promise.all([
