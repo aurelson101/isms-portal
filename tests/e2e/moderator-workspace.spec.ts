@@ -4,9 +4,11 @@ for (const width of [390, 768, 1280]) {
   test(`moderator actions and upload recovery at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const space = { id: "space", nameFr: "Documents", nameEn: "Documents", permissions: { edit: true, publish: true, archive: true } };
-    const document = { id: "document", status: "DRAFT", space, category: null, translations: [{ locale: "en", title: "Test policy", description: "" }], versions: [{ id: "version", locale: "en", version: 1 }] };
+    const document = { id: "document", status: "DRAFT", space, category: null, translations: [{ locale: "fr", title: "Politique", description: "Description FR" }, { locale: "en", title: "Test policy", description: "" }], versions: [{ id: "version", locale: "en", version: 1 }] };
     let releasePublish!: () => void;
     const publishGate = new Promise<void>((resolve) => { releasePublish = resolve; });
+    let releaseCategories!: () => void;
+    const categoriesGate = new Promise<void>((resolve) => { releaseCategories = resolve; });
     let publishRequests = 0;
     await page.route("**/api/**", async (route) => {
       const url = new URL(route.request().url());
@@ -19,6 +21,9 @@ for (const width of [390, 768, 1280]) {
         await route.fulfill({ json: {} });
       } else if (url.pathname === "/api/documents/upload") {
         await route.fulfill({ status: 409, json: { message: "Upload rejected" } });
+      } else if (url.pathname === "/api/documents/document/categories") {
+        await categoriesGate;
+        await route.fulfill({ json: [] });
       } else if (url.pathname === "/api/documents") {
         await route.fulfill({ json: { items: [document], page: Number(url.searchParams.get("page")), totalPages: 2 } });
       } else {
@@ -48,6 +53,34 @@ for (const width of [390, 768, 1280]) {
     await expect(page.getByRole("button", { name: "Upload and scan", exact: true })).toBeEnabled();
     await expect(page.getByLabel("Change summary")).toHaveValue("Updated policy");
     expect(await file.evaluate((input: HTMLInputElement) => input.files?.[0]?.name)).toBe("policy.pdf");
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "New version", exact: true })).toBeDisabled();
+    releaseCategories();
+    const metadata = page.locator("#moderator-metadata-form");
+    await expect(metadata.getByLabel("Document language")).toHaveValue("en");
+    await expect(metadata.getByLabel("Description", { exact: true })).toHaveValue("");
+    await expect(metadata.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
+for (const [requested, expected] of [["/moderator", "/moderator"], ["/\\external.example", "/"]]) {
+  test(`AD and SSO use a safe return path for ${requested}`, async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+    await page.route("**/api/**", async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      await route.fulfill({ json: path === "/api/auth/config"
+        ? { directoryLoginEnabled: true, ssoEnabled: true, ssoPilotUrl: "/oauth2/start?rd=/", ssoLoginUrl: null }
+        : {} });
+    });
+    await page.goto(`/login?return=${encodeURIComponent(requested)}`);
+    await expect(page.getByRole("link", { name: "Continue with Microsoft" })).toHaveAttribute("href", `/oauth2/start?rd=${encodeURIComponent(expected)}`);
+    await page.getByLabel("Identifier", { exact: true }).fill("moderator@example.test");
+    await page.getByLabel("Password", { exact: true }).fill("test-only-password");
+    await page.route(`http://127.0.0.1:3100${expected}`, (route) => route.fulfill({ contentType: "text/html", body: "<h1>Destination</h1>" }));
+    await page.locator("form").getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(page).toHaveURL(`http://127.0.0.1:3100${expected}`);
+    await expect(page.getByRole("heading", { name: "Destination" })).toBeVisible();
   });
 }

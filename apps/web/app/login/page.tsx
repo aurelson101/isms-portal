@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useBranding } from "../branding";
-import { ssoDestination, type AuthConfig } from "../auth-navigation";
+import { returnDestination, ssoDestination, type AuthConfig } from "../auth-navigation";
 import { initialLocale, rememberLocale, type Locale } from "../i18n/locale";
 
 const copy = {
@@ -109,11 +109,7 @@ export default function LoginPage() {
       return;
     }
     const requested = new URLSearchParams(window.location.search).get("return");
-    window.location.replace(
-      requested?.startsWith("/") && !requested.startsWith("//")
-        ? requested
-        : "/",
-    );
+    window.location.replace(returnDestination(requested));
   };
 
   return (

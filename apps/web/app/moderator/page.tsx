@@ -94,18 +94,19 @@ export default function ModeratorPage() {
     const translation = document.translations.find((item) => item.locale === selected);
     setMetadataLocale(selected);
     setMetadataTitle(translation?.title || document.translations[0]?.title || "");
-    setMetadataDescription(translation?.description || document.translations[0]?.description || "");
+    setMetadataDescription(translation ? translation.description ?? "" : document.translations[0]?.description ?? "");
   };
   const openMetadata = async (document: Document) => {
-    setError("");
-    const response = await fetch(`/api/documents/${document.id}/categories`, { cache: "no-store" });
-    if (!response.ok) throw new Error(await messageOf(response));
-    setMetadataCategories(await response.json() as Category[]);
-    setMetadataCategoryId(document.category?.id || "");
-    selectMetadataLocale(document, document.versions[0]?.locale === "en" ? "en" : "fr");
-    setEditing(null);
-    setMetadataEditing(document);
-    window.setTimeout(() => window.document.getElementById("moderator-metadata-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+    await mutate(async () => {
+      const response = await fetch(`/api/documents/${document.id}/categories`, { cache: "no-store" });
+      if (!response.ok) throw new Error(await messageOf(response));
+      setMetadataCategories(await response.json() as Category[]);
+      setMetadataCategoryId(document.category?.id || "");
+      selectMetadataLocale(document, document.versions[0]?.locale === "en" ? "en" : "fr");
+      setEditing(null);
+      setMetadataEditing(document);
+      window.setTimeout(() => window.document.getElementById("moderator-metadata-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+    });
   };
   if (!identity) return <main className="admin-main"><p>{t("Chargement de l’espace modérateur…", "Loading moderator workspace…")}</p>{error && <p className="error-state">{error}</p>}</main>;
   return <main className="admin-main moderator-workspace">
