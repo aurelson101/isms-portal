@@ -27,6 +27,41 @@ function setup() {
 }
 const event = { action: "document.publish", resource: "document:doc", actor: "publisher", at: "2026-09-11T12:00:00Z" };
 describe("Notification routing", () => {
+  it("retries the original failed delivery without creating a duplicate", async () => {
+    const h = setup();
+    const data = { ...event, accepted: ["first@example.com"] };
+    const job = { data, getState: vi.fn().mockResolvedValue("failed"), retry: vi.fn().mockResolvedValue(undefined) };
+    const queue = { getJob: vi.fn().mockResolvedValue(job), add: vi.fn() };
+    Object.defineProperty(h.service, "queue", { value: queue });
+
+    await h.service.retryDelivery("failed-delivery");
+
+    expect(queue.getJob).toHaveBeenCalledWith("failed-delivery");
+    expect(job.retry).toHaveBeenCalledWith("failed", { resetAttemptsMade: true, resetAttemptsStarted: true });
+    expect(job.data.accepted).toEqual(["first@example.com"]);
+    expect(queue.add).not.toHaveBeenCalled();
+  });
+  it.each(["active", "waiting", "delayed", "completed"])("does not retry a %s delivery", async (state) => {
+    const h = setup();
+    const job = { getState: vi.fn().mockResolvedValue(state), retry: vi.fn() };
+    const queue = { getJob: vi.fn().mockResolvedValue(job), add: vi.fn() };
+    Object.defineProperty(h.service, "queue", { value: queue });
+
+    await expect(h.service.retryDelivery("delivery")).rejects.toThrow("Only failed email deliveries");
+
+    expect(job.retry).not.toHaveBeenCalled();
+    expect(queue.add).not.toHaveBeenCalled();
+  });
+  it("propagates an atomic retry conflict without creating another delivery", async () => {
+    const h = setup();
+    const job = { getState: vi.fn().mockResolvedValue("failed"), retry: vi.fn().mockRejectedValue(new Error("Job is no longer failed")) };
+    const queue = { getJob: vi.fn().mockResolvedValue(job), add: vi.fn() };
+    Object.defineProperty(h.service, "queue", { value: queue });
+
+    await expect(h.service.retryDelivery("delivery")).rejects.toThrow("Job is no longer failed");
+
+    expect(queue.add).not.toHaveBeenCalled();
+  });
   it("sends one overdue publication-review digest to staff and marks it only after acceptance", async () => {
     const h = setup();
     h.prisma.documentReview.findMany.mockResolvedValue([{ id: "review", documentId: "doc", dueAt: new Date("2026-08-01T00:00:00Z"), document: { translations: [{ locale: "fr", title: "Politique de voyage" }] } }]);

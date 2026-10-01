@@ -84,7 +84,7 @@ export class NotificationService {
     const queue = this.queueHandle();
     const job = await queue.getJob(id);
     if (!job || await job.getState() !== "failed") throw new Error("Only failed email deliveries can be retried");
-    await queue.add("event", job.data, { jobId: `retry-${job.id}-${Date.now()}`, attempts: 4, backoff: { type: "exponential", delay: 30000 }, removeOnComplete: 200, removeOnFail: 200 });
+    await job.retry("failed", { resetAttemptsMade: true, resetAttemptsStarted: true });
   }
 
   async sendTypeTest(type: EmailTestType, recipient: string) {
