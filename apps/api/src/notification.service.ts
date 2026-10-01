@@ -66,7 +66,7 @@ export class NotificationService {
       ...waiting.map((job) => ({ job, status: "WAITING" as const })),
       ...active.map((job) => ({ job, status: "ACTIVE" as const })),
       ...delayed.map((job) => ({ job, status: "DELAYED" as const })),
-      ...completed.map((job) => ({ job, status: "ACCEPTED" as const })),
+      ...completed.map((job) => ({ job, status: job.returnvalue?.skipped ? "SKIPPED" as const : "ACCEPTED" as const })),
       ...failed.map((job) => ({ job, status: "FAILED" as const })),
     ];
     return entries.sort((left, right) => (right.job.finishedOn || right.job.timestamp) - (left.job.finishedOn || left.job.timestamp)).slice(0, 100).map(({ job, status }) => ({

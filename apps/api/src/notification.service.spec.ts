@@ -74,7 +74,7 @@ describe("Notification routing", () => {
     await h.service.process(job as never);
     expect(h.prisma.documentReview.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { overdueNotifiedAt: expect.any(Date) } }));
   });
-  it("shows pending, delayed and completed mail with full queue counts", async () => {
+  it("distinguishes skipped deliveries from accepted mail with full queue counts", async () => {
     const h = setup();
     const job = (id: string, timestamp: number) => ({ id, data: event, timestamp, attemptsMade: 0, finishedOn: undefined, failedReason: undefined, returnvalue: undefined });
     const queue = {
@@ -82,13 +82,23 @@ describe("Notification routing", () => {
       getWaiting: vi.fn().mockResolvedValue([job("waiting", 1)]),
       getActive: vi.fn().mockResolvedValue([job("active", 2)]),
       getDelayed: vi.fn().mockResolvedValue([job("delayed", 3)]),
-      getCompleted: vi.fn().mockResolvedValue([job("completed", 4)]),
+      getCompleted: vi.fn().mockResolvedValue([
+        job("completed", 4),
+        { ...job("skipped", 5), returnvalue: { skipped: "Resource no longer eligible", accepted: 0, audience: 0 } },
+      ]),
       getFailed: vi.fn().mockResolvedValue([]),
     };
     Object.defineProperty(h.service, "queue", { value: queue });
     const result = await h.service.deliveryHistory();
     expect(await h.service.deliveryCounts()).toEqual({ waiting: 201, active: 1, delayed: 2, completed: 3, failed: 0 });
-    expect(result.map(({ status }) => status)).toEqual(["ACCEPTED", "DELAYED", "ACTIVE", "WAITING"]);
+    expect(result.map(({ status }) => status)).toEqual(["SKIPPED", "ACCEPTED", "DELAYED", "ACTIVE", "WAITING"]);
+    expect(result[0].accepted).toBe(0);
+  });
+  it("does not send mail when a queued resource is no longer eligible", async () => {
+    const h = setup();
+    vi.spyOn(h.service, "prepare").mockResolvedValue(null);
+    expect(await h.service.process({ data: event } as never)).toEqual({ skipped: "Resource no longer eligible", accepted: 0, audience: 0 });
+    expect(h.alerts.sendPreferredTo).not.toHaveBeenCalled();
   });
   it("uses ACL credentials and TLS for a rediss connection", () => {
     vi.stubEnv("REDIS_URL", "rediss://queue-user:p%40ss@redis.example:6380");

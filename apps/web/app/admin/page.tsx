@@ -5039,15 +5039,15 @@ function ObservabilityPanel({
   const [testingAlertChannel, setTestingAlertChannel] = useState<
     "email" | "teams" | "slack" | "webhook" | null
   >(null);
-  const [emailDeliveries, setEmailDeliveries] = useState<Array<{ id: string; action: string; status: "WAITING" | "ACTIVE" | "DELAYED" | "ACCEPTED" | "FAILED"; attempts: number; createdAt: string; finishedAt: string | null; accepted: number; error: string | null }>>([]);
+  const [emailDeliveries, setEmailDeliveries] = useState<Array<{ id: string; action: string; status: "WAITING" | "ACTIVE" | "DELAYED" | "ACCEPTED" | "SKIPPED" | "FAILED"; attempts: number; createdAt: string; finishedAt: string | null; accepted: number; error: string | null }>>([]);
   const [emailQueueCounts, setEmailQueueCounts] = useState({ waiting: 0, active: 0, delayed: 0, completed: 0, failed: 0 });
   const [emailTestRecipient, setEmailTestRecipient] = useState("");
   const [emailTestType, setEmailTestType] = useState<"document" | "approval" | "review" | "report">("approval");
   const [emailBusy, setEmailBusy] = useState(false);
   const emailCopy = locale === "fr" ? {
-    title: "Suivi des e-mails", recipient: "Destinataire", template: "Modèle d’e-mail", document: "Publication documentaire", approval: "Demande d’approbation", review: "Revue documentaire", report: "Signalement", sending: "Envoi…", test: "Envoyer un e-mail de test", event: "Événement", status: "État", recipients: "Acceptés", completed: "Date", action: "Action", empty: "Aucun envoi récent.", retry: "Relancer", accepted: "Accepté par Graph", waiting: "En attente", active: "En cours", delayed: "Différé", failed: "Échoué", deliveryNote: "L’acceptation par Microsoft Graph ne garantit pas la réception. Vérifiez la trace des messages dans Exchange.",
+    title: "Suivi des e-mails", recipient: "Destinataire", template: "Modèle d’e-mail", document: "Publication documentaire", approval: "Demande d’approbation", review: "Revue documentaire", report: "Signalement", sending: "Envoi…", test: "Envoyer un e-mail de test", event: "Événement", status: "État", recipients: "Acceptés", completed: "Date", action: "Action", empty: "Aucun envoi récent.", retry: "Relancer", accepted: "Accepté par le service d’envoi", waiting: "En attente", active: "En cours", delayed: "Différé", skipped: "Non envoyé", failed: "Échoué", deliveryNote: "L’acceptation par le service d’envoi ne garantit pas la réception. Vérifiez les journaux du fournisseur.",
   } : {
-    title: "Email delivery", recipient: "Recipient", template: "Email template", document: "Document publication", approval: "Approval request", review: "Document review", report: "Issue report", sending: "Sending…", test: "Send template test", event: "Event", status: "Status", recipients: "Accepted", completed: "Date", action: "Action", empty: "No recent email deliveries.", retry: "Retry", accepted: "Accepted by Graph", waiting: "Waiting", active: "Processing", delayed: "Delayed", failed: "Failed", deliveryNote: "Microsoft Graph acceptance does not guarantee inbox delivery. Check the Exchange message trace.",
+    title: "Email delivery", recipient: "Recipient", template: "Email template", document: "Document publication", approval: "Approval request", review: "Document review", report: "Issue report", sending: "Sending…", test: "Send template test", event: "Event", status: "Status", recipients: "Accepted", completed: "Date", action: "Action", empty: "No recent email deliveries.", retry: "Retry", accepted: "Accepted by mail provider", waiting: "Waiting", active: "Processing", delayed: "Delayed", skipped: "Not sent", failed: "Failed", deliveryNote: "Mail provider acceptance does not guarantee inbox delivery. Check the provider delivery logs.",
   };
   const reloadOperations = useCallback(async () => {
     const [
@@ -5673,7 +5673,7 @@ function ObservabilityPanel({
         <div className="admin-table-wrap">
           <table><thead><tr><th>{emailCopy.event}</th><th>{emailCopy.status}</th><th>{emailCopy.recipients}</th><th>{emailCopy.completed}</th><th>{emailCopy.action}</th></tr></thead><tbody>
             {!emailDeliveries.length && <tr><td colSpan={5}>{emailCopy.empty}</td></tr>}
-            {emailDeliveries.map((delivery) => <tr key={delivery.id}><td>{delivery.action}</td><td>{delivery.status === "ACCEPTED" ? <span title={emailCopy.deliveryNote}>{emailCopy.accepted}</span> : `${emailCopy[delivery.status.toLowerCase() as "waiting" | "active" | "delayed" | "failed"]}${delivery.error ? `: ${delivery.error}` : ""}`}</td><td>{delivery.accepted}</td><td>{new Date(delivery.finishedAt || delivery.createdAt).toLocaleString(locale)}</td><td>{delivery.status === "FAILED" && <button type="button" disabled={emailBusy} onClick={() => void retryEmailDelivery(delivery.id)}>{emailCopy.retry}</button>}</td></tr>)}
+            {emailDeliveries.map((delivery) => <tr key={delivery.id}><td>{delivery.action}</td><td>{delivery.status === "ACCEPTED" ? <span title={emailCopy.deliveryNote}>{emailCopy.accepted}</span> : `${emailCopy[delivery.status.toLowerCase() as "waiting" | "active" | "delayed" | "skipped" | "failed"]}${delivery.error ? `: ${delivery.error}` : ""}`}</td><td>{delivery.accepted}</td><td>{new Date(delivery.finishedAt || delivery.createdAt).toLocaleString(locale)}</td><td>{delivery.status === "FAILED" && <button type="button" disabled={emailBusy} onClick={() => void retryEmailDelivery(delivery.id)}>{emailCopy.retry}</button>}</td></tr>)}
           </tbody></table>
         </div>
       </section>
