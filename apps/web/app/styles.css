@@ -25,12 +25,14 @@ body {
 .login-shell {
   min-height: 100vh;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: 24px;
   background: linear-gradient(145deg, #001b45, #0768ea);
 }
 .login-card {
   width: min(520px, 100%);
+  min-width: 0;
   padding: 32px;
   border-radius: 14px;
   background: white;
@@ -110,6 +112,7 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
   color: #075ad4;
 }
 .login-brand > span {
@@ -699,6 +702,12 @@ h1 {
 }
 
 @media (max-width: 480px) {
+  .login-card {
+    padding: 24px;
+  }
+  .login-toolbar {
+    flex-wrap: wrap;
+  }
   .shell main,
   .admin-main {
     padding-inline: 12px;
@@ -4518,16 +4527,19 @@ svg {
     width: 100%;
   }
 }
-.remember-device {
+.login-form .remember-device {
   align-items: center;
   display: flex;
   flex-direction: row;
   gap: 0.65rem;
 }
 
-.remember-device input {
+.login-form .remember-device input {
+  flex: 0 0 1rem;
   height: 1rem;
+  min-height: 1rem;
   margin: 0;
+  padding: 0;
   width: 1rem;
 }
 
