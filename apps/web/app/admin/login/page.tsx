@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { returnDestination, ssoDestination } from "../../auth-navigation";
-import { authConfig, loginRequest, LoginToolbar, useLoginLocale } from "../../login-shared";
+import { authConfig, loginFailure, loginRequest, LoginToolbar, useLoginLocale } from "../../login-shared";
 
 type LoginMode = "local" | "directory";
 const copy = {
@@ -73,6 +73,7 @@ export default function AdminLoginPage() {
     setBusy(true);
     setError("");
     const values = Object.fromEntries(new FormData(event.currentTarget));
+    values.username = String(values.username || "").trim();
     const response = await loginRequest(
       mode === "local" ? "/api/auth/login" : "/api/auth/directory-login",
       mode === "local" ? values : { login: values.username, password: values.password },
@@ -80,8 +81,8 @@ export default function AdminLoginPage() {
     submitting.current = false;
     setBusy(false);
     if (!response?.ok) {
-      setNeedsMfa(mode === "local");
-      setError(t.invalid);
+      setNeedsMfa(mode === "local" && response?.status === 401);
+      setError(loginFailure(response, locale, t.invalid));
       return;
     }
     const requested = returnDestination(new URLSearchParams(window.location.search).get("return"), "/admin");
@@ -130,12 +131,15 @@ export default function AdminLoginPage() {
           <p className="login-warning">{t.directoryUnavailable}</p>
         )}
         <form onSubmit={submit} className="login-form" aria-busy={busy}>
+          <fieldset className="login-fields" disabled={busy}>
           <label>
             {t.identifier}
             <input
               name="username"
               required
               autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
               maxLength={160}
             />
           </label>
@@ -171,6 +175,7 @@ export default function AdminLoginPage() {
           >
             {busy ? t.busy : t.submit}
           </button>
+          </fieldset>
         </form>
       </section>
     </main>

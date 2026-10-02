@@ -17,9 +17,28 @@ export function useLoginLocale() {
 }
 
 export async function authConfig(signal: AbortSignal): Promise<AuthConfig> {
-  const response = await fetch("/api/auth/config", { signal, cache: "no-store" });
-  if (!response.ok) throw new Error("Authentication configuration unavailable");
-  return response.json();
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal.aborted) abort(); else signal.addEventListener("abort", abort, { once: true });
+  const timeout = window.setTimeout(abort, 10000);
+  try {
+    const response = await fetch("/api/auth/config", { signal: controller.signal, cache: "no-store" });
+    if (!response.ok) throw new Error("Authentication configuration unavailable");
+    const config = await response.json();
+    return {
+      directoryLoginEnabled: config?.directoryLoginEnabled === true,
+      ssoEnabled: config?.ssoEnabled === true,
+      ssoLoginUrl: typeof config?.ssoLoginUrl === "string" ? config.ssoLoginUrl : null,
+      ssoPilotUrl: typeof config?.ssoPilotUrl === "string" ? config.ssoPilotUrl : null,
+    };
+  } finally { window.clearTimeout(timeout); signal.removeEventListener("abort", abort); }
+}
+
+export function loginFailure(response: Response | null, locale: Locale, invalid: string) {
+  if (!response) return locale === "fr" ? "Connexion interrompue. Réessayez." : "Connection interrupted. Try again.";
+  if (response.status === 429) return locale === "fr" ? "Trop de tentatives. Patientez avant de réessayer." : "Too many attempts. Wait before trying again.";
+  if (response.status >= 500) return locale === "fr" ? "Service temporairement indisponible. Réessayez." : "Service temporarily unavailable. Try again.";
+  return invalid;
 }
 
 export function loginRequest(endpoint: string, values: Record<string, unknown>) {

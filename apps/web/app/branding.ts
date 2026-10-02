@@ -11,6 +11,11 @@ export const defaultBranding: PortalBranding = {
 const MAX_LOGO_SOURCE_BYTES = 20 * 1024 * 1024;
 const MAX_LOGO_OUTPUT_BYTES = 170 * 1024;
 const MAX_LOGO_DIMENSION = 512;
+const LOGO_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const normalizeBranding = (value: Partial<PortalBranding> | null): PortalBranding => ({
+  title: typeof value?.title === "string" && value.title.trim() ? value.title.trim() : defaultBranding.title,
+  logoDataUrl: typeof value?.logoDataUrl === "string" && /^data:image\/(png|jpeg|webp);base64,/i.test(value.logoDataUrl) ? value.logoDataUrl : null,
+});
 
 const canvasBlob = (canvas: HTMLCanvasElement, quality: number) =>
   new Promise<Blob | null>((resolve) =>
@@ -26,27 +31,22 @@ const blobDataUrl = (blob: Blob) =>
   });
 
 export const prepareBrandLogo = async (file: File) => {
-  if (!new Set(["image/png", "image/jpeg", "image/webp"]).has(file.type))
+  if (!LOGO_TYPES.has(file.type))
     throw new Error("Unsupported logo format");
   if (file.size > MAX_LOGO_SOURCE_BYTES)
     throw new Error("Logo source is too large");
 
-  const image = new Image();
-  const sourceDataUrl = await blobDataUrl(file);
-  await new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve();
-    image.onerror = () => reject(new Error("Logo image is invalid"));
-    image.src = sourceDataUrl;
-  });
-  if (!image.naturalWidth || !image.naturalHeight)
+  const image = await createImageBitmap(file).catch(() => { throw new Error("Logo image is invalid"); });
+  try {
+  if (!image.width || !image.height)
     throw new Error("Logo image is invalid");
 
   const scale = Math.min(
     1,
-    MAX_LOGO_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight),
+    MAX_LOGO_DIMENSION / Math.max(image.width, image.height),
   );
-  let width = Math.max(1, Math.round(image.naturalWidth * scale));
-  let height = Math.max(1, Math.round(image.naturalHeight * scale));
+  let width = Math.max(1, Math.round(image.width * scale));
+  let height = Math.max(1, Math.round(image.height * scale));
   let result: Blob | null = null;
 
   for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -64,6 +64,7 @@ export const prepareBrandLogo = async (file: File) => {
   if (!result || result.size > MAX_LOGO_OUTPUT_BYTES)
     throw new Error("Logo processing failed");
   return blobDataUrl(result);
+  } finally { image.close(); }
 };
 
 let cachedBranding: PortalBranding | null = null;
@@ -77,14 +78,15 @@ const loadBranding = () => {
       return response.json() as Promise<PortalBranding>;
     })
     .then((branding) => {
-      cachedBranding = branding;
-      return branding;
+      cachedBranding = normalizeBranding(branding);
+      return cachedBranding;
     })
-    .catch(() => defaultBranding);
+    .catch(() => { brandingRequest = null; return defaultBranding; });
   return brandingRequest;
 };
 
 export const updateBrandingCache = (branding: PortalBranding) => {
+  branding = normalizeBranding(branding);
   cachedBranding = branding;
   brandingRequest = Promise.resolve(branding);
   document.title = branding.title;

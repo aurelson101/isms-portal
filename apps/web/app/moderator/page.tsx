@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../icons";
+import { responseMessage } from "../request-errors";
 
 type Space = { id: string; nameFr: string; nameEn: string; permissions: Record<string, boolean> };
 type Identity = { displayName: string; username: string; isAdmin: boolean; isModerator?: boolean; locale: "fr" | "en" | null; spaces: Space[] };
@@ -9,10 +10,7 @@ type Document = { id: string; status: string; space: { id: string; nameFr: strin
 type Category = { id: string; parentId: string | null; nameFr: string; nameEn: string };
 const latestVersion = (document: Document) => document.versions.reduce<Document["versions"][number] | undefined>((latest, version) => !latest || version.version > latest.version ? version : latest, undefined);
 
-const messageOf = async (response: Response) => {
-  const body = await response.json().catch(() => null);
-  return body?.message || "Request failed";
-};
+const messageOf = (response: Response) => responseMessage(response, "Request failed");
 
 export default function ModeratorPage() {
   const [identity, setIdentity] = useState<Identity | null>(null);
@@ -31,6 +29,8 @@ export default function ModeratorPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [mutationBusy, setMutationBusy] = useState(false);
+  const [search, setSearch] = useState("");
+  const searchQuery = useRef("");
   const loadRequest = useRef(0);
   const loadController = useRef<AbortController | null>(null);
   const mutationInFlight = useRef(false);
@@ -42,11 +42,15 @@ export default function ModeratorPage() {
     loadController.current?.abort();
     const controller = new AbortController();
     loadController.current = controller;
+    let timedOut = false;
+    const timeout = window.setTimeout(() => { timedOut = true; controller.abort(); }, 15000);
     setLoading(true);
     try {
-    const [me, list] = await Promise.all([fetch("/api/me", { cache: "no-store", signal: controller.signal }), fetch(`/api/documents?page=${page}&limit=20&managed=true`, { cache: "no-store", signal: controller.signal })]);
+    const query = new URLSearchParams({ page: String(page), limit: "20", managed: "true", q: searchQuery.current });
+    const [me, list] = await Promise.all([fetch("/api/me", { cache: "no-store", signal: controller.signal }), fetch(`/api/documents?${query}`, { cache: "no-store", signal: controller.signal })]);
     if (request !== loadRequest.current) return;
-    if (!me.ok) { window.location.assign("/login?return=/moderator"); return; }
+    if (me.status === 401) { window.location.assign("/login?return=/moderator"); return; }
+    if (!me.ok) throw new Error(await messageOf(me));
     const current = await me.json() as Identity;
     if (request !== loadRequest.current) return;
     if (!current.isAdmin && !current.isModerator) { window.location.assign("/"); return; }
@@ -58,8 +62,9 @@ export default function ModeratorPage() {
     setDocuments(Array.isArray(payload) ? payload : payload.items || []);
     setDocumentTotalPages(Array.isArray(payload) ? 1 : Math.max(1, payload.totalPages || 1));
     } catch (reason) {
-      if (request === loadRequest.current) throw reason;
+      if (request === loadRequest.current) throw timedOut ? new Error("Request timed out") : reason;
     } finally {
+      window.clearTimeout(timeout);
       if (request === loadRequest.current) setLoading(false);
     }
   }, []);
@@ -116,7 +121,7 @@ export default function ModeratorPage() {
       setMetadataEditing(document);
     });
   };
-  if (!identity) return <main className="admin-main"><p>{t("Chargement de l’espace modérateur…", "Loading moderator workspace…")}</p>{error && <p className="error-state">{error}</p>}</main>;
+  if (!identity) return <main className="admin-main"><p role="status">{t("Chargement de l’espace modérateur…", "Loading moderator workspace…")}</p>{error && <><p className="error-state" role="alert">{error}</p><button type="button" disabled={loading} onClick={() => loadPage(documentPage)}>{t("Réessayer", "Retry")}</button></>}</main>;
   return <main className="admin-main moderator-workspace">
     <header className="admin-page-heading"><div><p className="eyebrow">ISMS Portal</p><h1>{t("Espace modérateur", "Moderator workspace")}</h1><p>{t("Gestion documentaire limitée à vos droits effectifs.", "Document management limited to your effective permissions.")}</p></div><a className="button" href="/explorer">{t("Retour au portail", "Back to portal")}</a></header>
     {notice && <p className="notice" role="status">{notice}</p>}{error && <p className="error-state" role="alert">{error}</p>}
@@ -137,7 +142,7 @@ export default function ModeratorPage() {
         <label>{t("Langue du document", "Document language")}<select value={metadataLocale} onChange={(event) => selectMetadataLocale(metadataEditing, event.target.value as "fr" | "en")}><option value="fr">FR</option><option value="en">EN</option></select></label>
         <label>{t("Titre", "Title")}<input required maxLength={255} value={metadataTitle} onChange={(event) => setMetadataTitle(event.target.value)} /></label>
         <label>{t("Description", "Description")}<textarea maxLength={2000} value={metadataDescription} onChange={(event) => setMetadataDescription(event.target.value)} /></label>
-        <label>{t("Catégorie", "Category")}<select value={metadataCategoryId} onChange={(event) => setMetadataCategoryId(event.target.value)}><option value="">{t("Sans catégorie", "No category")}</option>{metadataCategories.map((category) => <option key={category.id} value={category.id}>{locale === "fr" ? category.nameFr : category.nameEn}</option>)}</select></label>
+        <label>{t("Catégorie", "Category")}<select value={metadataCategoryId} onChange={(event) => setMetadataCategoryId(event.target.value)}><option value="">{t("Sans catégorie", "No category")}</option>{metadataEditing.category && !metadataCategories.some((category) => category.id === metadataEditing.category!.id) && <option value={metadataEditing.category.id}>{locale === "fr" ? metadataEditing.category.nameFr : metadataEditing.category.nameEn}</option>}{metadataCategories.map((category) => <option key={category.id} value={category.id}>{locale === "fr" ? category.nameFr : category.nameEn}</option>)}</select></label>
         <div className="button-row"><button className="primary" disabled={busy || !metadataTitle.trim()}>{t("Enregistrer", "Save")}</button><button type="button" disabled={busy} onClick={() => setMetadataEditing(null)}>{t("Annuler", "Cancel")}</button></div>
       </fieldset></form>
     </section>}
@@ -145,6 +150,15 @@ export default function ModeratorPage() {
       event.preventDefault();
       const data = new FormData(event.currentTarget);
       await mutate(async () => {
+        const file = data.get("file");
+        if (!(file instanceof File) || !file.size) throw new Error(t("Le fichier est vide.", "The file is empty."));
+        if (!/\.(pdf|docx|xlsx)$/i.test(file.name)) throw new Error(t("Format non autorisé : PDF, DOCX ou XLSX.", "Unsupported format: PDF, DOCX or XLSX required."));
+        if (file.size > 50 * 1024 * 1024) throw new Error(t("Le fichier dépasse 50 Mo.", "The file exceeds 50 MB."));
+        for (const field of ["title", "changeSummary"]) {
+          const value = String(data.get(field) || "").trim();
+          if (!value) throw new Error(t("Le titre et le résumé des changements sont obligatoires.", "Title and change summary are required."));
+          data.set(field, value);
+        }
         const response = await fetch("/api/documents/upload", { method: "POST", body: data });
         if (!response.ok) throw new Error(await messageOf(response));
         setEditing(null);
@@ -154,6 +168,7 @@ export default function ModeratorPage() {
     }} aria-busy={busy}><fieldset className="admin-form upload-form moderator-fields" disabled={busy}><input name="documentId" type="hidden" value={editing.id} /><input name="spaceId" type="hidden" value={editing.space.id} /><label>{t("Langue", "Language")}<select name="locale" value={versionLocale} onChange={(event) => setVersionLocale(event.target.value as "fr" | "en")}><option value="fr">FR</option><option value="en">EN</option></select></label><label>{t("Titre", "Title")}<input key={`${editing.id}-${versionLocale}`} name="title" required maxLength={255} defaultValue={editing.translations.find((item) => item.locale === versionLocale)?.title || editing.translations[0]?.title || ""} /></label><label className="wide">{t("Résumé des changements", "Change summary")}<textarea name="changeSummary" required maxLength={2000} /></label><label>{t("Fichier", "File")}<input name="file" type="file" required accept=".pdf,.docx,.xlsx" /></label><label className="check"><input name="suppressEmailNotifications" value="true" type="checkbox" />{t("Ne pas envoyer d’e-mail", "Do not send email notifications")}</label><div className="button-row"><button className="primary" disabled={busy}>{mutationBusy ? t("Traitement…", "Processing…") : t("Déposer et analyser", "Upload and scan")}</button><button type="button" disabled={busy} onClick={() => setEditing(null)}>{t("Annuler", "Cancel")}</button></div></fieldset></form></section>}
     <section className="admin-card">
       <div className="moderator-toolbar"><h2>{t("Documents gérés", "Managed documents")}</h2><button type="button" disabled={busy} onClick={() => loadPage(documentPage)}><Icon name="sync" />{t("Actualiser", "Refresh")}</button></div>
+      <form className="moderator-search" role="search" onSubmit={(event) => { event.preventDefault(); searchQuery.current = search.trim(); loadPage(1); }}><label>{t("Rechercher un document", "Search documents")}<input type="search" maxLength={200} value={search} disabled={busy} onChange={(event) => setSearch(event.target.value)} /></label><button type="submit" disabled={busy}><Icon name="search" />{t("Rechercher", "Search")}</button>{searchQuery.current && <button type="button" disabled={busy} onClick={() => { setSearch(""); searchQuery.current = ""; loadPage(1); }}>{t("Réinitialiser", "Reset")}</button>}</form>
       <div className="admin-table-wrap"><table aria-busy={loading}><thead><tr><th>{t("Titre", "Title")}</th><th>{t("Espace", "Space")}</th><th>{t("Catégorie", "Category")}</th><th>{t("Version", "Version")}</th><th>{t("État", "Status")}</th><th>{t("Actions", "Actions")}</th></tr></thead><tbody>
         {loading && <tr><td colSpan={6} role="status">{t("Chargement…", "Loading…")}</td></tr>}
         {!loading && !documents.length && <tr><td colSpan={6}>{t("Aucun document géré sur cette page.", "No managed document on this page.")}</td></tr>}

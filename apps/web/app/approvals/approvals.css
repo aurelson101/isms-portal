@@ -40,4 +40,11 @@
 .approvals-shell .approval-toolbar label { display: inline-flex; align-items: center; white-space: nowrap; }
 .approvals-shell select { min-height: 40px; margin-left: 12px; border: 1px solid #bbcbdc; border-radius: 4px; padding: 8px; background: white; }
 .approvals-shell .approval-toolbar button { justify-content: center; width: 40px; border: 1px solid #bbcbdc; border-radius: 4px; background: white; }
-@media (max-width: 700px) { .approvals-shell { padding: 20px 14px; } .approvals-heading { align-items: flex-start; } .approvals-heading h1 { font-size: 24px; } .approvals-shell .approval-card { padding: 15px; } .approval-summary { grid-template-columns: 1fr; } .approval-details { grid-template-columns: 1fr; } .approvals-shell .approval-toolbar, .approvals-shell .approval-toolbar > div, .approval-period { align-items: stretch; flex-direction: column; width: 100%; } .approvals-shell .approval-toolbar label { justify-content: space-between; } .approvals-shell .approval-card .button-row { display: grid; grid-template-columns: 1fr 1fr; } .approvals-shell .approval-card .button-row button { justify-content: center; } }
+@media (max-width: 700px) { .approvals-shell { padding: 20px 14px; } .approvals-heading { align-items: flex-start; flex-wrap: wrap; } .approvals-heading h1 { font-size: 24px; } .approvals-shell .approval-card { padding: 15px; } .approval-summary { grid-template-columns: 1fr; } .approval-details { grid-template-columns: 1fr; } .approvals-shell .approval-toolbar, .approvals-shell .approval-toolbar > div, .approval-period { align-items: stretch; flex-direction: column; width: 100%; } .approvals-shell .approval-toolbar label { justify-content: space-between; flex-wrap: wrap; gap: 8px; } .approvals-shell .approval-toolbar select { max-width: 100%; margin-left: 0; } .approvals-shell .approval-card .button-row { display: grid; grid-template-columns: 1fr 1fr; } .approvals-shell .approval-card .button-row button { justify-content: center; } }
+.approvals-shell textarea { resize: vertical; }
+.approvals-shell :is(button, select) { min-height: 44px; }
+.approvals-shell :is(button, select, textarea, a):focus-visible { outline: 2px solid #075fc8; outline-offset: 2px; }
+.approval-overdue { color: #ad2424; font-weight: 700; }
+.approvals-shell .approval-card > div:first-child > strong { min-width: 0; overflow-wrap: anywhere; }
+.approval-status { white-space: normal; max-width: 100%; }
+@media (max-width: 360px) { .approvals-shell .approval-card .button-row { grid-template-columns: 1fr; } }

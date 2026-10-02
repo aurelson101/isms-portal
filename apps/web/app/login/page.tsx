@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { returnDestination, ssoDestination } from "../auth-navigation";
-import { authConfig, loginRequest, LoginToolbar, useLoginLocale } from "../login-shared";
+import { authConfig, loginFailure, loginRequest, LoginToolbar, useLoginLocale } from "../login-shared";
 
 const copy = {
   fr: {
@@ -95,12 +95,12 @@ export default function LoginPage() {
     setError("");
     const values = Object.fromEntries(new FormData(event.currentTarget));
     const response = await loginRequest("/api/auth/directory-login", {
-      login: values.login, password: values.password, rememberDevice: values.rememberDevice === "on",
+      login: String(values.login || "").trim(), password: values.password, rememberDevice: values.rememberDevice === "on",
     });
     submitting.current = false;
     setBusy(false);
     if (!response?.ok) {
-      setError(t.invalid);
+      setError(loginFailure(response, locale, t.invalid));
       return;
     }
     const requested = new URLSearchParams(window.location.search).get("return");
@@ -126,12 +126,15 @@ export default function LoginPage() {
           </a>
         )}
         <form onSubmit={submit} className="login-form" aria-busy={busy || detectingSso}>
+          <fieldset className="login-fields" disabled={busy || detectingSso}>
           <label>
             {t.identifier}
             <input
               name="login"
               required
               autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
               maxLength={128}
             />
           </label>
@@ -159,9 +162,10 @@ export default function LoginPage() {
           >
             {detectingSso ? t.detecting : busy ? t.busy : t.submit}
           </button>
+          </fieldset>
         </form>
         {detectingSso && (
-          <a className="login-back" href="/login?local=1">
+          <a className="login-back" href={`/login?local=1&return=${encodeURIComponent(returnDestination(new URLSearchParams(window.location.search).get("return")))}`}>
             {t.useCredentials}
           </a>
         )}
