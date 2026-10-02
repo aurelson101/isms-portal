@@ -6154,3 +6154,40 @@ svg {
 }
 .login-card .caps-lock-warning { margin: 0; padding: 0; border: 0; background: none; min-height: 20px; }
 .caps-lock-warning[aria-hidden="true"] { visibility: hidden; }
+.observability-controls { min-width: 0; padding: 0; margin: 0; border: 0; }
+.observability-settings { margin-top: 24px; }
+.observability-settings > summary { cursor: pointer; padding: 16px 0; font-weight: 700; }
+.observability-settings > summary:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+.observability-refresh { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.observability-panel .section-heading, .observability-panel .email-history-tools { flex-wrap: wrap; gap: 12px; }
+.observability-panel .admin-table-wrap td { overflow-wrap: anywhere; }
+.observability-panel pre { max-width: 100%; overflow-x: auto; }
+.observability-panel .integration-card { min-width: 0; border-radius: 8px; }
+.observability-panel .observability-policy fieldset { min-width: 0; }
+.observability-panel .observability-warning { display: block; overflow-wrap: anywhere; }
+.observability-panel .section-heading { display: flex; justify-content: space-between; align-items: center; }
+.observability-panel .section-heading > div { min-width: 0; }
+.observability-panel .section-heading p { font-size: 14px; line-height: 1.5; }
+.observability-panel .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 20px 0; border-block: 1px solid #d1deed; }
+.observability-panel .summary-grid article { min-width: 0; padding: 14px 12px; }
+.observability-panel .summary-grid strong { display: block; font-size: 24px; color: #075e63; line-height: 1.3; }
+.observability-panel .summary-grid span { display: block; margin-top: 4px; font-size: 13px; color: #435873; line-height: 1.4; }
+.observability-panel .operations-work-items { margin: 24px 0; }
+.observability-panel .section-heading label, .observability-panel .email-history-tools label { display: grid; gap: 6px; font-size: 13px; }
+.observability-panel .section-heading input, .observability-panel .section-heading select { min-height: 40px; padding: 8px 10px; border: 1px solid #b5c9e2; border-radius: 4px; background: #fff; color: #173151; font: inherit; }
+.observability-refresh button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid #b5c9e2; border-radius: 4px; background: #fff; color: #0759bd; font: inherit; cursor: pointer; }
+.observability-refresh button:disabled { opacity: .6; cursor: wait; }
+.observability-refresh small { font-size: 12px; color: #435873; }
+@media (max-width: 1000px) {
+  .observability-panel .summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .observability-panel .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .observability-panel .summary-grid article { padding: 12px 8px; }
+  .observability-panel .section-heading, .observability-panel .email-history-tools { align-items: stretch; }
+  .observability-panel .email-history-tools label { min-width: 0; width: 100%; }
+  .observability-panel input, .observability-panel select { min-width: 0; max-width: 100%; }
+  .observability-panel button, .observability-panel .button-link { min-height: 44px; white-space: normal; }
+  .observability-panel .button-row { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+  .observability-panel .button-row button { width: 100%; }
+}

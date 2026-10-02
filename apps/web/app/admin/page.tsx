@@ -4982,6 +4982,23 @@ function ObservabilityPanel({
   onNotice: (message: string) => void;
 }) {
   const { locale, t } = useAdminI18n();
+  const [operationsLoading, setOperationsLoading] = useState(true);
+  const [operationsBusy, setOperationsBusy] = useState(false);
+  const [operationsError, setOperationsError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [liveHealth, setLiveHealth] = useState(health);
+  const [liveDashboard, setLiveDashboard] = useState(dashboard);
+  const operationLock = useRef(false);
+  const settingsLoaded = useRef(false);
+  const operationsRequest = useRef(0);
+  const operationsController = useRef<AbortController | null>(null);
+  const [workFilter, setWorkFilter] = useState("ALL");
+  const [workPage, setWorkPage] = useState(1);
+  const [emailPage, setEmailPage] = useState(1);
+  const emailRequest = useRef(0);
+  const emailController = useRef<AbortController | null>(null);
+  const [emailLoaded, setEmailLoaded] = useState(false);
+  const [emailSearch, setEmailSearch] = useState("");
   const [operations, setOperations] = useState<{
     failures: number;
     denied: number;
@@ -5053,72 +5070,124 @@ function ObservabilityPanel({
     all: "All statuses", attempts: "Attempts", resource: "Resource", refresh: "Refresh email history", refreshFailed: "Unable to load email history.", retryFailed: "Retry failed. Refresh the history before trying again.",
     title: "Email delivery", recipient: "Recipient", template: "Email template", document: "Document publication", approval: "Approval request", review: "Document review", report: "Issue report", sending: "Sending…", test: "Send template test", event: "Event", status: "Status", recipients: "Accepted", completed: "Date", action: "Action", empty: "No recent email deliveries.", retry: "Retry", accepted: "Accepted by mail provider", waiting: "Waiting", active: "Processing", delayed: "Delayed", skipped: "Not sent", failed: "Failed", deliveryNote: "Mail provider acceptance does not guarantee inbox delivery. Check the provider delivery logs.",
   };
-  const filteredEmailDeliveries = emailDeliveries.filter((delivery) => emailStatusFilter === "ALL" || delivery.status === emailStatusFilter);
+  const ui = locale === "fr" ? {
+    refresh: "Actualiser les données", loading: "Chargement des données…", updated: "Dernière actualisation",
+    loadError: "Chargement incomplet. Les dernières données disponibles sont conservées. Réessayez.",
+    actionError: "L’opération a échoué. Vérifiez la configuration puis réessayez.",
+    search: "Rechercher un événement ou une ressource", previous: "Précédent", next: "Suivant", page: "Page",
+    of: "sur", all: "Tous les types", type: "Type", items: "éléments", unknown: "—",
+  } : {
+    refresh: "Refresh data", loading: "Loading data…", updated: "Last refreshed",
+    loadError: "Incomplete refresh. The last available data is preserved. Try again.",
+    actionError: "The operation failed. Check the configuration and try again.",
+    search: "Search events or resources", previous: "Previous", next: "Next", page: "Page",
+    of: "of", all: "All types", type: "Type", items: "items", unknown: "—",
+  };
+  const dateFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
+  const formatDate = (value: string) => Number.isFinite(Date.parse(value)) ? dateFormatter.format(new Date(value)) : ui.unknown;
+  const filteredEmailDeliveries = useMemo(() => {
+    const query = emailSearch.trim().toLocaleLowerCase(locale);
+    return emailDeliveries.filter((delivery) => (emailStatusFilter === "ALL" || delivery.status === emailStatusFilter)
+      && (!query || [delivery.action, delivery.resource, delivery.error || ""].some((value) => value.toLocaleLowerCase(locale).includes(query))));
+  }, [emailDeliveries, emailStatusFilter, emailSearch, locale]);
+  const emailTotalPages = Math.max(1, Math.ceil(filteredEmailDeliveries.length / 20));
+  const currentEmailPage = Math.min(emailPage, emailTotalPages);
+  const visibleEmailDeliveries = filteredEmailDeliveries.slice((currentEmailPage - 1) * 20, currentEmailPage * 20);
+  const runOperation = async (operation: () => Promise<void>) => {
+    if (operationLock.current) return;
+    operationLock.current = true;
+    setOperationsBusy(true);
+    setOperationsError("");
+    try { await operation(); }
+    catch { setOperationsError(ui.actionError); }
+    finally { operationLock.current = false; setOperationsBusy(false); }
+  };
   const reloadEmailDeliveries = useCallback(async () => {
+    const request = ++emailRequest.current;
+    emailController.current?.abort();
+    const controller = new AbortController();
+    emailController.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 15000);
     setEmailBusy(true);
     setEmailError("");
     try {
       const [history, counts] = await Promise.all([
-        api<typeof emailDeliveries>("/api/admin/operations/email-deliveries", { cache: "no-store" }),
-        api<typeof emailQueueCounts>("/api/admin/operations/email-deliveries/counts", { cache: "no-store" }),
+        api<typeof emailDeliveries>("/api/admin/operations/email-deliveries", { cache: "no-store", signal: controller.signal }),
+        api<typeof emailQueueCounts>("/api/admin/operations/email-deliveries/counts", { cache: "no-store", signal: controller.signal }),
       ]);
+      if (request !== emailRequest.current) return;
+      if (!Array.isArray(history) || !counts || !["waiting", "active", "delayed", "completed", "failed"].every((key) => Number.isFinite(counts[key as keyof typeof counts]) && counts[key as keyof typeof counts] >= 0)) throw new Error("Invalid email response");
       setEmailDeliveries(history);
       setEmailQueueCounts(counts);
+      setEmailLoaded(true);
     } catch {
-      setEmailError(emailCopy.refreshFailed);
+      if (request === emailRequest.current) setEmailError(emailCopy.refreshFailed);
     } finally {
-      setEmailBusy(false);
+      window.clearTimeout(timeout);
+      if (request === emailRequest.current) setEmailBusy(false);
     }
   }, [emailCopy.refreshFailed]);
   const reloadOperations = useCallback(async () => {
-    const [
-      summaryResponse,
-      workResponse,
-      integrationsResponse,
-      policyResponse,
-      channelsResponse,
-    ] = await Promise.all([
-      fetch("/api/admin/operations/summary", { cache: "no-store" }),
-      fetch("/api/admin/operations/work-items", { cache: "no-store" }),
-      fetch("/api/admin/operations/integrations", { cache: "no-store" }),
-      fetch("/api/admin/operations/alert-policy", { cache: "no-store" }),
-      fetch("/api/admin/operations/alert-channels", { cache: "no-store" }),
-      reloadEmailDeliveries(),
-    ]);
-    if (summaryResponse.ok) setOperations(await summaryResponse.json());
-    if (workResponse.ok) setWorkItems(await workResponse.json());
-    if (integrationsResponse.ok) {
-      const result = (await integrationsResponse.json()) as {
-        settings: Array<{ key: string; value: { enabled?: boolean } }>;
-      };
-      setIntegrationState(
-        Object.fromEntries(
-          result.settings.map((setting) => [
-            setting.key.replace("observability.", ""),
-            Boolean(setting.value.enabled),
-          ]),
-        ),
-      );
+    const request = ++operationsRequest.current;
+    operationsController.current?.abort();
+    const controller = new AbortController();
+    operationsController.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 15000);
+    setOperationsLoading(true);
+    setOperationsError("");
+    try {
+      const options = { cache: "no-store" as const, signal: controller.signal };
+      const [summary, work, integrations, nextHealth, nextDashboard, policy, channels] = await Promise.all([
+        api<NonNullable<typeof operations>>("/api/admin/operations/summary", options),
+        api<typeof workItems>("/api/admin/operations/work-items", options),
+        api<{ settings: Array<{ key: string; value: { enabled?: boolean } }> }>("/api/admin/operations/integrations", options),
+        api<Health>("/api/health/details", options),
+        api<Dashboard>("/api/admin/dashboard", options),
+        settingsLoaded.current ? Promise.resolve(null) : api<typeof alertPolicy>("/api/admin/operations/alert-policy", options),
+        settingsLoaded.current ? Promise.resolve(null) : api<typeof alertChannels>("/api/admin/operations/alert-channels", options),
+      ]);
+      if (request !== operationsRequest.current) return;
+      if (!summary || !work || !["accessRequests", "reports", "reviews", "approvals"].every((key) => Array.isArray(work[key as keyof typeof work]))
+        || !integrations || !Array.isArray(integrations.settings)) throw new Error("Invalid operations response");
+      setOperations(summary);
+      setWorkItems(work);
+      setLiveHealth(nextHealth);
+      setLiveDashboard(nextDashboard);
+      setIntegrationState(Object.fromEntries(integrations.settings.map((setting) => [setting.key.replace("observability.", ""), setting.value.enabled === true])));
+      // Refresh operational data without replacing unsaved channel/policy fields.
+      if (policy && channels) {
+        setAlertPolicy(policy);
+        setAlertChannels((current) => ({ ...current, ...channels }));
+        settingsLoaded.current = true;
+      }
+      setLastUpdated(new Date());
+    } catch {
+      if (request === operationsRequest.current) setOperationsError(locale === "fr"
+        ? "Chargement incomplet. Les dernières données disponibles sont conservées. Réessayez."
+        : "Incomplete refresh. The last available data is preserved. Try again.");
+    } finally {
+      window.clearTimeout(timeout);
+      if (request === operationsRequest.current) setOperationsLoading(false);
     }
-    if (policyResponse.ok) setAlertPolicy(await policyResponse.json());
-    if (channelsResponse.ok) {
-      const channels = await channelsResponse.json();
-      setAlertChannels((current) => ({ ...current, ...channels }));
-    }
-  }, [reloadEmailDeliveries]);
+  }, [locale]);
   useEffect(() => {
     void reloadOperations();
+    return () => { operationsRequest.current++; operationsController.current?.abort(); };
   }, [reloadOperations]);
+  useEffect(() => {
+    void reloadEmailDeliveries();
+    return () => { emailRequest.current++; emailController.current?.abort(); };
+  }, [reloadEmailDeliveries]);
   useEffect(() => {
     setPortalOrigin(window.location.origin);
   }, []);
   const failures = events.filter((event) => event.result !== "success").length;
   const services =
-    health && typeof health.services === "object" && health.services
-      ? Object.values(health.services as Record<string, boolean>)
+    liveHealth && typeof liveHealth.services === "object" && liveHealth.services
+      ? Object.values(liveHealth.services as Record<string, boolean>)
       : [];
   const healthyServices = services.filter(Boolean).length;
-  const storage = health?.storage;
+  const storage = liveHealth?.storage;
   const formatBytes = (bytes: number) =>
     new Intl.NumberFormat(locale, {
       style: "unit",
@@ -5163,8 +5232,8 @@ function ObservabilityPanel({
     },
   ];
   const copy = async (value: string) => {
-    await navigator.clipboard.writeText(value);
-    onNotice(t("Configuration copiée."));
+    try { await navigator.clipboard.writeText(value); onNotice(t("Configuration copiée.")); }
+    catch { setOperationsError(ui.actionError); }
   };
   const saveAlertChannels = async () => {
     const { configured: _configured, ...payload } = alertChannels;
@@ -5175,12 +5244,12 @@ function ObservabilityPanel({
     });
     if (!response.ok) return null;
     const channels = await response.json();
-    setAlertChannels((current) => ({ ...current, ...channels }));
+    setAlertChannels((current) => ({ ...current, ...channels, smtpPassword: "", genericWebhookSecret: "" }));
     return channels;
   };
   const testAlertChannel = async (
     channel: "email" | "teams" | "slack" | "webhook",
-  ) => {
+  ) => runOperation(async () => {
     setTestingAlertChannel(channel);
     try {
       const saved = await saveAlertChannels();
@@ -5204,17 +5273,19 @@ function ObservabilityPanel({
     } finally {
       setTestingAlertChannel(null);
     }
-  };
+  });
   const testEmailTemplate = async (event: FormEvent) => {
     event.preventDefault();
+    await runOperation(async () => {
     setEmailBusy(true);
     try {
-      const response = await fetch(`/api/admin/operations/email-tests/${emailTestType}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient: emailTestRecipient }) });
+      const response = await fetch(`/api/admin/operations/email-tests/${emailTestType}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient: emailTestRecipient.trim() }) });
       onNotice(response.ok ? t("E-mail de test envoyé.") : t("Échec de l’envoi de test."));
       if (response.ok) await reloadEmailDeliveries();
     } finally { setEmailBusy(false); }
+    });
   };
-  const retryEmailDelivery = async (id: string) => {
+  const retryEmailDelivery = async (id: string) => runOperation(async () => {
     setEmailBusy(true);
     setEmailError("");
     try {
@@ -5228,7 +5299,23 @@ function ObservabilityPanel({
     } catch {
       setEmailError(emailCopy.retryFailed);
     } finally { setEmailBusy(false); }
-  };
+  });
+
+  const workRows = [
+    ...workItems.accessRequests.filter((item) => item.status === "PENDING").map((item) => ({ key: `access:${item.id}`, type: "access", label: t("Demande d’accès"), identity: item.identity, reason: item.justification, id: item.id })),
+    ...workItems.reports.filter((item) => item.status === "OPEN").map((item) => ({ key: `report:${item.id}`, type: "report", label: t("Signalement"), identity: item.identity, reason: item.reason, id: item.id })),
+    ...workItems.reviews.map((item) => ({ key: `review:${item.id}`, type: "review", label: t("Revue documentaire"), identity: item.approver, reason: `${item.document?.translations?.find((translation) => translation.locale === locale)?.title || item.document?.translations?.[0]?.title || item.document?.slug || "—"} · ${t("Échéance")} ${formatDate(item.dueAt)}`, id: item.id })),
+    ...workItems.approvals.map((item) => ({ key: `approval:${item.id}`, type: "approval", label: t("Approbation sensible"), identity: item.requestedBy, reason: `${item.operation} · ${item.reason}`, id: item.id })),
+  ].filter((item) => workFilter === "ALL" || item.type === workFilter);
+  const workTotalPages = Math.max(1, Math.ceil(workRows.length / 20));
+  const currentWorkPage = Math.min(workPage, workTotalPages);
+  const decideAccess = (id: string, status: "APPROVED" | "REJECTED") => runOperation(async () => {
+    const response = await fetch(`/api/admin/operations/access-requests/${encodeURIComponent(id)}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
+    });
+    if (!response.ok) throw new Error("Access decision failed");
+    await reloadOperations();
+  });
 
   return (
     <section className="observability-panel">
@@ -5242,7 +5329,13 @@ function ObservabilityPanel({
             )}
           </p>
         </div>
+        <div className="observability-refresh">
+          <button type="button" disabled={operationsLoading || operationsBusy || emailBusy} onClick={() => { void reloadOperations(); void reloadEmailDeliveries(); }}><Icon name="sync" />{ui.refresh}</button>
+          <small role="status">{operationsLoading ? ui.loading : lastUpdated ? `${ui.updated}: ${dateFormatter.format(lastUpdated)}` : ui.unknown}</small>
+        </div>
       </div>
+      {operationsError && <p className="error-state" role="alert">{operationsError}</p>}
+      <fieldset className="observability-controls" disabled={operationsLoading || operationsBusy || emailBusy || !settingsLoaded.current}>
       <div className="summary-grid">
         <article>
           <strong>
@@ -5255,11 +5348,11 @@ function ObservabilityPanel({
           <span>{t("échecs dans le journal chargé")}</span>
         </article>
         <article>
-          <strong>{dashboard?.syncErrors ?? "—"}</strong>
+          <strong>{liveDashboard?.syncErrors ?? "—"}</strong>
           <span>{t("erreurs de synchronisation")}</span>
         </article>
         <article>
-          <strong>{operations?.denied ?? failures}</strong>
+          <strong>{operations?.denied ?? "—"}</strong>
           <span>{t("refus sur les dernières 24 heures")}</span>
         </article>
       </div>
@@ -5293,6 +5386,64 @@ function ObservabilityPanel({
           <span>{t("échecs applicatifs sur 24 heures")}</span>
         </article>
       </div>
+      <section className="operations-work-items">
+        <div className="section-heading">
+          <h2>{emailCopy.title}</h2>
+          <div className="email-history-tools">
+            <label>{ui.search}<input type="search" maxLength={200} value={emailSearch} onChange={(event) => { setEmailSearch(event.target.value); setEmailPage(1); }} /></label>
+            <label>{emailCopy.status}<select value={emailStatusFilter} onChange={(event) => { setEmailStatusFilter(event.target.value); setEmailPage(1); }}>
+              <option value="ALL">{emailCopy.all}</option>
+              {(["WAITING", "ACTIVE", "DELAYED", "ACCEPTED", "SKIPPED", "FAILED"] as const).map((status) => <option key={status} value={status}>{emailCopy[status.toLowerCase() as "waiting" | "active" | "delayed" | "accepted" | "skipped" | "failed"]}</option>)}
+            </select></label>
+            <button type="button" title={emailCopy.refresh} aria-label={emailCopy.refresh} disabled={emailBusy} onClick={() => void reloadEmailDeliveries()}><Icon name="sync" /></button>
+          </div>
+        </div>
+        {emailError && <p className="error-message" role="alert">{emailError}</p>}
+        <p>{emailCopy.waiting}: {emailLoaded ? emailQueueCounts.waiting : "—"} · {emailCopy.active}: {emailLoaded ? emailQueueCounts.active : "—"} · {emailCopy.delayed}: {emailLoaded ? emailQueueCounts.delayed : "—"} · {emailCopy.failed}: {emailLoaded ? emailQueueCounts.failed : "—"}</p>
+        <form className="admin-form observability-policy" onSubmit={(event) => void testEmailTemplate(event)}>
+          <label>{emailCopy.recipient}<input required type="email" value={emailTestRecipient} onChange={(event) => setEmailTestRecipient(event.target.value)} /></label>
+          <label>{emailCopy.template}<select value={emailTestType} onChange={(event) => setEmailTestType(event.target.value as typeof emailTestType)}><option value="document">{emailCopy.document}</option><option value="approval">{emailCopy.approval}</option><option value="review">{emailCopy.review}</option><option value="report">{emailCopy.report}</option></select></label>
+          <button disabled={emailBusy}>{emailBusy ? emailCopy.sending : emailCopy.test}</button>
+        </form>
+        <div className="admin-table-wrap">
+          <table aria-busy={emailBusy}><thead><tr><th>{emailCopy.event}</th><th>{emailCopy.resource}</th><th>{emailCopy.status}</th><th>{emailCopy.attempts}</th><th>{emailCopy.recipients}</th><th>{emailCopy.completed}</th><th>{emailCopy.action}</th></tr></thead><tbody>
+            {!filteredEmailDeliveries.length && <tr><td colSpan={7}>{emailCopy.empty}</td></tr>}
+            {visibleEmailDeliveries.map((delivery) => <tr key={delivery.id}><td data-label={emailCopy.event}>{delivery.action}</td><td data-label={emailCopy.resource}>{delivery.resource}</td><td data-label={emailCopy.status}>{delivery.status === "ACCEPTED" ? <span title={emailCopy.deliveryNote}>{emailCopy.accepted}</span> : `${emailCopy[delivery.status.toLowerCase() as "waiting" | "active" | "delayed" | "skipped" | "failed"]}${delivery.error ? `: ${delivery.error}` : ""}`}</td><td data-label={emailCopy.attempts}>{delivery.attempts}</td><td data-label={emailCopy.recipients}>{delivery.accepted}</td><td data-label={emailCopy.completed}>{formatDate(delivery.finishedAt || delivery.createdAt)}</td><td data-label={emailCopy.action}>{delivery.status === "FAILED" && <button type="button" disabled={emailBusy} onClick={() => void retryEmailDelivery(delivery.id)}>{emailCopy.retry}</button>}</td></tr>)}
+          </tbody></table>
+        </div>
+        {emailTotalPages > 1 && <nav className="document-pagination" aria-label={locale === "fr" ? "Pagination des e-mails" : "Email history pagination"}>
+          <button type="button" disabled={currentEmailPage <= 1} onClick={() => setEmailPage(currentEmailPage - 1)}>{ui.previous}</button>
+          <span aria-live="polite">{ui.page} {currentEmailPage} {ui.of} {emailTotalPages}</span>
+          <button type="button" disabled={currentEmailPage >= emailTotalPages} onClick={() => setEmailPage(currentEmailPage + 1)}>{ui.next}</button>
+        </nav>}
+      </section>
+      <section className="operations-work-items">
+        <div className="section-heading"><h2>{t("Demandes et signalements à traiter")}</h2>
+          <label>{ui.type}<select value={workFilter} onChange={(event) => { setWorkFilter(event.target.value); setWorkPage(1); }}>
+            <option value="ALL">{ui.all}</option><option value="access">{t("Demande d’accès")}</option><option value="report">{t("Signalement")}</option>
+            <option value="review">{t("Revue documentaire")}</option><option value="approval">{t("Approbation sensible")}</option>
+          </select></label>
+        </div>
+        <p role="status">{workRows.length} {ui.items}</p>
+        {!workRows.length ? <p>{t("Aucun élément en attente.")}</p> : <div className="admin-table-wrap">
+          <table><thead><tr><th>{t("Type")}</th><th>{t("Identité")}</th><th>{t("Motif")}</th><th>{t("Action")}</th></tr></thead>
+          <tbody>{workRows.slice((currentWorkPage - 1) * 20, currentWorkPage * 20).map((item) => <tr key={item.key}>
+            <td data-label={t("Type")}>{item.label}</td><td data-label={t("Identité")}>{item.identity}</td><td data-label={t("Motif")}>{item.reason}</td>
+            <td data-label={t("Action")}><div className="button-row">
+              {item.type === "access" ? <><button type="button" onClick={() => void decideAccess(item.id, "APPROVED")}>{t("Approuver")}</button><button type="button" onClick={() => void decideAccess(item.id, "REJECTED")}>{t("Refuser")}</button></>
+              : item.type === "report" ? <button type="button" onClick={() => { window.location.hash = "requests"; }}>{t("Ouvrir le traitement")}</button>
+              : <a className="button-link" href="/approvals">{item.type === "review" ? t("Ouvrir la revue") : t("Ouvrir l’approbation")}</a>}
+            </div></td>
+          </tr>)}</tbody></table>
+        </div>}
+        {workTotalPages > 1 && <nav className="document-pagination" aria-label={locale === "fr" ? "Pagination des éléments à traiter" : "Work item pagination"}>
+          <button type="button" disabled={currentWorkPage <= 1} onClick={() => setWorkPage(currentWorkPage - 1)}>{ui.previous}</button>
+          <span aria-live="polite">{ui.page} {currentWorkPage} {ui.of} {workTotalPages}</span>
+          <button type="button" disabled={currentWorkPage >= workTotalPages} onClick={() => setWorkPage(currentWorkPage + 1)}>{ui.next}</button>
+        </nav>}
+      </section>
+      <details className="observability-settings">
+        <summary>{t("Intégrations et configuration des alertes", "Integrations and alert configuration")}</summary>
       <div className="admin-alert observability-warning">
         {t("Adresse du portail détectée automatiquement")}:{" "}
         <strong>{detectedPortalUrl}</strong> ({hostType}).
@@ -5326,8 +5477,9 @@ function ObservabilityPanel({
                 <input
                   type="checkbox"
                   checked={Boolean(integrationState[tool])}
-                  onChange={async (event) => {
+                  onChange={(event) => {
                     const enabled = event.target.checked;
+                    void runOperation(async () => {
                     const response = await fetch(
                       `/api/admin/operations/integrations/${tool}`,
                       {
@@ -5336,7 +5488,8 @@ function ObservabilityPanel({
                         body: JSON.stringify({ enabled }),
                       },
                     );
-                    if (response.ok) {
+                    if (!response.ok) throw new Error("Integration update failed");
+                    {
                       setIntegrationState((current) => ({
                         ...current,
                         [tool]: enabled,
@@ -5347,6 +5500,7 @@ function ObservabilityPanel({
                           : t("Intégration optionnelle désactivée."),
                       );
                     }
+                    });
                   }}
                 />
                 {t("Activer cette intégration optionnelle")}
@@ -5368,7 +5522,7 @@ function ObservabilityPanel({
               </a>
               <button
                 type="button"
-                onClick={async () => {
+                onClick={() => void runOperation(async () => {
                   const response = await fetch(
                     `/api/admin/operations/integrations/${tool}/test`,
                   );
@@ -5379,7 +5533,7 @@ function ObservabilityPanel({
                         )
                       : t("Test indisponible."),
                   );
-                }}
+                })}
               >
                 {t("Tester la préparation")}
               </button>
@@ -5391,10 +5545,12 @@ function ObservabilityPanel({
         className="admin-form observability-policy"
         onSubmit={async (event) => {
           event.preventDefault();
+          await runOperation(async () => {
           const channels = await saveAlertChannels();
           if (channels) {
             onNotice(t("Canaux d’alerte enregistrés et secrets chiffrés."));
           } else onNotice(t("Configuration des canaux invalide."));
+          });
         }}
       >
         <h2>{t("Configuration des canaux d’alerte")}</h2>
@@ -5424,6 +5580,7 @@ function ObservabilityPanel({
             {t("Port SMTP")}
             <input
               inputMode="numeric"
+              type="number" min={1} max={65535} step={1}
               value={alertChannels.smtpPort}
               onChange={(e) =>
                 setAlertChannels({ ...alertChannels, smtpPort: e.target.value })
@@ -5613,6 +5770,7 @@ function ObservabilityPanel({
         className="admin-form observability-policy"
         onSubmit={async (event) => {
           event.preventDefault();
+          await runOperation(async () => {
           const response = await fetch("/api/admin/operations/alert-policy", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -5623,6 +5781,7 @@ function ObservabilityPanel({
               ? t("Politique d’alerte enregistrée.")
               : t("Politique d’alerte invalide."),
           );
+          });
         }}
       >
         <h2>{t("Seuils et canal d’alerte")}</h2>
@@ -5643,6 +5802,7 @@ function ObservabilityPanel({
           {t("Taux maximal d’échecs d’audit (%)")}
           <input
             inputMode="decimal"
+            type="number" min={0} max={100} step="0.1" required
             value={alertPolicy.fiveXxPercent}
             onChange={(event) =>
               setAlertPolicy((current) => ({
@@ -5656,6 +5816,7 @@ function ObservabilityPanel({
           {t("Refus maximaux par minute")}
           <input
             inputMode="numeric"
+            type="number" min={0} step={1} required
             value={alertPolicy.deniedPerMinute}
             onChange={(event) =>
               setAlertPolicy((current) => ({
@@ -5685,132 +5846,13 @@ function ObservabilityPanel({
         </label>
         <button>{t("Enregistrer la politique")}</button>
       </form>
-      <section className="operations-work-items">
-        <div className="section-heading">
-          <h2>{emailCopy.title}</h2>
-          <div className="email-history-tools">
-            <label>{emailCopy.status}<select value={emailStatusFilter} onChange={(event) => setEmailStatusFilter(event.target.value)}>
-              <option value="ALL">{emailCopy.all}</option>
-              {(["WAITING", "ACTIVE", "DELAYED", "ACCEPTED", "SKIPPED", "FAILED"] as const).map((status) => <option key={status} value={status}>{emailCopy[status.toLowerCase() as "waiting" | "active" | "delayed" | "accepted" | "skipped" | "failed"]}</option>)}
-            </select></label>
-            <button type="button" title={emailCopy.refresh} aria-label={emailCopy.refresh} disabled={emailBusy} onClick={() => void reloadEmailDeliveries()}><Icon name="sync" /></button>
-          </div>
-        </div>
-        {emailError && <p className="error-message" role="alert">{emailError}</p>}
-        <p>{emailCopy.waiting}: {emailQueueCounts.waiting} · {emailCopy.active}: {emailQueueCounts.active} · {emailCopy.delayed}: {emailQueueCounts.delayed} · {emailCopy.failed}: {emailQueueCounts.failed}</p>
-        <form className="admin-form observability-policy" onSubmit={(event) => void testEmailTemplate(event)}>
-          <label>{emailCopy.recipient}<input required type="email" value={emailTestRecipient} onChange={(event) => setEmailTestRecipient(event.target.value)} /></label>
-          <label>{emailCopy.template}<select value={emailTestType} onChange={(event) => setEmailTestType(event.target.value as typeof emailTestType)}><option value="document">{emailCopy.document}</option><option value="approval">{emailCopy.approval}</option><option value="review">{emailCopy.review}</option><option value="report">{emailCopy.report}</option></select></label>
-          <button disabled={emailBusy}>{emailBusy ? emailCopy.sending : emailCopy.test}</button>
-        </form>
-        <div className="admin-table-wrap">
-          <table><thead><tr><th>{emailCopy.event}</th><th>{emailCopy.resource}</th><th>{emailCopy.status}</th><th>{emailCopy.attempts}</th><th>{emailCopy.recipients}</th><th>{emailCopy.completed}</th><th>{emailCopy.action}</th></tr></thead><tbody>
-            {!filteredEmailDeliveries.length && <tr><td colSpan={7}>{emailCopy.empty}</td></tr>}
-            {filteredEmailDeliveries.map((delivery) => <tr key={delivery.id}><td>{delivery.action}</td><td>{delivery.resource}</td><td>{delivery.status === "ACCEPTED" ? <span title={emailCopy.deliveryNote}>{emailCopy.accepted}</span> : `${emailCopy[delivery.status.toLowerCase() as "waiting" | "active" | "delayed" | "skipped" | "failed"]}${delivery.error ? `: ${delivery.error}` : ""}`}</td><td>{delivery.attempts}</td><td>{delivery.accepted}</td><td>{new Date(delivery.finishedAt || delivery.createdAt).toLocaleString(locale)}</td><td>{delivery.status === "FAILED" && <button type="button" disabled={emailBusy} onClick={() => void retryEmailDelivery(delivery.id)}>{emailCopy.retry}</button>}</td></tr>)}
-          </tbody></table>
-        </div>
-      </section>
-      <section className="operations-work-items">
-        <h2>{t("Demandes et signalements à traiter")}</h2>
-        {[...workItems.accessRequests, ...workItems.reports, ...workItems.reviews, ...workItems.approvals].length === 0 ? (
-          <p>{t("Aucun élément en attente.")}</p>
-        ) : (
-          <div className="admin-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>{t("Type")}</th>
-                  <th>{t("Identité")}</th>
-                  <th>{t("Motif")}</th>
-                  <th>{t("Action")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {workItems.accessRequests
-                  .filter((item) => item.status === "PENDING")
-                  .map((item) => (
-                    <tr key={item.id}>
-                      <td>{t("Demande d’accès")}</td>
-                      <td>{item.identity}</td>
-                      <td>{item.justification}</td>
-                      <td>
-                        <button
-                          onClick={async () => {
-                            await fetch(
-                              `/api/admin/operations/access-requests/${item.id}`,
-                              {
-                                method: "PUT",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ status: "APPROVED" }),
-                              },
-                            );
-                            await reloadOperations();
-                          }}
-                        >
-                          {t("Approuver")}
-                        </button>
-                        <button
-                          onClick={async () => {
-                            await fetch(
-                              `/api/admin/operations/access-requests/${item.id}`,
-                              {
-                                method: "PUT",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ status: "REJECTED" }),
-                              },
-                            );
-                            await reloadOperations();
-                          }}
-                        >
-                          {t("Refuser")}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                {workItems.reports
-                  .filter((item) => item.status === "OPEN")
-                  .map((item) => (
-                    <tr key={item.id}>
-                      <td>{t("Signalement")}</td>
-                      <td>{item.identity}</td>
-                      <td>{item.reason}</td>
-                      <td>
-                        <button
-                          onClick={() => {
-                            window.location.hash = "requests";
-                          }}
-                        >
-                          {t("Ouvrir le traitement")}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                {workItems.reviews.map((item) => (
-                  <tr key={item.id}>
-                    <td>{t("Revue documentaire")}</td>
-                    <td>{item.approver}</td>
-                    <td>{item.document?.translations?.[0]?.title || item.document?.slug || "—"} · {t("Échéance")} {new Date(item.dueAt).toLocaleDateString(locale)}</td>
-                    <td><a className="button-link" href="/approvals">{t("Ouvrir la revue")}</a></td>
-                  </tr>
-                ))}
-                {workItems.approvals.map((item) => (
-                  <tr key={item.id}>
-                    <td>{t("Approbation sensible")}</td>
-                    <td>{item.requestedBy}</td>
-                    <td>{item.operation} · {item.reason}</td>
-                    <td><a className="button-link" href="/approvals">{t("Ouvrir l’approbation")}</a></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      </details>
       <p className="lead">
         {t(
           "Les exemples complets et les règles d’alerte se trouvent dans deploy/monitoring.",
         )}
       </p>
+      </fieldset>
     </section>
   );
 }
