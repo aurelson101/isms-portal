@@ -5026,6 +5026,12 @@ function ObservabilityPanel({
     Record<string, boolean>
   >({});
   const [portalOrigin, setPortalOrigin] = useState("");
+  const [integrationTests, setIntegrationTests] = useState<Record<string, boolean>>({});
+  const integrationDownloads: Record<string, Array<{ variant: string; fr: string; en: string }>> = {
+    prometheus: [{ variant: "alerts", fr: "Règles d’alerte", en: "Alert rules" }],
+    wazuh: [{ variant: "agent", fr: "Configuration de l’agent", en: "Agent configuration" }, { variant: "samples", fr: "Événements de test", en: "Test events" }],
+    syslog: [{ variant: "compose", fr: "Configuration Docker TLS", en: "Docker TLS configuration" }],
+  };
   const [alertPolicy, setAlertPolicy] = useState({
     enabled: false,
     channel: "none",
@@ -5503,7 +5509,7 @@ function ObservabilityPanel({
                     });
                   }}
                 />
-                {t("Activer cette intégration optionnelle")}
+                {t("Enregistrer l’intégration comme activée", "Mark integration as enabled")}
               </label>
               <p>{integration.description}</p>
               <pre>
@@ -5520,23 +5526,27 @@ function ObservabilityPanel({
               >
                 {t("Télécharger la configuration")}
               </a>
+              {(integrationDownloads[tool] || []).map((download) => <a key={download.variant} href={`/api/admin/operations/integrations/${tool}/download?artifact=${download.variant}`}>
+                {locale === "fr" ? download.fr : download.en}
+              </a>)}
               <button
                 type="button"
                 onClick={() => void runOperation(async () => {
                   const response = await fetch(
                     `/api/admin/operations/integrations/${tool}/test`,
                   );
-                  onNotice(
-                    response.ok
-                      ? t(
-                          "Application prête ; test externe à effectuer depuis le collecteur.",
-                        )
-                      : t("Test indisponible."),
-                  );
+                  if (!response.ok) throw new Error("Integration preparation failed");
+                  const result = await response.json() as { applicationHealthy?: boolean; metricsAvailable?: boolean; artifactsAvailable?: boolean };
+                  const ready = result.applicationHealthy === true && result.metricsAvailable === true && result.artifactsAvailable === true;
+                  setIntegrationTests((current) => ({ ...current, [tool]: ready }));
                 })}
               >
                 {t("Tester la préparation")}
               </button>
+              {tool in integrationTests && <p role="status">{integrationTests[tool]
+                ? t("Préparation locale validée", "Local readiness verified")
+                : t("Préparation locale en échec", "Local readiness failed")}
+                {" · "}{t("Collecte externe non vérifiée", "External collection unverified")}</p>}
             </article>
           );
         })}

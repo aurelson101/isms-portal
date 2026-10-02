@@ -1,0 +1,5 @@
+<!-- Merge into the Wazuh agent ossec.conf on the rsyslog collector. -->
+<localfile>
+  <log_format>json</log_format>
+  <location>/var/log/isms-portal/events.json</location>
+</localfile>

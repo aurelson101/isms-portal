@@ -5,7 +5,11 @@ services:
     logging:
       driver: syslog
       options:
-        syslog-address: "${SYSLOG_ADDRESS:-tcp://127.0.0.1:514}"
+        syslog-address: "${SYSLOG_ADDRESS:?Set a private tcp+tls collector URI}"
+        syslog-tls-ca-cert: "${SYSLOG_TLS_CA_CERT:?Set the Docker host CA file path}"
+        syslog-tls-cert: "${SYSLOG_TLS_CERT:?Set the Docker host client certificate path}"
+        syslog-tls-key: "${SYSLOG_TLS_KEY:?Set the Docker host private key path}"
+        syslog-tls-skip-verify: "false"
         syslog-format: rfc5424micro
         tag: "isms-portal/api/{{.ID}}"
         cache-max-size: "20m"
@@ -14,7 +18,11 @@ services:
     logging:
       driver: syslog
       options:
-        syslog-address: "${SYSLOG_ADDRESS:-tcp://127.0.0.1:514}"
+        syslog-address: "${SYSLOG_ADDRESS:?Set a private tcp+tls collector URI}"
+        syslog-tls-ca-cert: "${SYSLOG_TLS_CA_CERT:?Set the Docker host CA file path}"
+        syslog-tls-cert: "${SYSLOG_TLS_CERT:?Set the Docker host client certificate path}"
+        syslog-tls-key: "${SYSLOG_TLS_KEY:?Set the Docker host private key path}"
+        syslog-tls-skip-verify: "false"
         syslog-format: rfc5424micro
         tag: "isms-portal/worker/{{.ID}}"
         cache-max-size: "20m"
@@ -23,7 +31,11 @@ services:
     logging:
       driver: syslog
       options:
-        syslog-address: "${SYSLOG_ADDRESS:-tcp://127.0.0.1:514}"
+        syslog-address: "${SYSLOG_ADDRESS:?Set a private tcp+tls collector URI}"
+        syslog-tls-ca-cert: "${SYSLOG_TLS_CA_CERT:?Set the Docker host CA file path}"
+        syslog-tls-cert: "${SYSLOG_TLS_CERT:?Set the Docker host client certificate path}"
+        syslog-tls-key: "${SYSLOG_TLS_KEY:?Set the Docker host private key path}"
+        syslog-tls-skip-verify: "false"
         syslog-format: rfc5424micro
         tag: "isms-portal/reverse-proxy/{{.ID}}"
         cache-max-size: "20m"

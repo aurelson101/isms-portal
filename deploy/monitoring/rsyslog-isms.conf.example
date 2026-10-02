@@ -1,18 +1,20 @@
-# Receive normalized ISMS Portal JSON events from Docker on the monitored host.
-template(name="IsmsPortalJson" type="string"
-  string="%timestamp:::date-rfc3339% %hostname% %syslogtag%%msg%\n")
+# Install on the collector, not the ISMS server. Requires rsyslog-gnutls.
+# Merge global/module settings with existing configuration; do not duplicate listeners.
+global(DefaultNetstreamDriverCAFile="<CA_FILE>"
+       DefaultNetstreamDriverCertFile="<COLLECTOR_CERT_FILE>"
+       DefaultNetstreamDriverKeyFile="<COLLECTOR_KEY_FILE>")
+module(load="imtcp" StreamDriver.Name="gtls" StreamDriver.Mode="1"
+       StreamDriver.AuthMode="x509/name")
 
-if ($syslogtag contains "isms-portal") then {
-  action(type="omfwd"
-    target="<SYSLOG_HOST>"
-    port="6514"
-    protocol="tcp"
-    StreamDriver="gtls"
-    StreamDriverMode="1"
-    StreamDriverAuthMode="x509/name"
-    StreamDriverPermittedPeers="<SYSLOG_CERTIFICATE_NAME>"
-    template="IsmsPortalJson"
-    queue.type="LinkedList"
-    action.resumeRetryCount="-1")
-  stop
+# Preserve the JSON payload without a syslog prefix for Wazuh's JSON decoder.
+template(name="IsmsPortalJson" type="string" string="%msg%\n")
+ruleset(name="IsmsPortalReceiver") {
+  if ($syslogtag contains "isms-portal/" and re_match($msg, "^[[:space:]]*[{]")) then {
+    action(type="omfile" file="/var/log/isms-portal/events.json"
+           template="IsmsPortalJson" createDirs="on"
+           dirCreateMode="0750" fileCreateMode="0640")
+    stop
+  }
 }
+input(type="imtcp" port="6514" ruleset="IsmsPortalReceiver"
+      PermittedPeer=["<DOCKER_HOST_CERTIFICATE_NAME>"])

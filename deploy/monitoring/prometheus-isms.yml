@@ -1,0 +1,9 @@
+scrape_configs:
+  - job_name: isms-api
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:3001"]
+rule_files:
+  - /etc/prometheus/isms-alerts.yml

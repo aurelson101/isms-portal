@@ -14,27 +14,103 @@ zabbix_export:
           value: "http://reverse-proxy:8080"
         - macro: "{$ISMS.METRICS.URL}"
           value: "http://api:3001/metrics"
-      httptests:
-        - uuid: 696d7369706f7274616c000000000003
-          name: ISMS Portal readiness
-          delay: 1m
-          steps:
-            - name: Ready endpoint
-              url: "{$ISMS.URL}/api/health/ready"
-              status_codes: "200"
-              no: "1"
+        - macro: "{$ISMS.STORAGE.MIN.BYTES}"
+          value: "1073741824"
       items:
-        - uuid: 696d7369706f7274616c000000000004
-          name: ISMS Portal private metrics availability
+        - uuid: 696d7369706f7274616c000000000003
+          name: ISMS Portal readiness response
+          type: HTTP_AGENT
+          key: isms.readiness.get
+          delay: 1m
+          history: 1h
+          value_type: TEXT
+          url: "{$ISMS.URL}/api/health/ready"
+          status_codes: "200"
+          timeout: 10s
+          verify_peer: YES
+          verify_host: YES
+          triggers:
+            - uuid: 696d7369706f7274616c000000000004
+              expression: "nodata(/ISMS Portal/isms.readiness.get,5m)=1"
+              name: ISMS Portal readiness is unavailable
+              priority: HIGH
+        - uuid: 696d7369706f7274616c000000000005
+          name: ISMS Portal private metrics
           type: HTTP_AGENT
           key: isms.metrics.get
           delay: 1m
           history: 1h
           value_type: TEXT
           url: "{$ISMS.METRICS.URL}"
-          retrieve_mode: BODY
+          timeout: 10s
+          status_codes: "200"
+          verify_peer: YES
+          verify_host: YES
           triggers:
-            - uuid: 696d7369706f7274616c000000000005
+            - uuid: 696d7369706f7274616c000000000006
               expression: "nodata(/ISMS Portal/isms.metrics.get,5m)=1"
               name: ISMS Portal private metrics are unavailable
               priority: HIGH
+        - uuid: 696d7369706f7274616c000000000007
+          name: ISMS Portal unhealthy dependencies
+          type: DEPENDENT
+          key: isms.dependencies.unhealthy
+          delay: "0"
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters: ["isms_service_health", "sum", ""]
+            - type: JAVASCRIPT
+              parameters: ["return 4 - Number(value);"]
+          master_item:
+            key: isms.metrics.get
+          triggers:
+            - uuid: 696d7369706f7274616c000000000008
+              expression: "min(/ISMS Portal/isms.dependencies.unhealthy,3m)>0"
+              name: ISMS Portal dependency failure
+              priority: HIGH
+        - uuid: 696d7369706f7274616c000000000009
+          name: ISMS Portal available document storage
+          type: DEPENDENT
+          key: isms.storage.available
+          delay: "0"
+          units: B
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters: ["isms_document_storage_available_bytes", "value", ""]
+          master_item:
+            key: isms.metrics.get
+          triggers:
+            - uuid: 696d7369706f7274616c00000000000a
+              expression: "max(/ISMS Portal/isms.storage.available,15m)<{$ISMS.STORAGE.MIN.BYTES}"
+              name: ISMS Portal document storage is low
+              priority: HIGH
+        - uuid: 696d7369706f7274616c00000000000b
+          name: ISMS Portal directory failures in 15 minutes
+          type: DEPENDENT
+          key: isms.directory.failures
+          delay: "0"
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters: ["isms_directory_sync_failures_15m", "value", ""]
+          master_item:
+            key: isms.metrics.get
+          triggers:
+            - uuid: 696d7369706f7274616c00000000000c
+              expression: "last(/ISMS Portal/isms.directory.failures)>0"
+              name: ISMS Portal directory synchronization failed
+              priority: WARNING
+        - uuid: 696d7369706f7274616c00000000000d
+          name: ISMS Portal failed directory queue jobs
+          type: DEPENDENT
+          key: isms.directory.queue.failed
+          delay: "0"
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters: ['isms_directory_queue_jobs{state="failed"}', "value", ""]
+          master_item:
+            key: isms.metrics.get
+          triggers:
+            - uuid: 696d7369706f7274616c00000000000e
+              expression: "min(/ISMS Portal/isms.directory.queue.failed,5m)>0"
+              name: ISMS Portal directory queue has failed jobs
+              priority: WARNING

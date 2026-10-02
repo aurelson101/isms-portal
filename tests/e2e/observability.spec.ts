@@ -51,6 +51,12 @@ for (const width of [320, 768, 1280]) {
     await panel.getByRole("navigation", { name: "Pagination des éléments à traiter" }).getByRole("button", { name: "Suivant", exact: true }).click();
     await expect(workSection.locator("tbody tr")).toHaveCount(5);
     await panel.locator("summary").click();
+    const wazuh = panel.locator(".integration-card").filter({ has: page.getByRole("heading", { name: "Wazuh", exact: true }) });
+    await expect(wazuh.getByRole("link", { name: "Configuration de l’agent" })).toHaveAttribute("href", "/api/admin/operations/integrations/wazuh/download?artifact=agent");
+    await expect(wazuh.getByRole("link", { name: "Événements de test" })).toHaveAttribute("href", "/api/admin/operations/integrations/wazuh/download?artifact=samples");
+    await wazuh.getByRole("button", { name: "Tester la préparation", exact: true }).click();
+    await expect(wazuh.getByRole("status")).toContainText("Préparation locale en échec");
+    await expect(wazuh.getByRole("status")).toContainText("Collecte externe non vérifiée");
     const host = panel.getByLabel("Serveur SMTP", { exact: true });
     await host.fill("unsaved.example.test");
     const requestsBefore = settingsRequests;

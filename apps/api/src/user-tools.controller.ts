@@ -19,6 +19,7 @@ import type { Prisma } from "@prisma/client";
 import type { Response } from "express";
 import { createHash, randomUUID } from "crypto";
 import { basename, extname } from "path";
+import { integrationArtifact, integrationArtifacts } from "./integration-artifacts";
 import { AdminOnly } from "./security";
 import { PrismaService } from "./prisma.service";
 import { AuthorizationService } from "./authorization.service";
@@ -554,28 +555,6 @@ export class UserToolsController {
   }
 }
 
-const integrationArtifacts = {
-  prometheus: {
-    filename: "prometheus-isms.yml",
-    content:
-      'scrape_configs:\n  - job_name: isms-api\n    static_configs:\n      - targets: ["api:3001"]\n',
-  },
-  wazuh: {
-    filename: "wazuh-isms-localfile.xml",
-    content:
-      "<localfile>\n  <log_format>json</log_format>\n  <location>/var/log/isms-portal/events.json</location>\n</localfile>\n",
-  },
-  zabbix: {
-    filename: "zabbix-isms-macros.txt",
-    content:
-      "{$ISMS.URL}=http://reverse-proxy:8080\n{$ISMS.METRICS.URL}=http://api:3001/metrics\n",
-  },
-  syslog: {
-    filename: "isms-syslog.env.example",
-    content: "SYSLOG_ADDRESS=tcp+tls://syslog.example.invalid:6514\n",
-  },
-} as const;
-
 @AdminOnly()
 @Controller("admin/operations")
 export class OperationsController {
@@ -874,7 +853,7 @@ export class OperationsController {
     @Param("tool") tool: string,
     @Body() body: ObservabilityOptionsDto,
   ) {
-    if (!(tool in integrationArtifacts)) throw new NotFoundException();
+    if (!Object.hasOwn(integrationArtifacts, tool)) throw new NotFoundException();
     const value = JSON.parse(JSON.stringify(body)) as Prisma.InputJsonValue;
     const setting = await this.prisma.applicationSetting.upsert({
       where: { key: `observability.${tool}` },
@@ -895,42 +874,45 @@ export class OperationsController {
   downloadArtifact(
     @Param("tool") tool: string,
     @Query("portalUrl") portalUrl: string | undefined,
+    @Query("artifact") variant: string | undefined,
     @Res() response: Response,
   ) {
-    const artifact =
-      integrationArtifacts[tool as keyof typeof integrationArtifacts];
-    if (!artifact) throw new NotFoundException();
-    let publicUrl = "http://reverse-proxy:8080";
-    if (portalUrl) {
-      try {
-        const parsed = new URL(portalUrl);
-        if (["http:", "https:"].includes(parsed.protocol)) {
-          publicUrl = parsed.origin;
-        }
-      } catch {
-        // Keep the private Docker default for malformed URLs.
-      }
-    }
-    response
-      .type("text/plain")
-      .attachment(artifact.filename)
-      .send(artifact.content.replace("http://reverse-proxy:8080", publicUrl));
+    const artifact = integrationArtifact(tool, variant || "default", portalUrl);
+    response.type("text/plain").attachment(artifact.filename).send(artifact.content);
   }
 
   @Get("integrations/:tool/test")
   async testIntegration(@Param("tool") tool: string) {
-    if (!(tool in integrationArtifacts)) throw new NotFoundException();
+    if (!Object.hasOwn(integrationArtifacts, tool)) throw new NotFoundException();
     const setting = await this.prisma.applicationSetting.findUnique({
       where: { key: `observability.${tool}` },
     });
     const value = setting?.value as { enabled?: boolean } | undefined;
+    const artifacts = Object.keys(integrationArtifacts[tool as keyof typeof integrationArtifacts]);
+    const checks = await Promise.allSettled([
+      fetch("http://127.0.0.1:3001/health/ready", { signal: AbortSignal.timeout(5000) }).then(async (response) => {
+        const body = await response.json() as { status?: string };
+        return response.ok && body.status === "ok";
+      }),
+      ["prometheus", "zabbix"].includes(tool)
+        ? fetch("http://127.0.0.1:3001/metrics", { signal: AbortSignal.timeout(5000) }).then(async (response) => response.ok && (await response.text()).includes("isms_service_health"))
+        : Promise.resolve(true),
+    ]);
+    let artifactsAvailable = true;
+    try { for (const variant of artifacts) integrationArtifact(tool, variant); }
+    catch { artifactsAvailable = false; }
     return {
       tool,
-      applicationHealthy: true,
+      applicationHealthy: checks[0].status === "fulfilled" && checks[0].value,
+      metricsAvailable: checks[1].status === "fulfilled" && checks[1].value,
+      artifactsAvailable,
+      artifacts,
       metricsTarget: "api:3001/metrics",
-      configured: Boolean(value?.enabled),
+      configured: value?.enabled === true,
       lastConfigurationUpdate: setting?.updatedAt || null,
-      note: "External connectivity is tested by the collector; the portal does not initiate outbound requests.",
+      externalConnectivityVerified: false,
+      testedAt: new Date().toISOString(),
+      note: "Local readiness only. Validate receipt from the external collector.",
     };
   }
 

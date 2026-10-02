@@ -18,6 +18,8 @@ RUN addgroup -S isms && adduser -S isms -G isms
 COPY --from=build --chown=isms:isms /app/node_modules ./node_modules
 COPY --from=build --chown=isms:isms /app/apps/api/node_modules ./node_modules
 COPY --from=build --chown=isms:isms /app/apps/api/dist ./dist
+COPY --chown=isms:isms deploy/monitoring ./dist/monitoring
+COPY --chown=isms:isms deploy/compose/observability-syslog.yml ./dist/monitoring/observability-syslog.yml
 COPY --from=build --chown=isms:isms /app/apps/api/prisma ./prisma
 COPY --chown=isms:isms scripts/container-entrypoint.sh /usr/local/bin/isms-entrypoint
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \

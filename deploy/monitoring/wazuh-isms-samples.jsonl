@@ -1,0 +1,4 @@
+{"service":"api","event":"http","statusCode":503,"correlationId":"test-server-error"}
+{"service":"api","event":"http","statusCode":403,"correlationId":"test-access-denied"}
+{"service":"api","event":"audit","result":"denied","action":"document.publish","identity":"user@example.test","ipAddress":"192.0.2.10","correlationId":"test-audit"}
+{"service":"api","event":"alert.delivery.failed","level":"error","correlationId":"test-alert"}

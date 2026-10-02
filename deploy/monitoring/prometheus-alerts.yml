@@ -13,6 +13,12 @@ groups:
         labels: { severity: critical }
         annotations:
           summary: ISMS Portal API 5xx rate exceeds 5 percent
+      - alert: IsmsDependencyUnavailable
+        expr: isms_service_health == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: An ISMS Portal dependency is unavailable
       - alert: IsmsDirectorySynchronizationFailures
         expr: isms_directory_sync_failures_15m > 0
         for: 1m
