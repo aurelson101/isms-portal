@@ -6152,3 +6152,5 @@ svg {
   .login-card { padding: 24px 20px; }
   .login-language { margin-left: auto; }
 }
+.login-card .caps-lock-warning { margin: 0; padding: 0; border: 0; background: none; min-height: 20px; }
+.caps-lock-warning[aria-hidden="true"] { visibility: hidden; }

@@ -1,19 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useId, useState } from "react";
 import { useBranding } from "./branding";
-import { initialLocale, rememberLocale, type Locale } from "./i18n/locale";
+import type { Locale } from "./i18n/locale";
 import type { AuthConfig } from "./auth-navigation";
 
-export function useLoginLocale() {
-  const [locale, setLocale] = useState<Locale>("fr");
-  useEffect(() => {
-    const preferred = initialLocale(localStorage.getItem("isms-locale"));
-    setLocale(preferred);
-    document.documentElement.lang = preferred;
-  }, []);
-  const changeLocale = (value: Locale) => { setLocale(value); rememberLocale(value); };
-  return [locale, changeLocale] as const;
+export function PasswordField({ locale, label }: { locale: Locale; label: string }) {
+  const [visible, setVisible] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
+  const warningId = useId();
+  return <>
+    <label>{label}<input name="password" type={visible ? "text" : "password"} required autoComplete="current-password"
+      aria-describedby={capsLock ? warningId : undefined}
+      onKeyDown={(event) => setCapsLock(event.getModifierState("CapsLock"))}
+      onKeyUp={(event) => setCapsLock(event.getModifierState("CapsLock"))}
+      onBlur={() => setCapsLock(false)} /></label>
+    <label className="remember-device"><input type="checkbox" checked={visible} onChange={(event) => setVisible(event.target.checked)} /><span>{locale === "fr" ? "Afficher le mot de passe" : "Show password"}</span></label>
+    <p className="login-warning caps-lock-warning" id={warningId} role={capsLock ? "status" : undefined} aria-hidden={!capsLock}>{locale === "fr" ? "Verr. Maj. activé" : "Caps Lock is on"}</p>
+  </>;
 }
 
 export async function authConfig(signal: AbortSignal): Promise<AuthConfig> {

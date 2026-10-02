@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { responseMessage } from "../request-errors";
+import { useInterfaceLocale } from "../i18n/use-locale";
 import "./approvals.css";
 
 type Item = { id: string; operation: string; targetType: string; targetId: string; requestedBy: string; reason: string; status: string; approvedBy: string | null; approvedAt: string | null; createdAt: string; review?: boolean; canDecide?: boolean; slug?: string; dueAt?: string; reviewer?: string; approver?: string };
@@ -26,7 +27,7 @@ export default function ApprovalsPage() {
   const request = useRef(0);
   const controller = useRef<AbortController | null>(null);
   const deciding = useRef(false);
-  const locale = typeof window !== "undefined" && localStorage.getItem("isms-locale") === "fr" ? "fr" : "en";
+  const [locale] = useInterfaceLocale();
   const t = copy[locale];
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { dateStyle: "short", timeStyle: "short" }), [locale]);
   const date = (value: string) => { const parsed = new Date(value); return Number.isNaN(parsed.getTime()) ? "-" : dateFormatter.format(parsed); };

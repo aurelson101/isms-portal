@@ -2,7 +2,9 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { returnDestination, ssoDestination } from "../auth-navigation";
-import { authConfig, loginFailure, loginRequest, LoginToolbar, useLoginLocale } from "../login-shared";
+import { authConfig, loginFailure, loginRequest, LoginToolbar, PasswordField } from "../login-shared";
+import { useInterfaceLocale } from "../i18n/use-locale";
+import { readLocale } from "../i18n/locale";
 
 const copy = {
   fr: {
@@ -44,7 +46,7 @@ const copy = {
 } as const;
 
 export default function LoginPage() {
-  const [locale, setLocale] = useLoginLocale();
+  const [locale, setLocale] = useInterfaceLocale();
   const submitting = useRef(false);
   const [available, setAvailable] = useState(true);
   const [error, setError] = useState("");
@@ -77,7 +79,7 @@ export default function LoginPage() {
 
         const destination = ssoDestination(config.ssoLoginUrl, parameters.get("return"));
         if (!destination) {
-          setError(copy[localStorage.getItem("isms-locale") === "fr" ? "fr" : "en"].ssoUnavailable);
+          setError(copy[readLocale()].ssoUnavailable);
           return;
         }
         setDetectingSso(true);
@@ -138,15 +140,7 @@ export default function LoginPage() {
               maxLength={128}
             />
           </label>
-          <label>
-            {t.password}
-            <input
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-            />
-          </label>
+          <PasswordField locale={locale} label={t.password} />
           <label className="remember-device">
             <input name="rememberDevice" type="checkbox" />
             <span>{t.rememberDevice}</span>

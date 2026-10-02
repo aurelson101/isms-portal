@@ -2,6 +2,7 @@ import { expect, test } from "./test";
 
 for (const width of [320, 768, 1280]) {
   test(`moderator actions and upload recovery at ${width}px`, async ({ page }, info) => {
+    page.on("dialog", (dialog) => dialog.accept());
     await page.setViewportSize({ width, height: 900 });
     const space = { id: "space", nameFr: "Documents", nameEn: "Documents", permissions: { edit: true, publish: true, archive: true } };
     const document = { id: "document", status: "DRAFT", space, category: { id: "category", nameFr: "Voyage", nameEn: "Travel" }, translations: [{ locale: "fr", title: "Politique", description: "Description FR" }, { locale: "en", title: "Test policy with a longer title for responsive document management", description: "" }], versions: [{ id: "old-version", locale: "fr", version: 1 }, { id: "version", locale: "en", version: 2 }] };

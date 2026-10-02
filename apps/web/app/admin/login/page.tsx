@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { returnDestination, ssoDestination } from "../../auth-navigation";
-import { authConfig, loginFailure, loginRequest, LoginToolbar, useLoginLocale } from "../../login-shared";
+import { authConfig, loginFailure, loginRequest, LoginToolbar, PasswordField } from "../../login-shared";
+import { useInterfaceLocale } from "../../i18n/use-locale";
 
 type LoginMode = "local" | "directory";
 const copy = {
@@ -39,7 +40,7 @@ const copy = {
 } as const;
 
 export default function AdminLoginPage() {
-  const [locale, setLocale] = useLoginLocale();
+  const [locale, setLocale] = useInterfaceLocale();
   const submitting = useRef(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -49,6 +50,14 @@ export default function AdminLoginPage() {
   const [directoryAvailable, setDirectoryAvailable] = useState(false);
   const [ssoUrl, setSsoUrl] = useState<string | null>(null);
   const t = copy[locale];
+  const selectMode = (value: LoginMode) => { setMode(value); setNeedsMfa(false); setError(""); };
+  const navigateTabs = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (busy || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? "local" : event.key === "End" ? "directory" : mode === "local" ? "directory" : "local";
+    selectMode(next);
+    document.getElementById(`admin-${next}-tab`)?.focus();
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -99,30 +108,28 @@ export default function AdminLoginPage() {
         <p>{t.subtitle}</p>
         {loggedOut && <p className="login-success">{t.loggedOut}</p>}
         {ssoUrl && <a className="login-sso" href={ssoUrl}>{t.sso}</a>}
-        <div className="login-tabs" role="tablist" aria-label={t.title}>
+        <div className="login-tabs" role="tablist" aria-label={t.title} onKeyDown={navigateTabs}>
           <button
             type="button"
             role="tab"
+            id="admin-local-tab"
+            aria-controls="admin-login-panel"
+            tabIndex={mode === "local" ? 0 : -1}
             disabled={busy}
             aria-selected={mode === "local"}
-            onClick={() => {
-              setMode("local");
-              setNeedsMfa(false);
-              setError("");
-            }}
+            onClick={() => selectMode("local")}
           >
             {t.localMode}
           </button>
           <button
             type="button"
             role="tab"
+            id="admin-directory-tab"
+            aria-controls="admin-login-panel"
+            tabIndex={mode === "directory" ? 0 : -1}
             disabled={busy}
             aria-selected={mode === "directory"}
-            onClick={() => {
-              setMode("directory");
-              setNeedsMfa(false);
-              setError("");
-            }}
+            onClick={() => selectMode("directory")}
           >
             {t.directoryMode}
           </button>
@@ -130,7 +137,7 @@ export default function AdminLoginPage() {
         {mode === "directory" && !directoryAvailable && (
           <p className="login-warning">{t.directoryUnavailable}</p>
         )}
-        <form onSubmit={submit} className="login-form" aria-busy={busy}>
+        <form onSubmit={submit} className="login-form" aria-busy={busy} id="admin-login-panel" role="tabpanel" aria-labelledby={`admin-${mode}-tab`}>
           <fieldset className="login-fields" disabled={busy}>
           <label>
             {t.identifier}
@@ -143,20 +150,13 @@ export default function AdminLoginPage() {
               maxLength={160}
             />
           </label>
-          <label>
-            {t.password}
-            <input
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-            />
-          </label>
+          <PasswordField locale={locale} label={t.password} />
           {mode === "local" && needsMfa && (
             <label>
               {t.mfa}
               <input
                 name="mfaCode"
+                autoFocus
                 inputMode="numeric"
                 pattern="[0-9]{6}"
                 maxLength={6}
