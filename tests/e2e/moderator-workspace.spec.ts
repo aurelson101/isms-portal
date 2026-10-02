@@ -1,10 +1,13 @@
 import { expect, test } from "./test";
 
-for (const width of [390, 768, 1280]) {
-  test(`moderator actions and upload recovery at ${width}px`, async ({ page }) => {
+for (const width of [320, 768, 1280]) {
+  test(`moderator actions and upload recovery at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 });
     const space = { id: "space", nameFr: "Documents", nameEn: "Documents", permissions: { edit: true, publish: true, archive: true } };
-    const document = { id: "document", status: "DRAFT", space, category: null, translations: [{ locale: "fr", title: "Politique", description: "Description FR" }, { locale: "en", title: "Test policy", description: "" }], versions: [{ id: "version", locale: "en", version: 1 }] };
+    const document = { id: "document", status: "DRAFT", space, category: { id: "category", nameFr: "Voyage", nameEn: "Travel" }, translations: [{ locale: "fr", title: "Politique", description: "Description FR" }, { locale: "en", title: "Test policy with a longer title for responsive document management", description: "" }], versions: [{ id: "old-version", locale: "fr", version: 1 }, { id: "version", locale: "en", version: 2 }] };
+    let documentRequests = 0;
+    let clampPage = false;
+    let metadataPayload: Record<string, unknown> = {};
     let releasePublish!: () => void;
     const publishGate = new Promise<void>((resolve) => { releasePublish = resolve; });
     let releaseCategories!: () => void;
@@ -24,13 +27,22 @@ for (const width of [390, 768, 1280]) {
       } else if (url.pathname === "/api/documents/document/categories") {
         await categoriesGate;
         await route.fulfill({ json: [] });
+      } else if (url.pathname === "/api/documents/document/metadata") {
+        metadataPayload = route.request().postDataJSON();
+        await route.fulfill({ json: {} });
+      } else if (url.pathname === "/api/documents/document/restore") {
+        document.status = "DRAFT";
+        await route.fulfill({ json: {} });
       } else if (url.pathname === "/api/documents") {
-        await route.fulfill({ json: { items: [document], page: Number(url.searchParams.get("page")), totalPages: 2 } });
+        documentRequests++;
+        await route.fulfill({ json: { items: [document], page: clampPage ? 1 : Number(url.searchParams.get("page")), totalPages: 2 } });
       } else {
         await route.fulfill({ json: {} });
       }
     });
     await page.goto("/moderator");
+    await expect(page.locator("table")).toContainText("Travel");
+    await expect(page.locator("table")).toContainText("v2");
     const publish = page.getByRole("button", { name: "Publish", exact: true });
     const next = page.getByRole("navigation", { name: "Document pagination" }).getByRole("button", { name: /Next/ });
     await publish.click();
@@ -61,7 +73,45 @@ for (const width of [390, 768, 1280]) {
     await expect(metadata.getByLabel("Document language")).toHaveValue("en");
     await expect(metadata.getByLabel("Description", { exact: true })).toHaveValue("");
     await expect(metadata.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
+    await expect(metadata.getByLabel("Document language")).toBeFocused();
+    await metadata.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(metadata).toHaveCount(0);
+    expect(metadataPayload).toMatchObject({ locale: "en", versionId: "version", categoryId: "category", description: "" });
+    const beforeRefresh = documentRequests;
+    clampPage = true;
+    document.status = "ARCHIVED";
+    await page.getByRole("button", { name: "Refresh", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Restore", exact: true })).toBeEnabled();
+    await expect(page.getByRole("navigation", { name: "Document pagination" })).toContainText("Page 1 of 2");
+    expect(documentRequests - beforeRefresh).toBe(1);
+    await page.getByRole("button", { name: "Restore", exact: true }).click();
+    await expect(page.locator("table")).toContainText("Draft");
+    await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeEnabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath("moderator.png"), fullPage: true });
+  });
+}
+
+for (const width of [320, 768, 1280]) {
+  test(`shared admin login, language and SSO at ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+    await page.route("**/api/**", (route) => route.fulfill({ json: new URL(route.request().url()).pathname === "/api/auth/config"
+      ? { directoryLoginEnabled: true, ssoEnabled: true, ssoPilotUrl: "/oauth2/start?rd=/", ssoLoginUrl: null } : {} }));
+    await page.goto("/admin/login?return=%2Fadministrator");
+    await expect(page.getByRole("link", { name: "Continue with Microsoft" })).toHaveAttribute("href", "/oauth2/start?rd=%2Fadmin");
+    await page.getByRole("button", { name: "FR", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Connexion administrateur" })).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("lang", "fr");
+    await page.getByRole("button", { name: "EN", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Administrator sign in" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath("admin-login.png"), fullPage: true });
+    await page.getByLabel("Administrator username", { exact: true }).fill("admin@example.test");
+    await page.getByLabel("Password", { exact: true }).fill("test-only-password");
+    await page.route("http://127.0.0.1:3100/admin", (route) => route.fulfill({ contentType: "text/html", body: "<h1>Administration</h1>" }));
+    await page.getByRole("button", { name: "Sign in to administration", exact: true }).click();
+    await expect(page).toHaveURL("http://127.0.0.1:3100/admin");
   });
 }
 

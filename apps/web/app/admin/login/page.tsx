@@ -1,9 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { useBranding } from "../../branding";
-import { ssoDestination, type AuthConfig } from "../../auth-navigation";
-import { initialLocale, rememberLocale, type Locale } from "../../i18n/locale";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { returnDestination, ssoDestination } from "../../auth-navigation";
+import { authConfig, loginRequest, LoginToolbar, useLoginLocale } from "../../login-shared";
 
 type LoginMode = "local" | "directory";
 const copy = {
@@ -40,8 +39,8 @@ const copy = {
 } as const;
 
 export default function AdminLoginPage() {
-  const branding = useBranding();
-  const [locale, setLocale] = useState<Locale>("fr");
+  const [locale, setLocale] = useLoginLocale();
+  const submitting = useRef(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [needsMfa, setNeedsMfa] = useState(false);
@@ -52,89 +51,49 @@ export default function AdminLoginPage() {
   const t = copy[locale];
 
   useEffect(() => {
-    const preferred = initialLocale(localStorage.getItem("isms-locale"));
-    setLocale(preferred);
-    document.documentElement.lang = preferred;
+    const controller = new AbortController();
     setLoggedOut(
       new URLSearchParams(window.location.search).get("loggedout") === "1",
     );
-    fetch("/api/auth/config")
-      .then((response) => response.json())
-      .then((config: AuthConfig) => {
+    authConfig(controller.signal)
+      .then((config) => {
+        if (controller.signal.aborted) return;
         setDirectoryAvailable(Boolean(config.directoryLoginEnabled));
         const value = config.ssoPilotUrl || config.ssoLoginUrl;
         if (config.ssoEnabled && value) setSsoUrl(ssoDestination(value, "/admin"));
       })
-      .catch(() => setDirectoryAvailable(false));
+      .catch(() => { if (!controller.signal.aborted) setDirectoryAvailable(false); });
+    return () => controller.abort();
   }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setBusy(true);
     setError("");
     const values = Object.fromEntries(new FormData(event.currentTarget));
-    const response = await fetch(
+    const response = await loginRequest(
       mode === "local" ? "/api/auth/login" : "/api/auth/directory-login",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          mode === "local"
-            ? values
-            : { login: values.username, password: values.password },
-        ),
-      },
-    ).catch(() => null);
+      mode === "local" ? values : { login: values.username, password: values.password },
+    );
+    submitting.current = false;
     setBusy(false);
     if (!response?.ok) {
       setNeedsMfa(mode === "local");
       setError(t.invalid);
       return;
     }
-    const requested = new URLSearchParams(window.location.search).get("return");
+    const requested = returnDestination(new URLSearchParams(window.location.search).get("return"), "/admin");
     window.location.replace(
-      requested?.startsWith("/admin") ? requested : "/admin",
+      requested === "/admin" || requested.startsWith("/admin/") || requested.startsWith("/admin#") || requested.startsWith("/admin?") ? requested : "/admin",
     );
   };
 
   return (
     <main className="login-shell admin-login-shell">
       <section className="login-card">
-        <div className="login-toolbar">
-          <div className="login-brand">
-            {branding.logoDataUrl ? (
-              <img className="brand-logo" src={branding.logoDataUrl} alt="" />
-            ) : (
-              <span aria-hidden="true">◇</span>
-            )}
-            <div>
-              <strong>{branding.title}</strong>
-              <small>Administration sécurisée</small>
-            </div>
-          </div>
-          <div className="login-language" aria-label="Language">
-            <button
-              type="button"
-              onClick={() => {
-                setLocale("fr");
-                rememberLocale("fr");
-              }}
-              aria-pressed={locale === "fr"}
-            >
-              FR
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setLocale("en");
-                rememberLocale("en");
-              }}
-              aria-pressed={locale === "en"}
-            >
-              EN
-            </button>
-          </div>
-        </div>
+        <LoginToolbar locale={locale} onLocaleChange={setLocale} admin />
         <h1>{t.title}</h1>
         <p>{t.subtitle}</p>
         {loggedOut && <p className="login-success">{t.loggedOut}</p>}
@@ -143,6 +102,7 @@ export default function AdminLoginPage() {
           <button
             type="button"
             role="tab"
+            disabled={busy}
             aria-selected={mode === "local"}
             onClick={() => {
               setMode("local");
@@ -155,6 +115,7 @@ export default function AdminLoginPage() {
           <button
             type="button"
             role="tab"
+            disabled={busy}
             aria-selected={mode === "directory"}
             onClick={() => {
               setMode("directory");
@@ -168,7 +129,7 @@ export default function AdminLoginPage() {
         {mode === "directory" && !directoryAvailable && (
           <p className="login-warning">{t.directoryUnavailable}</p>
         )}
-        <form onSubmit={submit} className="login-form">
+        <form onSubmit={submit} className="login-form" aria-busy={busy}>
           <label>
             {t.identifier}
             <input

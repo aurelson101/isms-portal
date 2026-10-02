@@ -6088,3 +6088,62 @@ svg {
   background: white;
   color: #0768ea;
 }
+
+.moderator-fields {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.moderator-workspace :is(section, form, label, .admin-page-heading > div) {
+  min-width: 0;
+}
+.moderator-workspace :is(input, select, textarea) {
+  max-width: 100%;
+}
+.moderator-workspace :is(h1, h2, p, td, .admin-account-list strong) {
+  overflow-wrap: anywhere;
+}
+.moderator-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.moderator-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.moderator-toolbar svg { width: 18px; height: 18px; }
+.moderator-workspace :is(button, .button) { min-height: 44px; }
+.moderator-workspace .document-actions { flex-wrap: wrap; }
+.moderator-workspace :is(button, input, select, textarea):focus-visible {
+  outline: 2px solid #075ad4;
+  outline-offset: 2px;
+}
+.login-toolbar { flex-wrap: wrap; }
+.login-brand { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.login-brand > div { min-width: 0; }
+.login-brand > .login-mark { flex: 0 0 44px; font-size: 14px; font-weight: 700; white-space: nowrap; }
+.login-form :is(input, button), .login-tabs button { min-height: 44px; }
+.login-form input[type="checkbox"] { min-height: auto; }
+.login-tabs { flex-wrap: wrap; }
+@media (max-width: 600px) {
+  .moderator-workspace .admin-page-heading { flex-wrap: wrap; gap: 12px; }
+  .moderator-workspace h1 { font-size: 26px; }
+  .moderator-workspace h2 { font-size: 20px; }
+  .moderator-fields { grid-template-columns: minmax(0, 1fr); }
+  .moderator-fields .wide { grid-column: auto; }
+  .moderator-workspace .admin-table-wrap td { grid-template-columns: minmax(0, 35%) minmax(0, 1fr); }
+  .moderator-workspace .admin-table-wrap td[colspan] { grid-template-columns: minmax(0, 1fr); }
+  .moderator-workspace .admin-table-wrap tr { border-radius: 8px; }
+  .moderator-workspace .document-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .moderator-workspace .document-actions button { width: 100%; white-space: normal; }
+  .moderator-workspace .document-pagination { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .moderator-workspace .document-pagination span { grid-column: 1 / -1; grid-row: 1; }
+  .moderator-workspace .document-pagination button { grid-row: 2; width: 100%; padding: 8px; white-space: nowrap; }
+  .login-card { padding: 24px 20px; }
+  .login-language { margin-left: auto; }
+}

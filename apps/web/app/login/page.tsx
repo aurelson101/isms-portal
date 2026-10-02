@@ -1,9 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { useBranding } from "../branding";
-import { returnDestination, ssoDestination, type AuthConfig } from "../auth-navigation";
-import { initialLocale, rememberLocale, type Locale } from "../i18n/locale";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { returnDestination, ssoDestination } from "../auth-navigation";
+import { authConfig, loginRequest, LoginToolbar, useLoginLocale } from "../login-shared";
 
 const copy = {
   fr: {
@@ -45,8 +44,8 @@ const copy = {
 } as const;
 
 export default function LoginPage() {
-  const branding = useBranding();
-  const [locale, setLocale] = useState<Locale>("fr");
+  const [locale, setLocale] = useLoginLocale();
+  const submitting = useRef(false);
   const [available, setAvailable] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -56,19 +55,17 @@ export default function LoginPage() {
   const t = copy[locale];
 
   useEffect(() => {
-    const preferred = initialLocale(localStorage.getItem("isms-locale"));
-    setLocale(preferred);
-    document.documentElement.lang = preferred;
+    const controller = new AbortController();
     const parameters = new URLSearchParams(window.location.search);
     const signedOut = parameters.get("loggedout") === "1";
     const localLogin = parameters.get("local") === "1";
     setLoggedOut(signedOut);
-    fetch("/api/auth/config")
-      .then((response) => response.json())
-      .then((config: AuthConfig) => {
+    authConfig(controller.signal)
+      .then((config) => {
+        if (controller.signal.aborted) return;
         setAvailable(config.directoryLoginEnabled);
         const ssoUrl = config.ssoPilotUrl || config.ssoLoginUrl;
-        const pilot = ssoUrl ? ssoDestination(ssoUrl, parameters.get("return")) : null;
+        const pilot = config.ssoEnabled && ssoUrl ? ssoDestination(ssoUrl, parameters.get("return")) : null;
         setPilotSsoUrl(pilot);
         if (
           !config.ssoEnabled ||
@@ -80,29 +77,27 @@ export default function LoginPage() {
 
         const destination = ssoDestination(config.ssoLoginUrl, parameters.get("return"));
         if (!destination) {
-          setError(copy[preferred].ssoUnavailable);
+          setError(copy[localStorage.getItem("isms-locale") === "fr" ? "fr" : "en"].ssoUnavailable);
           return;
         }
         setDetectingSso(true);
         window.location.replace(destination);
       })
-      .catch(() => setAvailable(false));
+      .catch(() => { if (!controller.signal.aborted) setAvailable(false); });
+    return () => controller.abort();
   }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setBusy(true);
     setError("");
     const values = Object.fromEntries(new FormData(event.currentTarget));
-    const response = await fetch("/api/auth/directory-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        login: values.login,
-        password: values.password,
-        rememberDevice: values.rememberDevice === "on",
-      }),
-    }).catch(() => null);
+    const response = await loginRequest("/api/auth/directory-login", {
+      login: values.login, password: values.password, rememberDevice: values.rememberDevice === "on",
+    });
+    submitting.current = false;
     setBusy(false);
     if (!response?.ok) {
       setError(t.invalid);
@@ -115,41 +110,7 @@ export default function LoginPage() {
   return (
     <main className="login-shell">
       <section className="login-card">
-        <div className="login-toolbar">
-          <div className="login-brand">
-            {branding.logoDataUrl ? (
-              <img className="brand-logo" src={branding.logoDataUrl} alt="" />
-            ) : (
-              <span aria-hidden="true">◇</span>
-            )}
-            <div>
-              <strong>{branding.title}</strong>
-              <small>Portail documentaire</small>
-            </div>
-          </div>
-          <div className="login-language" aria-label="Language">
-            <button
-              type="button"
-              onClick={() => {
-                setLocale("fr");
-                rememberLocale("fr");
-              }}
-              aria-pressed={locale === "fr"}
-            >
-              FR
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setLocale("en");
-                rememberLocale("en");
-              }}
-              aria-pressed={locale === "en"}
-            >
-              EN
-            </button>
-          </div>
-        </div>
+        <LoginToolbar locale={locale} onLocaleChange={setLocale} />
         <h1>{t.title}</h1>
         <p>{t.subtitle}</p>
         {loggedOut && <p className="login-success">{t.loggedOut}</p>}
@@ -164,7 +125,7 @@ export default function LoginPage() {
             {t.ssoPilot}
           </a>
         )}
-        <form onSubmit={submit} className="login-form" aria-busy={detectingSso}>
+        <form onSubmit={submit} className="login-form" aria-busy={busy || detectingSso}>
           <label>
             {t.identifier}
             <input
