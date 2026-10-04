@@ -338,7 +338,7 @@ textarea:focus-visible {
   padding: 8px 14px;
 }
 .shell nav,
-.admin-shell nav {
+.admin-shell > aside nav {
   display: grid;
   gap: 13px;
 }
@@ -385,8 +385,8 @@ textarea:focus-visible {
   padding-left: 3.75rem;
 }
 .shell nav button,
-.admin-shell nav button,
-.admin-shell nav a {
+.admin-shell > aside nav button,
+.admin-shell > aside nav a {
   border: 0;
   background: transparent;
   width: 100%;
@@ -402,17 +402,17 @@ textarea:focus-visible {
   cursor: pointer;
 }
 .shell nav button.active,
-.admin-shell nav button.active,
-.admin-shell nav a.active {
+.admin-shell > aside nav button.active,
+.admin-shell > aside nav a.active {
   background: linear-gradient(90deg, #0879f9, #005be7);
 }
 .shell nav button:hover,
-.admin-shell nav button:hover,
-.admin-shell nav a:hover {
+.admin-shell > aside nav button:hover,
+.admin-shell > aside nav a:hover {
   background: #ffffff18;
 }
 .shell nav button.active:hover,
-.admin-shell nav button.active:hover {
+.admin-shell > aside nav button.active:hover {
   background: linear-gradient(90deg, #0879f9, #005be7);
 }
 .secure {
@@ -1452,6 +1452,13 @@ h1 {
 }
 .admin-shell > aside {
   padding-top: 25px;
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  min-height: 0;
+}
+.admin-shell > aside :is(.sidebar-heading, .back-link) {
+  flex: 0 0 auto;
 }
 .admin-shell .brand {
   padding-bottom: 25px;
@@ -1459,11 +1466,17 @@ h1 {
 .admin-shell .brand strong {
   font-size: 25px;
 }
-.admin-shell nav {
+.admin-shell > aside nav {
   gap: 3px;
+  min-height: 0;
+  flex: 1 1 auto;
+  align-content: start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
-.admin-shell nav button,
-.admin-shell nav a {
+.admin-shell > aside nav button,
+.admin-shell > aside nav a {
   padding: 14px 20px;
   font-size: 16px;
 }
@@ -3328,7 +3341,7 @@ svg {
   height: 20px;
 }
 .shell nav svg,
-.admin-shell nav svg {
+.admin-shell > aside nav svg {
   width: 22px;
   height: 22px;
 }
@@ -3375,7 +3388,7 @@ svg {
     height: 25px;
   }
   .shell nav,
-  .admin-shell nav {
+  .admin-shell > aside nav {
     display: flex;
     overflow-x: auto;
     gap: 8px;
@@ -3384,7 +3397,7 @@ svg {
     scroll-snap-type: x proximity;
   }
   .shell nav button,
-  .admin-shell nav button {
+  .admin-shell > aside nav button {
     flex: 0 0 auto;
     width: auto;
     min-width: 112px;
@@ -3395,7 +3408,7 @@ svg {
     white-space: nowrap;
   }
   .shell nav span,
-  .admin-shell nav span {
+  .admin-shell > aside nav span {
     display: inline;
   }
   .secure {
@@ -3560,12 +3573,12 @@ svg {
     display: none;
   }
   .shell nav button,
-  .admin-shell nav button {
+  .admin-shell > aside nav button {
     min-width: auto;
     padding: 10px 12px;
   }
   .shell nav button span,
-  .admin-shell nav button span {
+  .admin-shell > aside nav button span {
     max-width: 150px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3970,7 +3983,7 @@ svg {
   display: grid;
   gap: 3px;
 }
-.admin-shell nav .admin-navigation-heading {
+.admin-shell > aside nav .admin-navigation-heading {
   padding: 14px 20px 8px;
   color: #8fc2ff;
   font-size: 11px;
@@ -3979,8 +3992,8 @@ svg {
   text-transform: uppercase;
   gap: 10px;
 }
-.admin-shell nav .admin-navigation-heading:hover,
-.admin-shell nav .admin-navigation-heading:focus-visible {
+.admin-shell > aside nav .admin-navigation-heading:hover,
+.admin-shell > aside nav .admin-navigation-heading:focus-visible {
   background: #ffffff12;
   color: white;
 }
@@ -4439,6 +4452,10 @@ svg {
   .admin-shell > aside {
     padding: 14px 18px;
   }
+  .admin-shell > aside {
+    height: auto;
+    max-height: 100dvh;
+  }
   .sidebar-heading {
     align-items: center;
   }
@@ -4465,6 +4482,9 @@ svg {
     border-top: 1px solid #ffffff2b;
     overflow: visible;
   }
+  .admin-shell > aside.navigation-open nav {
+    overflow-y: auto;
+  }
   .shell aside.navigation-open nav button,
   .admin-shell > aside.navigation-open nav button {
     width: 100%;
@@ -4481,7 +4501,7 @@ svg {
     border-left: 1px solid #ffffff2b;
     padding-left: 8px;
   }
-  .admin-shell nav .admin-navigation-heading {
+  .admin-shell > aside nav .admin-navigation-heading {
     padding-left: 13px;
     min-height: 44px;
   }
@@ -4556,12 +4576,12 @@ svg {
   }
 }
 .shell nav,
-.admin-shell nav {
+.admin-shell > aside nav {
   gap: 5px;
 }
 .shell nav button,
-.admin-shell nav button,
-.admin-shell nav a {
+.admin-shell > aside nav button,
+.admin-shell > aside nav a {
   font-size: 15px;
   padding: 11px 14px;
   gap: 11px;

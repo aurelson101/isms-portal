@@ -396,6 +396,13 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["moderators", "groups", "Modérateurs", "Moderators"],
   ["storage", "folder", "Stockage", "Storage"],
 ];
+const navigationGroups: Array<[string, string, typeof tabs]> = [
+  ["overview", "Vue d’ensemble", tabs.slice(0, 1)],
+  ["content", "Contenu et accès", tabs.slice(1, 8)],
+  ["infrastructure", "Infrastructure", tabs.slice(8, 12)],
+  ["system", "Système", tabs.slice(12, 14)],
+  ["configuration", "Configuration", tabs.slice(14)],
+];
 const permissionKeys = [
   "showMenu",
   "read",
@@ -520,6 +527,7 @@ export default function Admin() {
   const [sessionExpired, setSessionExpired] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const navigationToggle = useRef<HTMLButtonElement>(null);
   const [expandedNavigationGroups, setExpandedNavigationGroups] = useState<
     Set<string>
   >(() => new Set(["overview"]));
@@ -666,27 +674,37 @@ export default function Admin() {
     }).catch(() => undefined);
   };
 
+  const activateTab = useCallback((requested: string) => {
+    const next = tabs.find(([key]) => key === requested)?.[0] || "dashboard";
+    setTab(next);
+    const group = navigationGroups.find(([, , items]) => items.some(([key]) => key === next));
+    if (group) setExpandedNavigationGroups((current) => current.has(group[0]) ? current : new Set([...current, group[0]]));
+    setNavigationOpen(false);
+    setError("");
+    setNotice("");
+  }, []);
   useEffect(() => {
-    const synchronizeTabWithLocation = () => {
-      const requested = window.location.hash.slice(1) as Tab;
-      setTab(tabs.some(([key]) => key === requested) ? requested : "dashboard");
-      setNavigationOpen(false);
-      setError("");
-      setNotice("");
-    };
+    const synchronizeTabWithLocation = () => activateTab(window.location.hash.slice(1));
     synchronizeTabWithLocation();
     window.addEventListener("hashchange", synchronizeTabWithLocation);
     void refresh();
     return () =>
       window.removeEventListener("hashchange", synchronizeTabWithLocation);
-  }, [refresh]);
+  }, [refresh, activateTab]);
   useEffect(() => {
     const closeNavigation = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setNavigationOpen(false);
+      if (event.key === "Escape" && navigationOpen) {
+        setNavigationOpen(false);
+        navigationToggle.current?.focus();
+      }
     };
     window.addEventListener("keydown", closeNavigation);
     return () => window.removeEventListener("keydown", closeNavigation);
-  }, []);
+  }, [navigationOpen]);
+  useEffect(() => {
+    const current = document.querySelector<HTMLButtonElement>('#admin-navigation [aria-current="page"]');
+    if (current?.offsetParent) current.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [tab, navigationOpen, expandedNavigationGroups]);
   useEffect(() => {
     const checkSession = async () => {
       const response = await fetch("/api/admin/check", {
@@ -713,12 +731,9 @@ export default function Admin() {
     return () => window.clearInterval(timer);
   }, []);
   const selectTab = (next: Tab) => {
-    setTab(next);
-    setNavigationOpen(false);
-    setError("");
-    setNotice("");
-    window.history.replaceState(null, "", `/admin#${next}`);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    activateTab(next);
+    if (window.location.hash !== `#${next}`) window.history.pushState(window.history.state, "", `#${next}`);
+    window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   };
   const selectRule = (rule: Rule) => {
     setSelectedRule(rule);
@@ -840,53 +855,46 @@ export default function Admin() {
               </div>
               <button
                 type="button"
+                ref={navigationToggle}
                 className="navigation-toggle"
                 aria-controls="admin-navigation"
                 aria-expanded={navigationOpen}
-                aria-label={t("Afficher la navigation")}
+                aria-label={navigationOpen ? t("Masquer la navigation", "Hide navigation") : t("Afficher la navigation", "Show navigation")}
+                title={navigationOpen ? t("Masquer la navigation", "Hide navigation") : t("Afficher la navigation", "Show navigation")}
                 onClick={() => setNavigationOpen((current) => !current)}
               >
                 <Icon name={navigationOpen ? "close" : "menu"} />
               </button>
             </div>
             <nav id="admin-navigation" aria-label="Administration">
-              {[
-                ["overview", t("Vue d’ensemble"), tabs.slice(0, 1)],
-                ["content", t("Contenu et accès"), tabs.slice(1, 8)],
-                ["infrastructure", t("Infrastructure"), tabs.slice(8, 12)],
-                ["system", t("Système"), tabs.slice(12, 14)],
-                ["configuration", t("Configuration"), tabs.slice(14)],
-              ].map(([groupId, groupLabel, groupTabs]) => (
+              {navigationGroups.map(([groupId, groupLabel, groupTabs]) => (
                 <div
-                  className={`admin-navigation-group ${expandedNavigationGroups.has(groupId as string) ? "expanded" : ""}`}
-                  key={groupLabel as string}
+                  className={`admin-navigation-group ${expandedNavigationGroups.has(groupId) ? "expanded" : ""}`}
+                  key={groupId}
                 >
                   <button
                     type="button"
                     className="admin-navigation-heading"
-                    aria-controls={`admin-navigation-${groupId as string}`}
-                    aria-expanded={expandedNavigationGroups.has(
-                      groupId as string,
-                    )}
+                    aria-controls={`admin-navigation-${groupId}`}
+                    aria-expanded={expandedNavigationGroups.has(groupId)}
                     onClick={() =>
                       setExpandedNavigationGroups((current) => {
                         const next = new Set(current);
-                        if (next.has(groupId as string))
-                          next.delete(groupId as string);
-                        else next.add(groupId as string);
+                        if (next.has(groupId)) next.delete(groupId);
+                        else next.add(groupId);
                         return next;
                       })
                     }
                   >
-                    <span>{groupLabel as string}</span>
+                    <span>{t(groupLabel)}</span>
                     <Icon className="submenu-chevron" name="chevron" />
                   </button>
                   <div
                     className="admin-navigation-submenu"
-                    id={`admin-navigation-${groupId as string}`}
-                    hidden={!expandedNavigationGroups.has(groupId as string)}
+                    id={`admin-navigation-${groupId}`}
+                    hidden={!expandedNavigationGroups.has(groupId)}
                   >
-                    {(groupTabs as typeof tabs).map(
+                    {groupTabs.map(
                       ([key, icon, labelFr, labelEn]) => (
                         <button
                           type="button"
