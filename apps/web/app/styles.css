@@ -307,7 +307,7 @@ textarea:focus-visible {
   display: grid;
   grid-template-columns: 290px minmax(0, 1fr);
 }
-.shell aside,
+.shell > aside,
 .admin-shell > aside {
   background: linear-gradient(145deg, #001b45, #003866);
   color: #fff;
@@ -337,7 +337,7 @@ textarea:focus-visible {
   font-size: 32px;
   padding: 8px 14px;
 }
-.shell nav,
+.shell > aside > nav,
 .admin-shell > aside nav {
   display: grid;
   gap: 13px;
@@ -346,7 +346,7 @@ textarea:focus-visible {
   display: grid;
   gap: 6px;
 }
-.shell nav .space-menu {
+.shell > aside > nav .space-menu {
   font-weight: 700;
 }
 .submenu-chevron {
@@ -366,25 +366,25 @@ textarea:focus-visible {
   margin-left: 35px;
   padding-left: 8px;
 }
-.shell nav .category-menu {
+.shell > aside > nav .category-menu {
   color: #d7e5fb;
   font-size: 15px;
   padding: 11px 14px;
 }
 
-.shell nav .category-menu.category-depth-1 {
+.shell > aside > nav .category-menu.category-depth-1 {
   padding-left: 2.25rem;
 }
 
-.shell nav .category-menu.category-depth-2 {
+.shell > aside > nav .category-menu.category-depth-2 {
   padding-left: 3rem;
 }
 
-.shell nav .category-menu.category-depth-3,
-.shell nav .category-menu.category-depth-4 {
+.shell > aside > nav .category-menu.category-depth-3,
+.shell > aside > nav .category-menu.category-depth-4 {
   padding-left: 3.75rem;
 }
-.shell nav button,
+.shell > aside > nav button,
 .admin-shell > aside nav button,
 .admin-shell > aside nav a {
   border: 0;
@@ -401,17 +401,17 @@ textarea:focus-visible {
   align-items: center;
   cursor: pointer;
 }
-.shell nav button.active,
+.shell > aside > nav button.active,
 .admin-shell > aside nav button.active,
 .admin-shell > aside nav a.active {
   background: linear-gradient(90deg, #0879f9, #005be7);
 }
-.shell nav button:hover,
+.shell > aside > nav button:hover,
 .admin-shell > aside nav button:hover,
 .admin-shell > aside nav a:hover {
   background: #ffffff18;
 }
-.shell nav button.active:hover,
+.shell > aside > nav button.active:hover,
 .admin-shell > aside nav button.active:hover {
   background: linear-gradient(90deg, #0879f9, #005be7);
 }
@@ -1450,6 +1450,7 @@ h1 {
 .admin-shell:has(.drawer) {
   grid-template-columns: 310px minmax(0, 1fr) 395px;
 }
+.shell > aside,
 .admin-shell > aside {
   padding-top: 25px;
   position: sticky;
@@ -1457,6 +1458,7 @@ h1 {
   height: 100dvh;
   min-height: 0;
 }
+.shell > aside :is(.sidebar-heading, .secure),
 .admin-shell > aside :is(.sidebar-heading, .back-link) {
   flex: 0 0 auto;
 }
@@ -1466,6 +1468,7 @@ h1 {
 .admin-shell .brand strong {
   font-size: 25px;
 }
+.shell > aside > nav,
 .admin-shell > aside nav {
   gap: 3px;
   min-height: 0;
@@ -3123,16 +3126,16 @@ h1 {
   .shell {
     display: block;
   }
-  .shell aside {
+  .shell > aside {
     padding: 20px;
   }
   .brand {
     padding-bottom: 15px;
   }
-  .shell nav {
+  .shell > aside > nav {
     grid-template-columns: repeat(4, 1fr);
   }
-  .shell nav button {
+  .shell > aside > nav button {
     padding: 12px;
     justify-content: center;
   }
@@ -3142,7 +3145,7 @@ h1 {
     margin-left: 0;
     padding-left: 0;
   }
-  .shell nav span {
+  .shell > aside > nav span {
     display: none;
   }
   .secure {
@@ -3340,7 +3343,7 @@ svg {
   width: 20px;
   height: 20px;
 }
-.shell nav svg,
+.shell > aside > nav svg,
 .admin-shell > aside nav svg {
   width: 22px;
   height: 22px;
@@ -3362,7 +3365,7 @@ svg {
   .admin-shell:has(.drawer) {
     display: block;
   }
-  .shell aside,
+  .shell > aside,
   .admin-shell > aside {
     display: flex;
     position: relative;
@@ -3387,7 +3390,7 @@ svg {
     width: 25px;
     height: 25px;
   }
-  .shell nav,
+  .shell > aside > nav,
   .admin-shell > aside nav {
     display: flex;
     overflow-x: auto;
@@ -3396,7 +3399,7 @@ svg {
     scrollbar-width: thin;
     scroll-snap-type: x proximity;
   }
-  .shell nav button,
+  .shell > aside > nav button,
   .admin-shell > aside nav button {
     flex: 0 0 auto;
     width: auto;
@@ -3407,7 +3410,7 @@ svg {
     scroll-snap-align: start;
     white-space: nowrap;
   }
-  .shell nav span,
+  .shell > aside > nav span,
   .admin-shell > aside nav span {
     display: inline;
   }
@@ -3565,19 +3568,19 @@ svg {
     width: 100%;
     max-height: 240px;
   }
-  .shell aside,
+  .shell > aside,
   .admin-shell > aside {
     padding: 14px 16px;
   }
   .brand small br {
     display: none;
   }
-  .shell nav button,
+  .shell > aside > nav button,
   .admin-shell > aside nav button {
     min-width: auto;
     padding: 10px 12px;
   }
-  .shell nav button span,
+  .shell > aside > nav button span,
   .admin-shell > aside nav button span {
     max-width: 150px;
     overflow: hidden;
@@ -4448,10 +4451,11 @@ svg {
 }
 
 @media (max-width: 900px) {
-  .shell aside,
+  .shell > aside,
   .admin-shell > aside {
     padding: 14px 18px;
   }
+  .shell > aside,
   .admin-shell > aside {
     height: auto;
     max-height: 100dvh;
@@ -4467,13 +4471,13 @@ svg {
     place-items: center;
     flex: 0 0 auto;
   }
-  .shell aside nav,
+  .shell > aside > nav,
   .admin-shell > aside nav,
-  .shell aside .back-link,
+  .shell > aside .back-link,
   .admin-shell > aside .back-link {
     display: none;
   }
-  .shell aside.navigation-open nav,
+  .shell > aside.navigation-open > nav,
   .admin-shell > aside.navigation-open nav {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -4482,17 +4486,18 @@ svg {
     border-top: 1px solid #ffffff2b;
     overflow: visible;
   }
+  .shell > aside.navigation-open > nav,
   .admin-shell > aside.navigation-open nav {
     overflow-y: auto;
   }
-  .shell aside.navigation-open nav button,
+  .shell > aside.navigation-open > nav button,
   .admin-shell > aside.navigation-open nav button {
     width: 100%;
     min-width: 0;
     white-space: normal;
     overflow-wrap: anywhere;
   }
-  .shell aside.navigation-open .back-link,
+  .shell > aside.navigation-open .back-link,
   .admin-shell > aside.navigation-open .back-link {
     display: inline-flex;
   }
@@ -4560,6 +4565,11 @@ svg {
   .document-sort select {
     width: 100%;
   }
+  .explorer-controls {
+    flex: 0 1 auto;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
   .explorer-controls .primary {
     width: 100%;
   }
@@ -4570,16 +4580,16 @@ svg {
   .admin-shell {
     grid-template-columns: 248px minmax(0, 1fr);
   }
-  .shell aside,
+  .shell > aside,
   .admin-shell > aside {
     padding: 28px 12px 20px;
   }
 }
-.shell nav,
+.shell > aside > nav,
 .admin-shell > aside nav {
   gap: 5px;
 }
-.shell nav button,
+.shell > aside > nav button,
 .admin-shell > aside nav button,
 .admin-shell > aside nav a {
   font-size: 15px;
@@ -4588,7 +4598,7 @@ svg {
   border-radius: 6px;
 }
 .explorer-heading {
-  position: sticky;
+  position: static;
   top: 0;
   z-index: 12;
   margin-top: 10px;
@@ -4597,6 +4607,9 @@ svg {
   border-radius: 0;
   background: #fff;
   gap: 12px;
+}
+@media (min-width: 901px) {
+  .explorer-heading { position: sticky; }
 }
 .explorer-heading h2 {
   font-size: 22px;
@@ -4818,6 +4831,58 @@ svg {
   .document-list .document-status,
   .document-list .document-updated,
   .document-list .locales { display: none; }
+}
+.admin-shell > main .admin-form > button {
+  justify-self: start;
+  max-width: 100%;
+  white-space: normal;
+}
+.admin-shell > main > :is(.profile-settings, .sso-diagnostic) {
+  max-width: none;
+  border: 0;
+  border-top: 1px solid #d4deeb;
+  border-radius: 0;
+  padding: 20px 0;
+}
+.admin-shell > main .profile-settings > .admin-form {
+  width: 100%;
+  max-width: 52rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.admin-shell > main .sso-diagnostic dl {
+  grid-template-columns: minmax(9rem, 14rem) minmax(0, 1fr);
+}
+.admin-shell > main .sso-diagnostic dd {
+  min-width: 0;
+  text-align: left;
+}
+.admin-shell > main .sso-diagnostic input {
+  width: min(100%, 26rem);
+  min-height: 42px;
+  padding: 10px;
+  border: 1px solid #becce0;
+  border-radius: 6px;
+}
+.shell > aside > nav .category-pagination button {
+  width: auto;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 4px 8px;
+  border: 1px solid #7191b7;
+  justify-content: center;
+  font-size: 13px;
+}
+.shell > aside > nav .category-pagination button.active {
+  border-color: #fff;
+  background: #2b65e8;
+}
+@media (max-width: 600px) {
+  .admin-shell > main .sso-diagnostic dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .observability-panel {
   display: grid;

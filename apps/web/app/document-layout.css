@@ -27,6 +27,9 @@
 .document-list .document-space,
 .document-list .category { overflow-wrap: anywhere; }
 .document-grid .document-title { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.document-grid .locales { display: flex; flex-wrap: wrap; }
+.document-grid .document-row-actions .favorite-toggle,
+.document-grid .document-row-actions .download { width: 44px; height: 44px; min-width: 44px; flex: 0 0 44px; padding: 8px; }
 .document-list .document-row-actions { flex-wrap: wrap; gap: 6px; min-width: 0; }
 .document-list .document-row-actions > .document-manage-actions {
   flex: 1 1 100%; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; padding: 0; border: 0;
@@ -41,8 +44,8 @@
   .document-list .document-space,
   .document-list .category,
   .document-list .document-status,
-  .document-list .document-updated,
-  .document-list .locales { display: initial; }
+  .document-list .document-updated { display: initial; }
+  .document-list .locales { display: flex; flex-wrap: wrap; }
 }
 @container (max-width: 1100px) {
   .document-list-header { display: none; }
@@ -50,16 +53,26 @@
   .document-list .document-space,
   .document-list .category,
   .document-list .document-status,
-  .document-list .document-updated,
-  .document-list .locales { display: none; }
-}
-@container (max-width: 620px) {
-  .document-list .document { grid-template-columns: 36px minmax(0, 1fr) 54px; gap: 8px; padding: 12px; }
+  .document-list .document-updated { display: none; }
   .document-list .document-title { grid-column: 2; grid-row: 1; }
   .document-list .document-version-details { grid-column: 3; grid-row: 1; }
-  .document-list .document-status { display: initial; grid-column: 2; grid-row: 2; }
-  .document-list .document-row-actions { grid-column: 1 / -1; justify-content: flex-start; }
+  .document-list .locales { display: flex; flex-wrap: wrap; grid-column: 2; grid-row: 2; }
+  .document-list .document-row-actions { grid-column: 4; grid-row: 1 / 3; }
+}
+@container (max-width: 620px) {
+  .document-list .document { grid-template-columns: 36px minmax(0, 1fr); gap: 8px; padding: 12px; }
+  .document-list .file { grid-column: 1; grid-row: 1; }
+  .document-list .document-title { grid-column: 2; grid-row: 1; -webkit-line-clamp: unset; }
+  .document-list .document-version-details { grid-column: 2; grid-row: 2; }
+  .document-list .document-status { display: initial; grid-column: 2; grid-row: 3; }
+  .document-list .locales { grid-column: 2; grid-row: 4; }
+  .document-list .locales button { min-width: 44px; min-height: 44px; }
+  .document-list .document-row-actions { grid-column: 1 / -1; grid-row: 5; justify-content: flex-start; }
   .document-list .document-row-actions > .document-manage-actions { justify-content: flex-start; }
+  .document-list .document-row-actions button,
+  .document-list .document-row-actions a { min-height: 44px; }
+  .document-list .document-row-actions .favorite-toggle,
+  .document-list .document-row-actions .download { width: 44px; height: 44px; flex-basis: 44px; }
 }
 .admin-form > label { min-width: 0; }
 .admin-form input:not([type="checkbox"]):not([type="radio"]),

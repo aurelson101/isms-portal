@@ -734,6 +734,7 @@ export function Portal({
     useState<SessionFailure | null>(null);
   const [authenticationAttempt, setAuthenticationAttempt] = useState(0);
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const navigationToggleRef = useRef<HTMLButtonElement>(null);
   const [expandedSpaces, setExpandedSpaces] = useState<Set<string>>(
     () => new Set(),
   );
@@ -949,7 +950,10 @@ export function Portal({
 
   useEffect(() => {
     const closeNavigation = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setNavigationOpen(false);
+      if (event.key === "Escape" && navigationOpen) {
+        setNavigationOpen(false);
+        navigationToggleRef.current?.focus();
+      }
       if (
         event.key === "/" &&
         !event.ctrlKey &&
@@ -964,7 +968,7 @@ export function Portal({
     };
     window.addEventListener("keydown", closeNavigation);
     return () => window.removeEventListener("keydown", closeNavigation);
-  }, []);
+  }, [navigationOpen]);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -1120,6 +1124,7 @@ export function Portal({
   };
 
   const selectCategory = (spaceSlug: string, categoryId: string) => {
+    setNavigationOpen(false);
     const categorySlug =
       identity?.spaces
         .flatMap((item) => item.categories)
@@ -1239,6 +1244,7 @@ export function Portal({
     await loadDocuments();
   };
   const selectSpace = (next: string) => {
+    setNavigationOpen(false);
     if (!explorerMode) {
       router.push(`/explorer?space=${encodeURIComponent(next)}`);
       return;
@@ -1258,9 +1264,11 @@ export function Portal({
     );
   };
   const selectHome = () => {
+    setNavigationOpen(false);
     router.push("/");
   };
   const selectFavorites = () => {
+    setNavigationOpen(false);
     setHelpOpen(false);
     if (!explorerMode) {
       router.push("/explorer?favorites=true");
@@ -1605,6 +1613,7 @@ export function Portal({
           <button
             type="button"
             className="navigation-toggle"
+            ref={navigationToggleRef}
             aria-controls="portal-navigation"
             aria-expanded={navigationOpen}
             aria-label={navigationOpen ? t.closeNavigation : t.openNavigation}
