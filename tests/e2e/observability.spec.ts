@@ -8,6 +8,8 @@ for (const width of [320, 768, 1280]) {
     const counts = { waiting: 2, active: 1, delayed: 0, completed: 21, failed: 1 };
     const history = Array.from({ length: 25 }, (_, index) => ({ id: `mail-${index}`, action: "document.published", resource: `policy-${index}`, status: index === 24 ? "FAILED" : "ACCEPTED", attempts: 1, createdAt: index === 24 ? "invalid-date" : "2026-10-02T12:00:00Z", finishedAt: null, accepted: index === 24 ? 0 : 1, error: index === 24 ? "Provider unavailable" : null }));
     let failedLoad = true; let settingsRequests = 0; let decisions = 0;
+    let integrationOutcome: "ready" | "pending" | "http" | "network" | "invalid" | "unready" = "ready";
+    let releaseIntegration!: () => void;
     let releaseDecision!: () => void;
     const decisionGate = new Promise<void>((resolve) => { releaseDecision = resolve; });
     await page.route("**/api/**", async (route) => {
@@ -20,6 +22,13 @@ for (const width of [320, 768, 1280]) {
       if (path === "/api/admin/operations/summary") return route.fulfill(failedLoad ? { status: 503, json: { message: "Unavailable" } } : { json: { failures: 1, denied: 2, accessRequests: 25, reports: 0, unreadNotifications: 0 } });
       if (path === "/api/admin/operations/work-items") return route.fulfill({ json: { accessRequests: Array.from({ length: 25 }, (_, index) => ({ id: `access-${index}`, identity: `user-${index}@example.test`, justification: "Long justification with text that must wrap on mobile", status: "PENDING" })), reports: [], reviews: [], approvals: [] } });
       if (path === "/api/admin/operations/integrations") return route.fulfill({ json: { settings: [] } });
+      if (path === "/api/admin/operations/integrations/wazuh/test") {
+        if (integrationOutcome === "pending") await new Promise<void>((resolve) => { releaseIntegration = resolve; });
+        if (integrationOutcome === "http") return route.fulfill({ status: 503, json: { message: "Unavailable" } });
+        if (integrationOutcome === "network") return route.abort("failed");
+        if (integrationOutcome === "invalid") return route.fulfill({ contentType: "application/json", body: "not-json" });
+        return route.fulfill({ json: { applicationHealthy: integrationOutcome !== "unready", metricsAvailable: true, artifactsAvailable: true } });
+      }
       if (path === "/api/admin/operations/alert-policy") { settingsRequests++; return route.fulfill({ json: { enabled: false, channel: "none", destinationReference: "", fiveXxPercent: "5", deniedPerMinute: "20" } }); }
       if (path === "/api/admin/operations/alert-channels") return route.fulfill({ json: { smtpHost: "smtp.example.test", configured: { email: true, teams: false, slack: false, webhook: false } } });
       if (path === "/api/admin/operations/email-deliveries/counts") return route.fulfill({ json: counts });
@@ -54,8 +63,27 @@ for (const width of [320, 768, 1280]) {
     const wazuh = panel.locator(".integration-card").filter({ has: page.getByRole("heading", { name: "Wazuh", exact: true }) });
     await expect(wazuh.getByRole("link", { name: "Configuration de l’agent" })).toHaveAttribute("href", "/api/admin/operations/integrations/wazuh/download?artifact=agent");
     await expect(wazuh.getByRole("link", { name: "Événements de test" })).toHaveAttribute("href", "/api/admin/operations/integrations/wazuh/download?artifact=samples");
-    await wazuh.getByRole("button", { name: "Tester la préparation", exact: true }).click();
-    await expect(wazuh.getByRole("status")).toContainText("Préparation locale en échec");
+    const integrationTest = wazuh.getByRole("button", { name: "Tester la préparation", exact: true });
+    await integrationTest.click();
+    await expect(wazuh.getByRole("status")).toContainText("Préparation locale validée");
+    integrationOutcome = "pending";
+    await integrationTest.click();
+    await expect(wazuh.getByRole("status")).toContainText("Test en cours");
+    await expect(integrationTest).toBeDisabled();
+    await expect(refresh).toBeDisabled();
+    await expect.poll(() => typeof releaseIntegration).toBe("function");
+    releaseIntegration();
+    await expect(wazuh.getByRole("status")).toContainText("Préparation locale validée");
+    for (const outcome of ["http", "network", "invalid", "unready"] as const) {
+      integrationOutcome = outcome;
+      await integrationTest.click();
+      await expect(wazuh.getByRole("status")).toContainText("Préparation locale en échec");
+      await expect(integrationTest).toBeEnabled();
+      await expect(refresh).toBeEnabled();
+      integrationOutcome = "ready";
+      await integrationTest.click();
+      await expect(wazuh.getByRole("status")).toContainText("Préparation locale validée");
+    }
     await expect(wazuh.getByRole("status")).toContainText("Collecte externe non vérifiée");
     const host = panel.getByLabel("Serveur SMTP", { exact: true });
     await host.fill("unsaved.example.test");

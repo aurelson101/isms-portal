@@ -5026,7 +5026,7 @@ function ObservabilityPanel({
     Record<string, boolean>
   >({});
   const [portalOrigin, setPortalOrigin] = useState("");
-  const [integrationTests, setIntegrationTests] = useState<Record<string, boolean>>({});
+  const [integrationTests, setIntegrationTests] = useState<Record<string, "testing" | "ready" | "failed">>({});
   const integrationDownloads: Record<string, Array<{ variant: string; fr: string; en: string }>> = {
     prometheus: [{ variant: "alerts", fr: "Règles d’alerte", en: "Alert rules" }],
     wazuh: [{ variant: "agent", fr: "Configuration de l’agent", en: "Agent configuration" }, { variant: "samples", fr: "Événements de test", en: "Test events" }],
@@ -5532,20 +5532,33 @@ function ObservabilityPanel({
               <button
                 type="button"
                 onClick={() => void runOperation(async () => {
-                  const response = await fetch(
-                    `/api/admin/operations/integrations/${tool}/test`,
-                  );
-                  if (!response.ok) throw new Error("Integration preparation failed");
-                  const result = await response.json() as { applicationHealthy?: boolean; metricsAvailable?: boolean; artifactsAvailable?: boolean };
-                  const ready = result.applicationHealthy === true && result.metricsAvailable === true && result.artifactsAvailable === true;
-                  setIntegrationTests((current) => ({ ...current, [tool]: ready }));
+                  setIntegrationTests((current) => ({ ...current, [tool]: "testing" }));
+                  const controller = new AbortController();
+                  const timeout = window.setTimeout(() => controller.abort(), 10000);
+                  try {
+                    const response = await fetch(
+                      `/api/admin/operations/integrations/${tool}/test`,
+                      { signal: controller.signal, cache: "no-store" },
+                    );
+                    if (!response.ok) throw new Error("Integration preparation failed");
+                    const result = await response.json() as { applicationHealthy?: boolean; metricsAvailable?: boolean; artifactsAvailable?: boolean };
+                    const ready = result.applicationHealthy === true && result.metricsAvailable === true && result.artifactsAvailable === true;
+                    setIntegrationTests((current) => ({ ...current, [tool]: ready ? "ready" : "failed" }));
+                  } catch (error) {
+                    setIntegrationTests((current) => ({ ...current, [tool]: "failed" }));
+                    throw error;
+                  } finally {
+                    window.clearTimeout(timeout);
+                  }
                 })}
               >
                 {t("Tester la préparation")}
               </button>
-              {tool in integrationTests && <p role="status">{integrationTests[tool]
-                ? t("Préparation locale validée", "Local readiness verified")
-                : t("Préparation locale en échec", "Local readiness failed")}
+              {Object.hasOwn(integrationTests, tool) && <p role="status">{integrationTests[tool] === "testing"
+                ? t("Test en cours", "Test in progress")
+                : integrationTests[tool] === "ready"
+                  ? t("Préparation locale validée", "Local readiness verified")
+                  : t("Préparation locale en échec", "Local readiness failed")}
                 {" · "}{t("Collecte externe non vérifiée", "External collection unverified")}</p>}
             </article>
           );
