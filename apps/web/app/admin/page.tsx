@@ -5237,10 +5237,29 @@ function ObservabilityPanel({
       config: `Importer deploy/monitoring/zabbix-isms-template.yaml\n{$ISMS.URL}=${detectedPortalUrl}\n{$ISMS.METRICS.URL}=http://api:3001/metrics\n# Le serveur/proxy Zabbix doit rejoindre le réseau privé.`,
     },
   ];
-  const copy = async (value: string) => {
-    try { await navigator.clipboard.writeText(value); onNotice(t("Configuration copiée.")); }
-    catch { setOperationsError(ui.actionError); }
-  };
+  const copy = (downloadUrl: string) => runOperation(async () => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 10000);
+    const configuration = fetch(downloadUrl, { signal: controller.signal, cache: "no-store", redirect: "error" }).then(async (response) => {
+      if (!response.ok) throw new Error("Configuration download failed");
+      const content = await response.text();
+      if (!content.trim()) throw new Error("Empty integration configuration");
+      return new Blob([content], { type: "text/plain" });
+    });
+    try {
+      if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) {
+        await navigator.clipboard.writeText(await (await configuration).text());
+      } else {
+        // Request clipboard access during the click, before awaiting the download.
+        await Promise.all([configuration, navigator.clipboard.write([new ClipboardItem({ "text/plain": configuration })])]);
+      }
+      onNotice(t("Configuration copiée."));
+    } finally {
+      controller.abort();
+      window.clearTimeout(timeout);
+      await configuration.catch(() => undefined);
+    }
+  });
   const saveAlertChannels = async () => {
     const { configured: _configured, ...payload } = alertChannels;
     const response = await fetch("/api/admin/operations/alert-channels", {
@@ -5476,6 +5495,7 @@ function ObservabilityPanel({
             : integration.name.toLowerCase().includes("syslog")
               ? "syslog"
               : integration.name.toLowerCase();
+          const downloadUrl = `/api/admin/operations/integrations/${tool}/download?portalUrl=${encodeURIComponent(detectedPortalUrl)}`;
           return (
             <article className="integration-card" key={integration.name}>
               <h2>{integration.name}</h2>
@@ -5517,12 +5537,12 @@ function ObservabilityPanel({
               </pre>
               <button
                 type="button"
-                onClick={() => void copy(integration.config)}
+                onClick={() => void copy(downloadUrl)}
               >
                 {t("Copier la configuration")}
               </button>
               <a
-                href={`/api/admin/operations/integrations/${tool}/download?portalUrl=${encodeURIComponent(detectedPortalUrl)}`}
+                href={downloadUrl}
               >
                 {t("Télécharger la configuration")}
               </a>

@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 for (const width of [320, 768, 1280]) {
-  test(`observability recovery, pagination and safe actions at ${width}px`, async ({ page }, info) => {
+  test(`observability recovery, pagination and safe actions at ${width}px`, async ({ page, context }, info) => {
     await page.setViewportSize({ width, height: 900 });
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
     await page.addInitScript(() => localStorage.setItem("isms-locale", "fr"));
     const counts = { waiting: 2, active: 1, delayed: 0, completed: 21, failed: 1 };
@@ -10,6 +11,8 @@ for (const width of [320, 768, 1280]) {
     let failedLoad = true; let settingsRequests = 0; let decisions = 0;
     let integrationOutcome: "ready" | "pending" | "http" | "network" | "invalid" | "unready" = "ready";
     let releaseIntegration!: () => void;
+    let downloadFailure: "none" | "http" | "empty" = "none";
+    const downloadedTools: string[] = [];
     let releaseDecision!: () => void;
     const decisionGate = new Promise<void>((resolve) => { releaseDecision = resolve; });
     await page.route("**/api/**", async (route) => {
@@ -22,6 +25,13 @@ for (const width of [320, 768, 1280]) {
       if (path === "/api/admin/operations/summary") return route.fulfill(failedLoad ? { status: 503, json: { message: "Unavailable" } } : { json: { failures: 1, denied: 2, accessRequests: 25, reports: 0, unreadNotifications: 0 } });
       if (path === "/api/admin/operations/work-items") return route.fulfill({ json: { accessRequests: Array.from({ length: 25 }, (_, index) => ({ id: `access-${index}`, identity: `user-${index}@example.test`, justification: "Long justification with text that must wrap on mobile", status: "PENDING" })), reports: [], reviews: [], approvals: [] } });
       if (path === "/api/admin/operations/integrations") return route.fulfill({ json: { settings: [] } });
+      const artifact = path.match(/^\/api\/admin\/operations\/integrations\/(prometheus|syslog|wazuh|zabbix)\/download$/);
+      if (artifact) {
+        downloadedTools.push(artifact[1]);
+        expect(new URL(route.request().url()).searchParams.get("portalUrl")).toBe("http://127.0.0.1:3100");
+        if (downloadFailure === "http") return route.fulfill({ status: 503, body: "Unavailable" });
+        return route.fulfill({ contentType: "text/plain", body: downloadFailure === "empty" ? "" : `Complete ${artifact[1]} configuration from the API\n` });
+      }
       if (path === "/api/admin/operations/integrations/wazuh/test") {
         if (integrationOutcome === "pending") await new Promise<void>((resolve) => { releaseIntegration = resolve; });
         if (integrationOutcome === "http") return route.fulfill({ status: 503, json: { message: "Unavailable" } });
@@ -63,6 +73,25 @@ for (const width of [320, 768, 1280]) {
     const wazuh = panel.locator(".integration-card").filter({ has: page.getByRole("heading", { name: "Wazuh", exact: true }) });
     await expect(wazuh.getByRole("link", { name: "Configuration de l’agent" })).toHaveAttribute("href", "/api/admin/operations/integrations/wazuh/download?artifact=agent");
     await expect(wazuh.getByRole("link", { name: "Événements de test" })).toHaveAttribute("href", "/api/admin/operations/integrations/wazuh/download?artifact=samples");
+    for (const [name, tool] of [["Prometheus / Grafana", "prometheus"], ["Syslog / rsyslog", "syslog"], ["Wazuh", "wazuh"], ["Zabbix", "zabbix"]]) {
+      const card = panel.locator(".integration-card").filter({ has: page.getByRole("heading", { name, exact: true }) });
+      await card.getByRole("button", { name: "Copier la configuration", exact: true }).click();
+      await expect.poll(() => page.evaluate(async () => (await navigator.clipboard.readText()).replace(/\r\n/g, "\n"))).toBe(`Complete ${tool} configuration from the API\n`);
+    }
+    expect(downloadedTools).toEqual(["prometheus", "syslog", "wazuh", "zabbix"]);
+    for (const failure of ["http", "empty"] as const) {
+      downloadFailure = failure;
+      await wazuh.getByRole("button", { name: "Copier la configuration", exact: true }).click();
+      await expect(panel.getByRole("alert").first()).toContainText("L’opération a échoué");
+      expect(await page.evaluate(async () => (await navigator.clipboard.readText()).replace(/\r\n/g, "\n"))).toBe("Complete zabbix configuration from the API\n");
+      await expect(refresh).toBeEnabled();
+    }
+    downloadFailure = "none";
+    await page.evaluate(() => Object.defineProperty(navigator.clipboard, "write", { configurable: true, value: () => Promise.reject(new DOMException("Clipboard blocked", "NotAllowedError")) }));
+    await wazuh.getByRole("button", { name: "Copier la configuration", exact: true }).click();
+    await expect(panel.getByRole("alert").first()).toContainText("L’opération a échoué");
+    await expect(refresh).toBeEnabled();
+    await page.evaluate(() => Reflect.deleteProperty(navigator.clipboard, "write"));
     const integrationTest = wazuh.getByRole("button", { name: "Tester la préparation", exact: true });
     await integrationTest.click();
     await expect(wazuh.getByRole("status")).toContainText("Préparation locale validée");
