@@ -24,11 +24,17 @@ for (const width of [320, 768, 1280]) {
     await batch.getByRole("combobox", { name: "Category", exact: true }).selectOption("category");
     await batch.getByRole("combobox", { name: "File language", exact: true }).selectOption("en");
     await batch.getByLabel("Publish after scanning").check();
+    await batch.getByLabel("Shared description (optional)", { exact: true }).fill("Common document description");
     await batch.locator('input[type="file"]').setInputFiles(files);
+    await expect(batch.locator(".batch-items li").nth(1).getByRole("textbox", { name: "Description", exact: true })).toHaveValue("Common document description");
+    await batch.locator(".batch-items li").first().getByRole("textbox", { name: "Description", exact: true }).fill("Specific policy description");
     await batch.getByRole("button", { name: "Process batch" }).click();
     await expect(batch.getByRole("alert")).toHaveText("Queue temporarily unavailable");
     expect(uploads).toHaveLength(2); expect(publications).toHaveLength(2);
     expect(uploads.every((body) => body.includes('name="suppressEmailNotifications"\r\n\r\ntrue'))).toBe(true);
+    expect(uploads[0]).toContain('name="description"\r\n\r\nSpecific policy description');
+    expect(uploads[1]).toContain('name="description"\r\n\r\nCommon document description');
+    await expect(batch.locator(".batch-items li").first().getByRole("textbox", { name: "Description", exact: true })).toBeDisabled();
     await expect(batch.getByRole("button", { name: "Process batch" })).toBeDisabled();
     await batch.getByRole("button", { name: "Retry summary" }).click();
     await expect(batch.getByText("Summary queued for delivery.")).toBeVisible();
@@ -36,6 +42,8 @@ for (const width of [320, 768, 1280]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(errors).toEqual([]);
     await page.screenshot({ path: info.outputPath("batch-import.png"), fullPage: true });
+    await batch.getByRole("button", { name: "New batch" }).click();
+    await expect(batch.getByRole("textbox", { name: "Shared description (optional)", exact: true })).toHaveValue("");
   });
 }
 test("does not reupload a document when publication alone fails", async ({ page }) => {
@@ -74,7 +82,7 @@ test("admin batch import enforces the file limit and silent publication", async 
   await page.setViewportSize({ width: 320, height: 900 });
   await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
   const space = { id: "space", slug: "documents", nameFr: "Documents", nameEn: "Documents", categories: [], permissions: { upload: true, publish: true } };
-  let uploads = 0; let summaries = 0; let publications = 0;
+  let uploads = 0; let summaries = 0; let publications = 0; let uploadBody = "";
   const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/api/**", (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -83,7 +91,7 @@ test("admin batch import enforces the file limit and silent publication", async 
     if (path === "/api/admin/dashboard") return route.fulfill({ json: { groups: 0, spaces: 1, documents: 0, syncErrors: 0, attention: { total: 0 } } });
     if (path.endsWith("/spaces")) return route.fulfill({ json: [space] });
     if (path === "/api/admin/documents") return route.fulfill({ json: { items: [], total: 0 } });
-    if (path === "/api/documents/upload") { uploads++; return route.fulfill({ json: { id: ids[0], status: "DRAFT" } }); }
+    if (path === "/api/documents/upload") { uploads++; uploadBody = route.request().postData()!; return route.fulfill({ json: { id: ids[0], status: "DRAFT" } }); }
     if (path.endsWith("/publish")) { publications++; return route.fulfill({ json: {} }); }
     if (path === "/api/documents/publication-digest") { summaries++; return route.fulfill({ json: {} }); }
     return route.fulfill({ json: [] });
@@ -95,9 +103,11 @@ test("admin batch import enforces the file limit and silent publication", async 
   await expect(batch.getByRole("alert")).toHaveText("Maximum 200 files per batch."); expect(uploads).toBe(0);
   await batch.locator('input[type="file"]').setInputFiles(files[0]);
   await batch.getByRole("combobox", { name: "Email notifications", exact: true }).selectOption("none");
+  await batch.getByLabel("Shared description (optional)", { exact: true }).fill("Admin description");
   await batch.getByLabel("Publish after scanning").check();
   await batch.getByRole("button", { name: "Process batch" }).click();
   await expect(batch.getByText("Batch processing complete.")).toBeVisible();
   expect(uploads).toBe(1); expect(publications).toBe(1); expect(summaries).toBe(0); expect(errors).toEqual([]);
+  expect(uploadBody).toContain('name="description"\r\n\r\nAdmin description');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

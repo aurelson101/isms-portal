@@ -8,7 +8,7 @@ import { categoryOptions, validateUpload, type Space, type Category } from "./mo
 import "./batch-import.css";
 
 type BatchSpace = Space & { categories?: Category[] };
-type Item = { key: number; file: File; title: string; documentId?: string; status: "pending" | "uploading" | "draft" | "publishing" | "published" | "failed" | "uncertain" | "quarantined"; error?: string };
+type Item = { key: number; file: File; title: string; description?: string; documentId?: string; status: "pending" | "uploading" | "draft" | "publishing" | "published" | "failed" | "uncertain" | "quarantined"; error?: string };
 class ImportError extends Error {
   constructor(message: string, readonly uncertain = false, readonly status = 0) { super(message); }
 }
@@ -35,6 +35,7 @@ export function BatchImport({ locale, disabled = false, onComplete, onBusyChange
   const [loading, setLoading] = useState(false);
   const [spaceId, setSpaceId] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [description, setDescription] = useState("");
   const [fileLocale, setFileLocale] = useState<Locale>(locale);
   const [publish, setPublish] = useState(false);
   const [notifications, setNotifications] = useState("digest");
@@ -98,6 +99,7 @@ export function BatchImport({ locale, disabled = false, onComplete, onBusyChange
             const data = new FormData();
             data.set("spaceId", spaceId); data.set("categoryId", categoryId); data.set("locale", fileLocale);
             data.set("title", item.title); data.set("changeSummary", "Initial version");
+            data.set("description", item.description ?? description);
             data.set("file", item.file); data.set("suppressEmailNotifications", "true");
             validateUpload(data, locale);
             item = { ...item, status: "uploading", error: undefined }; update(item);
@@ -133,6 +135,7 @@ export function BatchImport({ locale, disabled = false, onComplete, onBusyChange
         <label>{t("Catégorie", "Category")}<select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="">{t("Sans catégorie", "No category")}</option>{categoryOptions(selectedSpace?.categories || [], locale).map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
         <label>{t("Langue des fichiers", "File language")}<select value={fileLocale} onChange={(event) => setFileLocale(event.target.value as Locale)}><option value="fr">FR</option><option value="en">EN</option></select></label>
         <label>{t("Notifications e-mail", "Email notifications")}<select value={notifications} onChange={(event) => setNotifications(event.target.value)}><option value="digest">{t("Récapitulatif groupé des publications", "Grouped publication summary")}</option><option value="none">{t("Ne pas envoyer d’e-mail", "Do not send email")}</option></select></label>
+        <label className="batch-description">{t("Description commune du lot (facultative)", "Shared description (optional)")}<textarea rows={3} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
         <label className="batch-check"><input type="checkbox" checked={publish} disabled={!selectedSpace?.permissions.publish} onChange={(event) => setPublish(event.target.checked)} />{t("Publier après analyse", "Publish after scanning")}</label>
         <label className="batch-files">{t("Fichiers PDF, DOCX, XLSX · 200 maximum · 50 Mo par fichier", "PDF, DOCX, XLSX files · up to 200 · 50 MB per file")}<input ref={fileInput} type="file" multiple accept=".pdf,.docx,.xlsx" onChange={(event) => {
           const files = Array.from(event.target.files || []);
@@ -141,13 +144,13 @@ export function BatchImport({ locale, disabled = false, onComplete, onBusyChange
           setItems(files.map((file, key) => ({ key, file, title: file.name.replace(/\.[^.]+$/, "").slice(0, 255), status: "pending" })));
         }} /></label>
       </fieldset>
-      {items.length > 0 && <><progress max={items.length} value={completed} aria-label={t("Progression de l’import", "Import progress")} /><p role="status">{completed} / {items.length}</p><ol className="batch-items">{items.map((item) => <li key={item.key}><span>{item.file.name}</span><label>{t("Titre", "Title")}<input required maxLength={255} value={item.title} disabled={running || Boolean(item.documentId) || item.status === "uncertain"} onChange={(event) => update({ ...item, title: event.target.value })} /></label><strong>{labels[item.status]}</strong>{item.error && <p className="error-state">{item.error}</p>}</li>)}</ol></>}
+      {items.length > 0 && <><progress max={items.length} value={completed} aria-label={t("Progression de l’import", "Import progress")} /><p role="status">{completed} / {items.length}</p><ol className="batch-items">{items.map((item) => <li key={item.key}><span>{item.file.name}</span><label>{t("Titre", "Title")}<input required maxLength={255} value={item.title} disabled={running || Boolean(item.documentId) || item.status === "uncertain"} onChange={(event) => update({ ...item, title: event.target.value })} /></label><strong>{labels[item.status]}</strong><label className="batch-description">{t("Description", "Description")}<textarea rows={3} value={item.description ?? description} disabled={running || Boolean(item.documentId) || item.status === "uncertain"} onChange={(event) => update({ ...item, description: event.target.value })} /></label>{item.error && <p className="error-state">{item.error}</p>}</li>)}</ol></>}
       {loading && <p role="status">{t("Chargement…", "Loading…")}</p>}{error && <p role="alert" className="error-state">{error}</p>}{notice && <p role="status" className="notice">{notice}</p>}
       <div className="button-row"><button className="primary" disabled={disabled || running || loading || digestPending.length > 0 || !items.some((item) => ["pending", "failed"].includes(item.status))}>{t("Traiter le lot", "Process batch")}</button>
         {digestPending.length > 0 && <button type="button" disabled={running} onClick={async () => { if (!begin()) return; try { await queueSummary(digestPending); await onComplete(); } catch (reason) { setError((reason as Error).message); } finally { finish(); } }}>{t("Réessayer le récapitulatif", "Retry summary")}</button>}
         {items.length > 0 && <button type="button" disabled={running} onClick={() => {
           if (pending && !window.confirm(t("Abandonner les éléments en attente ? Les documents déjà déposés seront conservés.", "Discard pending items? Uploaded documents will be kept."))) return;
-          setItems([]); setDigestPending([]); notifiedIds.current.clear(); setError(""); setNotice(""); if (fileInput.current) fileInput.current.value = "";
+          setItems([]); setDescription(""); setDigestPending([]); notifiedIds.current.clear(); setError(""); setNotice(""); if (fileInput.current) fileInput.current.value = "";
         }}>{t("Nouveau lot", "New batch")}</button>}</div>
     </form>}
   </section>;
