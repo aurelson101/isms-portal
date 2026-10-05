@@ -46,6 +46,7 @@ describe("DocumentsController ACL scoping", () => {
     {} as never,
     { record: vi.fn().mockResolvedValue(undefined) } as never,
     {} as never,
+    {} as never,
   );
   const request = {
     identity: {

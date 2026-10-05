@@ -8,6 +8,7 @@ import { portalLink, type EmailTemplate } from "./notification-email";
 
 export const notificationLabels: Record<string, string> = {
   "document.publish": "Document published", "document.published": "Document published",
+  "document.publication.digest": "Publication summary",
   "document.upload": "Document awaiting publication", "document.version.upload": "New version awaiting publication",
   "document.metadata.update": "Document updated", "document.delete": "Document deleted",
   "document.version.overdue": "Document version overdue", "document.review.annual": "Annual document review due", "document.review.reminder": "Annual document review reminder", "document.review.overdue": "Annual document review overdue",
@@ -20,7 +21,8 @@ export const notificationLabels: Record<string, string> = {
   "risk-exception.create": "Risk exception submitted", "risk-exception.decision": "Risk exception decision",
   "incident-case.create": "Incident assigned", "corrective-action.create": "Corrective action assigned",
 };
-export type NotificationJob = { action: string; resource: string; actor: string; at: string; accepted?: string[]; documentVersionId?: string; reviewIds?: string[] };
+export type NotificationJob = { action: string; resource: string; actor: string; at: string; accepted?: string[]; documentVersionId?: string; reviewIds?: string[]; documentIds?: string[] };
+type PreparedNotification = { recipients: string[]; subject: string; text: string; link: string; recipientMessages?: Map<string, { subject: string; text: string }> };
 export type EmailTestType = "document" | "approval" | "review" | "report";
 const emailTemplate = (action: string): EmailTemplate => action.startsWith("document-report") || action.startsWith("security-report") ? "report" : action.startsWith("access-request") ? "access" : action.startsWith("sensitive-approval") || action.startsWith("document-review") ? "approval" : action.startsWith("document") ? "document" : action.startsWith("risk-") || action.startsWith("incident-") || action.startsWith("corrective-") ? "governance" : "service";
 export const notificationConnection = () => {
@@ -114,7 +116,40 @@ export class NotificationService {
     return [...new Set(recipients)];
   }
 
-  async prepare(event: NotificationJob) {
+  private async publicationSummary(event: NotificationJob): Promise<PreparedNotification | null> {
+    if (!event.documentIds?.length || event.documentIds.length > 200) return null;
+    const documents = await this.prisma.document.findMany({
+      where: { id: { in: event.documentIds }, status: "PUBLISHED", deletedAt: null, space: { deletedAt: null } },
+      include: { translations: true, space: true, category: true, versions: { orderBy: { createdAt: "desc" }, take: 1 } },
+      orderBy: { id: "asc" },
+    });
+    if (!documents.length) return null;
+    const staff = [...new Set((await this.staff("edit")).map((address) => address.trim().toLowerCase()))];
+    const audienceBySpace = new Map<string, string[]>();
+    const summaries = new Map<string, string[]>();
+    for (const document of documents) {
+      let audience = audienceBySpace.get(document.spaceId);
+      if (!audience) {
+        audience = await this.spaceAudience(document.spaceId, "read");
+        audienceBySpace.set(document.spaceId, audience);
+      }
+      const translation = document.translations.find((item) => item.locale === "en") || document.translations[0];
+      const entry = `${translation?.title || document.slug} (v${document.versions[0]?.version || "-"})\n${document.space.nameEn || document.space.nameFr} / ${document.category?.nameEn || document.category?.nameFr || "Uncategorized"}\n${portalLink(`/documents/${encodeURIComponent(document.slug)}`)}`;
+      for (const address of new Set([...audience, ...staff].map((address) => address.trim().toLowerCase()).filter(Boolean))) {
+        const entries = summaries.get(address) || [];
+        entries.push(entry);
+        summaries.set(address, entries);
+      }
+    }
+    const recipientMessages = new Map([...summaries].map(([address, entries]) => [address, {
+      subject: `[ISMS Portal] ${entries.length} document(s) published`,
+      text: [`${entries.length} document(s) are now available in ISMS Portal.`, ...entries, ...(staff.includes(address) ? [`Publication reviews: ${portalLink("/approvals")}`] : []), `Recorded at: ${event.at}`].join("\n\n"),
+    }]));
+    return { recipients: [...recipientMessages.keys()], subject: "[ISMS Portal] Publication summary", text: "", link: portalLink("/explorer"), recipientMessages };
+  }
+
+  async prepare(event: NotificationJob): Promise<PreparedNotification | null> {
+    if (event.action === "document.publication.digest") return this.publicationSummary(event);
     const { action, actor, resource } = event;
     if (action === "document-review.overdue") {
       if (!event.reviewIds?.length) return null;
@@ -250,7 +285,8 @@ export class NotificationService {
     const accepted = new Set(job.data.accepted || []);
     for (const address of message.recipients) {
       if (accepted.has(address)) continue;
-      const result = await this.alerts.sendPreferredTo([address], message.subject, message.text, message.link, emailTemplate(job.data.action));
+      const content = message.recipientMessages?.get(address) || message;
+      const result = await this.alerts.sendPreferredTo([address], content.subject, content.text, message.link, emailTemplate(job.data.action));
       if (!result.delivered) throw new Error("Microsoft Graph is not configured");
       accepted.add(address);
       await job.updateData({ ...job.data, accepted: [...accepted] });

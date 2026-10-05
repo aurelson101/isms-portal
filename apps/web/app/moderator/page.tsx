@@ -5,6 +5,7 @@ import { Icon } from "../icons";
 import { responseMessage } from "../request-errors";
 
 import { MetadataForm, VersionForm } from "./document-forms";
+import { BatchImport } from "../batch-import";
 import { documentPage as parseDocumentPage, latestVersion, translationFields, validateUpload, type Space, type Category, type ModeratorDocument as Document, type MetadataValues } from "./document-model";
 
 type Identity = { isAdmin: boolean; isModerator?: boolean; locale: "fr" | "en" | null; spaces: Space[] };
@@ -31,6 +32,7 @@ export default function ModeratorPage() {
   const loadController = useRef<AbortController | null>(null);
   const mutationInFlight = useRef(false);
   const dirty = useRef(false);
+  const importPending = useRef(false);
   const busy = loading || mutationBusy;
   const locale = identity?.locale === "en" ? "en" : "fr";
   const t = (fr: string, en: string) => locale === "fr" ? fr : en;
@@ -79,7 +81,7 @@ export default function ModeratorPage() {
     window.addEventListener("beforeunload", protect);
     return () => window.removeEventListener("beforeunload", protect);
   }, []);
-  const canDiscard = () => !dirty.current || window.confirm(t("Abandonner les modifications non enregistrées ?", "Discard unsaved changes?"));
+  const canDiscard = () => (!dirty.current && !importPending.current) || window.confirm(t("Abandonner les modifications non enregistrées ?", "Discard unsaved changes?"));
   const closeEditor = (force = false) => {
     if (!force && !canDiscard()) return;
     dirty.current = false;
@@ -172,6 +174,7 @@ export default function ModeratorPage() {
     <section className="admin-card"><h2>{t("Mes droits documentaires", "My document permissions")}</h2><div className="admin-account-list">{editable.map((space) => <div key={space.id}><span><strong>{locale === "fr" ? space.nameFr : space.nameEn}</strong><small>{[space.permissions.edit && t("modifier", "edit"), space.permissions.publish && t("publier", "publish"), space.permissions.archive && t("archiver / supprimer", "archive / delete")].filter(Boolean).join(" · ")}</small></span></div>)}{!editable.length && <p className="admin-empty compact">{t("Aucun droit de gestion documentaire n’est attribué.", "No document management right is assigned.")}</p>}</div></section>
     {metadataEditing && <MetadataForm document={metadataEditing} categories={metadataCategories} value={metadata} onChange={setMetadata} onSave={saveMetadata} busy={busy} locale={locale} onCancel={() => closeEditor()} onDirty={() => { dirty.current = true; }} />}
     {editing && <VersionForm document={editing} versionLocale={versionLocale} onLocaleChange={setVersionLocale} onUpload={uploadVersion} busy={busy} locale={locale} onCancel={() => closeEditor()} onDirty={() => { dirty.current = true; }} />}
+    <BatchImport locale={locale} disabled={busy || Boolean(editing || metadataEditing)} onComplete={() => load(documentPage)} onBusyChange={setMutationBusy} onPendingChange={(pending) => { importPending.current = pending; }} />
     <section className="admin-card">
       <div className="moderator-toolbar"><h2>{t("Documents gérés", "Managed documents")}</h2><button type="button" disabled={busy} onClick={() => loadPage(documentPage)}><Icon name="sync" />{t("Actualiser", "Refresh")}</button></div>
       <form className="moderator-search" role="search" onSubmit={(event) => { event.preventDefault(); searchQuery.current = search.trim(); loadPage(1); }}><label>{t("Rechercher un document", "Search documents")}<input type="search" maxLength={200} value={search} disabled={busy} onChange={(event) => setSearch(event.target.value)} /></label><button type="submit" disabled={busy}><Icon name="search" />{t("Rechercher", "Search")}</button>{searchQuery.current && <button type="button" disabled={busy} onClick={() => { setSearch(""); searchQuery.current = ""; loadPage(1); }}>{t("Réinitialiser", "Reset")}</button>}</form>

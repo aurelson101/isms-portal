@@ -13,7 +13,7 @@ function setup() {
   const prisma = {
     documentReview: { findMany: vi.fn().mockResolvedValue([]), updateMany: vi.fn().mockResolvedValue({ count: 1 }), findUnique: vi.fn().mockResolvedValue({ owner: "alice", reviewer: "bob", approver: "carol", documentId: "doc", status: "REJECTED", decisionComment: "Needs revision", dueAt: new Date() }) },
     directoryGroup: { findMany: vi.fn().mockResolvedValue([{ name: "IT", distinguishedName: "CN=IT", directoryConnectionId: "dc" }, { name: "expired", distinguishedName: "CN=expired" }]) },
-    document: { findUnique: vi.fn().mockResolvedValue({ id: "doc", slug: "test", spaceId: "it", status: "PUBLISHED", deletedAt: null, translations: [{ locale: "en", title: "Policy <script>" }], space: { nameEn: "IT", deletedAt: null }, category: { nameEn: "Security" }, versions: [{ version: 2 }] }) },
+    document: { findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn().mockResolvedValue({ id: "doc", slug: "test", spaceId: "it", status: "PUBLISHED", deletedAt: null, translations: [{ locale: "en", title: "Policy <script>" }], space: { nameEn: "IT", deletedAt: null }, category: { nameEn: "Security" }, versions: [{ version: 2 }] }) },
     documentReport: { findUnique: vi.fn().mockResolvedValue({ identity: "alice", documentId: "doc", status: "OPEN", reason: "OUTDATED" }) },
     documentVersion: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     adminAccount: { findMany: vi.fn().mockResolvedValue([{ username: "admin" }]) },
@@ -27,6 +27,29 @@ function setup() {
 }
 const event = { action: "document.publish", resource: "document:doc", actor: "publisher", at: "2026-09-11T12:00:00Z" };
 describe("Notification routing", () => {
+  it("groups publication summaries by recipient without revealing another reader's documents", async () => {
+    const h = setup();
+    const document = (id: string, spaceId: string) => ({ id, slug: id, spaceId, translations: [{ locale: "en", title: id }], space: { nameEn: spaceId }, category: null, versions: [{ version: 1 }] });
+    h.prisma.document.findMany.mockResolvedValue([document("IT Policy", "it"), document("HR Policy", "hr"), document("IT Guide", "it")] as never);
+    vi.spyOn(h.service, "staff").mockResolvedValue(["moderator@example.test"]);
+    const audience = vi.spyOn(h.service, "spaceAudience").mockImplementation(async (spaceId) => spaceId === "it" ? ["alice@example.test", "SHARED@example.test"] : ["bob@example.test", "shared@example.test"]);
+    const data = { ...event, action: "document.publication.digest", resource: "document-batch:test", documentIds: ["it", "hr", "guide"] };
+    const job = { data, updateData: vi.fn() };
+    await h.service.process(job as never);
+    expect(audience).toHaveBeenCalledTimes(2);
+    expect(h.alerts.sendPreferredTo).toHaveBeenCalledTimes(4);
+    const deliveries = h.alerts.sendPreferredTo.mock.calls as unknown as Array<[string[], string, string]>;
+    const alice = deliveries.find(([recipients]) => recipients[0] === "alice@example.test")!;
+    const bob = deliveries.find(([recipients]) => recipients[0] === "bob@example.test")!;
+    expect(alice[1]).toContain("2 document(s)"); expect(alice[2]).toContain("IT Guide"); expect(alice[2]).not.toContain("HR Policy");
+    expect(bob[1]).toContain("1 document(s)"); expect(bob[2]).toContain("HR Policy"); expect(bob[2]).not.toContain("IT Policy");
+    expect(h.prisma.document.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: "PUBLISHED", deletedAt: null, space: { deletedAt: null } }) }));
+  });
+  it("skips a summary whose documents are no longer published", async () => {
+    const h = setup();
+    const result = await h.service.process({ data: { ...event, action: "document.publication.digest", documentIds: ["deleted"] } } as never);
+    expect(result.accepted).toBe(0); expect(h.alerts.sendPreferredTo).not.toHaveBeenCalled();
+  });
   it("retries the original failed delivery without creating a duplicate", async () => {
     const h = setup();
     const data = { ...event, accepted: ["first@example.com"] };

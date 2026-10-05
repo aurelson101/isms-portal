@@ -23,6 +23,7 @@ import {
 import { GovernancePanel } from "./governance-panel";
 import { StoragePanel } from "./storage-panel";
 import { StorageSelect } from "../storage-select";
+import { BatchImport } from "../batch-import";
 
 type Authentication = {
   source: string;
@@ -3035,6 +3036,7 @@ function DocumentsPanel({
   return (
     <>
       <h1>{t("Documents")}</h1>
+      <BatchImport locale={locale} disabled={refreshing} onComplete={async () => { await loadDocuments(); await onChanged(); }} />
       <form
         key={versionUploadDocument?.id || "new-document"}
         id="document-upload-form"

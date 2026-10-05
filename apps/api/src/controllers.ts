@@ -58,6 +58,8 @@ import { SensitiveApprovalService } from "./sensitive-approval.service";
 import { ObservabilityService } from "./observability.service";
 import { safeSsoPath } from "./http-security";
 import { publishWithReview } from "./publication-review";
+import { NotificationService } from "./notification.service";
+import { DocumentPublicationDigestDto } from "./document-digest.dto";
 
 async function prepareVersionComparison(
   prisma: PrismaService, storage: StorageService, documentId: string,
@@ -349,6 +351,7 @@ export class DocumentsController {
     private readonly antivirus: AntivirusService,
     private readonly audit: AuditService,
     private readonly watermark: WatermarkService,
+    private readonly notifications: NotificationService,
   ) {}
 
   @Get()
@@ -689,6 +692,27 @@ export class DocumentsController {
     return { favorite: false };
   }
 
+  @Post("publication-digest")
+  async publicationDigest(@Req() req: IsmsRequest, @Body() body: DocumentPublicationDigestDto) {
+    if (!isAdminIdentity(req.identity.groups) && !isModeratorIdentity(req.identity.groups)) throw new NotFoundException();
+    const documents = await this.prisma.document.findMany({
+      where: { id: { in: body.documentIds }, status: "PUBLISHED", deletedAt: null, suppressEmailNotifications: true, space: { deletedAt: null } },
+      select: { id: true, spaceId: true },
+    });
+    if (documents.length !== body.documentIds.length) throw new NotFoundException();
+    for (const spaceId of new Set(documents.map((document) => document.spaceId)))
+      if (!await this.authorization.can(req.identity.groups, spaceId, "publish")) throw new NotFoundException();
+    const documentIds = documents.map((document) => document.id).sort();
+    const batchId = createHash("sha256").update(JSON.stringify([req.identity.username, documentIds])).digest("hex");
+    try {
+      await this.notifications.enqueue({ action: "document.publication.digest", resource: `document-batch:${batchId}`, documentIds, actor: req.identity.username, at: new Date().toISOString() }, `publication-digest-${batchId}`);
+    } catch {
+      throw new ServiceUnavailableException("Unable to queue the publication summary; retry the same batch");
+    }
+    await this.audit.record(req, "document.publication.digest", `document-batch:${batchId}`, "success", { documentIds }, { notify: false });
+    return { queued: true, documents: documentIds.length };
+  }
+
   @Post("upload")
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(
@@ -997,7 +1021,7 @@ export class DocumentsController {
       { notify: !document.suppressEmailNotifications },
     );
     if (publication?.review)
-      await this.audit.record(req, "document-review.create", `document-review:${publication.review.id}`, "success", { documentId: id, dueAt: publication.review.dueAt });
+      await this.audit.record(req, "document-review.create", `document-review:${publication.review.id}`, "success", { documentId: id, dueAt: publication.review.dueAt }, { notify: !document.suppressEmailNotifications });
     if (status === "PUBLISHED" && document.favorites.length > 0) {
       const title =
         document.translations.find((item) => item.locale === "fr")?.title ||
@@ -2964,7 +2988,7 @@ export class DocumentAdminController {
       { notify: !document.suppressEmailNotifications },
     );
     if (publication.review)
-      await this.audit.record(req, "document-review.create", `document-review:${publication.review.id}`, "success", { documentId: id, dueAt: publication.review.dueAt });
+      await this.audit.record(req, "document-review.create", `document-review:${publication.review.id}`, "success", { documentId: id, dueAt: publication.review.dueAt }, { notify: !document.suppressEmailNotifications });
     return updated;
   }
 
