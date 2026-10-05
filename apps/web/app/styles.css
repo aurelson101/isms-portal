@@ -1905,11 +1905,25 @@ h1 {
     top: auto;
     bottom: 0;
     z-index: 20;
-    flex-wrap: nowrap;
-    overflow-x: auto;
+    flex-wrap: wrap;
     box-shadow: 0 -8px 24px #071b3b24;
   }
-  .document-modal .pdf-toolbar > a:last-child,
+  .document-modal .pdf-toolbar > a {
+    flex: 0 0 auto;
+    width: auto;
+    margin-left: 0;
+  }
+  .document-modal .pdf-toolbar > .pdf-mobile-action {
+    flex: 0 0 44px;
+    width: 44px;
+    padding: 8px;
+  }
+  .document-modal .pdf-toolbar > a[target="_blank"] {
+    flex: 1 1 100%;
+    min-width: 0;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
   .document-modal
     .pdf-toolbar
     > button:not(.pdf-mobile-action):nth-of-type(n + 2) {
@@ -6108,13 +6122,6 @@ svg {
 }
 
 @media (max-width: 600px) {
-  .document-modal .pdf-toolbar {
-    position: sticky;
-    top: auto;
-    bottom: 0;
-    z-index: 20;
-  }
-
   .admin-shell main header {
     grid-template-columns: minmax(0, 1fr) auto;
   }
