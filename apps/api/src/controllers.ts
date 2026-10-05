@@ -63,15 +63,15 @@ import { DocumentPublicationDigestDto } from "./document-digest.dto";
 
 async function prepareVersionComparison(
   prisma: PrismaService, storage: StorageService, documentId: string,
-  locale: string, content: Buffer, extension: string,
+  locale: string, content: Buffer, extension: string, compare = true,
 ) {
   const previous = await prisma.documentVersion.findFirst({
-    where: { documentId, locale }, orderBy: { version: "desc" }, include: { storedFile: true },
+    where: { documentId, locale }, orderBy: { version: "desc" }, include: { storedFile: { include: { scans: { orderBy: { scannedAt: "desc" }, take: 1 } } } },
   });
   // Remote file I/O must not hold a database transaction open.
-  const change = previous
+  const change = previous && compare && previous.storedFile.scans[0]?.status === "CLEAN"
     ? compareDocumentVersions(await storage.getBuffer(previous.storedFile.objectKey), content, extension)
-    : { details: { added: [], removed: [], modified: [] }, summary: "Initial version" };
+    : { details: { added: [], removed: [], modified: [] }, summary: previous ? "Comparison unavailable: antivirus validation required" : "Initial version" };
   return { previousId: previous?.id, change };
 }
 
@@ -781,7 +781,7 @@ export class DocumentsController {
     const documentId = existing?.id || randomUUID();
     const objectKey = await this.storage.uploadKey(`${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${randomUUID()}${extension}`, body.storageTargetId);
     const sha256 = createHash("sha256").update(file.buffer).digest("hex");
-    const comparison = await prepareVersionComparison(this.prisma, this.storage, documentId, body.locale, file.buffer, extension);
+    const comparison = await prepareVersionComparison(this.prisma, this.storage, documentId, body.locale, file.buffer, extension, scan.status === "CLEAN");
     await this.storage.putObject(objectKey, file.buffer, {
       "Content-Type": file.mimetype,
       "X-Amz-Meta-Sha256": sha256,
@@ -808,7 +808,7 @@ export class DocumentsController {
       });
       if (latest?.id !== comparison.previousId) throw new ConflictException("Another version was uploaded; refresh and retry");
       if (existing)
-        await tx.document.update({ where: { id: documentId }, data: { suppressEmailNotifications } });
+        await tx.document.update({ where: { id: documentId }, data: { suppressEmailNotifications, status: scan.status === "CLEAN" ? "DRAFT" : "QUARANTINED" } });
       const automatedChange = comparison.change;
       const storedFile = await tx.storedFile.create({
         data: {
@@ -1220,7 +1220,7 @@ export class DocumentsController {
           where: { locale },
           orderBy: { version: "desc" },
           take: 1,
-          select: { id: true, storedFile: true, distributedStoredFile: true },
+          select: { id: true, storedFile: { include: { scans: { orderBy: { scannedAt: "desc" }, take: 1 } } }, distributedStoredFile: true },
         },
       },
     });
@@ -1246,6 +1246,8 @@ export class DocumentsController {
       throw new NotFoundException();
     }
     const version = document.versions[0];
+    if (version?.storedFile.scans[0]?.status !== "CLEAN")
+      throw new NotFoundException("Translation has no clean version");
     let storedFile = document.sensitive
       ? version?.distributedStoredFile
       : version?.storedFile;
@@ -2860,7 +2862,7 @@ export class DocumentAdminController {
     const scan = await this.antivirus.scan(file.buffer);
     const documentId = existing?.id || randomUUID();
     const objectKey = await this.storage.uploadKey(`${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${randomUUID()}${extension}`, body.storageTargetId);
-    const comparison = await prepareVersionComparison(this.prisma, this.storage, documentId, body.locale, file.buffer, extension);
+    const comparison = await prepareVersionComparison(this.prisma, this.storage, documentId, body.locale, file.buffer, extension, scan.status === "CLEAN");
     await this.storage.putObject(objectKey, file.buffer, {
       "Content-Type": file.mimetype,
       "X-Amz-Meta-Sha256": createHash("sha256")
@@ -2890,7 +2892,7 @@ export class DocumentAdminController {
       });
       if (latest?.id !== comparison.previousId) throw new ConflictException("Another version was uploaded; refresh and retry");
       if (existing)
-        await tx.document.update({ where: { id: documentId }, data: { suppressEmailNotifications } });
+        await tx.document.update({ where: { id: documentId }, data: { suppressEmailNotifications, status: scan.status === "CLEAN" ? "DRAFT" : "QUARANTINED" } });
       const automatedChange = comparison.change;
       const storedFile = await tx.storedFile.create({
         data: {
