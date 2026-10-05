@@ -38,7 +38,9 @@ for (const width of [320, 768, 1280]) {
     const toggle = page.locator(".navigation-toggle");
     const current = nav.locator('[aria-current="page"]');
     await expect(current).toHaveText("Observabilité");
-    await expect(nav.getByRole("button", { name: "Système", exact: true, includeHidden: true })).toHaveAttribute("aria-expanded", "true");
+    await expect(nav.getByRole("button", { name: "Supervision", exact: true, includeHidden: true })).toHaveAttribute("aria-expanded", "true");
+    await expect(nav.locator("#admin-navigation-system button")).toHaveText(["Santé des services", "Observabilité", "Journal d’audit"]);
+    await expect(nav.locator("#admin-navigation-configuration button")).toHaveText(["Configuration", "Modérateurs", "Stockage"]);
     const next = page.getByRole("navigation", { name: "Pagination des e-mails" }).getByRole("button", { name: "Suivant", exact: true });
     await expect(next).toBeEnabled();
     await page.mouse.move(0, 0);
@@ -53,6 +55,17 @@ for (const width of [320, 768, 1280]) {
       await expect(toggle).toHaveAttribute("aria-expanded", "true");
       await expect(current).toBeVisible();
     }
+    await expect(nav.locator(".admin-navigation-submenu button")).toHaveCount(18);
+    const menuSearch = nav.getByRole("searchbox", { name: "Rechercher un menu", exact: true });
+    await menuSearch.fill("sante");
+    await expect(nav.getByRole("button", { name: "Santé des services", exact: true })).toBeVisible();
+    await expect(nav.locator(".admin-navigation-submenu button")).toHaveCount(1);
+    await menuSearch.fill("STORAGE");
+    await expect(nav.getByRole("button", { name: "Stockage", exact: true })).toBeVisible();
+    await menuSearch.fill("no-matching-menu");
+    await expect(nav.getByRole("status")).toHaveText("Aucun menu trouvé");
+    await menuSearch.fill("");
+    await expect(nav.locator(".admin-navigation-submenu button")).toHaveCount(18);
     await nav.getByRole("button", { name: "Contenu et accès", exact: true }).click();
     await nav.getByRole("button", { name: "Groupes Active Directory", exact: true }).click();
     await expect(page).toHaveURL(/\/admin#groups$/);
@@ -68,7 +81,7 @@ for (const width of [320, 768, 1280]) {
     await expect(page).toHaveURL(/\/admin#groups$/);
     await page.evaluate(() => { window.location.hash = "health"; });
     await expect(current).toHaveText("Santé des services");
-    await expect(nav.locator('button[aria-controls="admin-navigation-configuration"]')).toHaveAttribute("aria-expanded", "true");
+    await expect(nav.locator('button[aria-controls="admin-navigation-system"]')).toHaveAttribute("aria-expanded", "true");
     if (width <= 900) {
       await page.setViewportSize({ width, height: 600 });
       await toggle.click();
@@ -82,11 +95,27 @@ for (const width of [320, 768, 1280]) {
       await expect(nav).toBeHidden();
       await expect(toggle).toBeFocused();
       await expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await toggle.click();
+      await expect(nav).toBeVisible();
       await page.setViewportSize({ width: 1280, height: 900 });
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
       await expect(current).toBeVisible();
       await expect(current).toBeInViewport({ ratio: 1 });
       await page.setViewportSize({ width, height: 900 });
       await expect(nav).toBeHidden();
+    }
+    if (width > 900) {
+      await page.evaluate(() => {
+        const spacer = document.createElement("div");
+        spacer.style.height = "1200px";
+        document.querySelector(".admin-shell > main")!.append(spacer);
+        window.scrollTo(0, 200);
+      });
+      const contentScroll = await page.evaluate(() => scrollY);
+      expect(contentScroll).toBeGreaterThan(0);
+      await nav.getByRole("button", { name: "Supervision", exact: true }).click();
+      expect(await page.evaluate(() => scrollY)).toBe(contentScroll);
+      await nav.getByRole("button", { name: "Supervision", exact: true }).click();
     }
     expect(sessionRequests).toBe(initialSessionRequests);
     expect(groupRequests).toBe(initialGroupRequests);

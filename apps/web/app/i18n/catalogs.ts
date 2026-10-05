@@ -491,6 +491,7 @@ export const adminEnglishCatalog = {
   "Contenu et accès": "Content and access",
   Infrastructure: "Infrastructure",
   Système: "System",
+  Supervision: "Monitoring",
   "Actions fréquentes": "Frequent actions",
   "Accédez directement aux principales gestions ISMS.":
     "Go directly to the main ISMS management areas.",

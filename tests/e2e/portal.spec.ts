@@ -626,8 +626,8 @@ test("administration uses live APIs and every menu opens a section", async ({
     ["Demandes utilisateurs", "Contenu et accès"],
     ["Synchronisation LDAP/LDAPS", "Infrastructure"],
     ["Certificats CA", "Infrastructure"],
-    ["Journal d’audit", "Système"],
-    ["Santé des services", "Configuration"],
+    ["Journal d’audit", "Supervision"],
+    ["Santé des services", "Supervision"],
     ["Configuration", "Configuration"],
   ] as const) {
     const groupButton = page

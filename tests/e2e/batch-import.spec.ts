@@ -46,6 +46,45 @@ for (const width of [320, 768, 1280]) {
     await expect(batch.getByRole("textbox", { name: "Shared description (optional)", exact: true })).toHaveValue("");
   });
 }
+test("imports and publishes all 200 files with one publication summary", async ({ page }) => {
+  test.setTimeout(120000);
+  const batchIds = Array.from({ length: 200 }, (_, index) => `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`);
+  let uploads = 0;
+  const publications: string[] = [];
+  const summaries: string[][] = [];
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/me") return route.fulfill({ json: { isModerator: true, locale: "en", spaces: [{ id: "space", nameEn: "Documents", permissions: { upload: true, publish: true, edit: true } }] } });
+    if (path === "/api/documents") return route.fulfill({ json: { items: [], page: 1, totalPages: 1 } });
+    if (path === "/api/documents/upload") {
+      const body = route.request().postData()!;
+      expect(body).toContain('name="description"\r\n\r\nFull batch description');
+      expect(body).toContain('name="suppressEmailNotifications"\r\n\r\ntrue');
+      return route.fulfill({ json: { id: batchIds[uploads++], status: "DRAFT" } });
+    }
+    if (path.endsWith("/publish")) { publications.push(path); return route.fulfill({ json: { status: "PUBLISHED" } }); }
+    if (path === "/api/documents/publication-digest") { summaries.push(route.request().postDataJSON().documentIds); return route.fulfill({ json: { queued: true } }); }
+    return route.fulfill({ json: [] });
+  });
+  await page.goto("/moderator");
+  const batch = page.locator(".batch-import");
+  await batch.getByRole("button", { name: "Import a batch" }).click();
+  await batch.getByRole("combobox", { name: "Space", exact: true }).selectOption("space");
+  await batch.getByRole("textbox", { name: "Shared description (optional)", exact: true }).fill("Full batch description");
+  await batch.getByLabel("Publish after scanning").check();
+  await batch.locator('input[type="file"]').setInputFiles(batchIds.map((_, index) => ({ ...files[0], name: `policy-${index + 1}.pdf` })));
+  await batch.getByRole("button", { name: "Process batch" }).click();
+  await expect(batch.getByText("Summary queued for delivery.")).toBeVisible({ timeout: 90000 });
+  expect(uploads).toBe(200);
+  expect(new Set(publications).size).toBe(200);
+  expect(summaries).toEqual([batchIds]);
+  await expect(batch.getByText("Published", { exact: true })).toHaveCount(200);
+  await expect(batch.getByRole("progressbar")).toHaveAttribute("value", "200");
+  expect(errors).toEqual([]);
+});
+
 test("does not reupload a document when publication alone fails", async ({ page }) => {
   let uploads = 0; let publications = 0; let summaries = 0;
   await page.route("**/api/**", (route) => {

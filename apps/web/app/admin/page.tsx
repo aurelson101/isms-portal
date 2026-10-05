@@ -390,20 +390,21 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["directory", "sync", "Synchronisation LDAP", "LDAP synchronization"],
   ["sso", "shield", "Connexion SSO", "SSO sign-in"],
   ["certificates", "certificate", "Certificats CA", "CA certificates"],
-  ["audit", "audit", "Journal d’audit", "Audit log"],
-  ["observability", "health", "Observabilité", "Observability"],
   ["health", "health", "Santé des services", "Service health"],
+  ["observability", "health", "Observabilité", "Observability"],
+  ["audit", "audit", "Journal d’audit", "Audit log"],
   ["settings", "settings", "Configuration", "Settings"],
   ["moderators", "groups", "Modérateurs", "Moderators"],
   ["storage", "folder", "Stockage", "Storage"],
 ];
 const navigationGroups: Array<[string, string, typeof tabs]> = [
-  ["overview", "Vue d’ensemble", tabs.slice(0, 1)],
-  ["content", "Contenu et accès", tabs.slice(1, 8)],
-  ["infrastructure", "Infrastructure", tabs.slice(8, 12)],
-  ["system", "Système", tabs.slice(12, 14)],
-  ["configuration", "Configuration", tabs.slice(14)],
+  ["overview", "Vue d’ensemble", tabs.filter(([key]) => key === "dashboard")],
+  ["content", "Contenu et accès", tabs.filter(([key]) => ["groups", "rules", "spaces", "documents", "trash", "incidents", "requests"].includes(key))],
+  ["infrastructure", "Infrastructure", tabs.filter(([key]) => ["governance", "directory", "sso", "certificates"].includes(key))],
+  ["system", "Supervision", tabs.filter(([key]) => ["health", "observability", "audit"].includes(key))],
+  ["configuration", "Configuration", tabs.filter(([key]) => ["settings", "moderators", "storage"].includes(key))],
 ];
+const normalizeNavigationQuery = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 const permissionKeys = [
   "showMenu",
   "read",
@@ -528,6 +529,11 @@ export default function Admin() {
   const [sessionExpired, setSessionExpired] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const [navigationSearch, setNavigationSearch] = useState("");
+  const navigationQuery = normalizeNavigationQuery(navigationSearch);
+  const visibleNavigationGroups = useMemo(() => navigationGroups
+    .map(([id, label, items]): [string, string, typeof tabs] => [id, label, navigationQuery ? items.filter(([, , fr, en]) => normalizeNavigationQuery(`${fr} ${en}`).includes(navigationQuery)) : items])
+    .filter(([, , items]) => items.length > 0), [navigationQuery]);
   const navigationToggle = useRef<HTMLButtonElement>(null);
   const [expandedNavigationGroups, setExpandedNavigationGroups] = useState<
     Set<string>
@@ -681,6 +687,7 @@ export default function Admin() {
     const group = navigationGroups.find(([, , items]) => items.some(([key]) => key === next));
     if (group) setExpandedNavigationGroups((current) => current.has(group[0]) ? current : new Set([...current, group[0]]));
     setNavigationOpen(false);
+    setNavigationSearch("");
     setError("");
     setNotice("");
   }, []);
@@ -700,12 +707,23 @@ export default function Admin() {
       }
     };
     window.addEventListener("keydown", closeNavigation);
-    return () => window.removeEventListener("keydown", closeNavigation);
+    const mobile = window.matchMedia("(max-width: 900px)");
+    const resetNavigation = () => { if (!mobile.matches) setNavigationOpen(false); };
+    mobile.addEventListener("change", resetNavigation);
+    return () => {
+      window.removeEventListener("keydown", closeNavigation);
+      mobile.removeEventListener("change", resetNavigation);
+    };
   }, [navigationOpen]);
   useEffect(() => {
     const current = document.querySelector<HTMLButtonElement>('#admin-navigation [aria-current="page"]');
-    if (current?.offsetParent) current.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [tab, navigationOpen, expandedNavigationGroups]);
+    const nav = document.getElementById("admin-navigation");
+    if (!current?.offsetParent || !nav) return;
+    const item = current.getBoundingClientRect();
+    const bounds = nav.getBoundingClientRect();
+    if (item.top < bounds.top) nav.scrollTop += item.top - bounds.top;
+    else if (item.bottom > bounds.bottom) nav.scrollTop += item.bottom - bounds.bottom;
+  }, [tab, navigationOpen, expandedNavigationGroups, navigationQuery]);
   useEffect(() => {
     const checkSession = async () => {
       const response = await fetch("/api/admin/check", {
@@ -868,16 +886,22 @@ export default function Admin() {
               </button>
             </div>
             <nav id="admin-navigation" aria-label="Administration">
-              {navigationGroups.map(([groupId, groupLabel, groupTabs]) => (
+              <label className="admin-menu-search">
+                <span>{t("Rechercher un menu", "Find a menu")}</span>
+                <input type="search" value={navigationSearch} onChange={(event) => setNavigationSearch(event.target.value)} />
+              </label>
+              {!visibleNavigationGroups.length && <p role="status" className="admin-menu-empty">{t("Aucun menu trouvé", "No matching menu")}</p>}
+              {visibleNavigationGroups.map(([groupId, groupLabel, groupTabs]) => (
                 <div
-                  className={`admin-navigation-group ${expandedNavigationGroups.has(groupId) ? "expanded" : ""}`}
+                  className={`admin-navigation-group ${navigationQuery || expandedNavigationGroups.has(groupId) ? "expanded" : ""}`}
                   key={groupId}
                 >
                   <button
                     type="button"
                     className="admin-navigation-heading"
                     aria-controls={`admin-navigation-${groupId}`}
-                    aria-expanded={expandedNavigationGroups.has(groupId)}
+                    aria-expanded={Boolean(navigationQuery) || expandedNavigationGroups.has(groupId)}
+                    disabled={Boolean(navigationQuery)}
                     onClick={() =>
                       setExpandedNavigationGroups((current) => {
                         const next = new Set(current);
@@ -893,7 +917,7 @@ export default function Admin() {
                   <div
                     className="admin-navigation-submenu"
                     id={`admin-navigation-${groupId}`}
-                    hidden={!expandedNavigationGroups.has(groupId)}
+                    hidden={!navigationQuery && !expandedNavigationGroups.has(groupId)}
                   >
                     {groupTabs.map(
                       ([key, icon, labelFr, labelEn]) => (
