@@ -1450,8 +1450,8 @@ export default function Admin() {
                   onClick={() => {
                     const requested = `${window.location.pathname}${window.location.search}${window.location.hash}`;
                     const authentication = identity?.authentication;
-                    const ssoUrl = authentication?.ssoConnected && authentication.loginUrl
-                      ? ssoDestination(authentication.loginUrl, requested, "/admin")
+                    const ssoUrl = authentication?.ssoConnected
+                      ? ssoDestination(authentication.loginUrl || "/oauth2/start", requested, "/admin")
                       : null;
                     window.location.assign(
                       ssoUrl || `/admin/login?return=${encodeURIComponent(requested)}`,

@@ -16,9 +16,10 @@ test("expired admin sessions reconnect through SSO or dedicated login and retain
   });
   await page.route("**/oauth2/start**", (route) => route.fulfill({ contentType: "text/plain", body: "SSO sign-in endpoint" }));
 
-  for (const mode of ["sso", "directory", "missing-authentication"]) {
+  for (const mode of ["sso", "sso-without-login-url", "directory", "missing-authentication"]) {
     expired = false;
-    authentication = mode === "missing-authentication" ? undefined : { ssoConnected: mode === "sso", loginUrl: mode === "sso" ? "/oauth2/start?rd=/" : null };
+    const isSso = mode.startsWith("sso");
+    authentication = mode === "missing-authentication" ? undefined : { ssoConnected: isSso, loginUrl: mode === "sso" ? "/oauth2/start?rd=/" : null };
     await page.goto("/admin?source=reconnect#help");
     await expect(page.getByRole("heading", { name: "Aide ISMS Portal", exact: true })).toBeVisible();
     expired = true;
@@ -26,9 +27,9 @@ test("expired admin sessions reconnect through SSO or dedicated login and retain
     const dialog = page.getByRole("alertdialog");
     await expect(dialog.getByRole("heading", { name: "Session expirée" })).toBeVisible();
     await dialog.getByRole("button", { name: "Se reconnecter" }).click();
-    await expect(page).toHaveURL(mode === "sso" ? /\/oauth2\/start\?/ : /\/admin\/login\?/);
+    await expect(page).toHaveURL(isSso ? /\/oauth2\/start\?/ : /\/admin\/login\?/);
     const destination = new URL(page.url());
-    expect(destination.searchParams.get(mode === "sso" ? "rd" : "return")).toBe("/admin?source=reconnect#help");
+    expect(destination.searchParams.get(isSso ? "rd" : "return")).toBe("/admin?source=reconnect#help");
   }
   expect(errors).toEqual([]);
 });
