@@ -6270,6 +6270,11 @@ svg {
 .admin-help ol { padding-left: 24px; }
 .admin-help-check { border-left: 3px solid #237b59; padding: 1px 14px; background: #f3faf6; margin: 18px 0; }
 .admin-help-check h3 { margin-top: 10px; }
+.admin-help-technical { margin: 18px 0; border-top: 1px solid #d5deeb; padding-top: 14px; min-width: 0; }
+.admin-help-technical summary { cursor: pointer; font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
+.admin-help-technical pre { max-width: 100%; overflow-x: auto; padding: 12px; border: 1px solid #d5deeb; border-radius: 4px; background: #f7f9fc; color: #183252; font-size: 13px; line-height: 1.6; }
+.admin-help-technical-warning { border-left: 3px solid #ad6800; background: #fff9ea; padding: 10px 12px; }
+.admin-help-technical :is(summary, pre):focus-visible { outline: 2px solid #075ad4; outline-offset: 2px; }
 .admin-help article > button { margin-top: 8px; }
 .admin-help-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #d5deeb; }
 @media (max-width: 900px) {
