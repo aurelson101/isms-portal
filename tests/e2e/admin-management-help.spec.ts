@@ -10,10 +10,17 @@ for (const width of [320, 1280]) {
     const groups = Array.from({ length: 21 }, (_, index) => ({ id: `group-${index}`, name: `Group ${index + 1}`, distinguishedName: `CN=Group${index + 1},DC=example,DC=test`, description: "", memberCount: 1, active: index < 20, accessRules: [] }));
     const rules = groups.map((group, index) => ({ id: `rule-${index}`, groupId: group.id, spaceId: space.id, group, space, read: true, preview: true, download: false }));
     const queries: URLSearchParams[] = [];
+    let createdModerator: Record<string, unknown> | undefined;
+    const permissions = { role: "MODERATOR", canManageDocuments: true, canPublishDocuments: false, canDeleteDocuments: false };
     await page.route("**/api/**", async (route) => {
       const url = new URL(route.request().url());
       let json: unknown = [];
       if (url.pathname === "/api/admin/check") json = { isAdmin: true, username: "admin@example.test", displayName: "Administrator", locale: "fr" };
+      else if (url.pathname === "/api/admin/accounts") {
+        if (route.request().method() === "POST") { createdModerator = route.request().postDataJSON(); json = { id: "new-moderator" }; }
+        else json = [{ id: "moderator", username: "moderator@example.test", displayName: "Test Moderator", source: "LOCAL", ...permissions }];
+      }
+      else if (url.pathname === "/api/admin/accounts/groups") json = [{ id: "moderator-group", name: "Test Moderators", distinguishedName: "CN=Moderators,DC=example,DC=test", ...permissions }];
       else if (url.pathname === "/api/admin/groups") json = groups;
       else if (url.pathname === "/api/admin/spaces") json = [space];
       else if (url.pathname === "/api/admin/access-rules") json = rules;
@@ -23,6 +30,25 @@ for (const width of [320, 1280]) {
       else if (url.pathname === "/api/admin/documents") { queries.push(url.searchParams); json = { items: [], total: 0 }; }
       return route.fulfill({ json });
     });
+    await page.goto("/admin#moderators");
+    await expect(page.getByRole("heading", { name: "Modérateurs", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Modérateurs configurés" })).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "Gérer", exact: true })).toHaveCount(2);
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+    const localForm = page.locator("form").filter({ has: page.getByRole("heading", { name: "Ajouter un modérateur local" }) });
+    await localForm.getByLabel("Nom affiché").fill("New Test Moderator");
+    await localForm.getByLabel("Identifiant").fill("new-moderator@example.test");
+    await localForm.getByLabel("Mot de passe fort").fill("Test-only-password-2026!");
+    await localForm.getByLabel("Justification des privilèges").fill("Test fixture only");
+    await localForm.getByRole("button", { name: "Ajouter le modérateur" }).click();
+    await expect(page.getByRole("status")).toContainText("Modérateur ajouté.");
+    await expect(localForm.getByLabel("Identifiant")).toHaveValue("");
+    expect(createdModerator).toMatchObject({ role: "MODERATOR", source: "LOCAL", username: "new-moderator@example.test" });
+    await page.locator(".admin-language").getByRole("button", { name: "EN", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Moderators", exact: true })).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "Manage", exact: true })).toHaveCount(2);
+    await expect(page.getByRole("heading", { name: "Add an Active Directory group" })).toBeVisible();
+    await page.locator(".admin-language").getByRole("button", { name: "FR", exact: true }).click();
     await page.goto("/admin#groups");
     await expect(page.locator(".admin-actions-table tbody tr")).toHaveCount(20);
     await page.getByRole("navigation", { name: "Pagination des groupes" }).getByRole("button", { name: "Suivant" }).click();
@@ -65,9 +91,25 @@ for (const width of [320, 1280]) {
     await page.getByLabel("Rechercher dans l’aide").fill("no-matching-topic");
     await expect(page.locator(".admin-help article")).toHaveCount(0);
     await page.locator(".admin-help").getByRole("button", { name: "Réinitialiser" }).click();
-    await page.locator(".admin-help").getByRole("button", { name: "EN", exact: true }).click();
+    await expect(page.getByRole("button", { name: "FR", exact: true })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "EN", exact: true })).toHaveCount(1);
+    await page.locator(".admin-language").getByRole("button", { name: "EN", exact: true }).click();
     await expect(page.getByRole("heading", { name: "ISMS Portal help", exact: true })).toBeVisible();
     await expect(page.locator(".admin-help article")).toHaveCount(1);
+    for (let index = 0; index < 26; index++) {
+      if (width <= 900) await page.getByLabel("Topic", { exact: true }).selectOption(String(index));
+      else await page.locator(".admin-help-topics button").nth(index).click();
+      await expect(page.locator(".admin-help-technical code")).toBeVisible();
+      await expect(page.locator(".admin-help-technical-warning")).not.toBeEmpty();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    for (const [query, value] of [["s3.example.com", "mount = documents"], ["smtpStartTls", "smtpPort = 587"], ["canManageDocuments", "canPublishDocuments = false"], ["retentionUntil", "legalHold = false"]]) {
+      await page.getByLabel("Search help").fill(query);
+      await expect(page.locator(".admin-help-technical code")).toContainText(value);
+    }
+    await page.locator(".admin-language").getByRole("button", { name: "FR", exact: true }).click();
+    await expect(page.locator(".admin-help-technical summary")).toHaveText("Atelier technique : configuration pas à pas");
+    await page.locator(".admin-language").getByRole("button", { name: "EN", exact: true }).click();
     await page.getByLabel("Search help").fill("ENTRA_CLIENT_ID");
     await expect(page.locator(".admin-help article h2")).toHaveText("Microsoft SSO sign-in");
     await expect(page.locator(".admin-help-technical-warning")).toContainText("does not support a client certificate");

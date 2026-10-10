@@ -6182,8 +6182,8 @@ svg {
   }
 
   .admin-shell main header .refresh-button {
-    order: 2;
-    grid-column: 1;
+    order: 3;
+    grid-column: 1 / -1;
     width: 100%;
   }
 
@@ -6193,7 +6193,10 @@ svg {
   }
 
   .admin-shell main header .admin-language {
-    display: none;
+    display: flex;
+    order: 2;
+    grid-column: 1;
+    justify-self: start;
   }
 
   .admin-shell main header .admin-profile-button {
@@ -6250,9 +6253,6 @@ svg {
 .admin-help { max-width: 1200px; min-width: 0; }
 .admin-help-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .admin-help-heading h1 { margin-bottom: 0; }
-.admin-help-language { display: flex; gap: 8px; }
-.admin-help-language button { min-width: 44px; }
-.admin-help-language button.active { background: #0768ea; border-color: #0768ea; color: #fff; }
 .admin-help-workspace { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); gap: 24px; border-top: 1px solid #d5deeb; padding-top: 18px; }
 .admin-help-topics { max-height: 65vh; overflow-y: auto; overscroll-behavior: contain; padding-right: 12px; border-right: 1px solid #d5deeb; scrollbar-gutter: stable; }
 .admin-help-topics h2 { font-size: 12px; margin: 18px 0 8px; color: #536382; }

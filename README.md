@@ -4,6 +4,47 @@ Portail documentaire ISMS/ISO 27001 bilingue, protégé par les groupes Active
 Directory. L’API applique un modèle _deny by default_ : espaces, recherche,
 consultation, téléchargement et administration sont filtrés côté serveur.
 
+## Dernières nouveautés
+
+### Administration et aide technique — 10 octobre 2026
+
+- **Aide intégrée** dans `/admin#help` : 26 rubriques regroupées par domaine,
+  recherche, navigation précédent/suivant et langue français/anglais pilotée par
+  les boutons de l'en-tête, sans commandes de langue en doublon dans l'aide.
+  Une seule rubrique est affichée à la fois ; sur mobile, un sélecteur remplace
+  la navigation latérale.
+- **Ateliers de configuration** : création d'un espace, d'une catégorie et
+  d'une sous-catégorie, synchronisation de groupes AD, attribution des droits,
+  import des certificats CA, configuration LDAPS, inscription Entra SSO et
+  gestion des documents. Les 24 menus disposent désormais d'un atelier technique,
+  y compris stockage S3/SMB, SMTP/Graph, MFA, comptes, alertes, supervision,
+  audit et gouvernance. Les procédures donnent des valeurs d'exemple,
+  des commandes de diagnostic et les points de contrôle, en distinguant
+  configuration dans l'interface et intervention côté serveur.
+- **Menu Modérateurs bilingue** : titres, formulaires local/AD/groupe, permissions,
+  boutons, confirmations et messages suivent la langue de l'interface. Le
+  formulaire local se vide correctement après un ajout réussi. Les commandes
+  de langue de l'en-tête restent accessibles sur mobile.
+- **Portée des permissions clarifiée** : une règle de l'éditeur des droits
+  associe un groupe à un espace. Une sous-catégorie ne constitue pas, à elle
+  seule, une restriction d'accès ; utilisez un espace distinct pour une
+  audience différente et vérifiez avec un utilisateur standard.
+- **Reconnexion administrateur corrigée** : après expiration de session,
+  « Se reconnecter » relance le SSO, y compris lorsque l'API ne fournit pas
+  d'URL de connexion. Pour une session AD/locale, le bouton ouvre la connexion
+  administrateur dédiée. Le retour conserve l'URL et le menu précédemment ouvert.
+- **Tests de non-régression** : l'aide bilingue et son affichage mobile/desktop
+  sont couverts par `tests/e2e/admin-management-help.spec.ts`. Les reconnexions
+  SSO, SSO sans URL, AD/locale et sans métadonnées d'authentification sont
+  couvertes par `tests/e2e/admin-session-expiry.spec.ts`.
+
+Les domaines et chemins des ateliers sont fictifs : les adapter à votre
+environnement. Ces exemples ne modifient aucune configuration et ne contiennent
+aucun secret. Le menu SSO propose des diagnostics ; ses identifiants restent
+configurés côté serveur. Le proxy SSO actuel utilise un **secret client**, pas
+un certificat client. Les certificats CA LDAPS et Microsoft Graph ont des usages
+distincts de l'authentification SSO.
+
 ## Captures d'écran
 
 Captures réelles du navigateur issues des tests Playwright, avec des données de
