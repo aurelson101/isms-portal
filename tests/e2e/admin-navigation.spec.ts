@@ -55,7 +55,7 @@ for (const width of [320, 768, 1280]) {
       await expect(toggle).toHaveAttribute("aria-expanded", "true");
       await expect(current).toBeVisible();
     }
-    await expect(nav.locator(".admin-navigation-submenu button")).toHaveCount(24);
+    await expect(nav.locator(".admin-navigation-submenu button")).toHaveCount(25);
     const menuSearch = nav.getByRole("searchbox", { name: "Rechercher un menu", exact: true });
     await menuSearch.fill("sante");
     await expect(nav.getByRole("button", { name: "Santé des services", exact: true })).toBeVisible();
@@ -65,7 +65,7 @@ for (const width of [320, 768, 1280]) {
     await menuSearch.fill("no-matching-menu");
     await expect(nav.getByRole("status")).toHaveText("Aucun menu trouvé");
     await menuSearch.fill("");
-    await expect(nav.locator(".admin-navigation-submenu button")).toHaveCount(24);
+    await expect(nav.locator(".admin-navigation-submenu button")).toHaveCount(25);
     await nav.getByRole("button", { name: "Contenu et accès", exact: true }).click();
     await nav.getByRole("button", { name: "Groupes Active Directory", exact: true }).click();
     await expect(page).toHaveURL(/\/admin#groups$/);

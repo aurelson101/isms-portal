@@ -24,6 +24,7 @@ import { GovernancePanel } from "./governance-panel";
 import { StoragePanel } from "./storage-panel";
 import { StorageSelect } from "../storage-select";
 import { BatchImport } from "../batch-import";
+import { HelpPanel } from "./help-panel";
 
 type Authentication = {
   source: string;
@@ -104,6 +105,7 @@ const paginationItems = (
 };
 
 type Tab =
+  | "help"
   | "dashboard"
   | "groups"
   | "rules"
@@ -385,6 +387,7 @@ type AnnualIncidentReportDraft = Omit<
 
 const tabs: Array<[Tab, IconName, string, string]> = [
   ["dashboard", "home", "Tableau de bord", "Dashboard"],
+  ["help", "documents", "Aide", "Help"],
   ["groups", "groups", "Groupes Active Directory", "Active Directory groups"],
   ["rules", "rules", "Règles d’accès", "Access rules"],
   ["spaces", "folder", "Espaces documentaires", "Document spaces"],
@@ -410,7 +413,7 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["storage", "folder", "Stockage", "Storage"],
 ];
 const navigationGroups: Array<[string, string, typeof tabs]> = [
-  ["overview", "Vue d’ensemble", tabs.filter(([key]) => key === "dashboard")],
+  ["overview", "Vue d’ensemble", tabs.filter(([key]) => ["dashboard", "help"].includes(key))],
   ["content", "Contenu et accès", tabs.filter(([key]) => ["groups", "rules", "spaces", "documents", "trash", "incidents", "requests"].includes(key))],
   ["infrastructure", "Infrastructure", tabs.filter(([key]) => ["governance", "directory", "sso", "certificates"].includes(key))],
   ["system", "Supervision", tabs.filter(([key]) => ["health", "observability", "audit"].includes(key))],
@@ -1141,6 +1144,7 @@ export default function Admin() {
                     onNavigate={selectTab}
                   />
                 )}
+                {tab === "help" && <HelpPanel locale={locale} onNavigate={selectTab} onLocaleChange={changeLocale} />}
                 {tab === "groups" && (
                   <GroupsPanel
                     groups={groups}
@@ -1177,6 +1181,8 @@ export default function Admin() {
                 {tab === "documents" && (
                   <DocumentsPanel
                     spaces={spaces}
+                    search={search}
+                    onSearch={setSearch}
                     refreshing={refreshing}
                     onChanged={refresh}
                     onError={setError}
@@ -1694,6 +1700,8 @@ function GroupsPanel({
 }) {
   const { locale, t } = useAdminI18n();
   const confirmAction = useContext(ConfirmContext);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [directoryQuery, setDirectoryQuery] = useState("");
   const [directorySuggestions, setDirectorySuggestions] = useState<
     DirectoryGroupSuggestion[]
@@ -1708,10 +1716,12 @@ function GroupsPanel({
     description: "",
   });
   const filtered = groups.filter((group) =>
-    `${group.name} ${group.distinguishedName}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
+    normalizeNavigationQuery(`${group.name} ${group.distinguishedName} ${group.description || ""}`).includes(normalizeNavigationQuery(search)) &&
+    (!statusFilter || group.active === (statusFilter === "active")),
   );
+  const pageCount = Math.max(1, Math.ceil(filtered.length / 20));
+  const currentPage = Math.min(page, pageCount);
+  useEffect(() => { setPage(1); }, [search, statusFilter]);
   useEffect(() => {
     const query = directoryQuery.trim();
     if (query.length < 2 || selectedDirectoryGroup) {
@@ -1868,6 +1878,13 @@ function GroupsPanel({
         />
         <button className="primary">{t("Ajouter")}</button>
       </form>
+      <div className="admin-management-tools">
+        <label>{t("État")}<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+          <option value="">{t("Tous les groupes", "All groups")}</option>
+          <option value="active">{t("Actif")}</option><option value="inactive">{t("Inactif")}</option>
+        </select></label>
+        <span role="status">{filtered.length} / {groups.length} {t("groupes", "groups")}</span>
+      </div>
       <div className="admin-table-wrap">
         <table className="admin-actions-table">
           <thead>
@@ -1894,33 +1911,33 @@ function GroupsPanel({
                 </td>
               </tr>
             )}
-            {filtered.map((group) => (
+            {filtered.slice((currentPage - 1) * 20, currentPage * 20).map((group) => (
               <tr key={group.id}>
-                <td>
+                <td data-label={t("Nom")}>
                   <strong>{group.name}</strong>
                   <small>{group.description}</small>
                 </td>
-                <td>{group.distinguishedName}</td>
-                <td>
+                <td data-label="DN">{group.distinguishedName}</td>
+                <td data-label={t("Source")}>
                   {group.lastSyncedAt ? t("Synchronisé AD") : t("Ajout local")}
                 </td>
-                <td>{group.memberCount}</td>
-                <td>
+                <td data-label={t("Membres")}>{group.memberCount}</td>
+                <td data-label={t("Dernière synchro")}>
                   {group.lastSyncedAt
                     ? new Date(group.lastSyncedAt).toLocaleString(locale)
                     : t("Jamais")}
                 </td>
-                <td>
+                <td data-label={t("Espaces")}>
                   {group.accessRules
                     .map((rule) =>
                       locale === "fr" ? rule.space.nameFr : rule.space.nameEn,
                     )
                     .join(", ") || "—"}
                 </td>
-                <td>
+                <td data-label={t("État")}>
                   <mark>{group.active ? t("Actif") : t("Inactif")}</mark>
                 </td>
-                <td>
+                <td data-label={t("Actions")}>
                   <button
                     className="danger"
                     onClick={async () => {
@@ -1947,8 +1964,19 @@ function GroupsPanel({
           </tbody>
         </table>
       </div>
+      <ManagementPagination page={currentPage} pages={pageCount} onPage={setPage} label={t("Pagination des groupes", "Group pagination")} />
     </>
   );
+}
+
+function ManagementPagination({ page, pages, onPage, label }: { page: number; pages: number; onPage: (page: number) => void; label: string }) {
+  const { t } = useAdminI18n();
+  if (pages <= 1) return null;
+  return <nav className="document-pagination" aria-label={label}>
+    <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)}>{t("Précédent")}</button>
+    <span aria-live="polite">{t("Page")} {page} {t("sur")} {pages}</span>
+    <button type="button" disabled={page >= pages} onClick={() => onPage(page + 1)}>{t("Suivant")}</button>
+  </nav>;
 }
 
 function RulesPanel({
@@ -1973,6 +2001,13 @@ function RulesPanel({
   onNotice: (message: string) => void;
 }) {
   const { locale, t } = useAdminI18n();
+  const [groupFilter, setGroupFilter] = useState("");
+  const [spaceFilter, setSpaceFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const filtered = rules.filter((rule) => (!groupFilter || rule.group.id === groupFilter) && (!spaceFilter || rule.space.id === spaceFilter));
+  const pageCount = Math.max(1, Math.ceil(filtered.length / 20));
+  const currentPage = Math.min(page, pageCount);
+  useEffect(() => { setPage(1); }, [rules, groupFilter, spaceFilter]);
   return (
     <>
       <h1>{t("Gestion des droits d’accès")}</h1>
@@ -1989,6 +2024,17 @@ function RulesPanel({
             <Icon name="add" /> {t("Ajouter une règle")}
           </button>
         </div>
+        <div className="admin-management-tools">
+          <label>{t("Groupe")}<select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
+            <option value="">{t("Tous les groupes", "All groups")}</option>
+            {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+          </select></label>
+          <label>{t("Espace")}<select value={spaceFilter} onChange={(event) => setSpaceFilter(event.target.value)}>
+            <option value="">{t("Tous les espaces", "All spaces")}</option>
+            {spaces.map((space) => <option key={space.id} value={space.id}>{locale === "fr" ? space.nameFr : space.nameEn}</option>)}
+          </select></label>
+          <span role="status">{filtered.length} / {rules.length} {t("règles", "rules")}</span>
+        </div>
         <div className="admin-table-wrap">
           <table>
             <thead>
@@ -2003,7 +2049,7 @@ function RulesPanel({
               </tr>
             </thead>
             <tbody>
-              {rules.length === 0 && (
+              {filtered.length === 0 && (
                 <tr>
                   <td colSpan={2 + permissionKeys.length}>
                     <EmptyState
@@ -2014,26 +2060,27 @@ function RulesPanel({
                   </td>
                 </tr>
               )}
-              {rules.map((rule) => (
+              {filtered.slice((currentPage - 1) * 20, currentPage * 20).map((rule) => (
                 <tr
                   className={selected?.id === rule.id ? "selected-row" : ""}
                   key={rule.id}
                   onClick={() => onSelect(rule)}
                 >
-                  <td>
-                    <strong>{rule.group.name}</strong>
+                  <td data-label={t("Groupe")}>
+                    <button type="button" aria-label={`${t("Éditer", "Edit")} ${rule.group.name}`} onClick={(event) => { event.stopPropagation(); onSelect(rule); }}><Icon name="rules" />{rule.group.name}</button>
                   </td>
-                  <td>
+                  <td data-label={t("Espace")}>
                     {locale === "fr" ? rule.space.nameFr : rule.space.nameEn}
                   </td>
                   {permissionKeys.map((key) => (
-                    <td key={key}>{rule[key] ? "✓" : "—"}</td>
+                    <td key={key} data-label={permissionLabels[key][locale === "fr" ? 0 : 1]}>{rule[key] ? "✓" : "—"}</td>
                   ))}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        <ManagementPagination page={currentPage} pages={pageCount} onPage={setPage} label={t("Pagination des règles", "Rule pagination")} />
       </section>
       <AccessGovernancePanel
         rules={rules}
@@ -3003,11 +3050,15 @@ function SpacesPanel({
 
 function DocumentsPanel({
   spaces,
+  search,
+  onSearch,
   refreshing,
   onChanged,
   onError,
 }: {
   spaces: Space[];
+  search: string;
+  onSearch: (value: string) => void;
   refreshing: boolean;
   onChanged: () => Promise<void>;
   onError: (message: string) => void;
@@ -3032,6 +3083,12 @@ function DocumentsPanel({
   const [documentTotal, setDocumentTotal] = useState(0);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const documentRequest = useRef(0);
+  const [documentQuery, setDocumentQuery] = useState(search.trim().slice(0, 200));
+  const [documentSort, setDocumentSort] = useState("updatedAt");
+  useEffect(() => {
+    const timer = window.setTimeout(() => { setDocumentPage(1); setDocumentQuery(search.trim().slice(0, 200)); }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
   const documentPageSize = 20;
   const documentPageCount = Math.max(
     1,
@@ -3043,7 +3100,7 @@ function DocumentsPanel({
     setPageDocuments([]);
     try {
       const result = await api<{ items: AdminDocument[]; total: number }>(
-        `/api/admin/documents?page=${documentPage}&limit=${documentPageSize}`,
+        `/api/admin/documents?${new URLSearchParams({ page: String(documentPage), limit: String(documentPageSize), q: documentQuery, sort: documentSort, order: "desc" })}`,
       );
       if (request !== documentRequest.current) return;
       setPageDocuments(result.items);
@@ -3054,7 +3111,7 @@ function DocumentsPanel({
     } finally {
       if (request === documentRequest.current) setDocumentsLoading(false);
     }
-  }, [documentPage, onError]);
+  }, [documentPage, documentQuery, documentSort, onError]);
   useEffect(() => {
     if (refreshing) return;
     void loadDocuments();
@@ -3076,6 +3133,15 @@ function DocumentsPanel({
   return (
     <>
       <h1>{t("Documents")}</h1>
+      <div className="admin-management-tools">
+        <label>{t("Rechercher un document", "Search documents")}<input type="search" maxLength={200} value={search} onChange={(event) => onSearch(event.target.value)} /></label>
+        <label>{t("Trier par", "Sort by")}<select value={documentSort} onChange={(event) => { setDocumentPage(1); setDocumentSort(event.target.value); }}>
+          <option value="updatedAt">{t("Dernière modification", "Last updated")}</option>
+          <option value="publishedAt">{t("Publication", "Publication")}</option>
+          <option value="status">{t("État")}</option>
+        </select></label>
+        <span role="status">{documentsLoading ? t("Chargement…") : `${documentTotal} ${t("documents", "documents")}`}</span>
+      </div>
       <BatchImport locale={locale} disabled={refreshing} onComplete={async () => { await loadDocuments(); await onChanged(); }} />
       <form
         key={versionUploadDocument?.id || "new-document"}
@@ -3098,7 +3164,7 @@ function DocumentsPanel({
         }}
       >
         <input name="documentId" type="hidden" value={versionUploadDocument?.id || ""} />
-        <h2>{versionUploadDocument ? t("Déposer une nouvelle version") : t("Déposer une version")}</h2>
+        <h2>{versionUploadDocument ? t("Déposer une nouvelle version") : t("Déposer un document", "Upload a document")}</h2>
         {versionUploadDocument && (
           <p className="notice">
             {t("Document sélectionné")}: <strong>{versionTranslation?.title}</strong> · {t("prochaine version")} v{nextVersion}
@@ -3286,8 +3352,8 @@ function DocumentsPanel({
                 <td colSpan={6}>
                   <EmptyState
                     compact
-                    fr="Aucun document n’a encore été déposé."
-                    en="No document has been uploaded yet."
+                    fr="Aucun document ne correspond à cette recherche."
+                    en="No document matches this search."
                   />
                 </td>
               </tr>
