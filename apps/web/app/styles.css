@@ -2200,7 +2200,8 @@ h1 {
 .admin-form textarea {
   min-height: 90px;
 }
-.admin-form .check {
+.admin-form .check,
+.admin-form label:has(> input[type="checkbox"]) {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -2209,6 +2210,15 @@ h1 {
   width: 18px;
   min-height: 18px;
   flex: 0 0 18px;
+}
+.admin-form input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  flex: 0 0 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: #0768ea;
 }
 .document-language-field {
   min-width: 0;

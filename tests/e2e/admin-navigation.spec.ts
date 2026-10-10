@@ -139,6 +139,13 @@ for (const width of [320, 768, 1280]) {
       if (hash !== "administrators") await expect(page.locator(".administrator-management")).toHaveCount(0);
       if (!["settings", "profile"].includes(hash)) await expect(page.locator(".profile-settings")).toHaveCount(0);
       await expect(page.getByRole("navigation", { name: "Pagination des e-mails" })).toHaveCount(0);
+      if (hash === "alert-policy") {
+        const checkbox = page.locator('.observability-policy input[type="checkbox"]');
+        const size = await checkbox.boundingBox();
+        expect(size?.width).toBe(18);
+        expect(size?.height).toBe(18);
+        expect(await checkbox.locator("..").evaluate((label) => getComputedStyle(label).display)).toBe("flex");
+      }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }
     expect(errors).toEqual([]);
