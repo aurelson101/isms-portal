@@ -1575,7 +1575,7 @@ h1 {
   border-radius: 0;
   padding: 8px 10px;
 }
-.admin-language button[aria-pressed="true"] {
+.admin-shell .admin-language button[aria-pressed="true"] {
   background: #0768ea;
   color: white;
 }
