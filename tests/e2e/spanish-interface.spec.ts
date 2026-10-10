@@ -58,6 +58,9 @@ for (const width of [320, 768, 1280]) {
     await expect(page.getByRole("heading", { name: "Cuentas de moderadores", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Añadir un usuario de Active Directory" })).toBeVisible();
     await expect(page.locator('.admin-language button[aria-pressed="true"]')).toHaveText("ES");
+    for (const button of await page.locator('.admin-language button, .refresh-button').all()) {
+      expect(await button.evaluate(element => getComputedStyle(element).whiteSpace)).toBe("nowrap");
+    }
     await noOverflow();
     await page.goto("/admin#help");
     await expect(page.getByRole("heading", { name: "Ayuda de ISMS Portal", exact: true })).toBeVisible();

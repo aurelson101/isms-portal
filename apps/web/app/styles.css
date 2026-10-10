@@ -1564,16 +1564,19 @@ h1 {
 }
 .admin-language {
   display: inline-flex;
+  flex: 0 0 auto;
   border: 1px solid #b9c8dc;
   border-radius: 7px;
   overflow: hidden;
 }
-.admin-language button {
+.admin-shell header .admin-language button {
+  flex: 0 0 44px;
   min-width: 44px;
   min-height: 44px;
   border: 0;
   border-radius: 0;
   padding: 8px 10px;
+  white-space: nowrap;
 }
 .admin-shell .admin-language button[aria-pressed="true"] {
   background: #0768ea;
@@ -1581,6 +1584,8 @@ h1 {
 }
 .refresh-button {
   display: inline-flex;
+  flex: 0 0 auto;
+  white-space: nowrap;
   align-items: center;
   gap: 7px;
 }
