@@ -1,36 +1,54 @@
 import fs from "node:fs";
+import path from "node:path";
+import ts from "typescript";
 
-const catalog = fs.readFileSync("apps/web/app/i18n/catalogs.ts", "utf8");
-const portal = fs.readFileSync("apps/web/app/page.tsx", "utf8");
-const admin = fs.readFileSync("apps/web/app/admin/page.tsx", "utf8");
-
-if (!/catalogVersion = \d+/.test(catalog)) {
-  throw new Error("The translation catalog must expose a numeric version.");
+const root = path.resolve("apps/web/app");
+const modules = new Map();
+function load(file) {
+  if (modules.has(file)) return modules.get(file);
+  const exports = {};
+  modules.set(file, exports);
+  const compiled = ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
+  new Function("require", "exports", compiled.outputText)((name) => load(path.resolve(path.dirname(file), name + ".ts")), exports);
+  return exports;
 }
-if (
-  !catalog.includes("portalCatalog") ||
-  !catalog.includes("adminEnglishCatalog")
-) {
-  throw new Error("FR/EN portal and administration catalogs are required.");
+const { portalCatalog, adminEnglishCatalog } = load(path.join(root, "i18n/catalogs.ts"));
+const { spanishMessages } = load(path.join(root, "i18n/spanish-messages.ts"));
+const { additionalSpanishMessages } = load(path.join(root, "i18n/additional-messages.ts"));
+const { spanishTemplates } = load(path.join(root, "i18n/spanish-templates.ts"));
+const spanish = { ...spanishMessages, ...additionalSpanishMessages, ...spanishTemplates };
+const missing = new Set();
+const check = text => { if (text.trim() && !Object.hasOwn(spanish, text)) missing.add(text); };
+for (const text of Object.values(adminEnglishCatalog)) check(text);
+for (const key of Object.keys(portalCatalog.en)) {
+  if (!portalCatalog.fr[key] || !portalCatalog.es[key]) throw Error(`Incomplete portal key: ${key}`);
+  check(portalCatalog.en[key]);
 }
-if (/const copy\s*=/.test(portal)) {
-  throw new Error("Portal translations must remain in the versioned catalog.");
+function literals(node) {
+  if (ts.isStringLiteral(node)) check(node.text);
+  else if (ts.isNoSubstitutionTemplateLiteral(node)) check(node.text);
+  else if (ts.isTemplateExpression(node)) check(node.head.text + node.templateSpans.map((span, index) => `{${index}}${span.literal.text}`).join(""));
+  else if (ts.isConditionalExpression(node)) { literals(node.whenTrue); literals(node.whenFalse); }
 }
-
-const bilingualLiteral =
-  /t\(\s*"(?:\\.|[^"\\])*"\s*,\s*"(?:\\.|[^"\\])*"\s*\)/g;
-const remaining = admin.match(bilingualLiteral) || [];
-if (remaining.length) {
-  throw new Error(
-    `${remaining.length} literal admin translation(s) remain outside the catalog.`,
-  );
+for (const file of fs.readdirSync(root, { recursive: true }).filter(file => /\.tsx?$/.test(file) && !file.startsWith("i18n"))) {
+  const source = ts.createSourceFile(file, fs.readFileSync(path.join(root, file), "utf8"), ts.ScriptTarget.Latest, true, file.endsWith("tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  function visit(node) {
+    if (ts.isCallExpression(node)) {
+      const name = node.expression.getText(source);
+      if (name === "translate" && node.arguments.length === 3) literals(node.arguments[2]);
+      if (name === "t" && node.arguments.length === 2) literals(node.arguments[1]);
+      if (name === "t" && node.arguments.length === 1 && ts.isStringLiteral(node.arguments[0])) {
+        const text = node.arguments[0].text;
+        if (!Object.hasOwn(adminEnglishCatalog, text)) missing.add(`EN: ${text}`);
+      }
+    }
+    if (ts.isPropertyAssignment(node) && node.name.getText(source) === "en" && ts.isObjectLiteralExpression(node.initializer)) {
+      for (const property of node.initializer.properties) if (ts.isPropertyAssignment(property)) literals(property.initializer);
+    }
+    if (ts.isArrayLiteralExpression(node) && node.elements.length === 2 && node.elements.every(ts.isStringLiteral) && node.elements[1].text.length > 2) check(node.elements[1].text);
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
 }
-
-const portalLocales = [...catalog.matchAll(/^\s{2}(fr|en): \{$/gm)].map(
-  (match) => match[1],
-);
-if (!portalLocales.includes("fr") || !portalLocales.includes("en")) {
-  throw new Error("Portal catalog must contain both fr and en locales.");
-}
-
-console.log("Translation catalogs are versioned and complete for FR/EN.");
+if (missing.size) throw Error(`Missing interface translations:\n${[...missing].sort().join("\n")}`);
+console.log(`FR/EN/ES catalog coverage verified (${Object.keys(spanish).length} Spanish messages).`);

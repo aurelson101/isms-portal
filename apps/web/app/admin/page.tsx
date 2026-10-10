@@ -1,5 +1,7 @@
 "use client";
 
+import { localizedPair, localizeRecord, translate } from "../i18n/translate";
+
 import {
   createContext,
   FormEvent,
@@ -59,11 +61,7 @@ const useAdminI18n = () => {
   return {
     locale,
     t: (fr: string, en?: string) =>
-      locale === "fr"
-        ? fr
-        : en ||
-          adminEnglishCatalog[fr as keyof typeof adminEnglishCatalog] ||
-          fr,
+      translate(locale, fr, en || adminEnglishCatalog[fr as keyof typeof adminEnglishCatalog] || fr),
   };
 };
 const localizedStatus = (locale: Locale, value: string) => {
@@ -86,7 +84,7 @@ const localizedStatus = (locale: Locale, value: string) => {
     RESOLVED: ["Traité", "Resolved"],
   };
   const label = labels[value.toUpperCase()];
-  return label ? label[locale === "fr" ? 0 : 1] : value;
+  return label ? localizedPair(locale, label) : value;
 };
 const paginationItems = (
   current: number,
@@ -578,9 +576,7 @@ export default function Admin() {
     return () => observer.disconnect();
   }, []);
   const t = (fr: string, en?: string) =>
-    locale === "fr"
-      ? fr
-      : en || adminEnglishCatalog[fr as keyof typeof adminEnglishCatalog] || fr;
+    translate(locale, fr, en || adminEnglishCatalog[fr as keyof typeof adminEnglishCatalog] || fr);
   useEffect(() => {
     const activeGroup =
       tabs.findIndex(([key]) => key === tab) === 0
@@ -632,7 +628,6 @@ export default function Admin() {
       setIdentity(me);
       const preferred = initialLocale(
         localStorage.getItem("isms-locale"),
-        me.locale,
       );
       setLocale(preferred);
       document.documentElement.lang = preferred;
@@ -946,7 +941,7 @@ export default function Admin() {
                           onClick={() => selectTab(key)}
                         >
                           <Icon name={icon} />{" "}
-                          <span>{locale === "fr" ? labelFr : labelEn}</span>
+                          <span>{translate(locale, labelFr, labelEn)}</span>
                         </button>
                       ),
                     )}
@@ -1015,6 +1010,9 @@ export default function Admin() {
                 >
                   EN
                 </button>
+                <button type="button" aria-pressed={locale === "es"} onClick={() => void changeLocale("es")}>
+                  ES
+                </button>
               </div>
               <button className="refresh-button" onClick={() => void refresh()}>
                 <Icon name="sync" /> <span>{t("Actualiser")}</span>
@@ -1072,6 +1070,7 @@ export default function Admin() {
                       >
                         English
                       </button>
+                      <button type="button" aria-pressed={locale === "es"} onClick={() => void changeLocale("es")}>Español</button>
                     </div>
                     <span
                       className={
@@ -1305,7 +1304,7 @@ export default function Admin() {
               <h3>{t("Permissions accordées")}</h3>
               {permissionKeys.map((key) => (
                 <label className="toggle" key={key}>
-                  {permissionLabels[key][locale === "fr" ? 0 : 1]}
+                  {localizedPair(locale, permissionLabels[key])}
                   <input
                     type="checkbox"
                     checked={ruleDraft[key]}
@@ -1951,7 +1950,7 @@ function GroupsPanel({
                     onClick={async () => {
                       const warning = t(
                         `${group.lastSyncedAt ? "Ce groupe synchronisé pourra revenir à la prochaine synchronisation. " : ""}${group.accessRules.length} règle(s) associée(s) seront supprimée(s). Continuer ?`,
-                        `${group.lastSyncedAt ? "This synchronized group may return during the next synchronization. " : ""}${group.accessRules.length} associated rule(s) will be deleted. Continue?`,
+                        group.lastSyncedAt ? `This synchronized group may return during the next synchronization. ${group.accessRules.length} associated rule(s) will be deleted. Continue?` : `${group.accessRules.length} associated rule(s) will be deleted. Continue?`,
                       );
                       if (!(await confirmAction(warning))) return;
                       await api(`/api/admin/groups/${group.id}`, {
@@ -2051,7 +2050,7 @@ function RulesPanel({
                 <th>{t("Espace")}</th>
                 {permissionKeys.map((key) => (
                   <th key={key}>
-                    {permissionLabels[key][locale === "fr" ? 0 : 1]}
+                    {localizedPair(locale, permissionLabels[key])}
                   </th>
                 ))}
               </tr>
@@ -2081,7 +2080,7 @@ function RulesPanel({
                     {locale === "fr" ? rule.space.nameFr : rule.space.nameEn}
                   </td>
                   {permissionKeys.map((key) => (
-                    <td key={key} data-label={permissionLabels[key][locale === "fr" ? 0 : 1]}>{rule[key] ? "✓" : "—"}</td>
+                    <td key={key} data-label={localizedPair(locale, permissionLabels[key])}>{rule[key] ? "✓" : "—"}</td>
                   ))}
                 </tr>
               ))}
@@ -2266,7 +2265,7 @@ function AccessGovernancePanel({
                   <th>{t("Espace")}</th>
                   {permissionKeys.map((key) => (
                     <th key={key}>
-                      {permissionLabels[key][locale === "fr" ? 0 : 1]}
+                      {localizedPair(locale, permissionLabels[key])}
                     </th>
                   ))}
                 </tr>
@@ -2296,7 +2295,7 @@ function AccessGovernancePanel({
                 <th>{t("Espace")}</th>
                 {permissionKeys.map((key) => (
                   <th key={key}>
-                    {permissionLabels[key][locale === "fr" ? 0 : 1]}
+                    {localizedPair(locale, permissionLabels[key])}
                   </th>
                 ))}
               </tr>
@@ -4749,18 +4748,14 @@ function RequestsPanel({
       });
       if (!response.ok)
         throw new Error(
-          locale === "fr"
-            ? "Impossible de charger les demandes."
-            : "Unable to load requests.",
+          translate(locale, "Impossible de charger les demandes.", "Unable to load requests."),
         );
       setItems(await response.json());
     } catch (error) {
       onError(
         error instanceof Error
           ? error.message
-          : locale === "fr"
-            ? "Erreur inattendue."
-            : "Unexpected error.",
+          : translate(locale, "Erreur inattendue.", "Unexpected error."),
       );
     } finally {
       setLoading(false);
@@ -5198,23 +5193,23 @@ function ObservabilityPanel({
   const emailCopy = locale === "fr" ? {
     all: "Tous les états", attempts: "Tentatives", resource: "Ressource", refresh: "Actualiser les e-mails", refreshFailed: "Impossible de charger le suivi des e-mails.", retryFailed: "La relance a échoué. Actualisez le suivi avant de réessayer.",
     title: "Suivi des e-mails", recipient: "Destinataire", template: "Modèle d’e-mail", document: "Publication documentaire", approval: "Demande d’approbation", review: "Revue documentaire", report: "Signalement", sending: "Envoi…", test: "Envoyer un e-mail de test", event: "Événement", status: "État", recipients: "Acceptés", completed: "Date", action: "Action", empty: "Aucun envoi récent.", retry: "Relancer", accepted: "Accepté par le service d’envoi", waiting: "En attente", active: "En cours", delayed: "Différé", skipped: "Non envoyé", failed: "Échoué", deliveryNote: "L’acceptation par le service d’envoi ne garantit pas la réception. Vérifiez les journaux du fournisseur.",
-  } : {
+  } : localizeRecord(locale, {
     all: "All statuses", attempts: "Attempts", resource: "Resource", refresh: "Refresh email history", refreshFailed: "Unable to load email history.", retryFailed: "Retry failed. Refresh the history before trying again.",
     title: "Email delivery", recipient: "Recipient", template: "Email template", document: "Document publication", approval: "Approval request", review: "Document review", report: "Issue report", sending: "Sending…", test: "Send template test", event: "Event", status: "Status", recipients: "Accepted", completed: "Date", action: "Action", empty: "No recent email deliveries.", retry: "Retry", accepted: "Accepted by mail provider", waiting: "Waiting", active: "Processing", delayed: "Delayed", skipped: "Not sent", failed: "Failed", deliveryNote: "Mail provider acceptance does not guarantee inbox delivery. Check the provider delivery logs.",
-  };
+  });
   const ui = locale === "fr" ? {
     refresh: "Actualiser les données", loading: "Chargement des données…", updated: "Dernière actualisation",
     loadError: "Chargement incomplet. Les dernières données disponibles sont conservées. Réessayez.",
     actionError: "L’opération a échoué. Vérifiez la configuration puis réessayez.",
     search: "Rechercher un événement ou une ressource", previous: "Précédent", next: "Suivant", page: "Page",
     of: "sur", all: "Tous les types", type: "Type", items: "éléments", unknown: "—",
-  } : {
+  } : localizeRecord(locale, {
     refresh: "Refresh data", loading: "Loading data…", updated: "Last refreshed",
     loadError: "Incomplete refresh. The last available data is preserved. Try again.",
     actionError: "The operation failed. Check the configuration and try again.",
     search: "Search events or resources", previous: "Previous", next: "Next", page: "Page",
     of: "of", all: "All types", type: "Type", items: "items", unknown: "—",
-  };
+  });
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
   const formatDate = (value: string) => Number.isFinite(Date.parse(value)) ? dateFormatter.format(new Date(value)) : ui.unknown;
   const filteredEmailDeliveries = useMemo(() => {
@@ -5294,9 +5289,7 @@ function ObservabilityPanel({
       }
       setLastUpdated(new Date());
     } catch {
-      if (request === operationsRequest.current) setOperationsError(locale === "fr"
-        ? "Chargement incomplet. Les dernières données disponibles sont conservées. Réessayez."
-        : "Incomplete refresh. The last available data is preserved. Try again.");
+      if (request === operationsRequest.current) setOperationsError(translate(locale, "Chargement incomplet. Les dernières données disponibles sont conservées. Réessayez.", "Incomplete refresh. The last available data is preserved. Try again."));
     } finally {
       window.clearTimeout(timeout);
       if (request === operationsRequest.current) setOperationsLoading(false);
@@ -5563,7 +5556,7 @@ function ObservabilityPanel({
             {visibleEmailDeliveries.map((delivery) => <tr key={delivery.id}><td data-label={emailCopy.event}>{delivery.action}</td><td data-label={emailCopy.resource}>{delivery.resource}</td><td data-label={emailCopy.status}>{delivery.status === "ACCEPTED" ? <span title={emailCopy.deliveryNote}>{emailCopy.accepted}</span> : `${emailCopy[delivery.status.toLowerCase() as "waiting" | "active" | "delayed" | "skipped" | "failed"]}${delivery.error ? `: ${delivery.error}` : ""}`}</td><td data-label={emailCopy.attempts}>{delivery.attempts}</td><td data-label={emailCopy.recipients}>{delivery.accepted}</td><td data-label={emailCopy.completed}>{formatDate(delivery.finishedAt || delivery.createdAt)}</td><td data-label={emailCopy.action}>{delivery.status === "FAILED" && <button type="button" disabled={emailBusy} onClick={() => void retryEmailDelivery(delivery.id)}>{emailCopy.retry}</button>}</td></tr>)}
           </tbody></table>
         </div>
-        {emailTotalPages > 1 && <nav className="document-pagination" aria-label={locale === "fr" ? "Pagination des e-mails" : "Email history pagination"}>
+        {emailTotalPages > 1 && <nav className="document-pagination" aria-label={translate(locale, "Pagination des e-mails", "Email history pagination")}>
           <button type="button" disabled={currentEmailPage <= 1} onClick={() => setEmailPage(currentEmailPage - 1)}>{ui.previous}</button>
           <span aria-live="polite">{ui.page} {currentEmailPage} {ui.of} {emailTotalPages}</span>
           <button type="button" disabled={currentEmailPage >= emailTotalPages} onClick={() => setEmailPage(currentEmailPage + 1)}>{ui.next}</button>
@@ -5588,7 +5581,7 @@ function ObservabilityPanel({
             </div></td>
           </tr>)}</tbody></table>
         </div>}
-        {workTotalPages > 1 && <nav className="document-pagination" aria-label={locale === "fr" ? "Pagination des éléments à traiter" : "Work item pagination"}>
+        {workTotalPages > 1 && <nav className="document-pagination" aria-label={translate(locale, "Pagination des éléments à traiter", "Work item pagination")}>
           <button type="button" disabled={currentWorkPage <= 1} onClick={() => setWorkPage(currentWorkPage - 1)}>{ui.previous}</button>
           <span aria-live="polite">{ui.page} {currentWorkPage} {ui.of} {workTotalPages}</span>
           <button type="button" disabled={currentWorkPage >= workTotalPages} onClick={() => setWorkPage(currentWorkPage + 1)}>{ui.next}</button>
@@ -5674,7 +5667,7 @@ function ObservabilityPanel({
                 {t("Télécharger la configuration")}
               </a>
               {(integrationDownloads[tool] || []).map((download) => <a key={download.variant} href={`/api/admin/operations/integrations/${tool}/download?artifact=${download.variant}`}>
-                {locale === "fr" ? download.fr : download.en}
+                {translate(locale, download.fr, download.en)}
               </a>)}
               <button
                 type="button"

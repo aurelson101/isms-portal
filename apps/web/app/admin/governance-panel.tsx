@@ -1,9 +1,11 @@
 "use client";
 
+import { localizedPair, translate } from "../i18n/translate";
+
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Icon } from "../icons";
 
-type Locale = "fr" | "en";
+import type { Locale } from "../i18n/locale";
 const governanceSectionKeys = ["reviews", "access", "controls", "retention", "identity", "incidents", "views", "risks", "dashboard"] as const;
 type DocumentItem = {
   id: string;
@@ -160,7 +162,7 @@ const statusLabels: Record<string, [string, string]> = {
 };
 
 const statusLabel = (locale: Locale, value: string) =>
-  statusLabels[value]?.[locale === "fr" ? 0 : 1] || value;
+  localizedPair(locale, statusLabels[value]) || value;
 
 const governancePageItems = (current: number, total: number): Array<number | "ellipsis"> => {
   if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
@@ -171,10 +173,10 @@ const governancePageItems = (current: number, total: number): Array<number | "el
 
 function GovernancePagination({ locale, page, total, onChange }: { locale: Locale; page: number; total: number; onChange: (page: number) => void }) {
   if (total <= 1) return null;
-  return <nav className="governance-pagination" aria-label={locale === "fr" ? "Pages de résultats" : "Result pages"}>
-    <button type="button" disabled={page === 1} onClick={() => onChange(page - 1)}>{locale === "fr" ? "Précédent" : "Previous"}</button>
+  return <nav className="governance-pagination" aria-label={translate(locale, "Pages de résultats", "Result pages")}>
+    <button type="button" disabled={page === 1} onClick={() => onChange(page - 1)}>{translate(locale, "Précédent", "Previous")}</button>
     {governancePageItems(page, total).map((item, index) => item === "ellipsis" ? <span key={`ellipsis-${index}`} aria-hidden="true">…</span> : <button key={item} type="button" className={item === page ? "active" : ""} aria-current={item === page ? "page" : undefined} onClick={() => onChange(item)}>{item}</button>)}
-    <button type="button" disabled={page === total} onClick={() => onChange(page + 1)}>{locale === "fr" ? "Suivant" : "Next"}</button>
+    <button type="button" disabled={page === total} onClick={() => onChange(page + 1)}>{translate(locale, "Suivant", "Next")}</button>
   </nav>;
 }
 
@@ -220,7 +222,7 @@ export function GovernancePanel({
   onError: (message: string) => void;
   onNotice: (message: string) => void;
 }) {
-  const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const t = (fr: string, en: string) => translate(locale, fr, en);
   const [section, setSection] = useState("reviews");
   const [summary, setSummary] = useState<Record<string, number>>({});
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -285,9 +287,7 @@ export function GovernancePanel({
     });
     if (failed.length)
       onError(
-        (locale === "fr"
-          ? "Impossible d’actualiser : "
-          : "Could not refresh: ") + failed.join(", "),
+        (translate(locale, "Impossible d’actualiser : ", "Could not refresh: ")) + failed.join(", "),
       );
     setInitialLoading(false);
     setRefreshing(false);
@@ -418,7 +418,7 @@ export function GovernancePanel({
             }}
             key={key}
             >
-              {locale === "fr" ? fr : en} <span>{count}</span>
+              {translate(locale, fr, en)} <span>{count}</span>
             </button>
           ))}
         </nav>
@@ -529,7 +529,7 @@ function RiskExceptionsSection({
     method?: string,
   ) => Promise<void>;
 }) {
-  const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const t = (fr: string, en: string) => translate(locale, fr, en);
   const [draft, setDraft] = useState({
     title: "",
     owner: "",
@@ -708,7 +708,7 @@ function KpiSection({
     method?: string,
   ) => Promise<void>;
 }) {
-  const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const t = (fr: string, en: string) => translate(locale, fr, en);
   const metrics = kpi
     ? [
         [
@@ -828,7 +828,7 @@ function ReviewsSection({
     method?: string,
   ) => Promise<void>;
 }) {
-  const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const t = (fr: string, en: string) => translate(locale, fr, en);
   const [draft, setDraft] = useState({
     documentId: "",
     owner: "",
@@ -1132,7 +1132,7 @@ function ReviewActorPicker({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const t = (fr: string, en: string) => translate(locale, fr, en);
   const [mode, setMode] = useState<"directory" | "manual">("directory");
   const [query, setQuery] = useState("");
   const [users, setUsers] = useState<DirectoryUser[]>([]);
@@ -1163,18 +1163,14 @@ function ReviewActorPicker({
           setUsers(matches);
           if (!matches.length)
             setDirectoryMessage(
-              locale === "fr"
-                ? "Aucun utilisateur AD trouvé."
-                : "No AD user found.",
+              translate(locale, "Aucun utilisateur AD trouvé.", "No AD user found."),
             );
         })
         .catch((error) => {
           if ((error as Error).name !== "AbortError") {
             setUsers([]);
             setDirectoryMessage(
-              locale === "fr"
-                ? "Annuaire indisponible. Utilisez la saisie manuelle."
-                : "Directory unavailable. Use manual entry.",
+              translate(locale, "Annuaire indisponible. Utilisez la saisie manuelle.", "Directory unavailable. Use manual entry."),
             );
           }
         })
@@ -1319,7 +1315,7 @@ function AccessSection({
     method?: string,
   ) => Promise<void>;
 }) {
-  const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const t = (fr: string, en: string) => translate(locale, fr, en);
   const [accessPage, setAccessPage] = useState(1);
   return (
     <div className="governance-list">
@@ -1405,7 +1401,7 @@ function ControlsSection({
     method?: string,
   ) => Promise<void>;
 }) {
-  const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const t = (fr: string, en: string) => translate(locale, fr, en);
   const [draft, setDraft] = useState({
     framework: "ISO 27001",
     reference: "",
@@ -1550,7 +1546,7 @@ function RetentionSection({
     method?: string,
   ) => Promise<void>;
 }) {
-  const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const t = (fr: string, en: string) => translate(locale, fr, en);
   const [draft, setDraft] = useState({
     documentId: "",
     retentionUntil: "",
@@ -1717,7 +1713,7 @@ function IdentitySection({
   data: Record<string, unknown>;
   onRefresh: () => Promise<void>;
 }) {
-  const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const t = (fr: string, en: string) => translate(locale, fr, en);
   const dormant =
     (data.dormantAccounts as Array<Record<string, unknown>> | undefined) || [];
   const stale =
@@ -1870,7 +1866,7 @@ function IncidentsSection({
     method?: string,
   ) => Promise<void>;
 }) {
-  const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const t = (fr: string, en: string) => translate(locale, fr, en);
   const [draft, setDraft] = useState({
     reference: "",
     title: "",
@@ -2128,7 +2124,7 @@ function ViewsSection({
   onError: (message: string) => void;
   onNotice: (message: string) => void;
 }) {
-  const t = (fr: string, en: string) => (locale === "fr" ? fr : en);
+  const t = (fr: string, en: string) => translate(locale, fr, en);
   const [name, setName] = useState("");
   const [bulkStatus, setBulkStatus] = useState("INVESTIGATING");
   const safe = async (action: () => Promise<void>) => {

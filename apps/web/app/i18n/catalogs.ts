@@ -1,7 +1,9 @@
-const catalogVersion = 3 as const;
+import { withSpanish } from "./translate";
+import { additionalEnglishMessages } from "./additional-messages";
+const catalogVersion = 4 as const;
 void catalogVersion;
 
-export const portalCatalog = {
+export const portalCatalog = withSpanish({
   fr: {
     welcome: "Bienvenue",
     subtitle: "Retrouvez rapidement les documents qui vous concernent.",
@@ -322,9 +324,9 @@ export const portalCatalog = {
     details: "Details",
     viewAnnualDetails: "View summary and lessons learned",
   },
-} as const;
+} as const);
 
-export const adminEnglishCatalog = {
+const adminBaseEnglishCatalog = {
   "Connexion SSO": "SSO sign-in",
   "Connexion automatique": "Automatic sign-in",
   Pilote: "Pilot",
@@ -809,3 +811,5 @@ export const adminEnglishCatalog = {
     "Permanently delete this document and its files?",
   "Supprimer définitivement": "Delete permanently",
 } as const;
+
+export const adminEnglishCatalog: Readonly<Record<string, string>> = { ...adminBaseEnglishCatalog, ...additionalEnglishMessages };

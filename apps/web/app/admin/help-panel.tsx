@@ -1,5 +1,7 @@
 "use client";
 
+import { localizedPair, translate } from "../i18n/translate";
+
 import { useState } from "react";
 import { Icon } from "../icons";
 import type { Locale } from "../i18n/locale";
@@ -391,11 +393,10 @@ const technicalExamples: Record<HelpTarget, { steps: Text[]; values: string; war
 export function HelpPanel({ locale, onNavigate }: { locale: Locale; onNavigate: (target: HelpTarget) => void }) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const language = locale === "fr" ? 0 : 1;
   const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
   const visible = topics.map((topic, index) => ({ ...topic, index })).filter((topic) => {
     const example = technicalExamples[topic.target];
-    return normalize([topic.title[language], ...topic.paragraphs.map((text) => text[language]), ...configuration[topic.target].steps.map((text) => text[language]), configuration[topic.target].check[language], ...(example?.steps.map((text) => text[language]) || []), example?.values || "", example?.warning[language] || ""].join(" ")).includes(normalize(query));
+    return normalize([localizedPair(locale, topic.title), ...topic.paragraphs.map((text) => localizedPair(locale, text)), ...configuration[topic.target].steps.map((text) => localizedPair(locale, text)), localizedPair(locale, configuration[topic.target].check), ...(example?.steps.map((text) => localizedPair(locale, text)) || []), example?.values || "", localizedPair(locale, example?.warning) || ""].join(" ")).includes(normalize(query));
   });
   const selected = visible.find((topic) => topic.index === selectedIndex) || visible[0];
   const example = selected ? technicalExamples[selected.target] : undefined;
@@ -408,45 +409,45 @@ export function HelpPanel({ locale, onNavigate }: { locale: Locale; onNavigate: 
     });
   };
   return <section className="admin-help">
-    <div className="admin-help-heading"><h1>{locale === "fr" ? "Aide ISMS Portal" : "ISMS Portal help"}</h1></div>
-    <div className="admin-management-tools"><label>{locale === "fr" ? "Rechercher dans l’aide" : "Search help"}<input type="search" maxLength={200} value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-      {query && <button type="button" onClick={() => setQuery("")}>{locale === "fr" ? "Réinitialiser" : "Reset"}</button>}
+    <div className="admin-help-heading"><h1>{translate(locale, "Aide ISMS Portal", "ISMS Portal help")}</h1></div>
+    <div className="admin-management-tools"><label>{translate(locale, "Rechercher dans l’aide", "Search help")}<input type="search" maxLength={200} value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+      {query && <button type="button" onClick={() => setQuery("")}>{translate(locale, "Réinitialiser", "Reset")}</button>}
     </div>
     <div className="admin-help-workspace">
-      <nav className="admin-help-topics" aria-label={locale === "fr" ? "Rubriques de l’aide" : "Help topics"}>
+      <nav className="admin-help-topics" aria-label={translate(locale, "Rubriques de l’aide", "Help topics")}>
         {topicGroups.map((group) => <div key={group.title[0]}>
-          {visible.some((topic) => group.targets.includes(topic.target)) && <h2>{group.title[language]}</h2>}
-          {visible.filter((topic) => group.targets.includes(topic.target)).map((topic) => <button type="button" key={topic.index} aria-current={selected?.index === topic.index ? "page" : undefined} aria-controls="help-topic-content" onClick={() => selectTopic(topic.index)}>{topic.title[language]}</button>)}
+          {visible.some((topic) => group.targets.includes(topic.target)) && <h2>{localizedPair(locale, group.title)}</h2>}
+          {visible.filter((topic) => group.targets.includes(topic.target)).map((topic) => <button type="button" key={topic.index} aria-current={selected?.index === topic.index ? "page" : undefined} aria-controls="help-topic-content" onClick={() => selectTopic(topic.index)}>{localizedPair(locale, topic.title)}</button>)}
         </div>)}
       </nav>
       <div className="admin-help-content">
-        <label className="admin-help-topic-picker"><span id="help-topic-picker-label">{locale === "fr" ? "Rubrique" : "Topic"}</span>
+        <label className="admin-help-topic-picker"><span id="help-topic-picker-label">{translate(locale, "Rubrique", "Topic")}</span>
           <select aria-labelledby="help-topic-picker-label" value={selected?.index ?? ""} disabled={!visible.length} onChange={(event) => selectTopic(Number(event.target.value))}>
-            {!visible.length && <option value="">{locale === "fr" ? "Aucun résultat" : "No results"}</option>}
-            {topicGroups.map((group) => visible.some((topic) => group.targets.includes(topic.target)) && <optgroup key={group.title[0]} label={group.title[language]}>{visible.filter((topic) => group.targets.includes(topic.target)).map((topic) => <option key={topic.index} value={topic.index}>{topic.title[language]}</option>)}</optgroup>)}
+            {!visible.length && <option value="">{translate(locale, "Aucun résultat", "No results")}</option>}
+            {topicGroups.map((group) => visible.some((topic) => group.targets.includes(topic.target)) && <optgroup key={group.title[0]} label={localizedPair(locale, group.title)}>{visible.filter((topic) => group.targets.includes(topic.target)).map((topic) => <option key={topic.index} value={topic.index}>{localizedPair(locale, topic.title)}</option>)}</optgroup>)}
           </select>
         </label>
-        {!selected && <p role="status">{locale === "fr" ? "Aucune rubrique ne correspond à cette recherche." : "No topics match this search."}</p>}
+        {!selected && <p role="status">{translate(locale, "Aucune rubrique ne correspond à cette recherche.", "No topics match this search.")}</p>}
         {selected && <article id="help-topic-content" aria-labelledby="help-topic-title">
-          <h2 id="help-topic-title">{selected.title[language]}</h2>
-          {selected.paragraphs.map((text, index) => <p key={index}>{text[language]}</p>)}
-          <h3>{locale === "fr" ? "Configuration et utilisation" : "Configuration and use"}</h3>
-          <ol className="admin-help-overview-steps">{configuration[selected.target].steps.map((text, index) => <li key={index}>{text[language]}</li>)}</ol>
-          <div className="admin-help-check"><h3>{locale === "fr" ? "Points à vérifier" : "What to check"}</h3><p>{configuration[selected.target].check[language]}</p></div>
+          <h2 id="help-topic-title">{localizedPair(locale, selected.title)}</h2>
+          {selected.paragraphs.map((text, index) => <p key={index}>{localizedPair(locale, text)}</p>)}
+          <h3>{translate(locale, "Configuration et utilisation", "Configuration and use")}</h3>
+          <ol className="admin-help-overview-steps">{configuration[selected.target].steps.map((text, index) => <li key={index}>{localizedPair(locale, text)}</li>)}</ol>
+          <div className="admin-help-check"><h3>{translate(locale, "Points à vérifier", "What to check")}</h3><p>{localizedPair(locale, configuration[selected.target].check)}</p></div>
           {example && <details className="admin-help-technical" key={selected.target} open>
-            <summary>{locale === "fr" ? "Atelier technique : configuration pas à pas" : "Technical workshop: step-by-step configuration"}</summary>
-            <p>{locale === "fr" ? "Les domaines example.test et example.com, les noms et les chemins ci-dessous sont fictifs. Adaptez-les à votre environnement ; ces exemples ne changent aucune configuration." : "The example.test and example.com domains, names and paths below are illustrative. Adapt them to your environment; these examples do not change any configuration."}</p>
-            <ol>{example.steps.map((text, index) => <li key={index}>{text[language]}</li>)}</ol>
-            <h3>{locale === "fr" ? "Valeurs et commandes d'exemple" : "Example values and commands"}</h3>
-            <pre tabIndex={0} aria-label={locale === "fr" ? "Exemple technique" : "Technical example"}><code>{example.values}</code></pre>
-            <p className="admin-help-technical-warning"><strong>{locale === "fr" ? "Attention : " : "Important: "}</strong>{example.warning[language]}</p>
-            {example.source && <a href={example.source.url} target="_blank" rel="noopener noreferrer">{example.source.label[language]}{locale === "fr" ? " (nouvel onglet)" : " (new tab)"}</a>}
+            <summary>{translate(locale, "Atelier technique : configuration pas à pas", "Technical workshop: step-by-step configuration")}</summary>
+            <p>{translate(locale, "Les domaines example.test et example.com, les noms et les chemins ci-dessous sont fictifs. Adaptez-les à votre environnement ; ces exemples ne changent aucune configuration.", "The example.test and example.com domains, names and paths below are illustrative. Adapt them to your environment; these examples do not change any configuration.")}</p>
+            <ol>{example.steps.map((text, index) => <li key={index}>{localizedPair(locale, text)}</li>)}</ol>
+            <h3>{translate(locale, "Valeurs et commandes d'exemple", "Example values and commands")}</h3>
+            <pre tabIndex={0} aria-label={translate(locale, "Exemple technique", "Technical example")}><code>{example.values}</code></pre>
+            <p className="admin-help-technical-warning"><strong>{translate(locale, "Attention : ", "Important: ")}</strong>{localizedPair(locale, example.warning)}</p>
+            {example.source && <a href={example.source.url} target="_blank" rel="noopener noreferrer">{localizedPair(locale, example.source.label)}{translate(locale, " (nouvel onglet)", " (new tab)")}</a>}
           </details>}
-          <button type="button" onClick={() => onNavigate(selected.target)}><Icon name="documents" />{locale === "fr" ? "Ouvrir le menu" : "Open menu"}</button>
-          <nav className="admin-help-pagination" aria-label={locale === "fr" ? "Navigation des rubriques" : "Topic navigation"}>
-            <button type="button" disabled={position <= 0} onClick={() => selectTopic(visible[position - 1].index)}>{locale === "fr" ? "Précédent" : "Previous"}</button>
+          <button type="button" onClick={() => onNavigate(selected.target)}><Icon name="documents" />{translate(locale, "Ouvrir le menu", "Open menu")}</button>
+          <nav className="admin-help-pagination" aria-label={translate(locale, "Navigation des rubriques", "Topic navigation")}>
+            <button type="button" disabled={position <= 0} onClick={() => selectTopic(visible[position - 1].index)}>{translate(locale, "Précédent", "Previous")}</button>
             <span aria-live="polite">{position + 1} / {visible.length}</span>
-            <button type="button" disabled={position >= visible.length - 1} onClick={() => selectTopic(visible[position + 1].index)}>{locale === "fr" ? "Suivant" : "Next"}</button>
+            <button type="button" disabled={position >= visible.length - 1} onClick={() => selectTopic(visible[position + 1].index)}>{translate(locale, "Suivant", "Next")}</button>
           </nav>
         </article>}
       </div>

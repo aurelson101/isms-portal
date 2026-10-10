@@ -1,4 +1,5 @@
-import type { Locale } from "../i18n/locale";
+import { translate } from "../i18n/translate";
+import type { Locale, DocumentLocale } from "../i18n/locale";
 
 export type Space = { id: string; nameFr: string; nameEn: string; permissions: Record<string, boolean> };
 export type Category = { id: string; parentId: string | null; nameFr: string; nameEn: string };
@@ -8,7 +9,7 @@ export type ModeratorDocument = {
   translations: Array<{ locale: string; title: string; description: string | null }>;
   versions: Array<{ id: string; locale: string; version: number }>;
 };
-export type MetadataValues = { locale: Locale; title: string; description: string; categoryId: string };
+export type MetadataValues = { locale: DocumentLocale; title: string; description: string; categoryId: string };
 
 export const latestVersion = (document: ModeratorDocument) => document.versions.reduce<ModeratorDocument["versions"][number] | undefined>(
   (latest, version) => !latest || version.version > latest.version ? version : latest, undefined,
@@ -47,7 +48,7 @@ export function categoryOptions(categories: Category[], locale: Locale) {
 }
 
 export function validateUpload(data: FormData, locale: Locale) {
-  const t = (fr: string, en: string) => locale === "fr" ? fr : en;
+  const t = (fr: string, en: string) => translate(locale, fr, en);
   const file = data.get("file");
   if (!(file instanceof File) || !file.size) throw new Error(t("Le fichier est vide.", "The file is empty."));
   if (!/\.(pdf|docx|xlsx)$/i.test(file.name)) throw new Error(t("Format non autorisé : PDF, DOCX ou XLSX.", "Unsupported format: PDF, DOCX or XLSX required."));

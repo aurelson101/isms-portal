@@ -1,5 +1,9 @@
 "use client";
 
+import { translate } from "../i18n/translate";
+import { useInterfaceLocale } from "../i18n/use-locale";
+import { interfaceLocales, type Locale } from "../i18n/locale";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { responseMessage } from "../request-errors";
@@ -8,7 +12,7 @@ import { MetadataForm, VersionForm } from "./document-forms";
 import { BatchImport } from "../batch-import";
 import { documentPage as parseDocumentPage, latestVersion, translationFields, validateUpload, type Space, type Category, type ModeratorDocument as Document, type MetadataValues } from "./document-model";
 
-type Identity = { isAdmin: boolean; isModerator?: boolean; locale: "fr" | "en" | null; spaces: Space[] };
+type Identity = { isAdmin: boolean; isModerator?: boolean; locale: Locale | null; spaces: Space[] };
 
 const messageOf = (response: Response) => responseMessage(response, "Request failed");
 
@@ -34,8 +38,8 @@ export default function ModeratorPage() {
   const dirty = useRef(false);
   const importPending = useRef(false);
   const busy = loading || mutationBusy;
-  const locale = identity?.locale === "en" ? "en" : "fr";
-  const t = (fr: string, en: string) => locale === "fr" ? fr : en;
+  const [locale, changeLocale] = useInterfaceLocale();
+  const t = (fr: string, en: string) => translate(locale, fr, en);
   const load = useCallback(async (page = 1) => {
     const request = ++loadRequest.current;
     loadController.current?.abort();
@@ -127,7 +131,7 @@ export default function ModeratorPage() {
     if (!canDiscard()) return;
     dirty.current = false;
     const latest = latestVersion(document);
-    setVersionLocale(latest?.locale === "en" ? "en" : latest?.locale === "fr" ? "fr" : locale);
+    setVersionLocale(latest?.locale === "en" ? "en" : "fr");
     setMetadataEditing(null);
     setEditing(document);
   };
@@ -169,7 +173,7 @@ export default function ModeratorPage() {
   });
   if (!identity) return <main className="admin-main"><p role="status">{t("Chargement de l’espace modérateur…", "Loading moderator workspace…")}</p>{error && <><p className="error-state" role="alert">{error}</p><button type="button" disabled={loading} onClick={() => loadPage(documentPage)}>{t("Réessayer", "Retry")}</button></>}</main>;
   return <main className="admin-main moderator-workspace">
-    <header className="admin-page-heading"><div><p className="eyebrow">ISMS Portal</p><h1>{t("Espace modérateur", "Moderator workspace")}</h1><p>{t("Gestion documentaire limitée à vos droits effectifs.", "Document management limited to your effective permissions.")}</p></div><a className="button" href="/explorer" onClick={(event) => { if (!canDiscard()) event.preventDefault(); else dirty.current = false; }}>{t("Retour au portail", "Back to portal")}</a></header>
+    <header className="admin-page-heading"><div><p className="eyebrow">ISMS Portal</p><h1>{t("Espace modérateur", "Moderator workspace")}</h1><p>{t("Gestion documentaire limitée à vos droits effectifs.", "Document management limited to your effective permissions.")}</p></div><div className="login-language" aria-label={t("Langue", "Language")}>{interfaceLocales.map(value => <button type="button" key={value} onClick={() => changeLocale(value)} aria-pressed={locale === value}>{value.toUpperCase()}</button>)}</div><a className="button" href="/explorer" onClick={(event) => { if (!canDiscard()) event.preventDefault(); else dirty.current = false; }}>{t("Retour au portail", "Back to portal")}</a></header>
     {notice && <p className="notice" role="status">{notice}</p>}{error && <p className="error-state" role="alert">{error}</p>}
     <section className="admin-card"><h2>{t("Mes droits documentaires", "My document permissions")}</h2><div className="admin-account-list">{editable.map((space) => <div key={space.id}><span><strong>{locale === "fr" ? space.nameFr : space.nameEn}</strong><small>{[space.permissions.edit && t("modifier", "edit"), space.permissions.publish && t("publier", "publish"), space.permissions.archive && t("archiver / supprimer", "archive / delete")].filter(Boolean).join(" · ")}</small></span></div>)}{!editable.length && <p className="admin-empty compact">{t("Aucun droit de gestion documentaire n’est attribué.", "No document management right is assigned.")}</p>}</div></section>
     {metadataEditing && <MetadataForm document={metadataEditing} categories={metadataCategories} value={metadata} onChange={setMetadata} onSave={saveMetadata} busy={busy} locale={locale} onCancel={() => closeEditor()} onDirty={() => { dirty.current = true; }} />}

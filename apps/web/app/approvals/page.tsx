@@ -1,4 +1,6 @@
 "use client";
+
+import { translate, withSpanish } from "../i18n/translate";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { responseMessage } from "../request-errors";
@@ -9,10 +11,10 @@ type Item = { id: string; operation: string; targetType: string; targetId: strin
 type Review = { id: string; owner: string; reviewer: string; approver: string; dueAt: string; status: string; decidedBy: string | null; decidedAt: string | null; createdAt: string; decisionComment: string | null; canDecide: boolean; document: { slug: string; translations: Array<{ title: string; locale: string }> } };
 const itemKey = (item: Item) => `${item.review ? "review" : "approval"}-${item.id}`;
 const isPending = (status: string) => status === "PENDING" || status === "IN_REVIEW";
-const copy = {
+const copy = withSpanish({
   fr: { title: "Approbations et revues", subtitle: "Décidez, suivez et retrouvez l'historique des demandes.", portal: "Retour au portail", status: "État", period: "Période", year: "Année", month: "Mois", allMonths: "Toute l'année", all: "Toutes", pending: "À traiter", approved: "Approuvées", rejected: "Refusées", refresh: "Actualiser", requests: "demandes", none: "Aucune demande correspondante.", document: "Document", operation: "Opération", requested: "Demandé par", due: "Échéance", reviewer: "Relecteur", approver: "Approbateur", comment: "Commentaire de décision", commentHint: "Ajoutez un commentaire pour expliquer la décision.", open: "Ouvrir le document", approve: "Approuver", reject: "Refuser", decided: "Décision par", history: "Historique", pendingAction: "Votre décision est requise.", cannotDecide: "Consultation uniquement", review: "Revue documentaire", loading: "Chargement des demandes…", error: "Impossible de charger les demandes. Connectez-vous au portail puis réessayez.", confirmApprove: "Confirmer l'approbation de cette demande ?", confirmReject: "Confirmer le refus de cette demande ?" },
   en: { title: "Approvals and Reviews", subtitle: "Decide, track and review the history of requests.", portal: "Back to portal", status: "Status", period: "Period", year: "Year", month: "Month", allMonths: "Full year", all: "All", pending: "Action required", approved: "Approved", rejected: "Rejected", refresh: "Refresh", requests: "requests", none: "No matching requests.", document: "Document", operation: "Operation", requested: "Requested by", due: "Due date", reviewer: "Reviewer", approver: "Approver", comment: "Decision comment", commentHint: "Add a comment explaining the decision.", open: "Open document", approve: "Approve", reject: "Reject", decided: "Decision by", history: "History", pendingAction: "Your decision is required.", cannotDecide: "Read-only", review: "Document review", loading: "Loading requests…", error: "Unable to load requests. Sign in to the portal and try again.", confirmApprove: "Approve this request?", confirmReject: "Reject this request?" },
-};
+});
 
 export default function ApprovalsPage() {
   const [items, setItems] = useState<Item[]>([]);
@@ -29,7 +31,7 @@ export default function ApprovalsPage() {
   const deciding = useRef(false);
   const [locale] = useInterfaceLocale();
   const t = copy[locale];
-  const dateFormatter = useMemo(() => new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { dateStyle: "short", timeStyle: "short" }), [locale]);
+  const dateFormatter = useMemo(() => new Intl.DateTimeFormat(translate(locale, "fr-FR", "en-GB"), { dateStyle: "short", timeStyle: "short" }), [locale]);
   const date = (value: string) => { const parsed = new Date(value); return Number.isNaN(parsed.getTime()) ? "-" : dateFormatter.format(parsed); };
   const reload = useCallback(async () => {
     const current = ++request.current;
@@ -45,7 +47,7 @@ export default function ApprovalsPage() {
     const sensitive = approvals.ok ? await approvals.json() as Item[] : [];
     const assigned = await reviews.json() as Review[];
     if (current !== request.current) return;
-    setItems([...sensitive, ...assigned.map((r) => ({ id: r.id, operation: t.review, targetType: t.document, targetId: r.document.translations.find((item) => item.locale === locale)?.title || r.document.translations.find((item) => item.locale === "en")?.title || r.document.translations[0]?.title || r.document.slug, requestedBy: r.owner, reason: r.decisionComment || (locale === "fr" ? "Examinez le document et enregistrez votre décision." : "Review the document and record your decision."), status: r.status, approvedBy: r.decidedBy, approvedAt: r.decidedAt, createdAt: r.createdAt, review: true, canDecide: r.canDecide, slug: r.document.slug, dueAt: r.dueAt, reviewer: r.reviewer, approver: r.approver }))]);
+    setItems([...sensitive, ...assigned.map((r) => ({ id: r.id, operation: t.review, targetType: t.document, targetId: r.document.translations.find((item) => item.locale === locale)?.title || r.document.translations.find((item) => item.locale === "en")?.title || r.document.translations[0]?.title || r.document.slug, requestedBy: r.owner, reason: r.decisionComment || (translate(locale, "Examinez le document et enregistrez votre décision.", "Review the document and record your decision.")), status: r.status, approvedBy: r.decidedBy, approvedAt: r.decidedAt, createdAt: r.createdAt, review: true, canDecide: r.canDecide, slug: r.document.slug, dueAt: r.dueAt, reviewer: r.reviewer, approver: r.approver }))]);
     } catch (reason) {
       if (current === request.current) setError(reason instanceof Error ? reason.message : t.error);
     } finally {
@@ -90,7 +92,7 @@ export default function ApprovalsPage() {
   }, [loading, currentPage]);
   const statusLabel = (status: string) => isPending(status) ? t.pending : status === "APPROVED" ? t.approved : status === "REJECTED" ? t.rejected : status.replace(/_/gu, " ");
   const years = useMemo(() => Array.from({ length: new Date().getFullYear() - 2019 }, (_, index) => String(new Date().getFullYear() - index)), []);
-  const months = useMemo(() => Array.from({ length: 12 }, (_, index) => ({ value: String(index + 1), label: new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { month: "long" }).format(new Date(2026, index, 1)) })), [locale]);
+  const months = useMemo(() => Array.from({ length: 12 }, (_, index) => ({ value: String(index + 1), label: new Intl.DateTimeFormat(translate(locale, "fr-FR", "en-GB"), { month: "long" }).format(new Date(2026, index, 1)) })), [locale]);
   return <main className="approvals-shell"><section className="approvals-panel">
     <div className="approvals-heading"><div><span className="approvals-eyebrow">ISMS Portal</span><h1>{t.title}</h1><p>{t.subtitle}</p></div><a href="/">{t.portal}</a></div>
     <div className="approval-summary" aria-label={t.title}>{(["PENDING", "APPROVED", "REJECTED"] as const).map((status) => <button key={status} type="button" className={filter === status ? "selected" : ""} aria-pressed={filter === status} onClick={() => changeFilter(status)}><span>{statusLabel(status)}</span><strong>{counts[status] || 0}</strong></button>)}</div>
@@ -104,7 +106,7 @@ export default function ApprovalsPage() {
         <span className="approval-target">{item.targetType}: {item.targetId}</span><p>{item.reason}</p>
         <dl className="approval-details"><div><dt>{t.requested}</dt><dd>{item.requestedBy}</dd></div><div><dt>{item.review ? t.due : t.history}</dt><dd>{date(item.review && item.dueAt ? item.dueAt : item.createdAt)}</dd></div>{item.review && <><div><dt>{t.reviewer}</dt><dd>{item.reviewer || "-"}</dd></div><div><dt>{t.approver}</dt><dd>{item.approver || "-"}</dd></div></>}</dl>
         {item.approvedBy && <p className="approval-decision"><strong>{t.decided}:</strong> {item.approvedBy}{item.approvedAt && ` · ${date(item.approvedAt)}`}</p>}
-        {isPending(item.status) && item.dueAt && new Date(item.dueAt).getTime() < Date.now() && <p className="approval-overdue">{locale === "fr" ? "En retard" : "Overdue"}</p>}
+        {isPending(item.status) && item.dueAt && new Date(item.dueAt).getTime() < Date.now() && <p className="approval-overdue">{translate(locale, "En retard", "Overdue")}</p>}
         {item.slug && <p><a className="approval-document-link" href={`/documents/${encodeURIComponent(item.slug)}`}>{t.open}</a></p>}
         {["PENDING", "IN_REVIEW"].includes(item.status) && item.canDecide && <>
           <p className="approval-action-note">{t.pendingAction}</p>{item.review && <label>{t.comment}<textarea disabled={!!busy} placeholder={t.commentHint} maxLength={1000} value={comments[itemKey(item)] || ""} onChange={(e) => setComments((current) => ({ ...current, [itemKey(item)]: e.target.value }))} /></label>}
@@ -113,6 +115,6 @@ export default function ApprovalsPage() {
         {["PENDING", "IN_REVIEW"].includes(item.status) && !item.canDecide && <p className="approval-readonly">{t.cannotDecide}</p>}
       </article>)}
     </section>}
-    {!loading && totalPages > 1 && <nav className="document-pagination" aria-label={locale === "fr" ? "Pagination des demandes" : "Request pagination"}><button type="button" disabled={!!busy || currentPage === 1} onClick={() => setPage(currentPage - 1)}>{locale === "fr" ? "Précédent" : "Previous"}</button><span aria-live="polite">{currentPage} / {totalPages}</span><button type="button" disabled={!!busy || currentPage === totalPages} onClick={() => setPage(currentPage + 1)}>{locale === "fr" ? "Suivant" : "Next"}</button></nav>}
+    {!loading && totalPages > 1 && <nav className="document-pagination" aria-label={translate(locale, "Pagination des demandes", "Request pagination")}><button type="button" disabled={!!busy || currentPage === 1} onClick={() => setPage(currentPage - 1)}>{translate(locale, "Précédent", "Previous")}</button><span aria-live="polite">{currentPage} / {totalPages}</span><button type="button" disabled={!!busy || currentPage === totalPages} onClick={() => setPage(currentPage + 1)}>{translate(locale, "Suivant", "Next")}</button></nav>}
   </section></main>;
 }

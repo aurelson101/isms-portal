@@ -1,12 +1,14 @@
 "use client";
 
+import { withSpanish } from "../../i18n/translate";
+
 import { FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { returnDestination, ssoDestination } from "../../auth-navigation";
 import { authConfig, loginFailure, loginRequest, LoginToolbar, PasswordField } from "../../login-shared";
 import { useInterfaceLocale } from "../../i18n/use-locale";
 
 type LoginMode = "local" | "directory";
-const copy = {
+const copy = withSpanish({
   fr: {
     title: "Connexion administrateur",
     subtitle: "Accès réservé à l’administration du portail.",
@@ -37,7 +39,7 @@ const copy = {
     directoryUnavailable: "Active Directory sign-in is unavailable.",
     sso: "Continue with Microsoft",
   },
-} as const;
+} as const);
 
 export default function AdminLoginPage() {
   const [locale, setLocale] = useInterfaceLocale();

@@ -19,8 +19,8 @@ import {
 import { Type } from "class-transformer";
 
 export class LocalePreferenceDto {
-  @IsIn(["fr", "en"])
-  locale!: "fr" | "en";
+  @IsIn(["fr", "en", "es"])
+  locale!: "fr" | "en" | "es";
 }
 
 export class LoginDto {

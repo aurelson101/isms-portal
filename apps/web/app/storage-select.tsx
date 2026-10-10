@@ -1,8 +1,11 @@
 "use client";
 
+import { translate } from "./i18n/translate";
+import type { Locale } from "./i18n/locale";
+
 import { useEffect, useState } from "react";
 
-export function StorageSelect({ spaceId, locale, admin = false }: { spaceId: string; locale: "fr" | "en"; admin?: boolean }) {
+export function StorageSelect({ spaceId, locale, admin = false }: { spaceId: string; locale: Locale; admin?: boolean }) {
   const [options, setOptions] = useState<Array<{ id: string; name: string; type: string }>>([]);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -21,11 +24,11 @@ export function StorageSelect({ spaceId, locale, admin = false }: { spaceId: str
   }, [spaceId, admin]);
 
   return <label className="storage-select">
-    {locale === "fr" ? "Stockage" : "Storage"}
+    {translate(locale, "Stockage", "Storage")}
     <select key={spaceId} name="storageTargetId" defaultValue="primary">
-      <option value="primary">{locale === "fr" ? "Stockage principal (par défaut)" : "Primary storage (default)"}</option>
+      <option value="primary">{translate(locale, "Stockage principal (par défaut)", "Primary storage (default)")}</option>
       {options.map((option) => <option key={option.id} value={option.id}>{option.name} ({option.type.toUpperCase()})</option>)}
     </select>
-    {failed && <small role="status">{locale === "fr" ? "Stockages optionnels indisponibles." : "Optional storage is unavailable."}</small>}
+    {failed && <small role="status">{translate(locale, "Stockages optionnels indisponibles.", "Optional storage is unavailable.")}</small>}
   </label>;
 }

@@ -1,7 +1,9 @@
 "use client";
 
+import { translate } from "../i18n/translate";
+
 import { useMemo } from "react";
-import type { Locale } from "../i18n/locale";
+import type { Locale, DocumentLocale } from "../i18n/locale";
 import { categoryOptions, translationFields, type Category, type MetadataValues, type ModeratorDocument } from "./document-model";
 
 type FormActions = { busy: boolean; locale: Locale; onCancel: () => void; onDirty: () => void };
@@ -10,14 +12,14 @@ export function MetadataForm({ document, categories, value, onChange, onSave, ..
   document: ModeratorDocument; categories: Category[]; value: MetadataValues;
   onChange: (value: MetadataValues) => void; onSave: () => Promise<void>;
 }) {
-  const t = (fr: string, en: string) => actions.locale === "fr" ? fr : en;
+  const t = (fr: string, en: string) => translate(actions.locale, fr, en);
   const options = useMemo(() => categoryOptions(categories, actions.locale), [categories, actions.locale]);
   return <section className="admin-card" id="moderator-metadata-form">
     <h2>{t("Éditer les métadonnées", "Edit metadata")}</h2>
     <form onChange={actions.onDirty} onSubmit={(event) => { event.preventDefault(); void onSave(); }} aria-busy={actions.busy}>
       <fieldset className="admin-form upload-form moderator-fields" disabled={actions.busy}>
         <label>{t("Langue du document", "Document language")}<select value={value.locale} onChange={(event) => {
-          const locale = event.target.value as Locale;
+          const locale = event.target.value as DocumentLocale;
           onChange({ ...value, locale, ...translationFields(document, locale) });
         }}><option value="fr">FR</option><option value="en">EN</option></select></label>
         <label>{t("Titre", "Title")}<input required maxLength={255} value={value.title} onChange={(event) => onChange({ ...value, title: event.target.value })} /></label>
@@ -34,10 +36,10 @@ export function MetadataForm({ document, categories, value, onChange, onSave, ..
 }
 
 export function VersionForm({ document, versionLocale, onLocaleChange, onUpload, ...actions }: FormActions & {
-  document: ModeratorDocument; versionLocale: Locale; onLocaleChange: (locale: Locale) => void;
+  document: ModeratorDocument; versionLocale: DocumentLocale; onLocaleChange: (locale: DocumentLocale) => void;
   onUpload: (data: FormData) => Promise<void>;
 }) {
-  const t = (fr: string, en: string) => actions.locale === "fr" ? fr : en;
+  const t = (fr: string, en: string) => translate(actions.locale, fr, en);
   const title = translationFields(document, versionLocale).title;
   return <section className="admin-card" id="moderator-version-form">
     <h2>{t("Déposer une nouvelle version", "Upload a new version")}</h2>
@@ -45,7 +47,7 @@ export function VersionForm({ document, versionLocale, onLocaleChange, onUpload,
     <form onChange={actions.onDirty} onSubmit={(event) => { event.preventDefault(); void onUpload(new FormData(event.currentTarget)); }} aria-busy={actions.busy}>
       <fieldset className="admin-form upload-form moderator-fields" disabled={actions.busy}>
         <input name="documentId" type="hidden" value={document.id} /><input name="spaceId" type="hidden" value={document.space.id} />
-        <label>{t("Langue", "Language")}<select name="locale" value={versionLocale} onChange={(event) => onLocaleChange(event.target.value as Locale)}><option value="fr">FR</option><option value="en">EN</option></select></label>
+        <label>{t("Langue", "Language")}<select name="locale" value={versionLocale} onChange={(event) => onLocaleChange(event.target.value as DocumentLocale)}><option value="fr">FR</option><option value="en">EN</option></select></label>
         <label>{t("Titre", "Title")}<input key={`${document.id}-${versionLocale}`} name="title" required maxLength={255} defaultValue={title} /></label>
         <label className="wide">{t("Résumé des changements", "Change summary")}<textarea name="changeSummary" required maxLength={2000} /></label>
         <label>{t("Fichier", "File")}<input name="file" type="file" required accept=".pdf,.docx,.xlsx" /></label>

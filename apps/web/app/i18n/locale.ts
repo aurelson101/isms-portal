@@ -1,10 +1,17 @@
-export type Locale = "fr" | "en";
+export const interfaceLocales = ["fr", "en", "es"] as const;
+export type Locale = typeof interfaceLocales[number];
+export type DocumentLocale = "fr" | "en";
 
 export const isLocale = (value: string | null | undefined): value is Locale =>
-  value === "fr" || value === "en";
+  value === "fr" || value === "en" || value === "es";
 
-const browserLocale = (language = typeof navigator === "undefined" ? "en" : navigator.language): Locale =>
-  language.toLowerCase().startsWith("fr") ? "fr" : "en";
+export const browserLocale = (languages: readonly string[] = typeof navigator === "undefined" ? ["en"] : navigator.languages?.length ? navigator.languages : [navigator.language]): Locale => {
+  for (const language of languages) {
+    const base = language.toLowerCase().split(/[-_]/)[0];
+    if (isLocale(base)) return base;
+  }
+  return "en";
+};
 
 export const initialLocale = (
   ...preferences: Array<string | null | undefined>

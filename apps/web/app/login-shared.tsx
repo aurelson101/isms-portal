@@ -1,5 +1,7 @@
 "use client";
 
+import { translate } from "./i18n/translate";
+
 import { useId, useState } from "react";
 import { useBranding } from "./branding";
 import type { Locale } from "./i18n/locale";
@@ -15,8 +17,8 @@ export function PasswordField({ locale, label }: { locale: Locale; label: string
       onKeyDown={(event) => setCapsLock(event.getModifierState("CapsLock"))}
       onKeyUp={(event) => setCapsLock(event.getModifierState("CapsLock"))}
       onBlur={() => setCapsLock(false)} /></label>
-    <label className="remember-device"><input type="checkbox" checked={visible} onChange={(event) => setVisible(event.target.checked)} /><span>{locale === "fr" ? "Afficher le mot de passe" : "Show password"}</span></label>
-    <p className="login-warning caps-lock-warning" id={warningId} role={capsLock ? "status" : undefined} aria-hidden={!capsLock}>{locale === "fr" ? "Verr. Maj. activé" : "Caps Lock is on"}</p>
+    <label className="remember-device"><input type="checkbox" checked={visible} onChange={(event) => setVisible(event.target.checked)} /><span>{translate(locale, "Afficher le mot de passe", "Show password")}</span></label>
+    <p className="login-warning caps-lock-warning" id={warningId} role={capsLock ? "status" : undefined} aria-hidden={!capsLock}>{translate(locale, "Verr. Maj. activé", "Caps Lock is on")}</p>
   </>;
 }
 
@@ -39,9 +41,9 @@ export async function authConfig(signal: AbortSignal): Promise<AuthConfig> {
 }
 
 export function loginFailure(response: Response | null, locale: Locale, invalid: string) {
-  if (!response) return locale === "fr" ? "Connexion interrompue. Réessayez." : "Connection interrupted. Try again.";
-  if (response.status === 429) return locale === "fr" ? "Trop de tentatives. Patientez avant de réessayer." : "Too many attempts. Wait before trying again.";
-  if (response.status >= 500) return locale === "fr" ? "Service temporairement indisponible. Réessayez." : "Service temporarily unavailable. Try again.";
+  if (!response) return translate(locale, "Connexion interrompue. Réessayez.", "Connection interrupted. Try again.");
+  if (response.status === 429) return translate(locale, "Trop de tentatives. Patientez avant de réessayer.", "Too many attempts. Wait before trying again.");
+  if (response.status >= 500) return translate(locale, "Service temporairement indisponible. Réessayez.", "Service temporarily unavailable. Try again.");
   return invalid;
 }
 
@@ -60,11 +62,11 @@ export function LoginToolbar({ locale, onLocaleChange, admin = false }: {
     <div className="login-brand">
       {branding.logoDataUrl ? <img className="brand-logo" src={branding.logoDataUrl} alt="" /> : <span className="login-mark" aria-hidden="true">ISMS</span>}
       <div><strong>{branding.title}</strong><small>{admin
-        ? locale === "fr" ? "Administration sécurisée" : "Secure administration"
-        : locale === "fr" ? "Portail documentaire" : "Document portal"}</small></div>
+        ? translate(locale, "Administration sécurisée", "Secure administration")
+        : translate(locale, "Portail documentaire", "Document portal")}</small></div>
     </div>
-    <div className="login-language" aria-label={locale === "fr" ? "Langue" : "Language"}>
-      {(["fr", "en"] as const).map((value) => <button key={value} type="button" onClick={() => onLocaleChange(value)} aria-pressed={locale === value}>{value.toUpperCase()}</button>)}
+    <div className="login-language" aria-label={translate(locale, "Langue", "Language")}>
+      {(["fr", "en", "es"] as const).map((value) => <button key={value} type="button" onClick={() => onLocaleChange(value)} aria-pressed={locale === value}>{value.toUpperCase()}</button>)}
     </div>
   </div>;
 }

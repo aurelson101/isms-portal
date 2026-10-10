@@ -1,5 +1,8 @@
 "use client";
 
+import { translate } from "../i18n/translate";
+import type { Locale } from "../i18n/locale";
+
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Icon } from "../icons";
 
@@ -20,8 +23,8 @@ async function request<T>(path = "", body?: Record<string, unknown>, method = "P
   return response.json();
 }
 
-export function StoragePanel({ locale }: { locale: "fr" | "en" }) {
-  const t = (fr: string, en: string) => locale === "fr" ? fr : en;
+export function StoragePanel({ locale }: { locale: Locale }) {
+  const t = (fr: string, en: string) => translate(locale, fr, en);
   const [targets, setTargets] = useState<Target[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Target | null>(null);
@@ -102,7 +105,7 @@ export function StoragePanel({ locale }: { locale: "fr" | "en" }) {
             </div>
           </fieldset>
         </form>
-        {selected?.testedAt && <p className="muted">{t("Dernier test : ", "Last test: ")}{new Date(selected.testedAt).toLocaleString(locale === "fr" ? "fr-FR" : "en-GB")}</p>}
+        {selected?.testedAt && <p className="muted">{t("Dernier test : ", "Last test: ")}{new Date(selected.testedAt).toLocaleString(translate(locale, "fr-FR", "en-GB"))}</p>}
       </section>}
     </div>
   </section>;
