@@ -25,6 +25,7 @@ import { StoragePanel } from "./storage-panel";
 import { StorageSelect } from "../storage-select";
 import { BatchImport } from "../batch-import";
 import { HelpPanel } from "./help-panel";
+import { ssoDestination } from "../auth-navigation";
 
 type Authentication = {
   source: string;
@@ -1444,12 +1445,18 @@ export default function Admin() {
                   )}
                 </p>
                 <button
+                  type="button"
                   className="primary"
-                  onClick={() =>
+                  onClick={() => {
+                    const requested = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+                    const authentication = identity?.authentication;
+                    const ssoUrl = authentication?.ssoConnected && authentication.loginUrl
+                      ? ssoDestination(authentication.loginUrl, requested, "/admin")
+                      : null;
                     window.location.assign(
-                      identity?.authentication.loginUrl || window.location.href,
-                    )
-                  }
+                      ssoUrl || `/admin/login?return=${encodeURIComponent(requested)}`,
+                    );
+                  }}
                 >
                   {t("Se reconnecter")}
                 </button>
