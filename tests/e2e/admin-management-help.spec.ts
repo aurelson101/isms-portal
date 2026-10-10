@@ -31,7 +31,10 @@ for (const width of [320, 1280]) {
       return route.fulfill({ json });
     });
     await page.goto("/admin#moderators");
-    await expect(page.getByRole("heading", { name: "Modérateurs", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Comptes modérateurs", exact: true })).toBeVisible();
+    const configurationMenus = page.getByRole("navigation", { name: "Administration", exact: true }).getByRole("button");
+    const frenchMenus = (await configurationMenus.allTextContents()).map(name => name.trim());
+    expect(frenchMenus.indexOf("Comptes modérateurs")).toBe(frenchMenus.indexOf("Comptes administrateurs") + 1);
     await expect(page.getByRole("heading", { name: "Modérateurs configurés" })).toBeVisible();
     await expect(page.getByRole("checkbox", { name: "Gérer", exact: true })).toHaveCount(2);
     await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
@@ -45,7 +48,9 @@ for (const width of [320, 1280]) {
     await expect(localForm.getByLabel("Identifiant")).toHaveValue("");
     expect(createdModerator).toMatchObject({ role: "MODERATOR", source: "LOCAL", username: "new-moderator@example.test" });
     await page.locator(".admin-language").getByRole("button", { name: "EN", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Moderators", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Moderator accounts", exact: true })).toBeVisible();
+    const englishMenus = (await configurationMenus.allTextContents()).map(name => name.trim());
+    expect(englishMenus.indexOf("Moderator accounts")).toBe(englishMenus.indexOf("Administrator accounts") + 1);
     await expect(page.getByRole("checkbox", { name: "Manage", exact: true })).toHaveCount(2);
     await expect(page.getByRole("heading", { name: "Add an Active Directory group" })).toBeVisible();
     await page.locator(".admin-language").getByRole("button", { name: "FR", exact: true }).click();

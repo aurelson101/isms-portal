@@ -234,7 +234,7 @@ function ModeratorsPanel({
     load(); onNotice(t("Modérateur ajouté.", "Moderator added."));
   };
   return <>
-    <h1>{t("Modérateurs", "Moderators")}</h1>
+    <h1>{t("Comptes modérateurs", "Moderator accounts")}</h1>
     <p className="lead">{t("Les modérateurs peuvent gérer, publier, versionner, archiver et supprimer les documents. Ils n'ont pas accès à la configuration administrative.", "Moderators can manage, publish, version, archive and delete documents. They cannot access administrative configuration.")}</p>
     <section className="admin-card"><h2>{t("Modérateurs configurés", "Configured moderators")}</h2>
       <div className="admin-account-list">
@@ -407,11 +407,11 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["settings", "settings", "Identité visuelle", "Branding"],
   ["profile", "settings", "Profil administrateur", "Administrator profile"],
   ["administrators", "groups", "Comptes administrateurs", "Administrator accounts"],
+  ["moderators", "groups", "Comptes modérateurs", "Moderator accounts"],
   ["advanced-settings", "settings", "Paramètres avancés", "Advanced settings"],
   ["integrations", "sync", "Intégrations", "Integrations"],
   ["alert-channels", "settings", "Canaux d’alerte", "Alert channels"],
   ["alert-policy", "shield", "Seuils d’alerte", "Alert thresholds"],
-  ["moderators", "groups", "Modérateurs", "Moderators"],
   ["storage", "folder", "Stockage", "Storage"],
 ];
 const navigationGroups: Array<[string, string, typeof tabs]> = [
