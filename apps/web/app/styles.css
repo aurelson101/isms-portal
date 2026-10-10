@@ -260,6 +260,7 @@ button:disabled {
   cursor: not-allowed;
 }
 .button-link,
+:where(.admin-shell main, .admin-main) button,
 .admin-form button,
 .admin-table-wrap button,
 .account-menu button {
@@ -278,6 +279,7 @@ button:disabled {
   text-decoration: none;
 }
 .button-link:hover,
+:where(.admin-shell main, .admin-main) button:hover:not(:disabled),
 .admin-form button:hover,
 .admin-table-wrap button:hover,
 .account-menu button:hover {
@@ -286,12 +288,18 @@ button:disabled {
   background: #eef5ff;
 }
 .button-link:disabled,
+:where(.admin-shell main, .admin-main) button:disabled,
 .admin-form button:disabled,
 .admin-table-wrap button:disabled,
 .account-menu button:disabled {
   border-color: #cbd5e3;
   color: #8995a8;
   background: #f2f5f9;
+}
+:where(.admin-shell main, .admin-main) button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 button:focus-visible,
 a:focus-visible,
@@ -2187,6 +2195,7 @@ h1 {
   color: #40516d;
 }
 .admin-form input,
+.moderator-search input,
 .admin-form select,
 .admin-form textarea {
   padding: 10px;
