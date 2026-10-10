@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 for (const width of [320, 1280]) {
-  test(`admin management and bilingual help at ${width}px`, async ({ page }) => {
+  test(`admin management and bilingual help at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 });
     await page.addInitScript(() => localStorage.setItem("isms-locale", "fr"));
     const errors: string[] = [];
@@ -46,13 +46,24 @@ for (const width of [320, 1280]) {
     await expect.poll(() => queries.at(-1)?.get("sort")).toBe("status");
     await page.goto("/admin#help");
     await expect(page.getByRole("heading", { name: "Aide ISMS Portal", exact: true })).toBeVisible();
-    await expect(page.locator(".admin-help article")).toHaveCount(19);
+    await expect(page.locator(".admin-help article")).toHaveCount(1);
+    await expect(page.locator(".admin-help-topic-picker option")).toHaveCount(26);
+    await page.locator(".admin-help-pagination").getByRole("button", { name: "Suivant" }).click();
+    await expect(page.locator(".admin-help article h2")).toHaveText("Espaces et catégories");
+    await expect(page.locator(".admin-help article li")).toHaveCount(3);
+    await page.locator(".admin-help-pagination").getByRole("button", { name: "Précédent" }).click();
+    if (width <= 900) await page.getByLabel("Rubrique", { exact: true }).selectOption({ label: "Connexion Microsoft SSO" });
+    else await page.locator(".admin-help-topics").getByRole("button", { name: "Connexion Microsoft SSO", exact: true }).click();
+    await expect(page.locator(".admin-help article h2")).toHaveText("Connexion Microsoft SSO");
+    await expect(page.locator(".admin-help article li")).toHaveCount(3);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath("help-workspace.png"), fullPage: false });
     await page.getByLabel("Rechercher dans l’aide").fill("no-matching-topic");
     await expect(page.locator(".admin-help article")).toHaveCount(0);
     await page.locator(".admin-help").getByRole("button", { name: "Réinitialiser" }).click();
     await page.locator(".admin-help").getByRole("button", { name: "EN", exact: true }).click();
     await expect(page.getByRole("heading", { name: "ISMS Portal help", exact: true })).toBeVisible();
-    await expect(page.locator(".admin-help article")).toHaveCount(19);
+    await expect(page.locator(".admin-help article")).toHaveCount(1);
     await page.getByLabel("Search help").fill("LDAP / LDAPS");
     await expect(page.locator(".admin-help article")).toHaveCount(1);
     await page.locator(".admin-help article").getByRole("button", { name: "Open menu" }).click();
