@@ -14,8 +14,8 @@ import {
 } from "class-validator";
 
 export class UserPreferenceDto {
-  @IsIn(["fr", "en", "es"])
-  locale!: "fr" | "en" | "es";
+  @IsIn(["fr", "en", "es", "sk"])
+  locale!: "fr" | "en" | "es" | "sk";
 
   @IsIn(["list", "grid"])
   viewMode!: "list" | "grid";

@@ -1746,6 +1746,7 @@ export function Portal({
             </button>
             <i />{" "}
             <button onClick={() => void changeLocale("es")} aria-pressed={locale === "es"}>ES</button>
+            <button onClick={() => void changeLocale("sk")} aria-pressed={locale === "sk"}>SK</button>
           </div>
           <button
             className="help"

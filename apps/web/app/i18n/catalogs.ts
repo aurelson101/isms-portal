@@ -1,9 +1,9 @@
-import { withSpanish } from "./translate";
+import { withLocales } from "./translate";
 import { additionalEnglishMessages } from "./additional-messages";
-const catalogVersion = 4 as const;
+const catalogVersion = 5 as const;
 void catalogVersion;
 
-export const portalCatalog = withSpanish({
+export const portalCatalog = withLocales({
   fr: {
     welcome: "Bienvenue",
     subtitle: "Retrouvez rapidement les documents qui vous concernent.",

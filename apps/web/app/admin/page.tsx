@@ -1013,6 +1013,9 @@ export default function Admin() {
                 <button type="button" aria-pressed={locale === "es"} onClick={() => void changeLocale("es")}>
                   ES
                 </button>
+                <button type="button" aria-pressed={locale === "sk"} onClick={() => void changeLocale("sk")}>
+                  SK
+                </button>
               </div>
               <button className="refresh-button" onClick={() => void refresh()}>
                 <Icon name="sync" /> <span>{t("Actualiser")}</span>
@@ -1071,6 +1074,7 @@ export default function Admin() {
                         English
                       </button>
                       <button type="button" aria-pressed={locale === "es"} onClick={() => void changeLocale("es")}>Español</button>
+                      <button type="button" aria-pressed={locale === "sk"} onClick={() => void changeLocale("sk")}>Slovenčina</button>
                     </div>
                     <span
                       className={

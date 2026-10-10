@@ -1,24 +1,24 @@
 # ISMS Portal
 
-Portail documentaire ISMS/ISO 27001 en français, anglais et espagnol, protégé par les groupes Active
+Portail documentaire ISMS/ISO 27001 en français, anglais, espagnol et slovaque, protégé par les groupes Active
 Directory. L’API applique un modèle _deny by default_ : espaces, recherche,
 consultation, téléchargement et administration sont filtrés côté serveur.
 
 ## Dernières nouveautés
 
-- **Interface FR / EN / ES** : connexion, portail, administration, modération,
-  gouvernance et aide technique disposent de traductions espagnoles. Sans choix
+- **Interface FR / EN / ES / SK** : connexion, portail, administration, modération,
+  gouvernance et aide technique disposent de traductions espagnoles et slovaques. Sans choix
   enregistré, la première langue prise en charge dans les préférences du
-  navigateur est utilisée (par exemple `es-ES` ou `es-MX`). Le choix manuel
+  navigateur est utilisée (par exemple `es-ES`, `es-MX` ou `sk-SK`). Le choix manuel
   enregistré reste prioritaire ; l'anglais sert de repli. La langue du document
   et les contenus saisis par les utilisateurs ne sont pas traduits automatiquement.
   Les contrôles de couverture et les tests navigateur valident les traductions,
-  les trois sélecteurs et les affichages mobile, tablette et bureau.
+  les quatre langues et les affichages mobile, tablette et bureau.
 
 ### Administration et aide technique — 10 octobre 2026
 
 - **Aide intégrée** dans `/admin#help` : 26 rubriques regroupées par domaine,
-  recherche, navigation précédent/suivant et langue français/anglais/espagnol pilotée par
+  recherche, navigation précédent/suivant et langue français/anglais/espagnol/slovaque pilotée par
   les boutons de l'en-tête, sans commandes de langue en doublon dans l'aide.
   Une seule rubrique est affichée à la fois ; sur mobile, un sélecteur remplace
   la navigation latérale.

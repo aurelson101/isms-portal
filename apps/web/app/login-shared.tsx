@@ -4,7 +4,7 @@ import { translate } from "./i18n/translate";
 
 import { useId, useState } from "react";
 import { useBranding } from "./branding";
-import type { Locale } from "./i18n/locale";
+import { interfaceLocales, type Locale } from "./i18n/locale";
 import type { AuthConfig } from "./auth-navigation";
 
 export function PasswordField({ locale, label }: { locale: Locale; label: string }) {
@@ -66,7 +66,7 @@ export function LoginToolbar({ locale, onLocaleChange, admin = false }: {
         : translate(locale, "Portail documentaire", "Document portal")}</small></div>
     </div>
     <div className="login-language" aria-label={translate(locale, "Langue", "Language")}>
-      {(["fr", "en", "es"] as const).map((value) => <button key={value} type="button" onClick={() => onLocaleChange(value)} aria-pressed={locale === value}>{value.toUpperCase()}</button>)}
+      {interfaceLocales.map((value) => <button key={value} type="button" onClick={() => onLocaleChange(value)} aria-pressed={locale === value}>{value.toUpperCase()}</button>)}
     </div>
   </div>;
 }

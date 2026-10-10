@@ -17,11 +17,21 @@ const { spanishMessages } = load(path.join(root, "i18n/spanish-messages.ts"));
 const { additionalSpanishMessages } = load(path.join(root, "i18n/additional-messages.ts"));
 const { spanishTemplates } = load(path.join(root, "i18n/spanish-templates.ts"));
 const spanish = { ...spanishMessages, ...additionalSpanishMessages, ...spanishTemplates };
+const { slovakMessages } = load(path.join(root, "i18n/slovak-messages.ts"));
 const missing = new Set();
-const check = text => { if (text.trim() && !Object.hasOwn(spanish, text)) missing.add(text); };
+const check = text => {
+  if (!text.trim()) return;
+  if (!Object.hasOwn(spanish, text)) missing.add(`ES: ${text}`);
+  if (!Object.hasOwn(slovakMessages, text)) missing.add(`SK: ${text}`);
+};
+for (const key of Object.keys(spanish)) {
+  check(key);
+  const placeholders = text => JSON.stringify((text.match(/\{\d+\}/g) || []).sort());
+  if (Object.hasOwn(slovakMessages, key) && placeholders(key) !== placeholders(slovakMessages[key])) throw Error(`Invalid Slovak placeholders: ${key}`);
+}
 for (const text of Object.values(adminEnglishCatalog)) check(text);
 for (const key of Object.keys(portalCatalog.en)) {
-  if (!portalCatalog.fr[key] || !portalCatalog.es[key]) throw Error(`Incomplete portal key: ${key}`);
+  if (!portalCatalog.fr[key] || !portalCatalog.es[key] || !portalCatalog.sk[key]) throw Error(`Incomplete portal key: ${key}`);
   check(portalCatalog.en[key]);
 }
 function literals(node) {
@@ -51,4 +61,4 @@ for (const file of fs.readdirSync(root, { recursive: true }).filter(file => /\.t
   visit(source);
 }
 if (missing.size) throw Error(`Missing interface translations:\n${[...missing].sort().join("\n")}`);
-console.log(`FR/EN/ES catalog coverage verified (${Object.keys(spanish).length} Spanish messages).`);
+console.log(`FR/EN/ES/SK catalog coverage verified (${Object.keys(spanish).length} Spanish and ${Object.keys(slovakMessages).length} Slovak messages).`);

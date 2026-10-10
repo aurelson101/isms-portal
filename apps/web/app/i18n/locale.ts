@@ -1,9 +1,9 @@
-export const interfaceLocales = ["fr", "en", "es"] as const;
+export const interfaceLocales = ["fr", "en", "es", "sk"] as const;
 export type Locale = typeof interfaceLocales[number];
 export type DocumentLocale = "fr" | "en";
 
 export const isLocale = (value: string | null | undefined): value is Locale =>
-  value === "fr" || value === "en" || value === "es";
+  value === "fr" || value === "en" || value === "es" || value === "sk";
 
 export const browserLocale = (languages: readonly string[] = typeof navigator === "undefined" ? ["en"] : navigator.languages?.length ? navigator.languages : [navigator.language]): Locale => {
   for (const language of languages) {

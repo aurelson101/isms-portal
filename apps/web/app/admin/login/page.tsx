@@ -1,6 +1,6 @@
 "use client";
 
-import { withSpanish } from "../../i18n/translate";
+import { withLocales } from "../../i18n/translate";
 
 import { FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { returnDestination, ssoDestination } from "../../auth-navigation";
@@ -8,7 +8,7 @@ import { authConfig, loginFailure, loginRequest, LoginToolbar, PasswordField } f
 import { useInterfaceLocale } from "../../i18n/use-locale";
 
 type LoginMode = "local" | "directory";
-const copy = withSpanish({
+const copy = withLocales({
   fr: {
     title: "Connexion administrateur",
     subtitle: "Accès réservé à l’administration du portail.",

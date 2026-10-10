@@ -5,6 +5,14 @@ import { translate } from "../../apps/web/app/i18n/translate";
 test.use({ locale: "es-ES" });
 
 test("browser detection and dynamic Spanish messages", () => {
+  expect(browserLocale(["sk-SK", "en-US"])).toBe("sk");
+  expect(browserLocale(["sk", "es-ES"])).toBe("sk");
+  expect(browserLocale(["sl-SI", "sk-SK"])).toBe("sk");
+  expect(initialLocale("en", "sk")).toBe("en");
+  expect(translate("sk", "", "This group contains 123 members. Continue?")).toBe("Táto skupina má 123 členov. Pokračovať?");
+  expect(translate("sk", "", "This synchronized group may return during the next synchronization. 3 associated rule(s) will be deleted. Continue?")).toBe("Táto synchronizovaná skupina sa môže pri ďalšej synchronizácii obnoviť. Odstráni sa 3 priradených pravidiel. Pokračovať?");
+  expect(translate("sk", "", "5 update(s) since your last visit")).toBe("Novinky od poslednej návštevy: 5");
+  expect(new Intl.DateTimeFormat(translate("sk", "fr-FR", "en-GB"), { month: "long" }).format(new Date(2026, 0, 1))).toBe("január");
   expect(browserLocale(["es-MX", "en-US"])).toBe("es");
   expect(browserLocale(["de-DE", "fr-CA"])).toBe("fr");
   expect(browserLocale(["en-GB", "es-ES"])).toBe("en");
@@ -19,8 +27,15 @@ test("browser detection and dynamic Spanish messages", () => {
   expect(translate("es", "", "Report recorded: REPORT-123")).toBe("Informe registrado: REPORT-123");
 });
 
-for (const width of [320, 768, 1280]) {
-  test(`Spanish interface, automatic detection and document isolation at ${width}px`, async ({ page }) => {
+const labels = {
+  es: { login: "Iniciar sesión", adminLogin: "Inicio de sesión de administrador", moderators: "Cuentas de moderadores", addUser: "Añadir un usuario de Active Directory", help: "Ayuda de ISMS Portal", technical: "Taller técnico: configuración paso a paso", explorer: "Explorador de documentos", moderator: "Espacio del moderador", documents: "Documentos gestionados", batch: "Importar un lote", fileLanguage: "Idioma del archivo" },
+  sk: { login: "Prihlásiť sa", adminLogin: "Prihlásenie správcu", moderators: "Účty moderátorov", addUser: "Pridať používateľa Active Directory", help: "Pomocník ISMS Portal", technical: "Technický postup: konfigurácia krok za krokom", explorer: "Prieskumník dokumentov", moderator: "Priestor moderátora", documents: "Spravované dokumenty", batch: "Importovať dávku", fileLanguage: "Jazyk súborov" },
+};
+for (const language of ["es", "sk"] as const) test.describe(language, () => {
+  test.use({ locale: language === "sk" ? "sk-SK" : "es-ES" });
+  const text = labels[language];
+  for (const width of [320, 768, 1280]) {
+  test(`${language.toUpperCase()} interface, automatic detection and document isolation at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const errors: string[] = [];
     page.on("pageerror", error => errors.push(error.message));
@@ -41,46 +56,47 @@ for (const width of [320, 768, 1280]) {
     });
     const noOverflow = async () => expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.goto("/login?local=1");
-    await expect(page.getByRole("heading", { name: "Iniciar sesión", exact: true })).toBeVisible();
-    await expect(page.locator("html")).toHaveAttribute("lang", "es");
+    await expect(page.getByRole("heading", { name: text.login, exact: true })).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("lang", language);
     await page.getByRole("button", { name: "FR", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Connexion", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "EN", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "ES", exact: true }).click();
+    await page.getByRole("button", { name: language.toUpperCase(), exact: true }).click();
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Iniciar sesión", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: text.login, exact: true })).toBeVisible();
     await noOverflow();
     await page.goto("/admin/login?local=1");
-    await expect(page.getByRole("heading", { name: "Inicio de sesión de administrador", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: text.adminLogin, exact: true })).toBeVisible();
     await noOverflow();
     await page.goto("/admin#moderators");
-    await expect(page.getByRole("heading", { name: "Cuentas de moderadores", exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Añadir un usuario de Active Directory" })).toBeVisible();
-    await expect(page.locator('.admin-language button[aria-pressed="true"]')).toHaveText("ES");
+    await expect(page.getByRole("heading", { name: text.moderators, exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: text.addUser })).toBeVisible();
+    await expect(page.locator('.admin-language button[aria-pressed="true"]')).toHaveText(language.toUpperCase());
     for (const button of await page.locator('.admin-language button, .refresh-button').all()) {
       expect(await button.evaluate(element => getComputedStyle(element).whiteSpace)).toBe("nowrap");
     }
     await noOverflow();
     await page.goto("/admin#help");
-    await expect(page.getByRole("heading", { name: "Ayuda de ISMS Portal", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: text.help, exact: true })).toBeVisible();
     for (let index = 0; index < 26; index++) {
       if (width <= 900) await page.locator(".admin-help-topic-picker select").selectOption(String(index));
       else await page.locator(".admin-help-topics button").nth(index).click();
       await expect(page.locator(".admin-help-content article")).toHaveCount(1);
-      await expect(page.locator(".admin-help-content details summary")).toHaveText("Taller técnico: configuración paso a paso");
+      await expect(page.locator(".admin-help-content details summary")).toHaveText(text.technical);
       await noOverflow();
     }
     await page.goto("/explorer");
-    await expect(page.getByRole("heading", { name: "Explorador de documentos", exact: true })).toBeVisible();
-    await expect(page.locator("html")).toHaveAttribute("lang", "es");
+    await expect(page.getByRole("heading", { name: text.explorer, exact: true })).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("lang", language);
     await noOverflow();
     await page.goto("/moderator");
-    await expect(page.getByRole("heading", { name: "Espacio del moderador", exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Documentos gestionados", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Importar un lote", exact: true }).click();
-    await expect(page.getByLabel("Idioma del archivo")).toHaveValue("fr");
+    await expect(page.getByRole("heading", { name: text.moderator, exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: text.documents, exact: true })).toBeVisible();
+    await page.getByRole("button", { name: text.batch, exact: true }).click();
+    await expect(page.getByLabel(text.fileLanguage)).toHaveValue("fr");
     await noOverflow();
     expect(errors).toEqual([]);
   });
-}
+  }
+});

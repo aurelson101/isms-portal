@@ -1,6 +1,6 @@
 "use client";
 
-import { withSpanish } from "../i18n/translate";
+import { withLocales } from "../i18n/translate";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { returnDestination, ssoDestination } from "../auth-navigation";
@@ -8,7 +8,7 @@ import { authConfig, loginFailure, loginRequest, LoginToolbar, PasswordField } f
 import { useInterfaceLocale } from "../i18n/use-locale";
 import { readLocale } from "../i18n/locale";
 
-const copy = withSpanish({
+const copy = withLocales({
   fr: {
     title: "Connexion",
     subtitle: "Saisissez vos identifiants pour accéder à vos documents.",

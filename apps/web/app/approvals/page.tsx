@@ -1,6 +1,6 @@
 "use client";
 
-import { translate, withSpanish } from "../i18n/translate";
+import { translate, withLocales } from "../i18n/translate";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { responseMessage } from "../request-errors";
@@ -11,7 +11,7 @@ type Item = { id: string; operation: string; targetType: string; targetId: strin
 type Review = { id: string; owner: string; reviewer: string; approver: string; dueAt: string; status: string; decidedBy: string | null; decidedAt: string | null; createdAt: string; decisionComment: string | null; canDecide: boolean; document: { slug: string; translations: Array<{ title: string; locale: string }> } };
 const itemKey = (item: Item) => `${item.review ? "review" : "approval"}-${item.id}`;
 const isPending = (status: string) => status === "PENDING" || status === "IN_REVIEW";
-const copy = withSpanish({
+const copy = withLocales({
   fr: { title: "Approbations et revues", subtitle: "Décidez, suivez et retrouvez l'historique des demandes.", portal: "Retour au portail", status: "État", period: "Période", year: "Année", month: "Mois", allMonths: "Toute l'année", all: "Toutes", pending: "À traiter", approved: "Approuvées", rejected: "Refusées", refresh: "Actualiser", requests: "demandes", none: "Aucune demande correspondante.", document: "Document", operation: "Opération", requested: "Demandé par", due: "Échéance", reviewer: "Relecteur", approver: "Approbateur", comment: "Commentaire de décision", commentHint: "Ajoutez un commentaire pour expliquer la décision.", open: "Ouvrir le document", approve: "Approuver", reject: "Refuser", decided: "Décision par", history: "Historique", pendingAction: "Votre décision est requise.", cannotDecide: "Consultation uniquement", review: "Revue documentaire", loading: "Chargement des demandes…", error: "Impossible de charger les demandes. Connectez-vous au portail puis réessayez.", confirmApprove: "Confirmer l'approbation de cette demande ?", confirmReject: "Confirmer le refus de cette demande ?" },
   en: { title: "Approvals and Reviews", subtitle: "Decide, track and review the history of requests.", portal: "Back to portal", status: "Status", period: "Period", year: "Year", month: "Month", allMonths: "Full year", all: "All", pending: "Action required", approved: "Approved", rejected: "Rejected", refresh: "Refresh", requests: "requests", none: "No matching requests.", document: "Document", operation: "Operation", requested: "Requested by", due: "Due date", reviewer: "Reviewer", approver: "Approver", comment: "Decision comment", commentHint: "Add a comment explaining the decision.", open: "Open document", approve: "Approve", reject: "Reject", decided: "Decision by", history: "History", pendingAction: "Your decision is required.", cannotDecide: "Read-only", review: "Document review", loading: "Loading requests…", error: "Unable to load requests. Sign in to the portal and try again.", confirmApprove: "Approve this request?", confirmReject: "Reject this request?" },
 });
