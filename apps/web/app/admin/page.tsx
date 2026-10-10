@@ -120,6 +120,12 @@ type Tab =
   | "observability"
   | "health"
   | "settings"
+  | "profile"
+  | "administrators"
+  | "advanced-settings"
+  | "integrations"
+  | "alert-channels"
+  | "alert-policy"
   | "storage"
   | "moderators";
 type Group = {
@@ -393,7 +399,13 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["health", "health", "Santé des services", "Service health"],
   ["observability", "health", "Observabilité", "Observability"],
   ["audit", "audit", "Journal d’audit", "Audit log"],
-  ["settings", "settings", "Configuration", "Settings"],
+  ["settings", "settings", "Identité visuelle", "Branding"],
+  ["profile", "settings", "Profil administrateur", "Administrator profile"],
+  ["administrators", "groups", "Comptes administrateurs", "Administrator accounts"],
+  ["advanced-settings", "settings", "Paramètres avancés", "Advanced settings"],
+  ["integrations", "sync", "Intégrations", "Integrations"],
+  ["alert-channels", "settings", "Canaux d’alerte", "Alert channels"],
+  ["alert-policy", "shield", "Seuils d’alerte", "Alert thresholds"],
   ["moderators", "groups", "Modérateurs", "Moderators"],
   ["storage", "folder", "Stockage", "Storage"],
 ];
@@ -402,7 +414,7 @@ const navigationGroups: Array<[string, string, typeof tabs]> = [
   ["content", "Contenu et accès", tabs.filter(([key]) => ["groups", "rules", "spaces", "documents", "trash", "incidents", "requests"].includes(key))],
   ["infrastructure", "Infrastructure", tabs.filter(([key]) => ["governance", "directory", "sso", "certificates"].includes(key))],
   ["system", "Supervision", tabs.filter(([key]) => ["health", "observability", "audit"].includes(key))],
-  ["configuration", "Configuration", tabs.filter(([key]) => ["settings", "moderators", "storage"].includes(key))],
+  ["configuration", "Configuration", tabs.filter(([key]) => ["settings", "profile", "administrators", "advanced-settings", "integrations", "alert-channels", "alert-policy", "moderators", "storage"].includes(key))],
 ];
 const normalizeNavigationQuery = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 const permissionKeys = [
@@ -1072,7 +1084,7 @@ export default function Admin() {
                       role="menuitem"
                       onClick={() => {
                         setProfileOpen(false);
-                        selectTab("settings");
+                        selectTab("profile");
                       }}
                     >
                       {t("Mon profil")}
@@ -1215,8 +1227,10 @@ export default function Admin() {
                   />
                 )}
                 {tab === "audit" && <AuditPanel events={audit} />}
-                {tab === "observability" && (
+                {["observability", "integrations", "alert-channels", "alert-policy"].includes(tab) && (
                   <ObservabilityPanel
+                    key={tab}
+                    view={tab === "integrations" ? "integrations" : tab === "alert-channels" ? "channels" : tab === "alert-policy" ? "policy" : "overview"}
                     dashboard={dashboard}
                     events={audit}
                     health={health}
@@ -1225,8 +1239,10 @@ export default function Admin() {
                 )}
                 {tab === "health" && <HealthPanel health={health} />}
                 {tab === "storage" && <StoragePanel locale={locale} />}
-                {tab === "settings" && (
+                {["settings", "profile", "administrators", "advanced-settings"].includes(tab) && (
                   <SettingsPanel
+                    key={tab}
+                    section={tab === "profile" ? "profile" : tab === "administrators" ? "administrators" : tab === "advanced-settings" ? "advanced" : "branding"}
                     identity={identity}
                     onError={setError}
                     onNotice={setNotice}
@@ -5005,11 +5021,13 @@ function RequestsPanel({
 }
 
 function ObservabilityPanel({
+  view,
   dashboard,
   events,
   health,
   onNotice,
 }: {
+  view: "overview" | "integrations" | "channels" | "policy";
   dashboard: Dashboard | null;
   events: Audit[];
   health: Health | null;
@@ -5215,9 +5233,9 @@ function ObservabilityPanel({
     return () => { operationsRequest.current++; operationsController.current?.abort(); };
   }, [reloadOperations]);
   useEffect(() => {
-    void reloadEmailDeliveries();
+    if (view === "overview") void reloadEmailDeliveries();
     return () => { emailRequest.current++; emailController.current?.abort(); };
-  }, [reloadEmailDeliveries]);
+  }, [reloadEmailDeliveries, view]);
   useEffect(() => {
     setPortalOrigin(window.location.origin);
   }, []);
@@ -5381,7 +5399,7 @@ function ObservabilityPanel({
       <div className="section-heading">
         <div>
           <span className="eyebrow">{t("Exploitation et SIEM")}</span>
-          <h1>{t("Observabilité")}</h1>
+          <h1>{view === "integrations" ? t("Intégrations", "Integrations") : view === "channels" ? t("Canaux d’alerte", "Alert channels") : view === "policy" ? t("Seuils d’alerte", "Alert thresholds") : t("Observabilité")}</h1>
           <p>
             {t(
               "Visualisez les signaux essentiels et préparez les intégrations sans exposer les métriques sur Internet.",
@@ -5389,12 +5407,13 @@ function ObservabilityPanel({
           </p>
         </div>
         <div className="observability-refresh">
-          <button type="button" disabled={operationsLoading || operationsBusy || emailBusy} onClick={() => { void reloadOperations(); void reloadEmailDeliveries(); }}><Icon name="sync" />{ui.refresh}</button>
+          <button type="button" disabled={operationsLoading || operationsBusy || emailBusy} onClick={() => { void reloadOperations(); if (view === "overview") void reloadEmailDeliveries(); }}><Icon name="sync" />{ui.refresh}</button>
           <small role="status">{operationsLoading ? ui.loading : lastUpdated ? `${ui.updated}: ${dateFormatter.format(lastUpdated)}` : ui.unknown}</small>
         </div>
       </div>
       {operationsError && <p className="error-state" role="alert">{operationsError}</p>}
       <fieldset className="observability-controls" disabled={operationsLoading || operationsBusy || emailBusy || !settingsLoaded.current}>
+      {view === "overview" && <>
       <div className="summary-grid">
         <article>
           <strong>
@@ -5501,8 +5520,8 @@ function ObservabilityPanel({
           <button type="button" disabled={currentWorkPage >= workTotalPages} onClick={() => setWorkPage(currentWorkPage + 1)}>{ui.next}</button>
         </nav>}
       </section>
-      <details className="observability-settings">
-        <summary>{t("Intégrations et configuration des alertes", "Integrations and alert configuration")}</summary>
+      </>}
+      {view === "integrations" && <div className="observability-settings">
       <div className="admin-alert observability-warning">
         {t("Adresse du portail détectée automatiquement")}:{" "}
         <strong>{detectedPortalUrl}</strong> ({hostType}).
@@ -5618,6 +5637,8 @@ function ObservabilityPanel({
           );
         })}
       </div>
+      </div>}
+      {view === "channels" && (
       <form
         className="admin-form observability-policy"
         onSubmit={async (event) => {
@@ -5843,6 +5864,8 @@ function ObservabilityPanel({
         </fieldset>
         <button>{t("Enregistrer les canaux")}</button>
       </form>
+      )}
+      {view === "policy" && (
       <form
         className="admin-form observability-policy"
         onSubmit={async (event) => {
@@ -5923,12 +5946,14 @@ function ObservabilityPanel({
         </label>
         <button>{t("Enregistrer la politique")}</button>
       </form>
-      </details>
+      )}
+      {view === "integrations" && (
       <p className="lead">
         {t(
           "Les exemples complets et les règles d’alerte se trouvent dans deploy/monitoring.",
         )}
       </p>
+      )}
       </fieldset>
     </section>
   );
@@ -6020,10 +6045,12 @@ function HealthPanel({ health }: { health: Health | null }) {
 }
 
 function SettingsPanel({
+  section,
   identity,
   onError,
   onNotice,
 }: {
+  section: "branding" | "profile" | "administrators" | "advanced";
   identity: {
     username: string;
     displayName: string;
@@ -6162,13 +6189,13 @@ function SettingsPanel({
     [onError],
   );
   useEffect(() => {
-    void loadAccounts();
-  }, [loadAccounts]);
+    if (section === "administrators") void loadAccounts();
+  }, [loadAccounts, section]);
   useEffect(() => {
-    void api<PortalBranding>("/api/branding")
+    if (section === "branding") void api<PortalBranding>("/api/branding")
       .then(setPortalBranding)
       .catch((error) => onError(error.message));
-  }, [onError]);
+  }, [onError, section]);
   const loadAdminGroups = useCallback(
     () =>
       api<typeof adminGroups>("/api/admin/accounts/groups")
@@ -6177,13 +6204,13 @@ function SettingsPanel({
     [onError],
   );
   useEffect(() => {
-    if (identity) {
+    if (identity && section === "administrators") {
       void loadAdminGroups();
       void api<typeof adminSessions>("/api/admin/accounts/sessions/active")
         .then(setAdminSessions)
         .catch((error) => onError(error.message));
     }
-  }, [identity, loadAdminGroups, onError]);
+  }, [identity, loadAdminGroups, onError, section]);
   useEffect(() => {
     setSelectedDirectoryUser(null);
     if (directoryQuery.trim().length < 2) {
@@ -6330,7 +6357,8 @@ function SettingsPanel({
   };
   return (
     <>
-      <h1>{t("Configuration")}</h1>
+      <h1>{section === "profile" ? t("Profil administrateur") : section === "administrators" ? t("Comptes administrateurs") : section === "advanced" ? t("Paramètres avancés", "Advanced settings") : t("Identité visuelle du portail")}</h1>
+      {section === "branding" && (
       <section className="admin-card profile-settings">
         <h2>{t("Identité visuelle du portail")}</h2>
         <p>
@@ -6436,6 +6464,8 @@ function SettingsPanel({
           </div>
         </form>
       </section>
+      )}
+      {section === "profile" && (
       <section className="admin-card profile-settings">
         <h2>{t("Profil administrateur")}</h2>
         {profilePhoto && (
@@ -6584,7 +6614,8 @@ function SettingsPanel({
           </div>
         )}
       </section>
-      {identity && (
+      )}
+      {identity && section === "administrators" && (
         <section className="admin-card administrator-management">
           <h2>{t("Comptes administrateurs")}</h2>
           <p className="retention-note">
@@ -7036,7 +7067,7 @@ function SettingsPanel({
           </div>
         </section>
       )}
-      <form
+      {section === "advanced" && (<form
         className="admin-form"
         onSubmit={async (event) => {
           event.preventDefault();
@@ -7064,7 +7095,7 @@ function SettingsPanel({
           />
         </label>
         <button className="primary">{t("Enregistrer")}</button>
-      </form>
+      </form>)}
     </>
   );
 }

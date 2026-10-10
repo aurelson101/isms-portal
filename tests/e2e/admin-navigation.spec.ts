@@ -40,7 +40,7 @@ for (const width of [320, 768, 1280]) {
     await expect(current).toHaveText("Observabilité");
     await expect(nav.getByRole("button", { name: "Supervision", exact: true, includeHidden: true })).toHaveAttribute("aria-expanded", "true");
     await expect(nav.locator("#admin-navigation-system button")).toHaveText(["Santé des services", "Observabilité", "Journal d’audit"]);
-    await expect(nav.locator("#admin-navigation-configuration button")).toHaveText(["Configuration", "Modérateurs", "Stockage"]);
+    await expect(nav.locator("#admin-navigation-configuration button")).toHaveText(["Identité visuelle", "Profil administrateur", "Comptes administrateurs", "Paramètres avancés", "Intégrations", "Canaux d’alerte", "Seuils d’alerte", "Modérateurs", "Stockage"]);
     const next = page.getByRole("navigation", { name: "Pagination des e-mails" }).getByRole("button", { name: "Suivant", exact: true });
     await expect(next).toBeEnabled();
     await page.mouse.move(0, 0);
@@ -55,7 +55,7 @@ for (const width of [320, 768, 1280]) {
       await expect(toggle).toHaveAttribute("aria-expanded", "true");
       await expect(current).toBeVisible();
     }
-    await expect(nav.locator(".admin-navigation-submenu button")).toHaveCount(18);
+    await expect(nav.locator(".admin-navigation-submenu button")).toHaveCount(24);
     const menuSearch = nav.getByRole("searchbox", { name: "Rechercher un menu", exact: true });
     await menuSearch.fill("sante");
     await expect(nav.getByRole("button", { name: "Santé des services", exact: true })).toBeVisible();
@@ -65,7 +65,7 @@ for (const width of [320, 768, 1280]) {
     await menuSearch.fill("no-matching-menu");
     await expect(nav.getByRole("status")).toHaveText("Aucun menu trouvé");
     await menuSearch.fill("");
-    await expect(nav.locator(".admin-navigation-submenu button")).toHaveCount(18);
+    await expect(nav.locator(".admin-navigation-submenu button")).toHaveCount(24);
     await nav.getByRole("button", { name: "Contenu et accès", exact: true }).click();
     await nav.getByRole("button", { name: "Groupes Active Directory", exact: true }).click();
     await expect(page).toHaveURL(/\/admin#groups$/);
@@ -123,5 +123,24 @@ for (const width of [320, 768, 1280]) {
     if (width > 900) await expect(current).toBeInViewport({ ratio: 1 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath("navigation.png"), fullPage: false });
+    for (const [hash, label, panel] of [
+      ["settings", "Identité visuelle", ".profile-settings"],
+      ["profile", "Profil administrateur", ".profile-settings"],
+      ["administrators", "Comptes administrateurs", ".administrator-management"],
+      ["advanced-settings", "Paramètres avancés", "main > .admin-form"],
+      ["integrations", "Intégrations", ".integration-grid"],
+      ["alert-channels", "Canaux d’alerte", ".observability-policy"],
+      ["alert-policy", "Seuils d’alerte", ".observability-policy"],
+    ]) {
+      await page.evaluate((value) => { window.location.hash = value; }, hash);
+      await expect(current).toHaveText(label);
+      await expect(page.locator(panel)).toHaveCount(1);
+      await expect(page.locator(panel)).toBeVisible();
+      if (hash !== "administrators") await expect(page.locator(".administrator-management")).toHaveCount(0);
+      if (!["settings", "profile"].includes(hash)) await expect(page.locator(".profile-settings")).toHaveCount(0);
+      await expect(page.getByRole("navigation", { name: "Pagination des e-mails" })).toHaveCount(0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    expect(errors).toEqual([]);
   });
 }
