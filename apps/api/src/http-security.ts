@@ -18,7 +18,15 @@ export const sameOriginMutationGuard = (
   const origin = request.get("origin");
   if (!origin) return next();
   try {
-    if (new URL(origin).host === request.get("host")) return next();
+    const parsed = new URL(origin);
+    // TLS terminates at the proxy, so use the configured external origin.
+    const publicUrl = process.env.PUBLIC_URL;
+    if (
+      ["http:", "https:"].includes(parsed.protocol) &&
+      origin === parsed.origin &&
+      parsed.host === request.get("host") &&
+      (!publicUrl || parsed.origin === new URL(publicUrl).origin)
+    ) return next();
   } catch {
     // A malformed Origin is never a valid same-origin browser request.
   }

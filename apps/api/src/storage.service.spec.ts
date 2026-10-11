@@ -48,7 +48,7 @@ describe("optional document storage", () => {
     await expect(storage.putObject(key, Buffer.from("x"), {})).rejects.toThrow();
   });
   it("rejects symbolic links in a storage path", async () => {
-    await symlink(tmpdir(), join(root, "outside"));
+    await symlink(tmpdir(), join(root, "outside"), process.platform === "win32" ? "junction" : "dir");
     await expect(storage.putObject("outside/file", Buffer.from("x"), {})).rejects.toThrow("symlinks");
   });
   it("requires tested, enabled targets for new uploads", async () => {

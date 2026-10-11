@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { safeSsoPath, sameOriginMutationGuard } from "./http-security";
 
 const request = (headers: Record<string, string>, method = "POST") =>
@@ -14,6 +14,8 @@ const response = () => {
 };
 
 describe("HTTP browser security", () => {
+  beforeEach(() => vi.stubEnv("PUBLIC_URL", ""));
+  afterEach(() => vi.unstubAllEnvs());
   it("rejects cross-site state changes", () => {
     const target = response();
     const next = vi.fn();
@@ -48,6 +50,43 @@ describe("HTTP browser security", () => {
       next,
     );
     expect(next).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    "null", "https://portal.example/", "https://portal.example/path",
+    "https://user:password@portal.example", "https://portal.example?query=1",
+    "https://portal.example#fragment", "ftp://portal.example",
+  ])("rejects a non-canonical browser origin: %s", (origin) => {
+    const target = response();
+    const next = vi.fn();
+    sameOriginMutationGuard(request({ host: "portal.example", origin }), target.value, next);
+    expect(target.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it.each(["http://portal.example", "https://portal.example:8443", "https://evil.example"])("rejects an origin outside the configured HTTPS endpoint: %s", (origin) => {
+    vi.stubEnv("PUBLIC_URL", "https://portal.example");
+    const target = response();
+    const next = vi.fn();
+    sameOriginMutationGuard(request({ host: new URL(origin).host, origin, "sec-fetch-site": "same-site" }), target.value, next);
+    expect(target.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("accepts the public HTTPS origin behind the internal HTTP proxy", () => {
+    vi.stubEnv("PUBLIC_URL", "https://portal.example/");
+    const next = vi.fn();
+    sameOriginMutationGuard(request({ host: "portal.example", origin: "https://portal.example" }), response().value, next);
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it("fails closed for an invalid public URL", () => {
+    vi.stubEnv("PUBLIC_URL", "invalid");
+    const target = response();
+    const next = vi.fn();
+    sameOriginMutationGuard(request({ host: "portal.example", origin: "https://portal.example" }), target.value, next);
+    expect(target.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
   });
 
   it("exposes only local oauth2-proxy paths", () => {
