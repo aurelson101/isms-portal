@@ -14,7 +14,7 @@ import {
 } from "react";
 import { Icon, type IconName } from "../icons";
 import { adminEnglishCatalog } from "../i18n/catalogs";
-import { initialLocale, rememberLocale, type Locale } from "../i18n/locale";
+import { readLocale, rememberLocale, type Locale } from "../i18n/locale";
 import {
   defaultBranding,
   prepareBrandLogo,
@@ -626,9 +626,7 @@ export default function Admin() {
       }
       setIsAdmin(true);
       setIdentity(me);
-      const preferred = initialLocale(
-        localStorage.getItem("isms-locale"),
-      );
+      const preferred = readLocale();
       setLocale(preferred);
       document.documentElement.lang = preferred;
       const [

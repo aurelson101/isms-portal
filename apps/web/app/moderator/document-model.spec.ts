@@ -19,9 +19,12 @@ describe("moderator document model", () => {
   it("handles documents without versions", () => expect(latestVersion({ ...document, versions: [] })).toBeUndefined());
   it("does not reorder source versions", () => { const before = [...document.versions]; latestVersion(document); expect(document.versions).toEqual(before); });
   it("preserves intentionally empty translations", () => expect(translationFields(document, "en")).toEqual({ title: "Policy", description: "" }));
+  it.each(["es", "sk"] as const)("uses English document metadata for the %s interface", (locale) => expect(translationFields(document, locale)).toEqual({ title: "Policy", description: "" }));
+  it("keeps title and description from the same translation", () => expect(translationFields({ ...document, translations: [document.translations[0], { locale: "en", title: "", description: "English description" }] }, "en")).toEqual({ title: "", description: "English description" }));
   it("falls back for missing translations", () => expect(translationFields({ ...document, translations: document.translations.slice(0, 1) }, "en").description).toBe("FR"));
   it("handles absent translations", () => expect(translationFields({ ...document, translations: [] }, "en")).toEqual({ title: "", description: "" }));
   it("accepts legacy list responses", () => expect(documentPage([document], 1)).toEqual({ items: [document], page: 1, totalPages: 1 }));
+  it("resets stale pages for legacy list responses", () => expect(documentPage([document], 4)).toEqual({ items: [document], page: 1, totalPages: 1 }));
   it("clamps stale pagination", () => expect(documentPage({ items: [], page: 4, totalPages: 2 }, 4).page).toBe(2));
   it("rejects malformed list responses", () => expect(() => documentPage({ items: {} }, 1)).toThrow("Invalid document response"));
   it("normalizes invalid pagination metadata", () => expect(documentPage({ items: [], page: "2", totalPages: -1 }, 2)).toEqual({ items: [], page: 1, totalPages: 1 }));

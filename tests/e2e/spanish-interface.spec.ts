@@ -96,6 +96,21 @@ for (const language of ["es", "sk"] as const) test.describe(language, () => {
     await page.getByRole("button", { name: text.batch, exact: true }).click();
     await expect(page.getByLabel(text.fileLanguage)).toHaveValue("fr");
     await noOverflow();
+    if (width === 1280) {
+      await page.addInitScript(() => {
+        const getItem = Storage.prototype.getItem;
+        Storage.prototype.getItem = function (key: string) {
+          if (key === "isms-locale") throw new DOMException("Storage blocked", "SecurityError");
+          return getItem.call(this, key);
+        };
+      });
+      await page.goto("/admin#moderators");
+      await expect(page.getByRole("heading", { name: text.moderators, exact: true })).toBeVisible();
+      await expect(page.locator("html")).toHaveAttribute("lang", language);
+      await page.goto("/explorer");
+      await expect(page.getByRole("heading", { name: text.explorer, exact: true })).toBeVisible();
+      await expect(page.locator("html")).toHaveAttribute("lang", language);
+    }
     expect(errors).toEqual([]);
   });
   }

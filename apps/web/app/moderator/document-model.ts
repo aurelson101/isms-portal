@@ -16,15 +16,17 @@ export const latestVersion = (document: ModeratorDocument) => document.versions.
 );
 
 export function translationFields(document: ModeratorDocument, locale: Locale) {
-  const selected = document.translations.find((item) => item.locale === locale);
+  const selected = document.translations.find((item) => item.locale === locale)
+    || document.translations.find((item) => item.locale === "en")
+    || document.translations[0];
   return {
-    title: selected?.title || document.translations[0]?.title || "",
-    description: selected ? selected.description ?? "" : document.translations[0]?.description ?? "",
+    title: selected?.title ?? "",
+    description: selected?.description ?? "",
   };
 }
 
 export function documentPage(payload: unknown, requestedPage: number) {
-  if (Array.isArray(payload)) return { items: payload as ModeratorDocument[], page: requestedPage, totalPages: 1 };
+  if (Array.isArray(payload)) return { items: payload as ModeratorDocument[], page: 1, totalPages: 1 };
   if (!payload || typeof payload !== "object" || !("items" in payload) || !Array.isArray(payload.items)) throw new Error("Invalid document response");
   const data = payload as { items: ModeratorDocument[]; page?: unknown; totalPages?: unknown };
   const totalPages = typeof data.totalPages === "number" && Number.isInteger(data.totalPages) && data.totalPages > 0 ? data.totalPages : 1;

@@ -13,7 +13,7 @@ import {
 } from "./auth-session";
 import { Icon } from "./icons";
 import { portalCatalog as copy } from "./i18n/catalogs";
-import { initialLocale, rememberLocale, type Locale, type DocumentLocale } from "./i18n/locale";
+import { readLocale, rememberLocale, type Locale, type DocumentLocale } from "./i18n/locale";
 import { useBranding } from "./branding";
 import { StorageSelect } from "./storage-select";
 
@@ -996,9 +996,7 @@ export function Portal({
         setTextScale(currentIdentity.preferences?.textScale || 100);
         setHighContrast(currentIdentity.preferences?.highContrast || false);
         setReducedMotion(currentIdentity.preferences?.reducedMotion || false);
-        const preferred = initialLocale(
-          localStorage.getItem("isms-locale"),
-        );
+        const preferred = readLocale();
         setLocale(preferred);
         document.documentElement.lang = preferred;
       })
