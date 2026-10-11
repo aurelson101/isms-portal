@@ -55,6 +55,7 @@ export function validateUpload(data: FormData, locale: Locale) {
   if (!(file instanceof File) || !file.size) throw new Error(t("Le fichier est vide.", "The file is empty."));
   if (!/\.(pdf|docx|xlsx)$/i.test(file.name)) throw new Error(t("Format non autorisé : PDF, DOCX ou XLSX.", "Unsupported format: PDF, DOCX or XLSX required."));
   if (file.size > 50 * 1024 * 1024) throw new Error(t("Le fichier dépasse 50 Mo.", "The file exceeds 50 MB."));
+  if (String(data.get("description") || "").length > 2000) throw new Error(t("Un champ dépasse la longueur autorisée.", "A field exceeds the allowed length."));
   for (const [field, limit] of [["title", 255], ["changeSummary", 2000]] as const) {
     const value = String(data.get(field) || "").trim();
     if (!value) throw new Error(t("Le titre et le résumé des changements sont obligatoires.", "Title and change summary are required."));

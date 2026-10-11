@@ -66,6 +66,7 @@ export function BatchImport({ locale, disabled = false, onComplete, onBusyChange
     void fetch("/api/me", { cache: "no-store", signal: controller.signal }).then(async (response) => {
       if (!response.ok) throw new Error(await responseMessage(response, "Session unavailable"));
       const identity = await response.json();
+      if (!active) return;
       if (!identity.isAdmin && !identity.isModerator) throw new Error("Moderator or administrator access required");
       setSpaces((identity.spaces as BatchSpace[]).filter((space) => space.permissions.upload));
     }).catch((reason) => { if (active) setError(reason.message); })
@@ -91,6 +92,7 @@ export function BatchImport({ locale, disabled = false, onComplete, onBusyChange
   const finish = () => { inFlight.current = false; setRunning(false); onBusyChange?.(false); };
   const run = async () => {
     if (!selectedSpace || !items.length || !begin()) return;
+    const shouldPublish = publish && Boolean(selectedSpace.permissions.publish);
     const result = [...items];
     try {
       for (let index = 0; index < result.length; index++) {
@@ -106,10 +108,10 @@ export function BatchImport({ locale, disabled = false, onComplete, onBusyChange
             validateUpload(data, locale);
             item = { ...item, status: "uploading", error: undefined }; update(item);
             const document = await request("/api/documents/upload", { method: "POST", body: data });
-            if (typeof document?.id !== "string") throw new ImportError("Upload response uncertain; check the document list", true);
+            if (typeof document?.id !== "string" || !document.id.trim()) throw new ImportError("Upload response uncertain; check the document list", true);
             item = { ...item, documentId: document.id, status: document.status === "QUARANTINED" ? "quarantined" : "draft" }; update(item);
           }
-          if (publish && item.status !== "quarantined") {
+          if (shouldPublish && item.status !== "quarantined") {
             item = { ...item, status: "publishing" }; update(item);
             await request(`/api/documents/${encodeURIComponent(item.documentId!)}/publish`, { method: "POST" });
             item = { ...item, status: "published" };
@@ -123,7 +125,7 @@ export function BatchImport({ locale, disabled = false, onComplete, onBusyChange
         result[index] = item; update(item);
       }
       setNotice(t("Traitement du lot terminé.", "Batch processing complete."));
-      if (publish && notifications === "digest") await queueSummary(result.filter((item) => item.status === "published" && item.documentId && !notifiedIds.current.has(item.documentId)).map((item) => item.documentId!));
+      if (shouldPublish && notifications === "digest") await queueSummary(result.filter((item) => item.status === "published" && item.documentId && !notifiedIds.current.has(item.documentId)).map((item) => item.documentId!));
       await onComplete();
     } catch (reason) { setError((reason as Error).message); }
     finally { finish(); }
@@ -133,11 +135,11 @@ export function BatchImport({ locale, disabled = false, onComplete, onBusyChange
     <div className="batch-heading"><h2>{t("Import de documents", "Document import")}</h2><button type="button" disabled={disabled || running || pending} aria-expanded={open} aria-controls="batch-import-form" onClick={() => { setError(""); setOpen(!open); }}><Icon name="upload" />{t("Importer un lot", "Import a batch")}</button></div>
     {open && <form id="batch-import-form" onSubmit={(event) => { event.preventDefault(); void run(); }} aria-busy={running || loading}>
       <fieldset className="batch-options" disabled={disabled || running || loading || locked}>
-        <label>{t("Espace", "Space")}<select required value={spaceId} onChange={(event) => { setSpaceId(event.target.value); setCategoryId(""); }}><option value="">{t("Sélectionner…", "Select…")}</option>{spaces.map((space) => <option key={space.id} value={space.id}>{locale === "fr" ? space.nameFr : space.nameEn}</option>)}</select></label>
+        <label>{t("Espace", "Space")}<select required value={spaceId} onChange={(event) => { setSpaceId(event.target.value); setCategoryId(""); if (!spaces.find((space) => space.id === event.target.value)?.permissions.publish) setPublish(false); }}><option value="">{t("Sélectionner…", "Select…")}</option>{spaces.map((space) => <option key={space.id} value={space.id}>{locale === "fr" ? space.nameFr : space.nameEn}</option>)}</select></label>
         <label>{t("Catégorie", "Category")}<select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="">{t("Sans catégorie", "No category")}</option>{categoryOptions(selectedSpace?.categories || [], locale).map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
         <label>{t("Langue des fichiers", "File language")}<select value={fileLocale} onChange={(event) => setFileLocale(event.target.value as DocumentLocale)}><option value="fr">FR</option><option value="en">EN</option></select></label>
         <label>{t("Notifications e-mail", "Email notifications")}<select value={notifications} onChange={(event) => setNotifications(event.target.value)}><option value="digest">{t("Récapitulatif groupé des publications", "Grouped publication summary")}</option><option value="none">{t("Ne pas envoyer d’e-mail", "Do not send email")}</option></select></label>
-        <label className="batch-description">{t("Description commune du lot (facultative)", "Shared description (optional)")}<textarea rows={3} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
+        <label className="batch-description">{t("Description commune du lot (facultative)", "Shared description (optional)")}<textarea rows={3} maxLength={2000} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
         <label className="batch-check"><input type="checkbox" checked={publish} disabled={!selectedSpace?.permissions.publish} onChange={(event) => setPublish(event.target.checked)} />{t("Publier après analyse", "Publish after scanning")}</label>
         <label className="batch-files">{t("Fichiers PDF, DOCX, XLSX · 200 maximum · 50 Mo par fichier", "PDF, DOCX, XLSX files · up to 200 · 50 MB per file")}<input ref={fileInput} type="file" multiple accept=".pdf,.docx,.xlsx" onChange={(event) => {
           const files = Array.from(event.target.files || []);
@@ -146,7 +148,7 @@ export function BatchImport({ locale, disabled = false, onComplete, onBusyChange
           setItems(files.map((file, key) => ({ key, file, title: file.name.replace(/\.[^.]+$/, "").slice(0, 255), status: "pending" })));
         }} /></label>
       </fieldset>
-      {items.length > 0 && <><progress max={items.length} value={completed} aria-label={t("Progression de l’import", "Import progress")} /><p role="status">{completed} / {items.length}</p><ol className="batch-items">{items.map((item) => <li key={item.key}><span>{item.file.name}</span><label>{t("Titre", "Title")}<input required maxLength={255} value={item.title} disabled={running || Boolean(item.documentId) || item.status === "uncertain"} onChange={(event) => update({ ...item, title: event.target.value })} /></label><strong>{labels[item.status]}</strong><label className="batch-description">{t("Description", "Description")}<textarea rows={3} value={item.description ?? description} disabled={running || Boolean(item.documentId) || item.status === "uncertain"} onChange={(event) => update({ ...item, description: event.target.value })} /></label>{item.error && <p className="error-state">{item.error}</p>}</li>)}</ol></>}
+      {items.length > 0 && <><progress max={items.length} value={completed} aria-label={t("Progression de l’import", "Import progress")} /><p role="status">{completed} / {items.length}</p><ol className="batch-items">{items.map((item) => <li key={item.key}><span>{item.file.name}</span><label>{t("Titre", "Title")}<input required maxLength={255} value={item.title} disabled={running || Boolean(item.documentId) || item.status === "uncertain"} onChange={(event) => update({ ...item, title: event.target.value })} /></label><strong>{labels[item.status]}</strong><label className="batch-description">{t("Description", "Description")}<textarea rows={3} maxLength={2000} value={item.description ?? description} disabled={running || Boolean(item.documentId) || item.status === "uncertain"} onChange={(event) => update({ ...item, description: event.target.value })} /></label>{item.error && <p className="error-state">{item.error}</p>}</li>)}</ol></>}
       {loading && <p role="status">{t("Chargement…", "Loading…")}</p>}{error && <p role="alert" className="error-state">{error}</p>}{notice && <p role="status" className="notice">{notice}</p>}
       <div className="button-row"><button className="primary" disabled={disabled || running || loading || digestPending.length > 0 || !items.some((item) => ["pending", "failed"].includes(item.status))}>{t("Traiter le lot", "Process batch")}</button>
         {digestPending.length > 0 && <button type="button" disabled={running} onClick={async () => { if (!begin()) return; try { await queueSummary(digestPending); await onComplete(); } catch (reason) { setError((reason as Error).message); } finally { finish(); } }}>{t("Réessayer le récapitulatif", "Retry summary")}</button>}

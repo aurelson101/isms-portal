@@ -35,5 +35,7 @@ describe("moderator document model", () => {
   it("accepts uppercase extensions and trims values", () => { const data = validateUpload(upload(), "en"); expect(data.get("title")).toBe("Policy"); expect(data.get("changeSummary")).toBe("Updated"); });
   it("rejects overlong titles", () => { const data = upload(); data.set("title", "x".repeat(256)); expect(() => validateUpload(data, "en")).toThrow("allowed length"); });
   it("rejects overlong summaries", () => { const data = upload(); data.set("changeSummary", "x".repeat(2001)); expect(() => validateUpload(data, "en")).toThrow("allowed length"); });
+  it("rejects overlong descriptions before sending a file", () => { const data = upload(); data.set("description", "x".repeat(2001)); expect(() => validateUpload(data, "en")).toThrow("allowed length"); });
+  it("accepts descriptions at the API length limit", () => { const data = upload(); data.set("description", "x".repeat(2000)); expect(validateUpload(data, "en")).toBe(data); });
   it("accepts exact field length limits", () => { const data = upload(); data.set("title", "x".repeat(255)); data.set("changeSummary", "x".repeat(2000)); expect(validateUpload(data, "en")).toBe(data); });
 });

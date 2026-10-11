@@ -25,8 +25,10 @@ for (const width of [320, 768, 1280]) {
     await batch.getByRole("combobox", { name: "File language", exact: true }).selectOption("en");
     await batch.getByLabel("Publish after scanning").check();
     await batch.getByLabel("Shared description (optional)", { exact: true }).fill("Common document description");
+    await expect(batch.getByRole("textbox", { name: "Shared description (optional)", exact: true })).toHaveAttribute("maxlength", "2000");
     await batch.locator('input[type="file"]').setInputFiles(files);
     await expect(batch.locator(".batch-items li").nth(1).getByRole("textbox", { name: "Description", exact: true })).toHaveValue("Common document description");
+    await expect(batch.locator(".batch-items li").nth(1).getByRole("textbox", { name: "Description", exact: true })).toHaveAttribute("maxlength", "2000");
     await batch.locator(".batch-items li").first().getByRole("textbox", { name: "Description", exact: true }).fill("Specific policy description");
     await batch.getByRole("button", { name: "Process batch" }).click();
     await expect(batch.getByRole("alert")).toHaveText("Queue temporarily unavailable");
@@ -117,6 +119,62 @@ test("leaves an uncertain upload for manual verification without creating a dupl
   await batch.locator('input[type="file"]').setInputFiles(files[0]); await batch.getByRole("button", { name: "Process batch" }).click();
   await expect(batch.getByText("Check before retry")).toBeVisible(); await expect(batch.getByRole("button", { name: "Process batch" })).toBeDisabled(); expect(uploads).toBe(1);
 });
+test("switching to an upload-only space clears publication and sends no summary", async ({ page }) => {
+  let uploads = 0; let publications = 0; let summaries = 0;
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/me") return route.fulfill({ json: { isModerator: true, spaces: [
+      { id: "publish", nameEn: "Publish", permissions: { upload: true, publish: true } },
+      { id: "draft", nameEn: "Draft", permissions: { upload: true, publish: false } },
+    ] } });
+    if (path === "/api/documents") return route.fulfill({ json: { items: [], page: 1, totalPages: 1 } });
+    if (path === "/api/documents/upload") {
+      uploads++;
+      expect(route.request().postData()).toContain('name="spaceId"\r\n\r\ndraft');
+      return route.fulfill({ json: { id: ids[0], status: "DRAFT" } });
+    }
+    if (path.endsWith("/publish")) { publications++; return route.fulfill({ json: {} }); }
+    if (path === "/api/documents/publication-digest") { summaries++; return route.fulfill({ json: {} }); }
+    return route.fulfill({ json: [] });
+  });
+  await page.goto("/moderator"); const batch = page.locator(".batch-import");
+  await batch.getByRole("button", { name: "Import a batch" }).click();
+  const space = batch.getByRole("combobox", { name: "Space", exact: true });
+  await space.selectOption("publish");
+  await batch.getByLabel("Publish after scanning").check();
+  await space.selectOption("draft");
+  await expect(batch.getByLabel("Publish after scanning")).not.toBeChecked();
+  await expect(batch.getByLabel("Publish after scanning")).toBeDisabled();
+  await batch.locator('input[type="file"]').setInputFiles(files[0]);
+  await batch.getByRole("button", { name: "Process batch" }).click();
+  await expect(batch.getByText("Batch processing complete.")).toBeVisible();
+  expect(uploads).toBe(1); expect(publications).toBe(0); expect(summaries).toBe(0);
+});
+
+for (const documentId of ["", " "]) {
+  test(`an invalid upload identifier ${JSON.stringify(documentId)} prevents publication and duplicate retry`, async ({ page }) => {
+    let uploads = 0; let publications = 0; let summaries = 0;
+    await page.route("**/api/**", (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path === "/api/me") return route.fulfill({ json: { isModerator: true, spaces: [{ id: "space", nameEn: "Documents", permissions: { upload: true, publish: true } }] } });
+      if (path === "/api/documents") return route.fulfill({ json: { items: [], page: 1, totalPages: 1 } });
+      if (path === "/api/documents/upload") { uploads++; return route.fulfill({ json: { id: documentId, status: "DRAFT" } }); }
+      if (path.endsWith("/publish")) { publications++; return route.fulfill({ json: {} }); }
+      if (path === "/api/documents/publication-digest") { summaries++; return route.fulfill({ json: {} }); }
+      return route.fulfill({ json: [] });
+    });
+    await page.goto("/moderator"); const batch = page.locator(".batch-import");
+    await batch.getByRole("button", { name: "Import a batch" }).click();
+    await batch.getByRole("combobox", { name: "Space", exact: true }).selectOption("space");
+    await batch.getByLabel("Publish after scanning").check();
+    await batch.locator('input[type="file"]').setInputFiles(files[0]);
+    await batch.getByRole("button", { name: "Process batch" }).click();
+    await expect(batch.getByText("Check before retry")).toBeVisible();
+    await expect(batch.getByRole("button", { name: "Process batch" })).toBeDisabled();
+    expect(uploads).toBe(1); expect(publications).toBe(0); expect(summaries).toBe(0);
+  });
+}
+
 test("admin batch import enforces the file limit and silent publication", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 900 });
   await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
