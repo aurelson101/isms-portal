@@ -540,6 +540,8 @@ export class GovernanceController {
   async reviewEvidence(@Param("id") id: string, @Res() response: Response) {
     const review = await this.prisma.documentReview.findUnique({ where: { id } });
     if (!review?.evidenceObjectKey) throw new NotFoundException();
+    response.setHeader("Cache-Control", "private, no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
     response.setHeader("Content-Type", review.evidenceMimeType || "application/octet-stream");
     response.setHeader("Content-Disposition", `inline; filename="${(review.evidenceOriginalName || "evidence").replace(/["\\]/g, "_")}"`);
     (await this.storage.getObject(review.evidenceObjectKey)).pipe(response);
@@ -1104,21 +1106,10 @@ export class GovernanceController {
     if (!body.confirmed)
       throw new BadRequestException("Bulk operation requires confirmation");
     const preview = await this.previewBulk(body);
-    if (body.kind === "INCIDENT_STATUS") {
-      await this.prisma.incidentCase.updateMany({
-        where: { id: { in: body.ids } },
-        data: { status: body.value },
-      });
-    } else {
-      await this.prisma.documentReview.updateMany({
-        where: { id: { in: body.ids } },
-        data: {
-          status: body.value,
-          decidedBy: req.identity.username,
-          decidedAt: new Date(),
-        },
-      });
-    }
+    await this.prisma.incidentCase.updateMany({
+      where: { id: { in: body.ids } },
+      data: { status: body.value },
+    });
     await this.audit.record(req, "governance.bulk", body.kind, "success", {
       count: preview.count,
       value: body.value,
@@ -1162,22 +1153,7 @@ export class GovernanceController {
         targets,
       };
     }
-    if (
-      !["IN_REVIEW", "APPROVED", "REJECTED", "CANCELLED"].includes(body.value)
-    )
-      throw new BadRequestException("Invalid review status");
-    const targets = await this.prisma.documentReview.findMany({
-      where: { id: { in: ids }, status: { in: ["PENDING", "IN_REVIEW"] } },
-      select: { id: true, owner: true, status: true, documentId: true },
-    });
-    if (targets.length !== ids.length)
-      throw new ConflictException("Only open reviews can be changed in bulk");
-    return {
-      kind: body.kind,
-      value: body.value,
-      count: targets.length,
-      targets,
-    };
+    throw new BadRequestException("Reviews must be decided individually with a justification");
   }
 
   private async requireDocument(id: string) {

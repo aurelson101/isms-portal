@@ -41,7 +41,7 @@ for (const language of ["es", "sk"] as const) test.describe(language, () => {
     page.on("pageerror", error => errors.push(error.message));
     const space = { id: "space", slug: "documents", nameFr: "Documents", nameEn: "Documents", categories: [], permissions: { showMenu: true, read: true, search: true, preview: true, download: true, upload: true, edit: true, publish: true, archive: true } };
     const identity = { isAdmin: true, isModerator: true, username: "user@example.test", displayName: "Test User", locale: "fr", groups: [], spaces: [space], preferences: { viewMode: "list", density: "comfortable" }, authentication: { source: "directory-session", ssoConnected: false, sessionExpiresAt: null, loginUrl: null, logoutUrl: null, diagnostics: { groupCount: 0, mappedSpaceCount: 1 } } };
-    await page.route("**/api/**", route => {
+    await page.context().route("**/api/**", route => {
       const url = new URL(route.request().url());
       if (route.request().method() !== "GET") return route.fulfill({ status: 204 });
       let json: unknown = [];
@@ -97,6 +97,29 @@ for (const language of ["es", "sk"] as const) test.describe(language, () => {
     await expect(page.getByLabel(text.fileLanguage)).toHaveValue("fr");
     await noOverflow();
     if (width === 1280) {
+      const otherTab = await page.context().newPage();
+      try {
+        await otherTab.goto("/login?local=1");
+        await page.goto("/admin#moderators");
+        await otherTab.getByRole("button", { name: "EN", exact: true }).click();
+        await expect(page.locator("html")).toHaveAttribute("lang", "en");
+        await expect(page.getByRole("heading", { name: "Moderator accounts", exact: true })).toBeVisible();
+        await page.goto("/explorer");
+        await otherTab.getByRole("button", { name: "FR", exact: true }).click();
+        await expect(page.locator("html")).toHaveAttribute("lang", "fr");
+        await otherTab.evaluate(() => window.dispatchEvent(new Event("languagechange")));
+        await expect(otherTab.locator("html")).toHaveAttribute("lang", "fr");
+        await otherTab.evaluate(() => localStorage.clear());
+        await expect(page.locator("html")).toHaveAttribute("lang", language);
+        await expect(page.getByRole("heading", { name: text.explorer, exact: true })).toBeVisible();
+        await otherTab.reload();
+        await otherTab.getByRole("button", { name: "EN", exact: true }).click();
+        await expect(page.locator("html")).toHaveAttribute("lang", "en");
+        await otherTab.evaluate(() => localStorage.removeItem("isms-locale"));
+        await expect(page.locator("html")).toHaveAttribute("lang", language);
+      } finally {
+        await otherTab.close();
+      }
       await page.addInitScript(() => {
         const getItem = Storage.prototype.getItem;
         Storage.prototype.getItem = function (key: string) {

@@ -140,7 +140,7 @@ describe("GovernanceController", () => {
     });
   });
 
-  it("rejects bulk changes when a review is already closed", async () => {
+  it("rejects bulk review decisions", async () => {
     const { controller, prisma } = setup();
     prisma.documentReview.findMany.mockResolvedValue([]);
     await expect(
@@ -148,8 +148,8 @@ describe("GovernanceController", () => {
         kind: "REVIEW_STATUS",
         ids: ["00000000-0000-4000-8000-000000000001"],
         value: "APPROVED",
-      }),
-    ).rejects.toBeInstanceOf(ConflictException);
+      } as never),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("requires a root cause before resolving an incident", async () => {

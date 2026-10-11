@@ -14,12 +14,16 @@ export function useInterfaceLocale() {
     };
     const otherTab = (event: StorageEvent) => {
       if (event.key === "isms-locale") apply(initialLocale(event.newValue));
+      else if (event.key === null) apply(readLocale());
     };
+    const browserChanged = () => apply(readLocale());
     window.addEventListener("isms-locale", sameTab);
     window.addEventListener("storage", otherTab);
+    window.addEventListener("languagechange", browserChanged);
     return () => {
       window.removeEventListener("isms-locale", sameTab);
       window.removeEventListener("storage", otherTab);
+      window.removeEventListener("languagechange", browserChanged);
     };
   }, []);
   const changeLocale = (value: Locale) => { setLocale(value); rememberLocale(value); };

@@ -14,7 +14,8 @@ import {
 } from "react";
 import { Icon, type IconName } from "../icons";
 import { adminEnglishCatalog } from "../i18n/catalogs";
-import { readLocale, rememberLocale, type Locale } from "../i18n/locale";
+import type { Locale } from "../i18n/locale";
+import { useInterfaceLocale } from "../i18n/use-locale";
 import {
   defaultBranding,
   prepareBrandLogo,
@@ -506,7 +507,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 export default function Admin() {
   const branding = useBranding();
-  const [locale, setLocale] = useState<Locale>("fr");
+  const [locale, setLocale] = useInterfaceLocale();
   const [tab, setTab] = useState<Tab>("dashboard");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -626,9 +627,6 @@ export default function Admin() {
       }
       setIsAdmin(true);
       setIdentity(me);
-      const preferred = readLocale();
-      setLocale(preferred);
-      document.documentElement.lang = preferred;
       const [
         dashboardResult,
         groupsResult,
@@ -683,7 +681,6 @@ export default function Admin() {
 
   const changeLocale = async (next: Locale) => {
     setLocale(next);
-    rememberLocale(next);
     await fetch("/api/me/preferences", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },

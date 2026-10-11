@@ -96,8 +96,8 @@ export class SavedViewDto {
 }
 
 export class GovernanceBulkDto {
-  @IsIn(["INCIDENT_STATUS", "REVIEW_STATUS"])
-  kind!: "INCIDENT_STATUS" | "REVIEW_STATUS";
+  @IsIn(["INCIDENT_STATUS"])
+  kind!: "INCIDENT_STATUS";
   @IsArray() @ArrayMaxSize(100) @IsUUID("4", { each: true }) ids!: string[];
   @IsString() @MinLength(2) @MaxLength(40) value!: string;
   @IsOptional() @IsBoolean() confirmed?: boolean;

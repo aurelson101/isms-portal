@@ -13,7 +13,8 @@ import {
 } from "./auth-session";
 import { Icon } from "./icons";
 import { portalCatalog as copy } from "./i18n/catalogs";
-import { readLocale, rememberLocale, type Locale, type DocumentLocale } from "./i18n/locale";
+import type { Locale, DocumentLocale } from "./i18n/locale";
+import { useInterfaceLocale } from "./i18n/use-locale";
 import { useBranding } from "./branding";
 import { StorageSelect } from "./storage-select";
 
@@ -650,7 +651,7 @@ export function Portal({
 }) {
   const branding = useBranding();
   const router = useRouter();
-  const [locale, setLocale] = useState<Locale>("fr");
+  const [locale, setLocale] = useInterfaceLocale();
   const [identity, setIdentity] = useState<Identity | null>(() =>
     getCachedPortalIdentity<Identity>(),
   );
@@ -996,9 +997,6 @@ export function Portal({
         setTextScale(currentIdentity.preferences?.textScale || 100);
         setHighContrast(currentIdentity.preferences?.highContrast || false);
         setReducedMotion(currentIdentity.preferences?.reducedMotion || false);
-        const preferred = readLocale();
-        setLocale(preferred);
-        document.documentElement.lang = preferred;
       })
       .catch((error: unknown) => {
         if ((error as Error).name === "AbortError") return;
@@ -1107,7 +1105,6 @@ export function Portal({
 
   const changeLocale = async (next: Locale) => {
     setLocale(next);
-    rememberLocale(next);
     setSelectedLocales((current) => ({ ...current }));
     await fetch("/api/me/preferences", {
       method: "PUT",
