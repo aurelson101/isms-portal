@@ -40,7 +40,7 @@ for (const width of [320, 768, 1280]) {
     await expect(current).toHaveText("Observabilité");
     await expect(nav.getByRole("button", { name: "Supervision", exact: true, includeHidden: true })).toHaveAttribute("aria-expanded", "true");
     await expect(nav.locator("#admin-navigation-system button")).toHaveText(["Santé des services", "Observabilité", "Journal d’audit"]);
-    await expect(nav.locator("#admin-navigation-configuration button")).toHaveText(["Identité visuelle", "Profil administrateur", "Comptes administrateurs", "Paramètres avancés", "Intégrations", "Canaux d’alerte", "Seuils d’alerte", "Modérateurs", "Stockage"]);
+    await expect(nav.locator("#admin-navigation-configuration button")).toHaveText(["Identité visuelle", "Profil administrateur", "Comptes administrateurs", "Comptes modérateurs", "Paramètres avancés", "Intégrations", "Canaux d’alerte", "Seuils d’alerte", "Stockage"]);
     const next = page.getByRole("navigation", { name: "Pagination des e-mails" }).getByRole("button", { name: "Suivant", exact: true });
     await expect(next).toBeEnabled();
     await page.mouse.move(0, 0);

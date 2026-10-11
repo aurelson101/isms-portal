@@ -3092,9 +3092,11 @@ function DocumentsPanel({
   const [documentQuery, setDocumentQuery] = useState(search.trim().slice(0, 200));
   const [documentSort, setDocumentSort] = useState("updatedAt");
   useEffect(() => {
-    const timer = window.setTimeout(() => { setDocumentPage(1); setDocumentQuery(search.trim().slice(0, 200)); }, 300);
+    const query = search.trim().slice(0, 200);
+    if (query === documentQuery) return;
+    const timer = window.setTimeout(() => { setDocumentPage(1); setDocumentQuery(query); }, 300);
     return () => window.clearTimeout(timer);
-  }, [search]);
+  }, [search, documentQuery]);
   const documentPageSize = 20;
   const documentPageCount = Math.max(
     1,

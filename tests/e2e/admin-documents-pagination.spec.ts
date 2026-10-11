@@ -1,6 +1,6 @@
 import { expect, test } from "./test";
 
-for (const width of [390, 768, 1280]) {
+for (const width of [320, 390, 768, 1280]) {
   test(`admin documents use server pagination at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
@@ -38,7 +38,20 @@ for (const width of [390, 768, 1280]) {
     const pagination = page.getByRole("navigation", { name: "Document pagination" });
     await expect(table.locator("tbody tr")).toHaveCount(20);
     await expect(table.locator("tbody tr").first().locator("td").first()).toContainText("Document 1");
+    if (width === 320) {
+      for (const language of ["FR", "EN", "ES", "SK"]) {
+        await page.getByRole("button", { name: language, exact: true }).click();
+        await expect(page.locator("html")).toHaveAttribute("lang", language.toLowerCase());
+        const clipped = await page.locator("main button").evaluateAll(buttons => buttons.filter(button => button.clientWidth > 0 && button.scrollWidth > button.clientWidth + 2).map(button => button.textContent));
+        expect(clipped).toEqual([]);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      }
+      await page.getByRole("button", { name: "EN", exact: true }).click();
+    }
     await pagination.getByRole("button", { name: /Next/ }).click();
+    await expect(table.locator("tbody tr").first().locator("td").first()).toContainText("Document 21");
+    // An unchanged search must not reset the page after its debounce delay.
+    await page.waitForTimeout(350);
     await expect(table.locator("tbody tr").first().locator("td").first()).toContainText("Document 21");
     await expect(table.locator("tbody tr")).toHaveCount(20);
     total = 20;

@@ -5760,6 +5760,19 @@ svg {
   .admin-table-wrap .administrator-row-actions {
     min-width: 0;
   }
+
+  .admin-actions-table td:last-child,
+  .admin-table-wrap .document-actions,
+  .admin-shell .upload-form .button-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-table-wrap .document-actions button,
+  .admin-shell .upload-form .button-row button {
+    width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }
 
 .integration-card h2,
