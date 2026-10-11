@@ -1,5 +1,58 @@
 import { expect, test } from "./test";
 
+for (const width of [320, 1280]) {
+  for (const description of ["", null]) {
+    test(`admin metadata preserves ${description === null ? "absent" : "empty"} translated descriptions and prevents duplicate saves at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+      const payloads: Record<string, unknown>[] = [];
+      let releaseSave!: () => void;
+      const saveGate = new Promise<void>(resolve => { releaseSave = resolve; });
+      const document = {
+        id: "document", status: "PUBLISHED", sensitive: false,
+        translations: [{ locale: "fr", title: "Politique", description: "Description FR" }, { locale: "en", title: "Policy", description }],
+        space: { id: "space", nameEn: "Documents", nameFr: "Documents" },
+        versions: [{ id: "version-en", locale: "en", version: 2, createdAt: "2026-01-01T00:00:00Z" }, { id: "version-fr", locale: "fr", version: 1 }],
+      };
+      await page.route("**/api/**", async route => {
+        const url = new URL(route.request().url());
+        if (url.pathname === "/api/admin/check") return route.fulfill({ json: { isAdmin: true, username: "admin@example.test", displayName: "Test admin", locale: "en", authentication: { source: "local", diagnostics: {} } } });
+        if (url.pathname === "/api/admin/documents") return route.fulfill({ json: { items: [document], total: 1 } });
+        if (url.pathname === "/api/documents/document/metadata") {
+          payloads.push(route.request().postDataJSON());
+          await saveGate;
+          return route.fulfill({ json: {} });
+        }
+        if (url.pathname === "/api/admin/audit") return route.fulfill({ json: { items: [] } });
+        if (url.pathname === "/api/health/details") return route.fulfill({ json: { services: {} } });
+        if (url.pathname === "/api/branding") return route.fulfill({ json: {} });
+        return route.fulfill({ json: [] });
+      });
+      await page.goto("/admin#documents");
+      await page.locator(".document-actions button").first().click();
+      const form = page.locator("#document-metadata-form");
+      const language = form.getByRole("combobox", { name: "Document language", exact: true });
+      const details = form.getByRole("textbox", { name: "Description", exact: true });
+      await expect(language).toHaveValue("en");
+      await expect(details).toHaveValue("");
+      await language.selectOption("fr");
+      await expect(details).toHaveValue("Description FR");
+      await language.selectOption("en");
+      await expect(details).toHaveValue("");
+      await form.evaluate(element => {
+        element.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        element.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      });
+      await expect(form.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+      await expect.poll(() => payloads.length).toBe(1);
+      releaseSave();
+      await expect(form).toHaveCount(0);
+      expect(payloads).toEqual([{ locale: "en", versionId: "version-en", title: "Policy", description: "", categoryId: null }]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    });
+  }
+}
+
 for (const width of [320, 390, 768, 1280]) {
   test(`admin documents use server pagination at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });

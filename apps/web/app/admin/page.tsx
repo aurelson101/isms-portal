@@ -3080,6 +3080,7 @@ function DocumentsPanel({
   const [editedTitle, setEditedTitle] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
   const [savingMetadata, setSavingMetadata] = useState(false);
+  const metadataInFlight = useRef(false);
   const [sensitive, setSensitive] = useState(false);
   const [watermarkPosition, setWatermarkPosition] = useState<
     "HEADER" | "CENTER" | "FOOTER"
@@ -3136,7 +3137,7 @@ function DocumentsPanel({
     const translation = document.translations.find((item) => item.locale === documentLocale);
     setEditedLocale(documentLocale);
     setEditedTitle(translation?.title || document.translations[0]?.title || "");
-    setEditedDescription(translation?.description || document.translations[0]?.description || "");
+    setEditedDescription((translation ? translation.description : document.translations[0]?.description) ?? "");
   };
   return (
     <>
@@ -3303,6 +3304,8 @@ function DocumentsPanel({
       {editingMetadataDocument && (
         <form id="document-metadata-form" className="admin-form upload-form" onSubmit={async (event) => {
           event.preventDefault();
+          if (metadataInFlight.current) return;
+          metadataInFlight.current = true;
           setSavingMetadata(true);
           try {
             await api(`/api/documents/${editingMetadataDocument.id}/metadata`, {
@@ -3315,6 +3318,7 @@ function DocumentsPanel({
           } catch (error) {
             onError(error instanceof Error ? error.message : String(error));
           } finally {
+            metadataInFlight.current = false;
             setSavingMetadata(false);
           }
         }}>
