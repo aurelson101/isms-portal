@@ -1,6 +1,13 @@
 name: isms-portal
+x-logging: &bounded-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+    compress: "true"
 services:
   reverse-proxy:
+    logging: *bounded-logging
     image: nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94
     restart: unless-stopped
     ports: ["127.0.0.1:8080:8080"]
@@ -22,10 +29,11 @@ services:
       retries: 12
     deploy:
       resources:
-        limits: { cpus: "0.50", memory: 256M }
+        limits: { cpus: "0.50", memory: 256M, pids: 128 }
         reservations: { memory: 64M }
 
   frontend:
+    logging: *bounded-logging
     build: { context: ., dockerfile: apps/web/Dockerfile }
     restart: unless-stopped
     environment:
@@ -44,10 +52,11 @@ services:
     cap_drop: [ALL]
     deploy:
       resources:
-        limits: { cpus: "1.00", memory: 768M }
+        limits: { cpus: "1.00", memory: 768M, pids: 256 }
         reservations: { memory: 128M }
 
   api:
+    logging: *bounded-logging
     build: { context: ., dockerfile: apps/api/Dockerfile }
     restart: unless-stopped
     env_file:
@@ -73,10 +82,11 @@ services:
     cap_drop: [ALL]
     deploy:
       resources:
-        limits: { cpus: "1.50", memory: 1G }
+        limits: { cpus: "1.50", memory: 1G, pids: 256 }
         reservations: { memory: 256M }
 
   worker:
+    logging: *bounded-logging
     stop_grace_period: 150s
     build: { context: ., dockerfile: apps/api/Dockerfile }
     command: ["node", "dist/worker.js"]
@@ -106,10 +116,13 @@ services:
     cap_drop: [ALL]
     deploy:
       resources:
-        limits: { cpus: "1.50", memory: 1G }
+        limits: { cpus: "1.50", memory: 1G, pids: 256 }
         reservations: { memory: 256M }
 
   postgres:
+    logging: *bounded-logging
+    read_only: true
+    tmpfs: [/tmp, /var/run/postgresql]
     image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     command:
       - postgres
@@ -122,6 +135,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-isms}
       POSTGRES_USER: ${POSTGRES_USER:-isms}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
     volumes: [postgres-data:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
@@ -134,10 +148,13 @@ services:
     cap_add: [CHOWN, DAC_READ_SEARCH, FOWNER, SETGID, SETUID]
     deploy:
       resources:
-        limits: { cpus: "2.00", memory: 2G }
+        limits: { cpus: "2.00", memory: 2G, pids: 256 }
         reservations: { memory: 512M }
 
   redis:
+    logging: *bounded-logging
+    read_only: true
+    tmpfs: [/tmp]
     image: redis:7.4.11-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     restart: unless-stopped
     env_file:
@@ -156,10 +173,14 @@ services:
     cap_add: [CHOWN, DAC_OVERRIDE, DAC_READ_SEARCH, FOWNER, SETGID, SETUID]
     deploy:
       resources:
-        limits: { cpus: "1.00", memory: 512M }
+        limits: { cpus: "1.00", memory: 512M, pids: 128 }
         reservations: { memory: 64M }
 
   migrate:
+    logging: *bounded-logging
+    deploy:
+      resources:
+        limits: { pids: 256 }
     profiles: [maintenance]
     build: { context: ., dockerfile: apps/api/Dockerfile }
     env_file:
@@ -175,6 +196,10 @@ services:
     cap_drop: [ALL]
 
   storage-init:
+    logging: *bounded-logging
+    deploy:
+      resources:
+        limits: { pids: 64 }
     image: alpine:3.21
     command:
       [
@@ -188,6 +213,7 @@ services:
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
 
   clamav:
+    logging: *bounded-logging
     image: clamav/clamav:1.4.6@sha256:57deb108fc4c72778aa83eafbca7bb7153e28c3f57c005afd38d31f16da86f23
     restart: unless-stopped
     volumes: [clamav-data:/var/lib/clamav]
@@ -203,7 +229,7 @@ services:
     cap_add: [CHOWN, DAC_OVERRIDE, DAC_READ_SEARCH, FOWNER, SETGID, SETUID]
     deploy:
       resources:
-        limits: { cpus: "2.00", memory: 2G }
+        limits: { cpus: "2.00", memory: 2G, pids: 256 }
         reservations: { memory: 768M }
 
 networks:

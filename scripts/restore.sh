@@ -4,7 +4,7 @@ set -eu
 backup=${1:?usage: restore.sh BACKUP_DIRECTORY [--production]}
 mode=${2:-test}
 case "$backup" in
-  /|"$HOME"|.) printf 'Refus d’utiliser une source trop large.\n' >&2; exit 1 ;;
+  /|"${HOME:-}"|.) printf 'Refus d’utiliser une source trop large.\n' >&2; exit 1 ;;
 esac
 
 "$(dirname "$0")/verify-backup.sh" "$backup"
@@ -24,8 +24,7 @@ elif [ "$mode" != "test" ]; then
 fi
 
 docker compose exec -T postgres \
-  pg_restore --clean --if-exists --no-owner --no-privileges \
-  -U "${POSTGRES_USER:-isms}" -d "${POSTGRES_DB:-isms}" < "$backup/postgres.dump"
+  sh -ec 'export PGPASSWORD="${POSTGRES_PASSWORD:-$(cat "$POSTGRES_PASSWORD_FILE")}"; exec pg_restore --no-password --clean --if-exists --no-owner --no-privileges -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < "$backup/postgres.dump"
 
 docker compose run --rm --no-deps \
   -v "$backup:/restore:ro" storage-init sh -ec '

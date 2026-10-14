@@ -12,6 +12,7 @@ import {
   MaxLength,
   MinLength,
 } from "class-validator";
+import { Type } from "class-transformer";
 
 export class UserPreferenceDto {
   @IsIn(["fr", "en", "es", "sk"])
@@ -79,11 +80,17 @@ export class ObservabilityOptionsDto {
 
 export class AlertPolicyDto {
   @IsBoolean() enabled!: boolean;
-  @IsIn(["graph", "email", "teams", "slack", "webhook", "none"])
-  channel!: "graph" | "email" | "teams" | "slack" | "webhook" | "none";
+  @IsIn(["graph", "email", "teams", "teams-graph", "slack", "webhook", "none"])
+  channel!: "graph" | "email" | "teams" | "teams-graph" | "slack" | "webhook" | "none";
   @IsOptional() @IsString() @MaxLength(255) destinationReference?: string;
   @IsString() @MaxLength(10) fiveXxPercent!: string;
   @IsString() @MaxLength(10) deniedPerMinute!: string;
+  @IsOptional() @IsBoolean() documentAdded?: boolean;
+  @IsOptional() @IsBoolean() documentUpdated?: boolean;
+  @IsOptional() @IsBoolean() documentModified?: boolean;
+  @IsOptional() @IsBoolean() documentDeleted?: boolean;
+  @IsOptional() @IsBoolean() documentVersionOverdue?: boolean;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(3650) documentVersionMaxAgeDays?: number;
 }
 
 export class AlertChannelsDto {

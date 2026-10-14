@@ -24,6 +24,8 @@ This cannot detect a complete host/worker/database outage reliably: configure
 an independent collector and its own notification channel. Host root disks and
 remote storage targets also need their own infrastructure capacity monitoring.
 Provider acceptance does not prove receipt in a mailbox or Teams channel.
+The `Teams → Microsoft Graph` policy tries Teams first and uses staff e-mail only
+if Teams delivery fails, avoiding duplicate notifications.
 
 ## Prometheus and Grafana
 

@@ -151,6 +151,7 @@ cd isms-portal
 sudo ./scripts/configure-host.sh
 docker compose up -d postgres
 ./scripts/provision-runtime-credentials.sh
+sh ./scripts/harden-postgres.sh
 docker compose config --quiet
 docker compose run --rm migrate
 docker compose up -d --build --wait
@@ -164,6 +165,16 @@ de l’entreprise. Le compte de secours initial se connecte uniquement sur
 `/admin/login`.
 Le provisionnement ajoute `.env.app` et `.env.redis` en mode `600` ; l’API et le
 worker utilisent un rôle PostgreSQL limité et Redis exige un mot de passe.
+Le durcissement PostgreSQL impose SCRAM, y compris sur les connexions locales,
+retire les droits de connexion/création temporaire de `PUBLIC` et limite le
+compte applicatif à 80 connexions et 150 secondes par requête ou transaction
+inactive. Effectuer une sauvegarde avant de l’appliquer à une base existante ;
+les comptes doivent déjà posséder des mots de passe SCRAM. Les scripts de
+sauvegarde/restauration récupèrent le mot de passe administratif dans le
+conteneur, sans l’afficher. PostgreSQL et Redis restent privés, avec une racine
+en lecture seule et des volumes de données inscriptibles. Les journaux Docker
+sont limités à cinq fichiers de 10 Mo et les processus sont bornés par service.
+Ces protections ne remplacent pas TLS PostgreSQL ni une supervision externe.
 
 En développement ou sur un poste isolé, le portail est disponible sur
 <http://localhost:8080>. En production, ne pas exposer directement ce port.

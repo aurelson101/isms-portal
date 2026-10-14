@@ -10,6 +10,7 @@ import { PrismaService } from "./prisma.service";
 import { healthIncidents, type HealthSnapshot } from "./health-alerts";
 
 export type AlertChannel = "graph" | "email" | "teams" | "slack" | "webhook";
+type AlertPolicyChannel = AlertChannel | "teams-graph";
 export type PreferredDelivery = {
   delivered: boolean;
   channel: AlertChannel | null;
@@ -441,8 +442,8 @@ export class AlertDeliveryService {
 
   async evaluateHealth(collect: () => Promise<HealthSnapshot>, graphRecipients: () => Promise<string[]>) {
     const setting = await this.prisma.applicationSetting.findUnique({ where: { key: "observability.alert-policy" } });
-    const policy = setting?.value as { enabled?: boolean; channel?: AlertChannel } | undefined;
-    if (!policy?.enabled || !policy.channel || !["graph", "email", "teams", "slack", "webhook"].includes(policy.channel)) return;
+    const policy = setting?.value as { enabled?: boolean; channel?: AlertPolicyChannel } | undefined;
+    if (!policy?.enabled || !policy.channel || !["graph", "email", "teams", "teams-graph", "slack", "webhook"].includes(policy.channel)) return;
     const incidents = healthIncidents(await collect());
     const key = "observability.health-alert-state";
     const previous = await this.prisma.applicationSetting.findUnique({ where: { key } });
@@ -453,10 +454,18 @@ export class AlertDeliveryService {
     if (signature === state?.signature && policy.channel === state.channel && Number.isFinite(last) && Date.now() - last < 15 * 60000) return;
     const subject = signature ? "[ISMS Portal] Infrastructure alert" : "[ISMS Portal] Infrastructure recovered";
     const message = signature || "The previously reported services and document storage capacity are healthy again.";
-    if (policy.channel === "graph") await this.sendPreferredTo(await graphRecipients(), subject, message);
-    else await this.send(policy.channel!, subject, message);
+    await this.sendPolicyAlert(policy.channel, subject, message, graphRecipients);
     const value = { signature, at: new Date().toISOString(), channel: policy.channel! };
     await this.prisma.applicationSetting.upsert({ where: { key }, update: { value }, create: { key, value } });
+  }
+
+  private async sendPolicyAlert(channel: AlertPolicyChannel, subject: string, message: string, graphRecipients?: () => Promise<string[]>) {
+    if (channel === "teams-graph") {
+      try { await this.send("teams", subject, message); return; }
+      catch { await this.sendPreferredTo(await graphRecipients?.() || [], subject, message); return; }
+    }
+    if (channel === "graph") await this.sendPreferredTo(await graphRecipients?.() || [], subject, message);
+    else await this.send(channel, subject, message);
   }
 
   async evaluate(result: "success" | "failure" | "denied", graphRecipients?: () => Promise<string[]>) {
@@ -467,12 +476,12 @@ export class AlertDeliveryService {
     const policy = setting?.value as
       | {
           enabled?: boolean;
-          channel?: AlertChannel;
+          channel?: AlertPolicyChannel;
           fiveXxPercent?: string;
           deniedPerMinute?: string;
         }
       | undefined;
-    if (!policy?.enabled || !policy.channel || !["graph", "email", "teams", "slack", "webhook"].includes(policy.channel)) return;
+    if (!policy?.enabled || !policy.channel || !["graph", "email", "teams", "teams-graph", "slack", "webhook"].includes(policy.channel)) return;
     const since = new Date(Date.now() - 60000);
     const [total, denied, failed] = await Promise.all([
       this.prisma.auditEvent.count({ where: { occurredAt: { gte: since } } }),
@@ -497,8 +506,7 @@ export class AlertDeliveryService {
     if (Number.isFinite(last) && Date.now() - last < 15 * 60000) return;
     const subject = "[ISMS Portal] Service alert";
     const message = `${failed} failed requests and ${denied} access denials recorded during the last minute.`;
-    if (policy.channel === "graph") await this.sendPreferredTo(await graphRecipients?.() || [], subject, message);
-    else await this.send(policy.channel, subject, message);
+    await this.sendPolicyAlert(policy.channel, subject, message, graphRecipients);
     const value = { at: new Date().toISOString(), channel: policy.channel };
     await this.prisma.applicationSetting.upsert({
       where: { key: "observability.alert-last-sent" },

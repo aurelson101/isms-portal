@@ -1,5 +1,9 @@
+import "reflect-metadata";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { statfs } from "node:fs/promises";
+import { validate } from "class-validator";
+import { plainToInstance } from "class-transformer";
+import { AlertPolicyDto } from "./user-tools.dto";
 import { AlertDeliveryService } from "./alert-delivery.service";
 import { collectHealthSnapshot, healthIncidents, type HealthSnapshot } from "./health-alerts";
 
@@ -22,6 +26,14 @@ function fixture(channel = "teams", enabled = true) {
 }
 
 describe("Infrastructure alerts", () => {
+  it("accepts existing document alert settings and rejects invalid intervals", async () => {
+    const policy = Object.assign(new AlertPolicyDto(), { enabled: true, channel: "teams-graph", fiveXxPercent: "5", deniedPerMinute: "20", documentAdded: true, documentUpdated: true, documentModified: false, documentDeleted: false, documentVersionOverdue: true, documentVersionMaxAgeDays: 365 });
+    expect(await validate(policy, { whitelist: true, forbidNonWhitelisted: true })).toEqual([]);
+    expect(await validate(plainToInstance(AlertPolicyDto, { ...policy, documentVersionMaxAgeDays: "365" }))).toEqual([]);
+    policy.documentVersionMaxAgeDays = 0;
+    expect(await validate(policy)).not.toHaveLength(0);
+  });
+
   it("checks disk boundaries, services and unavailable capacity", () => {
     expect(healthIncidents(healthy)).toEqual([]);
     expect(healthIncidents({ ...healthy, disk: { availableBytes: 10, totalBytes: 100 } })).toEqual([]);
@@ -66,6 +78,24 @@ describe("Infrastructure alerts", () => {
     await f.service.evaluateHealth(async () => outage, f.recipients);
     expect(f.graph).toHaveBeenCalledWith(["admin@example.com"], expect.any(String), expect.any(String));
     expect(f.send).not.toHaveBeenCalled();
+  });
+
+  it("prioritizes Teams without sending duplicate mail", async () => {
+    const f = fixture("teams-graph");
+    await f.service.evaluateHealth(async () => outage, f.recipients);
+    expect(f.send).toHaveBeenCalledWith("teams", expect.any(String), expect.any(String));
+    expect(f.graph).not.toHaveBeenCalled();
+  });
+
+  it("falls back to Graph on Teams failure and retries when both fail", async () => {
+    const f = fixture("teams-graph");
+    f.send.mockRejectedValue(new Error("Teams unavailable"));
+    f.graph.mockRejectedValueOnce(new Error("Graph unavailable"));
+    await expect(f.service.evaluateHealth(async () => outage, f.recipients)).rejects.toThrow("Graph unavailable");
+    expect(f.upsert).not.toHaveBeenCalled();
+    await f.service.evaluateHealth(async () => outage, f.recipients);
+    expect(f.graph).toHaveBeenCalledWith(["admin@example.com"], expect.any(String), expect.any(String));
+    expect(f.upsert).toHaveBeenCalledOnce();
   });
 
   it.each([["teams", false], ["none", true], ["unknown", true]])("does not collect or send for channel %s enabled=%s", async (channel, enabled) => {

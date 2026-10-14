@@ -25,7 +25,7 @@ printf '\nDATABASE_URL=postgresql://isms_app:%s@postgres:5432/%s\nREDIS_URL=redi
   "$database_password" "$database_name" "$redis_password" "$redis_password" >> "$app_file"
 printf 'REDIS_PASSWORD=%s\n' "$redis_password" > "$redis_file"
 
-docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$database_owner" -d "$database_name" >/dev/null <<SQL
+docker compose exec -T postgres sh -ec 'export PGPASSWORD="${POSTGRES_PASSWORD:-$(cat "$POSTGRES_PASSWORD_FILE")}"; exec psql --no-password -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null <<SQL
 BEGIN;
 CREATE ROLE isms_app LOGIN PASSWORD '$database_password';
 GRANT CONNECT ON DATABASE "$database_name" TO isms_app;

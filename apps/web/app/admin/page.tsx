@@ -5386,6 +5386,7 @@ function ObservabilityPanel({
             <option value="graph">Microsoft Graph</option>
             <option value="email">E-mail</option>
             <option value="teams">Teams</option>
+            <option value="teams-graph">Teams → Microsoft Graph</option>
             <option value="slack">Slack</option>
             <option value="webhook">Webhook</option>
           </select>
