@@ -79,8 +79,8 @@ export class ObservabilityOptionsDto {
 
 export class AlertPolicyDto {
   @IsBoolean() enabled!: boolean;
-  @IsIn(["email", "teams", "slack", "webhook", "none"])
-  channel!: "email" | "teams" | "slack" | "webhook" | "none";
+  @IsIn(["graph", "email", "teams", "slack", "webhook", "none"])
+  channel!: "graph" | "email" | "teams" | "slack" | "webhook" | "none";
   @IsOptional() @IsString() @MaxLength(255) destinationReference?: string;
   @IsString() @MaxLength(10) fiveXxPercent!: string;
   @IsString() @MaxLength(10) deniedPerMinute!: string;

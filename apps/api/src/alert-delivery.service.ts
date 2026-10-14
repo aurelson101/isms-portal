@@ -7,6 +7,7 @@ import { createHash, createSign, randomUUID, X509Certificate } from "node:crypto
 import { notificationHtml, portalLink, type EmailTemplate } from "./notification-email";
 import { CryptoService } from "./crypto.service";
 import { PrismaService } from "./prisma.service";
+import { healthIncidents, type HealthSnapshot } from "./health-alerts";
 
 export type AlertChannel = "graph" | "email" | "teams" | "slack" | "webhook";
 export type PreferredDelivery = {
@@ -438,6 +439,26 @@ export class AlertDeliveryService {
     return policy.enabled && policy[preference] === true;
   }
 
+  async evaluateHealth(collect: () => Promise<HealthSnapshot>, graphRecipients: () => Promise<string[]>) {
+    const setting = await this.prisma.applicationSetting.findUnique({ where: { key: "observability.alert-policy" } });
+    const policy = setting?.value as { enabled?: boolean; channel?: AlertChannel } | undefined;
+    if (!policy?.enabled || !policy.channel || !["graph", "email", "teams", "slack", "webhook"].includes(policy.channel)) return;
+    const incidents = healthIncidents(await collect());
+    const key = "observability.health-alert-state";
+    const previous = await this.prisma.applicationSetting.findUnique({ where: { key } });
+    const state = previous?.value as { signature?: string; at?: string; channel?: string } | undefined;
+    const signature = incidents.join("\n");
+    if (!signature && !state?.signature) return;
+    const last = Date.parse(state?.at || "");
+    if (signature === state?.signature && policy.channel === state.channel && Number.isFinite(last) && Date.now() - last < 15 * 60000) return;
+    const subject = signature ? "[ISMS Portal] Infrastructure alert" : "[ISMS Portal] Infrastructure recovered";
+    const message = signature || "The previously reported services and document storage capacity are healthy again.";
+    if (policy.channel === "graph") await this.sendPreferredTo(await graphRecipients(), subject, message);
+    else await this.send(policy.channel!, subject, message);
+    const value = { signature, at: new Date().toISOString(), channel: policy.channel! };
+    await this.prisma.applicationSetting.upsert({ where: { key }, update: { value }, create: { key, value } });
+  }
+
   async evaluate(result: "success" | "failure" | "denied", graphRecipients?: () => Promise<string[]>) {
     if (result === "success") return;
     const setting = await this.prisma.applicationSetting.findUnique({
@@ -451,7 +472,7 @@ export class AlertDeliveryService {
           deniedPerMinute?: string;
         }
       | undefined;
-    if (!policy?.enabled || !policy.channel) return;
+    if (!policy?.enabled || !policy.channel || !["graph", "email", "teams", "slack", "webhook"].includes(policy.channel)) return;
     const since = new Date(Date.now() - 60000);
     const [total, denied, failed] = await Promise.all([
       this.prisma.auditEvent.count({ where: { occurredAt: { gte: since } } }),

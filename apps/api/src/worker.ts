@@ -11,6 +11,7 @@ import { NotificationService, notificationConnection, type NotificationJob } fro
 import { AuthorizationService } from "./authorization.service";
 import { exclusiveScheduler } from "./scheduler-lock";
 import { dispatchOutbox, maintainHistory } from "./notification-outbox";
+import { collectHealthSnapshot } from "./health-alerts";
 
 const connection = notificationConnection();
 const prisma = new PrismaService();
@@ -194,6 +195,11 @@ async function tick() {
   const now = Date.now();
   const maintenanceDue = now - lastMaintenance >= 86400000;
   const ran = await exclusively(async tx => {
+    if (process.uptime() >= 120) {
+      await alerts.evaluateHealth(collectHealthSnapshot, () => notifications.staff("edit", true)).catch(() => {
+        log("infrastructure.alert.failed", { level: "error" });
+      });
+    }
     await schedule(tx);
     await dispatchOutbox(prisma, notifications);
     if (maintenanceDue) await maintainHistory(tx);

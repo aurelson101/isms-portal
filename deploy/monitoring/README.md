@@ -8,6 +8,23 @@ port on the host. Compose prefixes the name with the project name, keeping test
 and production stacks isolated; inspect it with `docker network ls` if the
 Compose project name was customized.
 
+## Built-in infrastructure alerts
+
+With the external alert policy enabled, the worker checks API readiness and
+document storage capacity every minute, after a two-minute startup grace period.
+It sends an infrastructure alert through
+the selected channel (Microsoft Graph, SMTP, Teams, Slack or webhook) if a
+dependency is unavailable or less than 10% of document storage is free. Repeated
+incidents are limited to one notification every 15 minutes; changed incidents
+and recovery are notified immediately. Failed deliveries are retried on the
+next check, without marking them as delivered. Graph recipients are the eligible
+administrators and moderators; SMTP uses its configured recipients.
+
+This cannot detect a complete host/worker/database outage reliably: configure
+an independent collector and its own notification channel. Host root disks and
+remote storage targets also need their own infrastructure capacity monitoring.
+Provider acceptance does not prove receipt in a mailbox or Teams channel.
+
 ## Prometheus and Grafana
 
 Scrape `http://api:3001/metrics` from a collector attached to the private
