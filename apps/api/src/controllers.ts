@@ -1009,10 +1009,12 @@ export class DocumentsController {
         : [];
     const publishedAt = new Date();
     const publication = status === "PUBLISHED"
-      ? await publishWithReview(this.prisma, id, document.versions.slice().sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0]?.id || null, !document.publishedAt, publishedAt)
+      ? await publishWithReview(this.prisma, id, document.versions.slice().sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0]?.id || null, !document.publishedAt, publishedAt, { request: req, action: "document.published", details: distributedFiles.length ? { distributedFiles } : undefined, notify: !document.suppressEmailNotifications })
       : null;
     const updated = publication?.document || await this.prisma.document.update({ where: { id }, data: { status } });
-    await this.audit.record(
+    if (publication) {
+      for (const event of publication.events) await this.audit.committed(event);
+    } else await this.audit.record(
       req,
       `document.${status.toLowerCase()}`,
       `document:${id}`,
@@ -1020,8 +1022,6 @@ export class DocumentsController {
       distributedFiles.length ? { distributedFiles } : undefined,
       { notify: !document.suppressEmailNotifications },
     );
-    if (publication?.review)
-      await this.audit.record(req, "document-review.create", `document-review:${publication.review.id}`, "success", { documentId: id, dueAt: publication.review.dueAt }, { notify: !document.suppressEmailNotifications });
     if (status === "PUBLISHED" && document.favorites.length > 0) {
       const title =
         document.translations.find((item) => item.locale === "fr")?.title ||
@@ -2752,17 +2752,22 @@ export class DocumentAdminController {
         : {}),
     };
     if (summary === "true") {
-      return this.prisma.document.findMany({
+      const summaryPage = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Math.min(1000000, Number(pageValue)) : 1;
+      const summaryLimit = Math.min(200, Math.max(1, Math.floor(Number(limitValue) || 50)));
+      const items = await this.prisma.document.findMany({
         where,
         select: {
           id: true,
           translations: { select: { locale: true, title: true } },
-          versions: { select: { id: true, locale: true, version: true } },
+          versions: { select: { id: true, locale: true, version: true }, orderBy: { createdAt: "desc" }, take: 1 },
         },
         orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+        skip: (summaryPage - 1) * summaryLimit,
+        take: summaryLimit,
       });
+      return pageValue ? { items, page: summaryPage, limit: summaryLimit, total: await this.prisma.document.count({ where }) } : items;
     }
-    const page = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Number(pageValue) : 1;
+    const page = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Math.min(1000000, Number(pageValue)) : 1;
     const limit = Math.min(200, Math.max(1, Math.floor(Number(limitValue) || 50)));
     const orderBy =
       sort === "status"
@@ -2979,18 +2984,9 @@ export class DocumentAdminController {
       );
     }
     const distributedFiles = await this.watermark.prepareForPublication(id);
-    const publication = await publishWithReview(this.prisma, id, document.versions.slice().sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0]?.id || null, !document.publishedAt, new Date());
+    const publication = await publishWithReview(this.prisma, id, document.versions.slice().sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0]?.id || null, !document.publishedAt, new Date(), { request: req, action: "document.publish", details: distributedFiles.length ? { distributedFiles } : undefined, notify: !document.suppressEmailNotifications });
     const updated = publication.document;
-    await this.audit.record(
-      req,
-      "document.publish",
-      `document:${id}`,
-      "success",
-      distributedFiles.length ? { distributedFiles } : undefined,
-      { notify: !document.suppressEmailNotifications },
-    );
-    if (publication.review)
-      await this.audit.record(req, "document-review.create", `document-review:${publication.review.id}`, "success", { documentId: id, dueAt: publication.review.dueAt }, { notify: !document.suppressEmailNotifications });
+    for (const event of publication.events) await this.audit.committed(event);
     return updated;
   }
 

@@ -1,11 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import type { Prisma } from "@prisma/client";
+import type { AuditEvent } from "@prisma/client";
 import { PrismaService } from "./prisma.service";
 import type { IsmsRequest } from "./types";
 import { AlertDeliveryService } from "./alert-delivery.service";
-import { NotificationService, notificationLabels } from "./notification.service";
-
-const AUDIT_RETENTION_LIMIT = 50;
+import { NotificationService } from "./notification.service";
+import { persistAudit } from "./audit-event";
 @Injectable()
 export class AuditService {
   constructor(
@@ -22,65 +21,24 @@ export class AuditService {
     details?: unknown,
     options?: { notify?: boolean },
   ) {
-    const safeDetails =
-      details === undefined
-        ? undefined
-        : (JSON.parse(JSON.stringify(details)) as Prisma.InputJsonValue);
-    const event = await this.prisma.$transaction(async (transaction) => {
-      await transaction.$executeRaw`
-        SELECT pg_advisory_xact_lock(hashtext('isms-audit-retention'))
-      `;
-      const event = await transaction.auditEvent.create({
-        data: {
-          identity: req.identity.username,
-          ipAddress: req.ip || "unknown",
-          action,
-          resource,
-          result,
-          correlationId: req.correlationId,
-          ...(safeDetails === undefined ? {} : { details: safeDetails }),
-        },
-      });
-      const obsolete = await transaction.auditEvent.findMany({
-        orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-        skip: AUDIT_RETENTION_LIMIT,
-        select: { id: true },
-      });
-      if (obsolete.length > 0) {
-        await transaction.auditEvent.deleteMany({
-          where: { id: { in: obsolete.map((item) => item.id) } },
-        });
-      }
-      // Keep the SIEM event deliberately smaller than the database record:
-      // `details` can contain business data and must not leak to stdout.
-      process.stdout.write(
-        `${JSON.stringify({
-          level: result === "success" ? "info" : "warning",
-          service: "api",
-          event: "audit",
-          identity: event.identity,
-          ipAddress: event.ipAddress,
-          action: event.action,
-          resource: event.resource,
-          result: event.result,
-          correlationId: event.correlationId,
-          occurredAt: event.occurredAt.toISOString(),
-        })}\n`,
-      );
-      return event;
-    });
-    await this.alerts.evaluate(result, () => this.notifications.staff("edit", true)).catch((error: Error) => {
+    const event = await this.prisma.$transaction(tx => persistAudit(tx, req, action, resource, result, details, options?.notify !== false));
+    await this.committed(event);
+    return event;
+  }
+
+  async committed(event: AuditEvent) {
+    // Emit after commit; business details stay in the database journal.
+    process.stdout.write(`${JSON.stringify({
+      level: event.result === "success" ? "info" : "warning",
+      service: "api", event: "audit", identity: event.identity,
+      ipAddress: event.ipAddress, action: event.action, resource: event.resource,
+      result: event.result, correlationId: event.correlationId,
+      occurredAt: event.occurredAt.toISOString(),
+    })}\n`);
+    await this.alerts.evaluate(event.result as "success" | "failure" | "denied", () => this.notifications.staff("edit", true)).catch((error: Error) => {
       process.stderr.write(
         `${JSON.stringify({ level: "error", service: "api", event: "alert.delivery.failed", message: error.message })}\n`,
       );
     });
-    if (result === "success" && options?.notify !== false && notificationLabels[action]) {
-      try {
-        await this.notifications.enqueue({ action, resource, actor: event.identity, at: event.occurredAt.toISOString() }, event.id);
-      } catch {
-        process.stderr.write(JSON.stringify({ level: "error", event: "notification.enqueue.failed", action, resource }) + "\n");
-      }
-    }
-    return event;
   }
 }

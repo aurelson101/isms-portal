@@ -1,4 +1,6 @@
 import "reflect-metadata";
+import type { Prisma } from "@prisma/client";
+import { writeFile, rename } from "node:fs/promises";
 import { createHash } from "crypto";
 import { Queue, Worker } from "bullmq";
 import { PrismaService } from "./prisma.service";
@@ -7,6 +9,8 @@ import { DirectoryService } from "./directory.service";
 import { AlertDeliveryService } from "./alert-delivery.service";
 import { NotificationService, notificationConnection, type NotificationJob } from "./notification.service";
 import { AuthorizationService } from "./authorization.service";
+import { exclusiveScheduler } from "./scheduler-lock";
+import { dispatchOutbox, maintainHistory } from "./notification-outbox";
 
 const connection = notificationConnection();
 const prisma = new PrismaService();
@@ -68,9 +72,9 @@ worker.on("failed", (job, error) => {
   );
 });
 
-async function schedule() {
+async function schedule(db: Prisma.TransactionClient) {
   const now = Date.now();
-  const overduePublicationReviews = await prisma.documentReview.findMany({
+  const overduePublicationReviews = await db.documentReview.findMany({
     where: { automaticPublication: true, status: { in: ["PENDING", "IN_REVIEW"] }, overdueNotifiedAt: null, dueAt: { lte: new Date(now) }, document: { status: "PUBLISHED", deletedAt: null } },
     select: { id: true }, orderBy: { dueAt: "asc" }, take: 100,
   });
@@ -80,7 +84,7 @@ async function schedule() {
     await notifications.enqueue({ action: "document-review.overdue", resource: `review-overdue:${batchId}`, reviewIds, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `publication-review-overdue-${batchId}`);
   }
   const reviewAt = new Date(now + 30 * 86400000);
-  const dueExceptions = await prisma.riskException.findMany({
+  const dueExceptions = await db.riskException.findMany({
     where: {
       status: "APPROVED",
       reviewNotifiedAt: null,
@@ -90,13 +94,13 @@ async function schedule() {
   });
   for (const item of dueExceptions) {
     const identities = [...new Set([item.owner, item.approver])];
-    await prisma.$transaction([
-      prisma.riskException.update({
+    await Promise.all([
+      db.riskException.update({
         where: { id: item.id },
         data: { status: "REVIEW_DUE", reviewNotifiedAt: new Date() },
       }),
       ...identities.map((identity) =>
-        prisma.userNotification.create({
+        db.userNotification.create({
           data: {
             identity,
             title: "Dérogation à renouveler",
@@ -109,18 +113,18 @@ async function schedule() {
       ),
     ]);
   }
-  const expiredGrants = await prisma.temporaryAccessGrant.deleteMany({
+  const expiredGrants = await db.temporaryAccessGrant.deleteMany({
     where: { validUntil: { lte: new Date(now) } },
   });
   const annualReviewScope = { document: { deletedAt: null, status: "PUBLISHED" as const } };
   const reminderAt = new Date(now + 30 * 86400000);
-  const reviewReminders = await prisma.documentVersion.findMany({ where: { ...annualReviewScope, annualReviewReminderAt: null, annualReviewDueAt: { gt: new Date(now), lte: reminderAt } }, select: { id: true, documentId: true }, take: 100 });
+  const reviewReminders = await db.documentVersion.findMany({ where: { ...annualReviewScope, annualReviewReminderAt: null, annualReviewDueAt: { gt: new Date(now), lte: reminderAt } }, select: { id: true, documentId: true }, take: 100 });
   for (const version of reviewReminders)
     await notifications.enqueue({ action: "document.review.reminder", resource: `document:${version.documentId}`, documentVersionId: version.id, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `annual-review-reminder-${version.id}`);
-  const annualReviewVersions = await prisma.documentVersion.findMany({ where: { ...annualReviewScope, annualReviewNotifiedAt: null, annualReviewDueAt: { lte: new Date(now) } }, select: { id: true, documentId: true }, orderBy: { annualReviewDueAt: "asc" }, take: 100 });
+  const annualReviewVersions = await db.documentVersion.findMany({ where: { ...annualReviewScope, annualReviewNotifiedAt: null, annualReviewDueAt: { lte: new Date(now) } }, select: { id: true, documentId: true }, orderBy: { annualReviewDueAt: "asc" }, take: 100 });
   const overdueDocumentVersions = annualReviewVersions.length;
   for (const version of annualReviewVersions) {
-    const existingReview = await prisma.documentReview.findFirst({
+    const existingReview = await db.documentReview.findFirst({
       where: {
         versionId: version.id,
         automaticAnnual: true,
@@ -129,7 +133,7 @@ async function schedule() {
       select: { id: true },
     });
     if (!existingReview)
-      await prisma.documentReview.create({
+      await db.documentReview.create({
         data: {
           documentId: version.documentId,
           versionId: version.id,
@@ -142,14 +146,14 @@ async function schedule() {
       });
     await notifications.enqueue({ action: "document.review.annual", resource: `document:${version.documentId}`, documentVersionId: version.id, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `annual-review-${version.documentId}-${version.id}-${new Date(now).toISOString().slice(0, 10)}`);
   }
-  const reviewOverdues = await prisma.documentVersion.findMany({ where: { ...annualReviewScope, annualReviewOverdueAt: null, annualReviewDueAt: { lte: new Date(now - 7 * 86400000) } }, select: { id: true, documentId: true }, take: 100 });
+  const reviewOverdues = await db.documentVersion.findMany({ where: { ...annualReviewScope, annualReviewOverdueAt: null, annualReviewDueAt: { lte: new Date(now - 7 * 86400000) } }, select: { id: true, documentId: true }, take: 100 });
   for (const version of reviewOverdues)
     await notifications.enqueue({ action: "document.review.overdue", resource: `document:${version.documentId}`, documentVersionId: version.id, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `annual-review-overdue-${version.id}`);
-  const connections = await prisma.directoryConnection.findMany({
+  const connections = await db.directoryConnection.findMany({
     where: { enabled: true },
   });
   for (const directoryConnection of connections) {
-    const last = await prisma.directorySyncJob.findFirst({
+    const last = await db.directorySyncJob.findFirst({
       where: { connectionId: directoryConnection.id },
       orderBy: { startedAt: "desc" },
       select: { startedAt: true },
@@ -183,8 +187,29 @@ async function schedule() {
   });
 }
 
+const exclusively = exclusiveScheduler(prisma);
+let lastMaintenance = 0;
+let activeTick: Promise<void> | null = null;
+async function tick() {
+  const now = Date.now();
+  const maintenanceDue = now - lastMaintenance >= 86400000;
+  const ran = await exclusively(async tx => {
+    await schedule(tx);
+    await dispatchOutbox(prisma, notifications);
+    if (maintenanceDue) await maintainHistory(tx);
+  });
+  if (ran && maintenanceDue) lastMaintenance = now;
+  await queue.getJobCounts("waiting", "failed");
+  await writeFile("/tmp/isms-worker-health.next", JSON.stringify({ checkedAt: Date.now(), mailRunning: mailWorker.isRunning(), directoryRunning: worker.isRunning() }));
+  await rename("/tmp/isms-worker-health.next", "/tmp/isms-worker-health.json");
+}
+const startTick = () => {
+  if (activeTick) return activeTick;
+  activeTick = tick().finally(() => { activeTick = null; });
+  return activeTick;
+};
 const timer = setInterval(() => {
-  void schedule().catch((error: Error) => {
+  void startTick().catch((error: Error) => {
     process.stderr.write(
       `${JSON.stringify({
         level: "error",
@@ -199,6 +224,7 @@ const timer = setInterval(() => {
 
 async function shutdown(signal: string) {
   clearInterval(timer);
+  await activeTick?.catch(() => undefined);
   log("worker.stopping", { signal });
   await worker.close();
   await mailWorker.close();
@@ -212,7 +238,7 @@ process.on("SIGINT", () => void shutdown("SIGINT"));
 
 void prisma
   .$connect()
-  .then(schedule)
+  .then(startTick)
   .then(() => log("worker.ready"))
   .catch((error: Error) => {
     process.stderr.write(

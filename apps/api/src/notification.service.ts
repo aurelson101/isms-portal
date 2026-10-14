@@ -79,7 +79,11 @@ export class NotificationService {
   }
 
   async deliveryCounts() {
-    return this.queueHandle().getJobCounts("waiting", "active", "delayed", "completed", "failed");
+    const [counts, pendingOutbox] = await Promise.all([
+      this.queueHandle().getJobCounts("waiting", "active", "delayed", "completed", "failed"),
+      this.prisma.notificationOutbox.count({ where: { queuedAt: null } }),
+    ]);
+    return { ...counts, pendingOutbox };
   }
 
   async retryDelivery(id: string) {

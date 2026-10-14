@@ -6,6 +6,12 @@ consultation, téléchargement et administration sont filtrés côté serveur.
 
 ## Dernières nouveautés
 
+- Audit conservé sans limite de 50 événements. `AUDIT_RETENTION_DAYS=0` désactive la purge ; une durée positive approuvée active une maintenance quotidienne par lots. Les événements déjà supprimés ne sont pas récupérés.
+- Notifications durables dans une outbox PostgreSQL, transférées vers BullMQ par le worker avec reprise après panne Redis. Publication, revue et événements correspondants sont enregistrés atomiquement. Le transfert peut prendre environ une minute ; l’acceptation par le transport ne prouve pas la réception en boîte.
+- Planificateur exclusif entre workers, contrôle Docker fondé sur une activité récente et arrêt gracieux. Ne pas augmenter le nombre de workers sans conserver ce verrou.
+- Résumés documentaires paginés, panneau Documents admin isolé, champs traduits partagés et délais réseau sans relance automatique des écritures. La mise à jour exige `prisma migrate deploy` avant le démarrage des nouveaux services.
+- Avec le compte applicatif restreint, effectuer une sauvegarde, construire la nouvelle image API puis exécuter `sh ./scripts/migrate.sh`. Ce script utilise le compte PostgreSQL administratif dans une tâche isolée, supprime son fichier temporaire et n’accorde aucun droit de création de tables au compte applicatif.
+
 - **Interface FR / EN / ES / SK** : connexion, portail, administration, modération,
   gouvernance et aide technique disposent de traductions espagnoles et slovaques. Sans choix
   enregistré, la première langue prise en charge dans les préférences du

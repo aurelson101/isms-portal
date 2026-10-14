@@ -21,6 +21,7 @@ describe("AuditService", () => {
         findMany: vi.fn().mockResolvedValue([]),
         deleteMany: vi.fn(),
       },
+      notificationOutbox: { create: vi.fn() },
     };
     const prisma = {
       $transaction: vi.fn((callback) => callback(transaction)),
@@ -54,6 +55,9 @@ describe("AuditService", () => {
       correlationId: "correlation-1",
     });
     expect(logged).not.toContain("must-not-be-logged");
+    expect(transaction.auditEvent.findMany).not.toHaveBeenCalled();
+    expect(transaction.auditEvent.deleteMany).not.toHaveBeenCalled();
+    expect(transaction.$executeRaw).not.toHaveBeenCalled();
     output.mockRestore();
   });
 
@@ -61,6 +65,7 @@ describe("AuditService", () => {
     const event = {
       id: "audit-business-1",
       identity: "alice",
+      action: "access-request.create", resource: "access-request:123", result: "success",
       occurredAt: new Date("2026-09-02T12:00:00.000Z"),
     };
     const transaction = {
@@ -70,6 +75,7 @@ describe("AuditService", () => {
         findMany: vi.fn().mockResolvedValue([]),
         deleteMany: vi.fn(),
       },
+      notificationOutbox: { create: vi.fn() },
     };
     const alerts = {
       evaluate: vi.fn().mockResolvedValue(undefined),
@@ -101,10 +107,8 @@ describe("AuditService", () => {
       "success",
     );
 
-    expect(notifications.enqueue).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "access-request.create", resource: "access-request:123", actor: "alice" }),
-      event.id,
-    );
+    expect(transaction.notificationOutbox.create).toHaveBeenCalledWith({ data: { id: event.id, payload: expect.objectContaining({ action: "access-request.create", resource: "access-request:123", actor: "alice" }) } });
+    expect(notifications.enqueue).not.toHaveBeenCalled();
     output.mockRestore();
   });
 });

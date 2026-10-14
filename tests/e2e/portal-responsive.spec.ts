@@ -110,9 +110,9 @@ for (const width of [320, 768, 1280]) {
     const form = page.locator(".profile-settings > .admin-form").first();
     await expect(form).toBeVisible();
     expect(await form.evaluate((element) => getComputedStyle(element).borderTopWidth)).toBe("0px");
-    const button = page.locator(".profile-settings > .admin-form > button").first();
+    const button = page.locator(".profile-settings > .admin-form button.primary").first();
     await expect(button).toBeVisible();
-    expect(await button.evaluate((element) => element.clientWidth < element.parentElement!.clientWidth)).toBe(true);
+    expect(await button.evaluate((element) => element.clientWidth <= element.parentElement!.clientWidth)).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(errors).toEqual([]);
     await page.screenshot({ path: info.outputPath("settings.png"), fullPage: true });

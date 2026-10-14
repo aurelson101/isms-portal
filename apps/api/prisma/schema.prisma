@@ -614,6 +614,17 @@ model ApplicationSetting {
   updatedAt DateTime @updatedAt
 }
 
+model NotificationOutbox {
+  id            String   @id
+  payload       Json
+  createdAt     DateTime @default(now())
+  nextAttemptAt DateTime @default(now())
+  queuedAt      DateTime?
+  attempts      Int      @default(0)
+
+  @@index([queuedAt, nextAttemptAt])
+}
+
 model UserPreference {
   identity      String    @id
   locale        String    @default("fr")

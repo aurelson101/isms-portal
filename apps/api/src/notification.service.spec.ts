@@ -100,6 +100,7 @@ describe("Notification routing", () => {
   it("distinguishes skipped deliveries from accepted mail with full queue counts", async () => {
     const h = setup();
     const job = (id: string, timestamp: number) => ({ id, data: event, timestamp, attemptsMade: 0, finishedOn: undefined, failedReason: undefined, returnvalue: undefined });
+    Object.assign(h.prisma, { notificationOutbox: { count: vi.fn().mockResolvedValue(3) } });
     const queue = {
       getJobCounts: vi.fn().mockResolvedValue({ waiting: 201, active: 1, delayed: 2, completed: 3, failed: 0 }),
       getWaiting: vi.fn().mockResolvedValue([job("waiting", 1)]),
@@ -113,7 +114,7 @@ describe("Notification routing", () => {
     };
     Object.defineProperty(h.service, "queue", { value: queue });
     const result = await h.service.deliveryHistory();
-    expect(await h.service.deliveryCounts()).toEqual({ waiting: 201, active: 1, delayed: 2, completed: 3, failed: 0 });
+    expect(await h.service.deliveryCounts()).toEqual({ waiting: 201, active: 1, delayed: 2, completed: 3, failed: 0, pendingOutbox: 3 });
     expect(result.map(({ status }) => status)).toEqual(["SKIPPED", "ACCEPTED", "DELAYED", "ACTIVE", "WAITING"]);
     expect(result[0].accepted).toBe(0);
   });

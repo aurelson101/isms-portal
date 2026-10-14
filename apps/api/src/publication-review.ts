@@ -1,7 +1,9 @@
 import { ConflictException } from "@nestjs/common";
 import type { PrismaService } from "./prisma.service";
+import type { IsmsRequest } from "./types";
+import { persistAudit } from "./audit-event";
 
-export async function publishWithReview(prisma: PrismaService, documentId: string, versionId: string | null, firstPublication: boolean, publishedAt: Date) {
+export async function publishWithReview(prisma: PrismaService, documentId: string, versionId: string | null, firstPublication: boolean, publishedAt: Date, audit?: { request: IsmsRequest; action: string; details?: unknown; notify: boolean }) {
   return prisma.$transaction(async (tx) => {
     const changed = await tx.document.updateMany({
       where: { id: documentId, deletedAt: null, status: { not: "PUBLISHED" } },
@@ -19,6 +21,11 @@ export async function publishWithReview(prisma: PrismaService, documentId: strin
         automaticPublication: true,
       },
     }) : null;
-    return { document: await tx.document.findUniqueOrThrow({ where: { id: documentId } }), review };
+    const events = [];
+    if (audit) {
+      events.push(await persistAudit(tx, audit.request, audit.action, `document:${documentId}`, "success", audit.details, audit.notify));
+      if (review) events.push(await persistAudit(tx, audit.request, "document-review.create", `document-review:${review.id}`, "success", { documentId, dueAt: review.dueAt }, audit.notify));
+    }
+    return { document: await tx.document.findUniqueOrThrow({ where: { id: documentId } }), review, events };
   });
 }

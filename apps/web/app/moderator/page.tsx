@@ -1,4 +1,5 @@
 "use client";
+import { fetchWithTimeout as fetch } from "../http-client";
 
 import { translate } from "../i18n/translate";
 import { useInterfaceLocale } from "../i18n/use-locale";

@@ -9,6 +9,7 @@ import { AppModule } from "./app.module";
 import { collectDefaultMetrics } from "prom-client";
 import { httpDuration, httpRequests } from "./metrics";
 import { sameOriginMutationGuard } from "./http-security";
+import { metricRoute } from "./metric-route";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -21,7 +22,7 @@ async function bootstrap() {
   app.use((request: Request, response: Response, next: NextFunction) => {
     const startedAt = Date.now();
     response.on("finish", () => {
-      const route = request.route?.path || request.path;
+      const route = metricRoute(request.route?.path);
       const elapsedSeconds = (Date.now() - startedAt) / 1000;
       httpRequests.inc({
         method: request.method,

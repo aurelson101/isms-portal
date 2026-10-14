@@ -151,6 +151,7 @@ spec:
   template:
     metadata: { labels: { app: isms-worker } }
     spec:
+      terminationGracePeriodSeconds: 150
       containers:
         - name: worker
           image: registry.example/isms-api:1.0.0
@@ -158,8 +159,10 @@ spec:
           envFrom:
             - { configMapRef: { name: isms-portal } }
             - { secretRef: { name: isms-portal-secrets } }
-          volumeMounts: [{ name: documents, mountPath: /data/documents }]
-          livenessProbe: { exec: { command: ["sh", "-c", "kill -0 1"] } }
+          volumeMounts: [{ name: documents, mountPath: /data/documents }, { name: worker-health, mountPath: /tmp }]
+          startupProbe: { exec: { command: ["node", "dist/worker-health.js"] }, periodSeconds: 15, failureThreshold: 12 }
+          readinessProbe: { exec: { command: ["node", "dist/worker-health.js"] }, periodSeconds: 15 }
+          livenessProbe: { exec: { command: ["node", "dist/worker-health.js"] }, periodSeconds: 15, failureThreshold: 3 }
           resources:
             requests: { cpu: 100m, memory: 256Mi }
             limits: { cpu: "1", memory: 1Gi }
@@ -175,6 +178,7 @@ spec:
             name: documents,
             persistentVolumeClaim: { claimName: isms-documents },
           },
+          { name: worker-health, emptyDir: { medium: Memory, sizeLimit: 16Mi } },
         ]
 ---
 apiVersion: policy/v1

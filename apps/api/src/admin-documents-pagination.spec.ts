@@ -34,9 +34,15 @@ describe("Admin document pagination", () => {
       select: {
         id: true,
         translations: { select: { locale: true, title: true } },
-        versions: { select: { id: true, locale: true, version: true } },
+        versions: { select: { id: true, locale: true, version: true }, orderBy: { createdAt: "desc" }, take: 1 },
       },
       orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      skip: 0, take: 50,
     });
+  });
+  it("paginates lightweight governance references", async () => {
+    const h = setup();
+    expect(await h.controller.list("", "2", "20", "updatedAt", "desc", "true")).toEqual({ items: h.items, page: 2, limit: 20, total: 41 });
+    expect(h.document.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 20, take: 20 }));
   });
 });

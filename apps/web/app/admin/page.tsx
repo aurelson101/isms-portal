@@ -1,4 +1,8 @@
 "use client";
+import { fetchWithTimeout as fetch } from "../http-client";
+import { api } from "./api-client";
+import { DocumentsPanel } from "./documents-panel";
+import { flattenCategories, paginationItems, type Space, type Category, type AdminDocument } from "./document-model";
 
 import { localizedPair, localizeRecord, translate } from "../i18n/translate";
 
@@ -25,8 +29,6 @@ import {
 } from "../branding";
 import { GovernancePanel } from "./governance-panel";
 import { StoragePanel } from "./storage-panel";
-import { StorageSelect } from "../storage-select";
-import { BatchImport } from "../batch-import";
 import { HelpPanel } from "./help-panel";
 import { ssoDestination } from "../auth-navigation";
 
@@ -87,22 +89,6 @@ const localizedStatus = (locale: Locale, value: string) => {
   const label = labels[value.toUpperCase()];
   return label ? localizedPair(locale, label) : value;
 };
-const paginationItems = (
-  current: number,
-  total: number,
-): Array<number | "ellipsis"> => {
-  if (total <= 7)
-    return Array.from({ length: total }, (_, index) => index + 1);
-  const pages = new Set([1, total, current - 1, current, current + 1]);
-  return [...pages]
-    .filter((item) => item >= 1 && item <= total)
-    .sort((left, right) => left - right)
-    .flatMap((item, index, values) =>
-      index && item - values[index - 1] > 1
-        ? (["ellipsis" as const, item] as const)
-        : ([item] as const),
-    );
-};
 
 type Tab =
   | "help"
@@ -148,46 +134,7 @@ type DirectoryGroupSuggestion = {
   description: string | null;
   memberCount: number;
 };
-type Space = {
-  id: string;
-  slug: string;
-  nameFr: string;
-  nameEn: string;
-  categories?: Category[];
-  _count?: { documents: number; accessRules: number };
-  ownerGroup?: { id: string; name: string; active: boolean } | null;
-};
-type Category = {
-  id: string;
-  slug: string;
-  nameFr: string;
-  nameEn: string;
-  spaceId: string;
-  parentId?: string | null;
-};
 
-function flattenCategories(categories: Category[]) {
-  const children = new Map<string | null, Category[]>();
-  const categoryIds = new Set(categories.map((item) => item.id));
-  for (const item of categories) {
-    const parentId =
-      item.parentId && categoryIds.has(item.parentId) ? item.parentId : null;
-    children.set(parentId, [...(children.get(parentId) || []), item]);
-  }
-  const result: Array<{ item: Category; depth: number }> = [];
-  const appended = new Set<string>();
-  const append = (item: Category, depth: number, trail = new Set<string>()) => {
-    if (trail.has(item.id) || appended.has(item.id)) return;
-    const nextTrail = new Set(trail).add(item.id);
-    appended.add(item.id);
-    result.push({ item, depth });
-    for (const child of children.get(item.id) || [])
-      append(child, depth + 1, nextTrail);
-  };
-  for (const root of children.get(null) || []) append(root, 0);
-  for (const item of categories) append(item, 0);
-  return result;
-}
 
 function ModeratorsPanel({
   onError,
@@ -327,24 +274,6 @@ type DirectoryConnection = {
     finishedAt?: string;
   }>;
 };
-type AdminDocument = {
-  id: string;
-  status: string;
-  sensitive: boolean;
-  watermarkPosition: "HEADER" | "CENTER" | "FOOTER";
-  translations: Array<{ locale: string; title: string; description?: string | null }>;
-  space: Space;
-  category?: Category;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt: string | null;
-  versions: Array<{
-    id?: string;
-    locale: string;
-    version: number;
-    createdAt: string;
-  }>;
-};
 type Dashboard = {
   groups: number;
   rules: number;
@@ -468,42 +397,6 @@ const emptyRule = (
   justification: "",
 });
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, options);
-  if (!response.ok) {
-    if (
-      typeof window !== "undefined" &&
-      (response.status === 401 || response.status === 403) &&
-      (url.startsWith("/api/admin/") || url === "/api/health/details")
-    ) {
-      const identityResponse = await fetch("/api/admin/check", {
-        cache: "no-store",
-      }).catch(() => null);
-      const identity = identityResponse?.ok
-        ? ((await identityResponse.json().catch(() => null)) as {
-            isAdmin?: boolean;
-          } | null)
-        : null;
-      if (!identity?.isAdmin) {
-        const requested = `${window.location.pathname}${window.location.hash}`;
-        window.location.replace(
-          `/admin/login?return=${encodeURIComponent(requested)}`,
-        );
-      }
-    }
-    const payload = (await response
-      .json()
-      .catch(() => ({ message: response.statusText }))) as {
-      message?: string | string[];
-    };
-    throw new Error(
-      Array.isArray(payload.message)
-        ? payload.message.join(", ")
-        : payload.message || response.statusText,
-    );
-  }
-  return response.json() as Promise<T>;
-}
 
 export default function Admin() {
   const branding = useBranding();
@@ -669,10 +562,20 @@ export default function Admin() {
   useEffect(() => {
     if (tab !== "governance" || !isAdmin || loading || refreshing) return;
     let active = true;
-    void api<typeof documents>("/api/admin/documents?summary=true")
-      .then((items) => { if (active) setDocuments(items); })
+    const controller = new AbortController();
+    void (async () => {
+      const items: typeof documents = [];
+      for (let page = 1; active; page++) {
+        const result = await api<{ items: typeof documents; total: number } | typeof documents>(`/api/admin/documents?summary=true&page=${page}&limit=200`, { signal: controller.signal });
+        if (!active) return;
+        if (Array.isArray(result)) { items.push(...result); break; }
+        items.push(...result.items);
+        if (items.length >= result.total || !result.items.length) break;
+      }
+      if (active) setDocuments([...new Map(items.map(item => [item.id, item])).values()]);
+    })()
       .catch((error) => { if (active) setError(error.message); });
-    return () => { active = false; };
+    return () => { active = false; controller.abort(); };
   }, [tab, isAdmin, loading, refreshing]);
 
   const refreshAccessRules = useCallback(async () => {
@@ -1180,6 +1083,11 @@ export default function Admin() {
                 )}
                 {tab === "documents" && (
                   <DocumentsPanel
+                    locale={locale}
+                    t={t}
+                    confirmAction={confirmAction}
+                    EmptyState={EmptyState}
+                    statusLabel={(value) => localizedStatus(locale, value)}
                     spaces={spaces}
                     search={search}
                     onSearch={setSearch}
@@ -3054,541 +2962,6 @@ function SpacesPanel({
   );
 }
 
-function DocumentsPanel({
-  spaces,
-  search,
-  onSearch,
-  refreshing,
-  onChanged,
-  onError,
-}: {
-  spaces: Space[];
-  search: string;
-  onSearch: (value: string) => void;
-  refreshing: boolean;
-  onChanged: () => Promise<void>;
-  onError: (message: string) => void;
-}) {
-  const { locale, t } = useAdminI18n();
-  const confirmAction = useContext(ConfirmContext);
-  const [spaceId, setSpaceId] = useState("");
-  const [versionUploadDocument, setVersionUploadDocument] =
-    useState<AdminDocument | null>(null);
-  const [editingMetadataDocument, setEditingMetadataDocument] = useState<AdminDocument | null>(null);
-  const [editedCategoryId, setEditedCategoryId] = useState("");
-  const [editedLocale, setEditedLocale] = useState<"fr" | "en">("fr");
-  const [editedTitle, setEditedTitle] = useState("");
-  const [editedDescription, setEditedDescription] = useState("");
-  const [savingMetadata, setSavingMetadata] = useState(false);
-  const metadataInFlight = useRef(false);
-  const [sensitive, setSensitive] = useState(false);
-  const [watermarkPosition, setWatermarkPosition] = useState<
-    "HEADER" | "CENTER" | "FOOTER"
-  >("CENTER");
-  const [documentPage, setDocumentPage] = useState(1);
-  const [pageDocuments, setPageDocuments] = useState<AdminDocument[]>([]);
-  const [documentTotal, setDocumentTotal] = useState(0);
-  const [documentsLoading, setDocumentsLoading] = useState(false);
-  const documentRequest = useRef(0);
-  const [documentQuery, setDocumentQuery] = useState(search.trim().slice(0, 200));
-  const [documentSort, setDocumentSort] = useState("updatedAt");
-  useEffect(() => {
-    const query = search.trim().slice(0, 200);
-    if (query === documentQuery) return;
-    const timer = window.setTimeout(() => { setDocumentPage(1); setDocumentQuery(query); }, 300);
-    return () => window.clearTimeout(timer);
-  }, [search, documentQuery]);
-  const documentPageSize = 20;
-  const documentPageCount = Math.max(
-    1,
-    Math.ceil(documentTotal / documentPageSize),
-  );
-  const loadDocuments = useCallback(async () => {
-    const request = ++documentRequest.current;
-    setDocumentsLoading(true);
-    setPageDocuments([]);
-    try {
-      const result = await api<{ items: AdminDocument[]; total: number }>(
-        `/api/admin/documents?${new URLSearchParams({ page: String(documentPage), limit: String(documentPageSize), q: documentQuery, sort: documentSort, order: "desc" })}`,
-      );
-      if (request !== documentRequest.current) return;
-      setPageDocuments(result.items);
-      setDocumentTotal(result.total);
-      setDocumentPage((page) => Math.min(page, Math.max(1, Math.ceil(result.total / documentPageSize))));
-    } catch (error) {
-      if (request === documentRequest.current) onError((error as Error).message);
-    } finally {
-      if (request === documentRequest.current) setDocumentsLoading(false);
-    }
-  }, [documentPage, documentQuery, documentSort, onError]);
-  useEffect(() => {
-    if (refreshing) return;
-    void loadDocuments();
-    return () => { documentRequest.current++; };
-  }, [loadDocuments, refreshing]);
-  const selectedSpace = spaces.find((space) => space.id === spaceId);
-  const versionTranslation = versionUploadDocument?.translations.find(
-    (translation) => translation.locale === locale,
-  ) ?? versionUploadDocument?.translations[0];
-  const nextVersion = versionUploadDocument
-    ? Math.max(0, ...versionUploadDocument.versions.map((version) => version.version)) + 1
-    : null;
-  const selectMetadataLocale = (document: AdminDocument, documentLocale: "fr" | "en") => {
-    const translation = document.translations.find((item) => item.locale === documentLocale);
-    setEditedLocale(documentLocale);
-    setEditedTitle(translation?.title || document.translations[0]?.title || "");
-    setEditedDescription((translation ? translation.description : document.translations[0]?.description) ?? "");
-  };
-  return (
-    <>
-      <h1>{t("Documents")}</h1>
-      <div className="admin-management-tools">
-        <label>{t("Rechercher un document", "Search documents")}<input type="search" maxLength={200} value={search} onChange={(event) => onSearch(event.target.value)} /></label>
-        <label>{t("Trier par", "Sort by")}<select value={documentSort} onChange={(event) => { setDocumentPage(1); setDocumentSort(event.target.value); }}>
-          <option value="updatedAt">{t("Dernière modification", "Last updated")}</option>
-          <option value="publishedAt">{t("Publication", "Publication")}</option>
-          <option value="status">{t("État")}</option>
-        </select></label>
-        <span role="status">{documentsLoading ? t("Chargement…") : `${documentTotal} ${t("documents", "documents")}`}</span>
-      </div>
-      <BatchImport locale={locale} disabled={refreshing} onComplete={async () => { await loadDocuments(); await onChanged(); }} />
-      <form
-        key={versionUploadDocument?.id || "new-document"}
-        id="document-upload-form"
-        className="admin-form upload-form"
-        onSubmit={async (event: FormEvent<HTMLFormElement>) => {
-          event.preventDefault();
-          const formElement = event.currentTarget;
-          const data = new FormData(formElement);
-          await api("/api/admin/documents", { method: "POST", body: data })
-            .then(async () => {
-              formElement.reset();
-              setSpaceId("");
-              setVersionUploadDocument(null);
-              setSensitive(false);
-              setWatermarkPosition("CENTER");
-              await onChanged();
-            })
-            .catch((error) => onError(error.message));
-        }}
-      >
-        <input name="documentId" type="hidden" value={versionUploadDocument?.id || ""} />
-        <h2>{versionUploadDocument ? t("Déposer une nouvelle version") : t("Déposer un document", "Upload a document")}</h2>
-        {versionUploadDocument && (
-          <p className="notice">
-            {t("Document sélectionné")}: <strong>{versionTranslation?.title}</strong> · {t("prochaine version")} v{nextVersion}
-          </p>
-        )}
-        <p>
-          {t(
-            "Formats acceptés : PDF, Word DOCX et Excel XLSX. Les utilisateurs les consultent en lecture seule.",
-            "Accepted formats: PDF, Word DOCX and Excel XLSX. Users view them in read-only mode.",
-          )}
-        </p>
-        <label>
-          {t("Espace")}
-          {versionUploadDocument && <input type="hidden" name="spaceId" value={spaceId} />}
-          <select
-            name={versionUploadDocument ? undefined : "spaceId"}
-            required
-            value={spaceId}
-            disabled={Boolean(versionUploadDocument)}
-            onChange={(event) => setSpaceId(event.target.value)}
-          >
-            <option value="">{t("Sélectionner…")}</option>
-            {spaces.map((space) => (
-              <option value={space.id} key={space.id}>
-                {locale === "fr" ? space.nameFr : space.nameEn}
-              </option>
-            ))}
-          </select>
-        </label>
-        {!versionUploadDocument && (
-          <label>
-            {t("Catégorie")}
-            <select name="categoryId">
-              <option value="">{t("Sans catégorie")}</option>
-              {flattenCategories(selectedSpace?.categories || []).map(
-                ({ item, depth }) => (
-                  <option value={item.id} key={item.id}>
-                    {`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}
-                  </option>
-                ),
-              )}
-            </select>
-          </label>
-        )}
-        <fieldset className="document-language-field">
-          <legend>{t("Langue du document")}</legend>
-          <div className="document-language-options">
-            <label className="document-language-option">
-              <input name="locale" type="radio" value="fr" defaultChecked={versionTranslation?.locale !== "en"} />
-              <span>FR</span>
-            </label>
-            <label className="document-language-option">
-              <input name="locale" type="radio" value="en" defaultChecked={versionTranslation?.locale === "en"} />
-              <span>EN</span>
-            </label>
-          </div>
-          <small>{t("Indique uniquement la langue du fichier.")}</small>
-        </fieldset>
-        <label>
-          {t("Titre")}
-          <input name="title" required maxLength={255} defaultValue={versionTranslation?.title || ""} />
-        </label>
-        <label>
-          {t("Description")}
-          <textarea name="description" maxLength={2000} defaultValue={versionTranslation?.description || ""} />
-        </label>
-        <label>
-          {t("Résumé des changements")}
-          <textarea
-            name="changeSummary"
-            maxLength={2000}
-            placeholder={t("Décrivez ce qui change dans cette version.")}
-          />
-        </label>
-        <label>
-          {t("Fichier")}
-          <input name="file" type="file" required accept=".pdf,.docx,.xlsx" />
-        </label>
-        <StorageSelect spaceId={spaceId} locale={locale} admin />
-        <label className="check">
-          <input name="suppressEmailNotifications" value="true" type="checkbox" /> {t("Ne pas envoyer d’alerte e-mail pour ce dépôt ou sa publication")}
-        </label>
-        <label className="check">
-          <input
-            name="sensitive"
-            value="true"
-            type="checkbox"
-            checked={sensitive}
-            onChange={(event) => setSensitive(event.target.checked)}
-          />{" "}
-          {t("Document sensible")}
-        </label>
-        {sensitive && (
-          <section className="watermark-config">
-            <label>
-              {t("Position du filigrane")}
-              <select
-                name="watermarkPosition"
-                value={watermarkPosition}
-                onChange={(event) =>
-                  setWatermarkPosition(
-                    event.target.value as "HEADER" | "CENTER" | "FOOTER",
-                  )
-                }
-              >
-                <option value="HEADER">{t("Haut de page")}</option>
-                <option value="CENTER">{t("Milieu de page")}</option>
-                <option value="FOOTER">{t("Bas de page")}</option>
-              </select>
-            </label>
-            <div>
-              <strong>{t("Aperçu du filigrane")}</strong>
-              <div className="watermark-preview" aria-live="polite">
-                <span
-                  className={`sensitive-watermark ${watermarkPosition.toLowerCase()}`}
-                >
-                  SENSITIVE DOCUMENT
-                </span>
-              </div>
-            </div>
-          </section>
-        )}
-        <div className="button-row">
-          <button className="primary">{versionUploadDocument ? t("Déposer la nouvelle version") : t("Déposer et analyser")}</button>
-          {versionUploadDocument && <button type="button" onClick={() => { setVersionUploadDocument(null); setSpaceId(""); setSensitive(false); setWatermarkPosition("CENTER"); }}>{t("Annuler la modification")}</button>}
-        </div>
-      </form>
-      {editingMetadataDocument && (
-        <form id="document-metadata-form" className="admin-form upload-form" onSubmit={async (event) => {
-          event.preventDefault();
-          if (metadataInFlight.current) return;
-          metadataInFlight.current = true;
-          setSavingMetadata(true);
-          try {
-            await api(`/api/documents/${editingMetadataDocument.id}/metadata`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ locale: editedLocale, versionId: editingMetadataDocument.versions[0]?.id, title: editedTitle.trim(), description: editedDescription.trim(), categoryId: editedCategoryId || null }),
-            });
-            setEditingMetadataDocument(null);
-            await onChanged();
-          } catch (error) {
-            onError(error instanceof Error ? error.message : String(error));
-          } finally {
-            metadataInFlight.current = false;
-            setSavingMetadata(false);
-          }
-        }}>
-          <h2>{t("Éditer les métadonnées")}</h2>
-          <p>{editingMetadataDocument.translations.map((item) => item.title).join(" / ")}</p>
-          <label>{t("Langue du document")}
-            <select value={editedLocale} onChange={(event) => selectMetadataLocale(editingMetadataDocument, event.target.value as "fr" | "en")}>
-              <option value="fr">FR</option><option value="en">EN</option>
-            </select>
-          </label>
-          <label>{t("Titre")}<input required maxLength={255} value={editedTitle} onChange={(event) => setEditedTitle(event.target.value)} /></label>
-          <label>{t("Description")}<textarea maxLength={2000} value={editedDescription} onChange={(event) => setEditedDescription(event.target.value)} /></label>
-          <label>{t("Catégorie")}
-            <select value={editedCategoryId} onChange={(event) => setEditedCategoryId(event.target.value)}>
-              <option value="">{t("Sans catégorie")}</option>
-              {flattenCategories(spaces.find((space) => space.id === editingMetadataDocument.space.id)?.categories || []).map(({ item, depth }) => (
-                <option key={item.id} value={item.id}>{`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}</option>
-              ))}
-            </select>
-          </label>
-          <div className="button-row">
-            <button className="primary" disabled={savingMetadata || !editedTitle.trim()}>{t("Enregistrer")}</button>
-            <button type="button" disabled={savingMetadata} onClick={() => setEditingMetadataDocument(null)}>{t("Annuler")}</button>
-          </div>
-        </form>
-      )}
-      <div className="admin-table-wrap">
-        <table className="admin-actions-table" aria-busy={documentsLoading}>
-          <thead>
-            <tr>
-              <th>{t("Titre")}</th>
-              <th>{t("Espace")}</th>
-              <th>{t("Catégorie")}</th>
-              <th>{t("Langue du document")}</th>
-              <th>{t("État")}</th>
-              <th>{t("Actions")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {documentsLoading && <tr><td colSpan={6}><p className="loading-state" role="status">{t("Chargement…")}</p></td></tr>}
-            {!documentsLoading && pageDocuments.length === 0 && (
-              <tr>
-                <td colSpan={6}>
-                  <EmptyState
-                    compact
-                    fr="Aucun document ne correspond à cette recherche."
-                    en="No document matches this search."
-                  />
-                </td>
-              </tr>
-            )}
-            {pageDocuments.map((document) => (
-              <tr key={document.id}>
-                <td data-label={t("Titre")}>
-                  {document.translations.map((item) => item.title).join(" / ")}
-                  <details className="document-lifecycle">
-                    <summary>{t("Chronologie")}</summary>
-                    <ol>
-                      <li>
-                        {t("Création")}:{" "}
-                        {new Date(document.createdAt).toLocaleString(locale)}
-                      </li>
-                      {document.versions
-                        .slice()
-                        .sort((left, right) => left.version - right.version)
-                        .map((version) => (
-                          <li
-                            key={
-                              version.id ||
-                              `${version.locale}-${version.version}`
-                            }
-                          >
-                            v{version.version} · {version.locale.toUpperCase()}{" "}
-                            ·{" "}
-                            {new Date(version.createdAt).toLocaleString(locale)}
-                          </li>
-                        ))}
-                      {document.publishedAt && (
-                        <li>
-                          {t("Publication")}:{" "}
-                          {new Date(document.publishedAt).toLocaleString(
-                            locale,
-                          )}
-                        </li>
-                      )}
-                      <li>
-                        {t("Dernière modification")}:{" "}
-                        {new Date(document.updatedAt).toLocaleString(locale)}
-                      </li>
-                    </ol>
-                  </details>
-                </td>
-                <td data-label={t("Espace")}>
-                  {locale === "fr"
-                    ? document.space.nameFr
-                    : document.space.nameEn}
-                </td>
-                <td data-label={t("Catégorie")}>
-                  {document.category ? (locale === "fr" ? document.category.nameFr : document.category.nameEn) : t("Sans catégorie")}
-                </td>
-                <td data-label={t("Langue du document")}>
-                  <div
-                    className="document-language-badges"
-                    aria-label={t("Langue du document")}
-                  >
-                    {Array.from(
-                      new Set(
-                        document.versions.map((version) => version.locale),
-                      ),
-                    ).map((documentLocale) => (
-                      <span
-                        className="document-language-badge"
-                        key={documentLocale}
-                      >
-                        {documentLocale.toUpperCase()}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-                <td data-label={t("État")}>{localizedStatus(locale, document.status)}</td>
-                <td data-label={t("Actions")}>
-                  <div className="document-actions">
-                    <button
-                      type="button"
-                      className="document-action"
-                      onClick={() => {
-                        setEditingMetadataDocument(document);
-                        setEditedCategoryId(document.category?.id || "");
-                        selectMetadataLocale(document, document.versions[0]?.locale === "en" ? "en" : "fr");
-                        window.setTimeout(() => window.document.getElementById("document-metadata-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-                      }}
-                    >
-                      <Icon name="documents" />
-                      {t("Éditer les métadonnées")}
-                    </button>
-                    <button
-                      type="button"
-                      className="document-action"
-                      onClick={() => {
-                        setVersionUploadDocument(document);
-                        setSpaceId(document.space.id);
-                        setSensitive(document.sensitive);
-                        setWatermarkPosition(document.watermarkPosition);
-                        window.setTimeout(() => window.document.getElementById("document-upload-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-                      }}
-                    >
-                      <Icon name="upload" />
-                      {t("Nouvelle version")}
-                    </button>
-                    {document.status !== "PUBLISHED" && (
-                      <button
-                        className="document-action publish"
-                        onClick={() =>
-                          api(`/api/admin/documents/${document.id}/publish`, {
-                            method: "POST",
-                          })
-                            .then(onChanged)
-                            .catch((error) => onError(error.message))
-                        }
-                      >
-                        <Icon name="publish" />
-                        {t("Publier")}
-                      </button>
-                    )}
-                    {document.status !== "ARCHIVED" && (
-                      <button
-                        className="document-action archive"
-                        onClick={() =>
-                          api(`/api/admin/documents/${document.id}/archive`, {
-                            method: "POST",
-                          })
-                            .then(onChanged)
-                            .catch((error) => onError(error.message))
-                        }
-                      >
-                        <Icon name="archive" />
-                        {t("Archiver")}
-                      </button>
-                    )}
-                    {document.status === "ARCHIVED" && (
-                      <button
-                        className="document-action restore"
-                        onClick={() =>
-                          api(`/api/admin/documents/${document.id}/restore`, {
-                            method: "POST",
-                          })
-                            .then(onChanged)
-                            .catch((error) => onError(error.message))
-                        }
-                      >
-                        <Icon name="restore" />
-                        {t("Restaurer")}
-                      </button>
-                    )}
-                    <button
-                      className="document-action delete"
-                      onClick={async () => {
-                        if (
-                          !(await confirmAction(
-                            t(
-                              "Supprimer définitivement ce document et tous ses fichiers ?",
-                            ),
-                          ))
-                        )
-                          return;
-                        await api(`/api/admin/documents/${document.id}`, {
-                          method: "DELETE",
-                        })
-                          .then(onChanged)
-                          .catch((error) => onError(error.message));
-                      }}
-                    >
-                      <Icon name="delete" />
-                      {t("Supprimer")}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {documentPageCount > 1 && (
-        <nav
-          className="document-pagination"
-          aria-label={t("Pagination des documents")}
-        >
-          <button
-            type="button"
-            disabled={documentsLoading || documentPage <= 1}
-            onClick={() => setDocumentPage((page) => page - 1)}
-          >
-            ← {t("Précédent")}
-          </button>
-          <div
-            className="page-numbers"
-            aria-label={`${t("Page")} ${documentPage} ${t("sur")} ${documentPageCount}`}
-          >
-            {paginationItems(documentPage, documentPageCount).map(
-              (item, index) =>
-                item === "ellipsis" ? (
-                  <span key={`ellipsis-${index}`} aria-hidden="true">
-                    …
-                  </span>
-                ) : (
-                  <button
-                    key={item}
-                    type="button"
-                    className="page-number"
-                    aria-current={item === documentPage ? "page" : undefined}
-                    disabled={documentsLoading}
-                    onClick={() => setDocumentPage(item)}
-                  >
-                    {item}
-                  </button>
-                ),
-            )}
-          </div>
-          <button
-            type="button"
-            disabled={documentsLoading || documentPage >= documentPageCount}
-            onClick={() => setDocumentPage((page) => page + 1)}
-          >
-            {t("Suivant")} →
-          </button>
-        </nav>
-      )}
-    </>
-  );
-}
 
 function SsoPanel({ identity }: { identity: { authentication: Authentication } | null }) {
   const { t } = useAdminI18n();
@@ -5191,7 +4564,7 @@ function ObservabilityPanel({
   const [emailDeliveries, setEmailDeliveries] = useState<Array<{ id: string; action: string; resource: string; status: "WAITING" | "ACTIVE" | "DELAYED" | "ACCEPTED" | "SKIPPED" | "FAILED"; attempts: number; createdAt: string; finishedAt: string | null; accepted: number; error: string | null }>>([]);
   const [emailStatusFilter, setEmailStatusFilter] = useState("ALL");
   const [emailError, setEmailError] = useState("");
-  const [emailQueueCounts, setEmailQueueCounts] = useState({ waiting: 0, active: 0, delayed: 0, completed: 0, failed: 0 });
+  const [emailQueueCounts, setEmailQueueCounts] = useState({ waiting: 0, active: 0, delayed: 0, completed: 0, failed: 0, pendingOutbox: 0 });
   const [emailTestRecipient, setEmailTestRecipient] = useState("");
   const [emailTestType, setEmailTestType] = useState<"document" | "approval" | "review" | "report">("approval");
   const [emailBusy, setEmailBusy] = useState(false);
@@ -5549,7 +4922,7 @@ function ObservabilityPanel({
           </div>
         </div>
         {emailError && <p className="error-message" role="alert">{emailError}</p>}
-        <p>{emailCopy.waiting}: {emailLoaded ? emailQueueCounts.waiting : "—"} · {emailCopy.active}: {emailLoaded ? emailQueueCounts.active : "—"} · {emailCopy.delayed}: {emailLoaded ? emailQueueCounts.delayed : "—"} · {emailCopy.failed}: {emailLoaded ? emailQueueCounts.failed : "—"}</p>
+        <p>{emailCopy.waiting}: {emailLoaded ? emailQueueCounts.waiting + (emailQueueCounts.pendingOutbox || 0) : "—"} · {emailCopy.active}: {emailLoaded ? emailQueueCounts.active : "—"} · {emailCopy.delayed}: {emailLoaded ? emailQueueCounts.delayed : "—"} · {emailCopy.failed}: {emailLoaded ? emailQueueCounts.failed : "—"}</p>
         <form className="admin-form observability-policy" onSubmit={(event) => void testEmailTemplate(event)}>
           <label>{emailCopy.recipient}<input required type="email" value={emailTestRecipient} onChange={(event) => setEmailTestRecipient(event.target.value)} /></label>
           <label>{emailCopy.template}<select value={emailTestType} onChange={(event) => setEmailTestType(event.target.value as typeof emailTestType)}><option value="document">{emailCopy.document}</option><option value="approval">{emailCopy.approval}</option><option value="review">{emailCopy.review}</option><option value="report">{emailCopy.report}</option></select></label>

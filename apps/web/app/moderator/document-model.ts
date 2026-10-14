@@ -7,15 +7,20 @@ export type ModeratorDocument = {
   id: string; status: string; space: Pick<Space, "id" | "nameFr" | "nameEn">;
   category: Pick<Category, "id" | "nameFr" | "nameEn"> | null;
   translations: Array<{ locale: string; title: string; description: string | null }>;
-  versions: Array<{ id: string; locale: string; version: number }>;
+  versions: Array<{ id: string; locale: string; version: number; createdAt?: string }>;
 };
 export type MetadataValues = { locale: DocumentLocale; title: string; description: string; categoryId: string };
 
-export const latestVersion = (document: ModeratorDocument) => document.versions.reduce<ModeratorDocument["versions"][number] | undefined>(
-  (latest, version) => !latest || version.version > latest.version ? version : latest, undefined,
-);
+export function latestVersion<T extends { id?: string; locale: string; version: number; createdAt?: string }>({ versions }: { versions: T[] }) {
+  return versions.reduce<T | undefined>((latest, version) => {
+    if (!latest) return version;
+    const currentDate = Date.parse(version.createdAt || ""), previousDate = Date.parse(latest.createdAt || "");
+    if (Number.isFinite(currentDate) && Number.isFinite(previousDate) && currentDate !== previousDate) return currentDate > previousDate ? version : latest;
+    return version.version > latest.version ? version : latest;
+  }, undefined);
+}
 
-export function translationFields(document: ModeratorDocument, locale: Locale) {
+export function translationFields(document: { translations: ReadonlyArray<{ locale: string; title: string; description?: string | null }> }, locale: Locale) {
   const selected = document.translations.find((item) => item.locale === locale)
     || document.translations.find((item) => item.locale === "en")
     || document.translations[0];
@@ -49,7 +54,7 @@ export function categoryOptions(categories: Category[], locale: Locale) {
   });
 }
 
-export function validateUpload(data: FormData, locale: Locale) {
+export function validateUpload(data: FormData, locale: Locale, options: { requireSummary?: boolean } = {}) {
   const t = (fr: string, en: string) => translate(locale, fr, en);
   const file = data.get("file");
   if (!(file instanceof File) || !file.size) throw new Error(t("Le fichier est vide.", "The file is empty."));
@@ -58,7 +63,7 @@ export function validateUpload(data: FormData, locale: Locale) {
   if (String(data.get("description") || "").length > 2000) throw new Error(t("Un champ dépasse la longueur autorisée.", "A field exceeds the allowed length."));
   for (const [field, limit] of [["title", 255], ["changeSummary", 2000]] as const) {
     const value = String(data.get(field) || "").trim();
-    if (!value) throw new Error(t("Le titre et le résumé des changements sont obligatoires.", "Title and change summary are required."));
+    if (!value && (field === "title" || options.requireSummary !== false)) throw new Error(t("Le titre et le résumé des changements sont obligatoires.", "Title and change summary are required."));
     if (value.length > limit) throw new Error(t("Un champ dépasse la longueur autorisée.", "A field exceeds the allowed length."));
     data.set(field, value);
   }

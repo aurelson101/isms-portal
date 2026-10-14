@@ -15,6 +15,15 @@ function upload() {
 }
 
 describe("moderator document model", () => {
+  it("uses publication chronology across languages rather than comparing unrelated version counters", () => {
+    const document = { versions: [{ id: "en", locale: "en", version: 5, createdAt: "2025-01-01" }, { id: "fr", locale: "fr", version: 1, createdAt: "2026-10-14" }] };
+    expect(latestVersion(document)?.id).toBe("fr");
+  });
+  it("retains the administrator's optional summary while sharing file validation", () => {
+    const data = upload(); data.set("changeSummary", "");
+    expect(validateUpload(data, "en", { requireSummary: false })).toBe(data);
+    expect(() => validateUpload(data, "en")).toThrow("required");
+  });
   it("selects the latest unsorted version", () => expect(latestVersion(document)?.id).toBe("v3"));
   it("handles documents without versions", () => expect(latestVersion({ ...document, versions: [] })).toBeUndefined());
   it("does not reorder source versions", () => { const before = [...document.versions]; latestVersion(document); expect(document.versions).toEqual(before); });

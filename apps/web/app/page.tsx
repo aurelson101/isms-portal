@@ -1,4 +1,6 @@
 "use client";
+import { fetchWithTimeout as fetch } from "./http-client";
+import { translationFields } from "./moderator/document-model";
 
 import { localizedPair, translate } from "./i18n/translate";
 
@@ -3679,10 +3681,10 @@ export function Portal({
                 {translate(locale, "Langue", "Language")}
                 <select name="locale" value={editLocale} onChange={(event) => {
                   const selected = event.target.value as DocumentLocale;
-                  const translation = editing.translations.find((item) => item.locale === selected);
                   setEditLocale(selected);
-                  setEditTitle(translation?.title || editTitle);
-                  setEditDescription(translation?.description || editDescription);
+                  const fields = translationFields(editing, selected);
+                  setEditTitle(fields.title);
+                  setEditDescription(fields.description);
                 }}>
                   <option value="fr">FR</option>
                   <option value="en">EN</option>
