@@ -4,7 +4,7 @@ import { withLocales } from "../i18n/translate";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { returnDestination, ssoDestination } from "../auth-navigation";
-import { authConfig, loginFailure, loginRequest, LoginToolbar, PasswordField } from "../login-shared";
+import { authConfig, loginFailure, loginRequest, LoginMethods, LoginToolbar, PasswordField } from "../login-shared";
 import { useInterfaceLocale } from "../i18n/use-locale";
 import { readLocale } from "../i18n/locale";
 
@@ -25,7 +25,6 @@ const copy = withLocales({
     rememberDevice: "Reconnaître cet équipement pendant 14 jours",
     ssoUnavailable:
       "La connexion automatique n’a pas pu être démarrée. Utilisez vos identifiants.",
-    ssoPilot: "Continuer avec Microsoft",
   },
   en: {
     title: "Sign in",
@@ -43,7 +42,6 @@ const copy = withLocales({
     rememberDevice: "Remember this device for 14 days",
     ssoUnavailable:
       "Automatic sign-in could not be started. Use your credentials.",
-    ssoPilot: "Continue with Microsoft",
   },
 } as const);
 
@@ -54,6 +52,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [loggedOut, setLoggedOut] = useState(false);
+  const [localLogin, setLocalLogin] = useState(false);
   const [detectingSso, setDetectingSso] = useState(false);
   const [pilotSsoUrl, setPilotSsoUrl] = useState<string | null>(null);
   const t = copy[locale];
@@ -64,6 +63,7 @@ export default function LoginPage() {
     const signedOut = parameters.get("loggedout") === "1";
     const localLogin = parameters.get("local") === "1";
     setLoggedOut(signedOut);
+    setLocalLogin(localLogin);
     authConfig(controller.signal)
       .then((config) => {
         if (controller.signal.aborted) return;
@@ -116,19 +116,15 @@ export default function LoginPage() {
       <section className="login-card">
         <LoginToolbar locale={locale} onLocaleChange={setLocale} />
         <h1>{t.title}</h1>
-        <p>{t.subtitle}</p>
+        {!pilotSsoUrl && <p>{t.subtitle}</p>}
         {loggedOut && <p className="login-success">{t.loggedOut}</p>}
         {detectingSso && (
           <p className="login-success" role="status">
             {t.detecting}
           </p>
         )}
+        <LoginMethods locale={locale} ssoUrl={detectingSso ? null : pilotSsoUrl} showCredentials={localLogin}>
         {!available && <p className="login-warning">{t.unavailable}</p>}
-        {pilotSsoUrl && !detectingSso && (
-          <a className="login-sso" href={pilotSsoUrl}>
-            {t.ssoPilot}
-          </a>
-        )}
         <form onSubmit={submit} className="login-form" aria-busy={busy || detectingSso}>
           <fieldset className="login-fields" disabled={busy || detectingSso}>
           <label>
@@ -160,6 +156,7 @@ export default function LoginPage() {
           </button>
           </fieldset>
         </form>
+        </LoginMethods>
         {detectingSso && (
           <a className="login-back" href={`/login?local=1&return=${encodeURIComponent(returnDestination(new URLSearchParams(window.location.search).get("return")))}`}>
             {t.useCredentials}

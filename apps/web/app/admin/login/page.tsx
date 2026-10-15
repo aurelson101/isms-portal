@@ -3,8 +3,8 @@
 import { withLocales } from "../../i18n/translate";
 
 import { FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
-import { returnDestination, ssoDestination } from "../../auth-navigation";
-import { authConfig, loginFailure, loginRequest, LoginToolbar, PasswordField } from "../../login-shared";
+import { adminDestination, ssoDestination } from "../../auth-navigation";
+import { authConfig, loginFailure, loginRequest, LoginMethods, LoginToolbar, PasswordField } from "../../login-shared";
 import { useInterfaceLocale } from "../../i18n/use-locale";
 
 type LoginMode = "local" | "directory";
@@ -22,7 +22,6 @@ const copy = withLocales({
     localMode: "Compte local",
     directoryMode: "Active Directory",
     directoryUnavailable: "La connexion Active Directory est indisponible.",
-    sso: "Continuer avec Microsoft",
   },
   en: {
     title: "Administrator sign in",
@@ -37,7 +36,6 @@ const copy = withLocales({
     localMode: "Local account",
     directoryMode: "Active Directory",
     directoryUnavailable: "Active Directory sign-in is unavailable.",
-    sso: "Continue with Microsoft",
   },
 } as const);
 
@@ -48,6 +46,7 @@ export default function AdminLoginPage() {
   const [busy, setBusy] = useState(false);
   const [needsMfa, setNeedsMfa] = useState(false);
   const [loggedOut, setLoggedOut] = useState(false);
+  const [localLogin, setLocalLogin] = useState(false);
   const [mode, setMode] = useState<LoginMode>("local");
   const [directoryAvailable, setDirectoryAvailable] = useState(false);
   const [ssoUrl, setSsoUrl] = useState<string | null>(null);
@@ -63,15 +62,15 @@ export default function AdminLoginPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoggedOut(
-      new URLSearchParams(window.location.search).get("loggedout") === "1",
-    );
+    const parameters = new URLSearchParams(window.location.search);
+    setLoggedOut(parameters.get("loggedout") === "1");
+    setLocalLogin(parameters.get("local") === "1");
     authConfig(controller.signal)
       .then((config) => {
         if (controller.signal.aborted) return;
         setDirectoryAvailable(Boolean(config.directoryLoginEnabled));
         const value = config.ssoPilotUrl || config.ssoLoginUrl;
-        if (config.ssoEnabled && value) setSsoUrl(ssoDestination(value, "/admin"));
+        if (config.ssoEnabled && value) setSsoUrl(ssoDestination(value, adminDestination(parameters.get("return"))));
       })
       .catch(() => { if (!controller.signal.aborted) setDirectoryAvailable(false); });
     return () => controller.abort();
@@ -96,10 +95,7 @@ export default function AdminLoginPage() {
       setError(loginFailure(response, locale, t.invalid));
       return;
     }
-    const requested = returnDestination(new URLSearchParams(window.location.search).get("return"), "/admin");
-    window.location.replace(
-      requested === "/admin" || requested.startsWith("/admin/") || requested.startsWith("/admin#") || requested.startsWith("/admin?") ? requested : "/admin",
-    );
+    window.location.replace(adminDestination(new URLSearchParams(window.location.search).get("return")));
   };
 
   return (
@@ -107,9 +103,9 @@ export default function AdminLoginPage() {
       <section className="login-card">
         <LoginToolbar locale={locale} onLocaleChange={setLocale} admin />
         <h1>{t.title}</h1>
-        <p>{t.subtitle}</p>
+        {!ssoUrl && <p>{t.subtitle}</p>}
         {loggedOut && <p className="login-success">{t.loggedOut}</p>}
-        {ssoUrl && <a className="login-sso" href={ssoUrl}>{t.sso}</a>}
+        <LoginMethods locale={locale} ssoUrl={ssoUrl} showCredentials={localLogin}>
         <div className="login-tabs" role="tablist" aria-label={t.title} onKeyDown={navigateTabs}>
           <button
             type="button"
@@ -179,6 +175,7 @@ export default function AdminLoginPage() {
           </button>
           </fieldset>
         </form>
+        </LoginMethods>
       </section>
     </main>
   );

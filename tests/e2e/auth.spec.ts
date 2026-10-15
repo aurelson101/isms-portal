@@ -79,6 +79,8 @@ test("verified SSO offers a prominent sign-in link without replacing AD login", 
   await expect(sso).toBeVisible();
   await expect(sso).toHaveAttribute("href", "/oauth2/start?rd=%2Fexplorer");
   await expect(sso).toHaveCSS("background-color", "rgb(7, 90, 212)");
+  await expect(page.getByLabel("Identifier", { exact: true })).toBeHidden();
+  await page.locator(".login-alternative > summary").click();
   await expect(page.getByLabel("Identifier", { exact: true })).toBeVisible();
 });
 
@@ -92,6 +94,8 @@ test("admin SSO targets the admin workspace and keeps recovery login available",
   const sso = page.getByRole("link", { name: "Continue with Microsoft" });
   await expect(sso).toBeVisible();
   await expect(sso).toHaveAttribute("href", "/oauth2/start?rd=%2Fadmin");
+  await expect(page.getByLabel("Password", { exact: true })).toBeHidden();
+  await page.locator(".login-alternative > summary").click();
   await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
   await sso.click({ trial: true });
   await expect(page).toHaveURL(/\/admin\/login$/);

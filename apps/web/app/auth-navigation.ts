@@ -6,6 +6,7 @@ export type AuthConfig = {
 };
 
 export function returnDestination(requested: string | null, fallback = "/") {
+  // eslint-disable-next-line no-control-regex -- Redirect destinations must reject control characters.
   if (!requested?.startsWith("/") || requested.startsWith("//") || /[\\\u0000-\u001f\u007f]/.test(requested)) return fallback;
   try {
     const url = new URL(requested, window.location.origin);
@@ -24,4 +25,9 @@ export function ssoDestination(value: string, requested: string | null, fallback
   } catch {
     return null;
   }
+}
+
+export function adminDestination(requested: string | null) {
+  const destination = returnDestination(requested, "/admin");
+  return /^\/admin(?:[/?#]|$)/.test(destination) ? destination : "/admin";
 }

@@ -887,6 +887,14 @@ désigne une route locale. Le repli LDAP/LDAPS reste disponible explicitement su
 `/login?local=1` ; après une déconnexion, `/login?loggedout=1` n'essaie pas de
 reconnecter immédiatement le même compte.
 
+Quand le SSO est validé, les connexions utilisateur, modérateur et administrateur
+présentent Microsoft en premier. La section « Utiliser un identifiant et un mot
+de passe » donne accès au repli existant, sans modifier les droits ni le MFA.
+Le modérateur conserve sa destination `/moderator` ; le SSO administrateur
+conserve aussi la section demandée, par exemple `/admin#documents`.
+L’accès de secours `/admin/login?local=1` ouvre directement le formulaire
+administrateur. Sans SSO disponible, les formulaires restent affichés normalement.
+
 ### Administrateurs issus d'Active Directory
 
 Dans **Administration → Configuration → Comptes administrateurs**, le compte

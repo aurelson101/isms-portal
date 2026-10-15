@@ -2,10 +2,31 @@
 
 import { translate } from "./i18n/translate";
 
-import { useId, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { useBranding } from "./branding";
 import { interfaceLocales, type Locale } from "./i18n/locale";
 import type { AuthConfig } from "./auth-navigation";
+
+const methodsCopy = {
+  fr: { intro: "Connectez-vous avec votre compte Microsoft professionnel.", credentials: "Utiliser un identifiant et un mot de passe" },
+  en: { intro: "Sign in with your work Microsoft account.", credentials: "Use a username and password" },
+  es: { intro: "Inicia sesión con tu cuenta profesional de Microsoft.", credentials: "Usar un usuario y una contraseña" },
+  sk: { intro: "Prihláste sa pomocou pracovného konta Microsoft.", credentials: "Použiť používateľské meno a heslo" },
+};
+
+export function LoginMethods({ locale, ssoUrl, showCredentials = false, children }: {
+  locale: Locale; ssoUrl: string | null; showCredentials?: boolean; children: ReactNode;
+}) {
+  if (!ssoUrl) return <>{children}</>;
+  return <>
+    <p>{methodsCopy[locale].intro}</p>
+    <a className="login-sso" href={ssoUrl}>{translate(locale, "Continuer avec Microsoft", "Continue with Microsoft")}</a>
+    <details className="login-alternative" open={showCredentials || undefined}>
+      <summary>{methodsCopy[locale].credentials}</summary>
+      <div>{children}</div>
+    </details>
+  </>;
+}
 
 export function PasswordField({ locale, label }: { locale: Locale; label: string }) {
   const [visible, setVisible] = useState(false);

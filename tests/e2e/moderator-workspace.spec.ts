@@ -108,6 +108,7 @@ for (const width of [320, 768, 1280]) {
     await expect(page.getByRole("heading", { name: "Administrator sign in" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath("admin-login.png"), fullPage: true });
+    await page.locator(".login-alternative > summary").click();
     await page.getByLabel("Administrator username", { exact: true }).fill("admin@example.test");
     await page.getByLabel("Password", { exact: true }).fill("test-only-password");
     await page.route("http://127.0.0.1:3100/admin", (route) => route.fulfill({ contentType: "text/html", body: "<h1>Administration</h1>" }));
@@ -127,6 +128,7 @@ for (const [requested, expected] of [["/moderator", "/moderator"], ["/\\external
     });
     await page.goto(`/login?return=${encodeURIComponent(requested)}`);
     await expect(page.getByRole("link", { name: "Continue with Microsoft" })).toHaveAttribute("href", `/oauth2/start?rd=${encodeURIComponent(expected)}`);
+    await page.locator(".login-alternative > summary").click();
     await page.getByLabel("Identifier", { exact: true }).fill("moderator@example.test");
     await page.getByLabel("Password", { exact: true }).fill("test-only-password");
     await page.route(`http://127.0.0.1:3100${expected}`, (route) => route.fulfill({ contentType: "text/html", body: "<h1>Destination</h1>" }));

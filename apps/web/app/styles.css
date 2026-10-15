@@ -84,6 +84,24 @@ body {
   outline: 3px solid #163d86;
   outline-offset: 3px;
 }
+.login-alternative {
+  border-top: 1px solid #d5deeb;
+  padding-top: 12px;
+}
+.login-alternative > summary {
+  min-height: 44px;
+  padding: 10px 0;
+  color: #30486e;
+  cursor: pointer;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.login-alternative > div {
+  margin-top: 12px;
+}
+.login-alternative .login-tabs {
+  margin-top: 0;
+}
 .login-toolbar {
   display: flex;
   align-items: center;
