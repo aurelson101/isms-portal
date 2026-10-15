@@ -2467,6 +2467,12 @@ h1 {
   color: #17345f;
   font: inherit;
 }
+.matrix-heading button,
+.space-category-row .button-row button {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .content-management-actions button,
 .space-management-header-actions button {
   display: inline-flex;
@@ -6303,7 +6309,7 @@ svg {
 .moderator-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .moderator-shell > main.moderator-workspace { padding: 28px 32px 48px; align-content: start; }
 .moderator-shell main > .admin-page-heading { height: auto; }
-.moderator-shell .back-link svg { width: 18px; height: 18px; margin-right: 12px; vertical-align: middle; }
+.moderator-shell .back-link svg { display: inline-block; width: 18px; height: 18px; margin-right: 12px; vertical-align: middle; }
 .moderator-workspace [id^="moderator-"] { scroll-margin-top: 20px; }
 .moderator-permissions > summary { min-height: 44px; cursor: pointer; padding: 10px 0; font-weight: 650; }
 .moderator-permissions > summary span { margin-left: 8px; padding: 2px 8px; border-radius: 4px; background: #e7eef8; }

@@ -862,7 +862,7 @@ export function Portal({
       if (documentSensitivity) parameters.set("sensitive", documentSensitivity);
       parameters.set("sort", documentSort);
       parameters.set("page", String(page));
-      parameters.set("limit", "15");
+      parameters.set("limit", "20");
       try {
         const response = await fetch(`/api/documents?${parameters}`, {
           signal,

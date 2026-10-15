@@ -1,7 +1,7 @@
 import { translate } from "../i18n/translate";
 import type { Locale, DocumentLocale } from "../i18n/locale";
 
-export type Space = { id: string; nameFr: string; nameEn: string; permissions: Record<string, boolean> };
+export type Space = { id: string; slug?: string; nameFr: string; nameEn: string; permissions: Record<string, boolean> };
 export type Category = { id: string; parentId: string | null; nameFr: string; nameEn: string };
 export type ModeratorDocument = {
   id: string; status: string; space: Pick<Space, "id" | "nameFr" | "nameEn">;

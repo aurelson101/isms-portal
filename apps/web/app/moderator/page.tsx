@@ -38,6 +38,8 @@ export default function ModeratorPage() {
   const [mutationBusy, setMutationBusy] = useState(false);
   const [search, setSearch] = useState("");
   const [hasActiveSearch, setHasActiveSearch] = useState(false);
+  const [selectedSpace, setSelectedSpace] = useState("");
+  const spaceFilter = useRef("");
   const searchQuery = useRef("");
   const loadRequest = useRef(0);
   const loadController = useRef<AbortController | null>(null);
@@ -62,6 +64,7 @@ export default function ModeratorPage() {
     setLoading(true);
     try {
     const query = new URLSearchParams({ page: String(page), limit: "20", managed: "true", q: searchQuery.current });
+    if (spaceFilter.current) query.set("space", spaceFilter.current);
     const [me, list] = await Promise.all([fetch("/api/me", { cache: "no-store", signal: controller.signal }), fetch(`/api/documents?${query}`, { cache: "no-store", signal: controller.signal })]);
     if (request !== loadRequest.current) return;
     if (me.status === 401) { window.location.assign("/login?return=/moderator"); return; }
@@ -129,6 +132,20 @@ export default function ModeratorPage() {
   };
   const loadPage = (page: number) => { setError(""); void load(page).catch((reason) => setError(reason.message)); };
   const editable = useMemo(() => identity?.spaces.filter((space) => space.permissions.edit || space.permissions.publish || space.permissions.archive) || [], [identity]);
+  const currentSpace = editable.find(space => space.slug === selectedSpace);
+  const selectSpace = (slug: string) => {
+    if (busy) return false;
+    if (spaceFilter.current !== slug) {
+      if (!canDiscard()) return false;
+      closeEditor(true);
+      spaceFilter.current = slug;
+      setSelectedSpace(slug);
+      loadPage(1);
+    }
+    setActiveSection("documents");
+    setNavigationOpen(false);
+    return true;
+  };
   const spacesById = useMemo(() => new Map(identity?.spaces.map((space) => [space.id, space]) || []), [identity]);
   const rows = useMemo(() => documents.map((document) => ({
     document, latest: latestVersion(document), title: translationFields(document, locale).title,
@@ -218,13 +235,14 @@ export default function ModeratorPage() {
           ["documents", "documents", t("Documents gérés", "Managed documents")],
           ["import", "upload", t("Import de documents", "Document import")],
           ["permissions", "rules", t("Mes droits documentaires", "My document permissions")],
-        ] as const).map(([section, icon, label]) => <a key={section} href={`#moderator-${section}`} className={activeSection === section ? "active" : ""} aria-current={activeSection === section ? "location" : undefined} onClick={() => {
+        ] as const).map(([section, icon, label]) => <div key={section} className="admin-navigation-group"><a href={`#moderator-${section}`} className={activeSection === section && (section !== "documents" || !selectedSpace) ? "active" : ""} aria-current={activeSection === section && (section !== "documents" || !selectedSpace) ? "location" : undefined} onClick={(event) => {
+          if (section === "documents" && !selectSpace("")) { event.preventDefault(); return; }
           setActiveSection(section);
           setNavigationOpen(false);
           const target = document.getElementById(`moderator-${section}`);
           if (target instanceof HTMLDetailsElement) target.open = true;
           window.requestAnimationFrame(() => target?.focus({ preventScroll: true }));
-        }}><Icon name={icon} /><span>{label}</span></a>)}
+        }}><Icon name={icon} /><span>{label}</span></a>{section === "documents" && <div className="admin-navigation-submenu">{editable.filter(space => space.slug).map(space => <a key={space.id} href="#moderator-documents" className={activeSection === "documents" && selectedSpace === space.slug ? "active" : ""} aria-current={activeSection === "documents" && selectedSpace === space.slug ? "location" : undefined} onClick={(event) => { if (!selectSpace(space.slug!)) event.preventDefault(); }}><Icon name="folder" /><span>{locale === "fr" ? space.nameFr : space.nameEn || space.nameFr}</span></a>)}</div>}</div>)}
       </nav>
       <a className="back-link" href="/explorer" onClick={(event) => { if (!canDiscard()) event.preventDefault(); else dirty.current = false; }}><Icon name="home" />{t("Retour au portail", "Back to portal")}</a>
     </aside>
@@ -237,7 +255,7 @@ export default function ModeratorPage() {
     {metadataEditing && <MetadataForm document={metadataEditing} categories={metadataCategories} value={metadata} onChange={setMetadata} onSave={saveMetadata} busy={busy} locale={locale} onCancel={() => closeEditor()} onDirty={() => { dirty.current = true; }} />}
     {editing && <VersionForm document={editing} versionLocale={versionLocale} onLocaleChange={setVersionLocale} onUpload={uploadVersion} busy={busy} locale={locale} onCancel={() => closeEditor()} onDirty={() => { dirty.current = true; }} />}
     <section id="moderator-documents" tabIndex={-1} className="moderator-section">
-      <div className="moderator-toolbar"><h2>{t("Documents gérés", "Managed documents")}</h2><button type="button" disabled={busy} onClick={() => loadPage(documentPage)}><Icon name="sync" />{t("Actualiser", "Refresh")}</button></div>
+      <div className="moderator-toolbar"><h2>{t("Documents gérés", "Managed documents")}{currentSpace && ` : ${locale === "fr" ? currentSpace.nameFr : currentSpace.nameEn || currentSpace.nameFr}`}</h2><button type="button" disabled={busy} onClick={() => loadPage(documentPage)}><Icon name="sync" />{t("Actualiser", "Refresh")}</button></div>
       <form className="moderator-search" role="search" onSubmit={(event) => { event.preventDefault(); searchQuery.current = search.trim(); setHasActiveSearch(Boolean(searchQuery.current)); loadPage(1); }}><label>{t("Rechercher un document", "Search documents")}<input type="search" maxLength={200} value={search} disabled={busy} onChange={(event) => setSearch(event.target.value)} /></label><button type="submit" disabled={busy}><Icon name="search" />{t("Rechercher", "Search")}</button>{hasActiveSearch && <button type="button" disabled={busy} onClick={() => { setSearch(""); searchQuery.current = ""; setHasActiveSearch(false); loadPage(1); }}>{t("Réinitialiser", "Reset")}</button>}</form>
       <div className="moderator-document-grid" aria-busy={loading}>
         {loading && <p role="status">{t("Chargement…", "Loading…")}</p>}
@@ -265,7 +283,7 @@ export default function ModeratorPage() {
           </article>;
         })}
       </div>
-      {documentTotalPages > 1 && <nav className="document-pagination" aria-label={t("Pagination des documents", "Document pagination")}><button type="button" disabled={busy || documentPage <= 1} onClick={() => loadPage(documentPage - 1)}>← {t("Précédent", "Previous")}</button><span aria-live="polite">{t("Page", "Page")} {documentPage} {t("sur", "of")} {documentTotalPages}</span><button type="button" disabled={busy || documentPage >= documentTotalPages} onClick={() => loadPage(documentPage + 1)}>{t("Suivant", "Next")} →</button></nav>}
+      <nav className="document-pagination" aria-label={t("Pagination des documents", "Document pagination")}><button type="button" disabled={busy || documentPage <= 1} onClick={() => loadPage(documentPage - 1)}>← {t("Précédent", "Previous")}</button><span aria-live="polite">{t("Page", "Page")} {documentPage} {t("sur", "of")} {documentTotalPages}</span><button type="button" disabled={busy || documentPage >= documentTotalPages} onClick={() => loadPage(documentPage + 1)}>{t("Suivant", "Next")} →</button></nav>
     </section>
     </div>
   </main></div>;

@@ -1,5 +1,51 @@
 import { expect, test } from "./test";
 
+for (const width of [320, 1440]) {
+  test(`moderator space menus and twenty-document pagination at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+    const spaces = ["IT", "HR"].map(name => ({ id: name, slug: name.toLowerCase(), nameFr: name, nameEn: name, permissions: { edit: true } }));
+    const documents = Array.from({ length: 45 }, (_, index) => ({ id: String(index), status: "PUBLISHED", space: spaces[index < 24 ? 0 : 1], category: null, translations: [{ locale: "en", title: `Document ${index + 1}` }], versions: [{ id: `v${index}`, locale: "en", version: 1 }] }));
+    const requests: URLSearchParams[] = [];
+    await page.route("**/api/**", async route => {
+      const url = new URL(route.request().url());
+      if (url.pathname === "/api/me") return route.fulfill({ json: { isModerator: true, spaces } });
+      if (url.pathname !== "/api/documents") return route.fulfill({ json: {} });
+      requests.push(url.searchParams);
+      const scope = url.searchParams.get("space");
+      const filtered = documents.filter(document => !scope || document.space.slug === scope);
+      const current = Number(url.searchParams.get("page"));
+      await route.fulfill({ json: { items: filtered.slice((current - 1) * 20, current * 20), page: current, totalPages: Math.ceil(filtered.length / 20) } });
+    });
+    await page.goto("/moderator");
+    const pagination = page.getByRole("navigation", { name: "Document pagination" });
+    const next = pagination.getByRole("button", { name: /Next/ });
+    const previous = pagination.getByRole("button", { name: /Previous/ });
+    await expect(page.getByRole("article")).toHaveCount(20);
+    await expect(previous).toBeDisabled();
+    await next.click();
+    await expect(pagination).toContainText("Page 2 of 3");
+    await next.click();
+    await expect(page.getByRole("article")).toHaveCount(5);
+    await expect(next).toBeDisabled();
+    if (width <= 900) await page.locator(".navigation-toggle").click();
+    await page.locator("#moderator-navigation").getByRole("link", { name: "HR", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Managed documents : HR", exact: true })).toBeVisible();
+    await expect(page.getByRole("article")).toHaveCount(20);
+    await expect(pagination).toContainText("Page 1 of 2");
+    await next.click();
+    await expect(page.getByRole("article")).toHaveCount(1);
+    expect(requests.at(-1)?.get("space")).toBe("hr");
+    await previous.click();
+    await expect(page.getByRole("article")).toHaveCount(20);
+    if (width <= 900) await page.locator(".navigation-toggle").click();
+    await page.locator("#moderator-navigation").getByRole("link", { name: "Managed documents", exact: true }).click();
+    await expect(pagination).toContainText("Page 1 of 3");
+    expect(requests.at(-1)?.has("space")).toBe(false);
+    expect(requests.every(query => query.get("limit") === "20" && query.get("managed") === "true")).toBe(true);
+  });
+}
+
 for (const width of [320, 768, 1440, 1920, 2560, 3440, 3840, 5120]) {
   test(`moderator layout and four interface languages at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 });
@@ -46,6 +92,15 @@ for (const width of [320, 768, 1440, 1920, 2560, 3440, 3840, 5120]) {
       await expect(back).toHaveAttribute("href", "/explorer");
       await expect(back).toHaveCSS("text-decoration-line", "none");
       await expect(back).toBeVisible();
+      expect(await back.evaluate(element => {
+        const icon = element.querySelector("svg")?.getBoundingClientRect();
+        const text = [...element.childNodes].find(node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim());
+        if (!icon || !text) return false;
+        const range = document.createRange();
+        range.selectNodeContents(text);
+        const label = range.getBoundingClientRect();
+        return icon.top < label.bottom && icon.bottom > label.top;
+      })).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       if (width >= 1920) {
         const layout = await page.locator(".moderator-shell").evaluate(element => {
