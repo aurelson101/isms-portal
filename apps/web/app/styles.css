@@ -6270,6 +6270,41 @@ svg {
   color: #0768ea;
 }
 
+.moderator-workspace {
+  width: 100%;
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 28px 32px 48px;
+  display: grid;
+  gap: 24px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.moderator-workspace > .admin-page-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid #d5deeb;
+  padding-bottom: 20px;
+}
+.moderator-workspace h1 { margin: 4px 0 8px; font-size: 28px; }
+.moderator-workspace h2 { margin: 0; font-size: 20px; }
+.moderator-workspace .admin-page-heading p { margin: 0; color: #52617b; }
+.moderator-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.moderator-header-actions > .button-link { white-space: normal; }
+.moderator-header-actions svg { width: 18px; height: 18px; flex: 0 0 18px; }
+.moderator-permissions > summary { min-height: 44px; cursor: pointer; padding: 10px 0; font-weight: 650; }
+.moderator-permissions > summary span { margin-left: 8px; padding: 2px 8px; border-radius: 4px; background: #e7eef8; }
+.moderator-permissions .admin-account-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); margin-bottom: 0; }
+.moderator-workspace > .batch-import { margin: 0; }
+.moderator-section { min-width: 0; }
+.moderator-workspace .admin-table-wrap { border-radius: 8px; }
+.moderator-status { display: inline-block; padding: 2px 8px; border-radius: 4px; background: #eef0f3; color: #45546b; font-size: 12px; font-weight: 650; }
+.moderator-status.published { color: #16613d; background: #e5f6ec; }
+.moderator-status.draft { color: #805200; background: #fff2cf; }
+.moderator-status.quarantined { color: #9d2632; background: #ffeaed; }
 .moderator-fields {
   border: 0;
   margin: 0;
@@ -6356,6 +6391,9 @@ svg {
 .login-form input[type="checkbox"] { min-height: auto; }
 .login-tabs { flex-wrap: wrap; }
 @media (max-width: 600px) {
+  .moderator-workspace { padding: 20px 16px 32px; gap: 20px; }
+  .moderator-header-actions { flex-direction: column; align-items: flex-start; }
+  .moderator-header-actions .login-language { margin-left: 0; }
   .moderator-workspace .admin-page-heading { flex-wrap: wrap; gap: 12px; }
   .moderator-workspace h1 { font-size: 26px; }
   .moderator-workspace h2 { font-size: 20px; }
@@ -6364,7 +6402,8 @@ svg {
   .moderator-workspace .admin-table-wrap td { grid-template-columns: minmax(0, 35%) minmax(0, 1fr); }
   .moderator-workspace .admin-table-wrap td[colspan] { grid-template-columns: minmax(0, 1fr); }
   .moderator-workspace .admin-table-wrap tr { border-radius: 8px; }
-  .moderator-workspace .document-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .moderator-workspace .admin-table-wrap td:last-child { grid-template-columns: minmax(0, 1fr); }
+  .moderator-workspace .document-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .moderator-workspace .document-actions button { width: 100%; white-space: normal; }
   .moderator-workspace .document-pagination { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .moderator-workspace .document-pagination span { grid-column: 1 / -1; grid-row: 1; }

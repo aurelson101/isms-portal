@@ -1,5 +1,65 @@
 import { expect, test } from "./test";
 
+for (const width of [320, 768, 1440]) {
+  test(`moderator layout and four interface languages at ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+    const space = { id: "space", nameFr: "Documents", nameEn: "Documents", permissions: { edit: true, publish: true, archive: true } };
+    const document = { id: "document", status: "DRAFT", space, category: null, translations: [{ locale: "en", title: "A document with a long title for responsive moderator management", description: "" }], versions: [{ id: "version", locale: "en", version: 1 }] };
+    const queries: string[] = [];
+    await page.route("**/api/**", async route => {
+      const url = new URL(route.request().url()), path = url.pathname;
+      if (path === "/api/documents") queries.push(url.searchParams.get("q") || "");
+      if (path === "/api/documents/document/publish") document.status = "PUBLISHED";
+      await route.fulfill({ json: path === "/api/me" ? { isAdmin: false, isModerator: true, spaces: [space] }
+        : path === "/api/documents" ? { items: [document], page: 1, totalPages: 2 }
+        : path.endsWith("/categories") ? [] : {} });
+    });
+    await page.goto("/moderator");
+    const languages = [
+      ["FR", "Espace modérateur", "Documents gérés", "Éditer les métadonnées", "Document mis à jour."],
+      ["EN", "Moderator workspace", "Managed documents", "Edit metadata", "Document updated."],
+      ["ES", "Espacio del moderador", "Documentos gestionados", "Editar metadatos", "Documento actualizado."],
+      ["SK", "Priestor moderátora", "Spravované dokumenty", "Upraviť metadáta", "Dokument bol aktualizovaný."],
+    ];
+    for (const [locale, heading, documents] of languages) {
+      await page.getByRole("button", { name: locale, exact: true }).click();
+      await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: documents, exact: true })).toBeVisible();
+      const back = page.locator(".moderator-header-actions .button-link");
+      await expect(back).toHaveAttribute("href", "/explorer");
+      await expect(back).toHaveCSS("text-decoration-line", "none");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect(await page.locator(".document-actions button").evaluateAll(buttons => buttons.every(button => button.scrollWidth <= button.clientWidth + 1))).toBe(true);
+      await page.locator(".moderator-permissions > summary").click();
+      await expect(page.locator(".moderator-permissions strong")).toHaveText("Documents");
+      await page.locator(".moderator-permissions > summary").click();
+      await page.screenshot({ path: info.outputPath(`moderator-${locale}.png`), fullPage: true });
+    }
+    await page.getByRole("button", { name: "EN", exact: true }).click();
+    await page.getByRole("search").getByRole("searchbox").fill("policy");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Reset", exact: true })).toBeVisible();
+    expect(queries.at(-1)).toBe("policy");
+    await page.getByRole("searchbox").fill("");
+    await page.getByRole("button", { name: "Reset", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Reset", exact: true })).toHaveCount(0);
+    expect(queries.at(-1)).toBe("");
+    await page.getByRole("button", { name: "Publish", exact: true }).click();
+    for (const [locale, , , , notice] of languages) {
+      await page.getByRole("button", { name: locale, exact: true }).click();
+      await expect(page.locator(".notice[role=status]")).toHaveText(notice);
+    }
+    await page.getByRole("button", { name: "EN", exact: true }).click();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    for (const [locale, , , metadata] of languages) {
+      await page.getByRole("button", { name: locale, exact: true }).click();
+      await expect(page.locator("#moderator-metadata-form h2")).toHaveText(metadata);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+  });
+}
+
 for (const width of [320, 768, 1280]) {
   test(`moderator actions and upload recovery at ${width}px`, async ({ page }, info) => {
     page.on("dialog", (dialog) => dialog.accept());
