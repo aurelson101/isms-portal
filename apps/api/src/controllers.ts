@@ -371,8 +371,8 @@ export class DocumentsController {
     @Query("managed") managed = "false",
   ) {
     const q = query.trim().slice(0, 200);
-    const requestedPage = Math.max(1, Number(pageValue) || 1);
-    const limit = Math.min(100, Math.max(1, Number(limitValue) || 10));
+    const requestedPage = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Math.min(1000000, Number(pageValue)) : 1;
+    const limit = Number.isSafeInteger(Number(limitValue)) && Number(limitValue) > 0 ? Math.min(100, Number(limitValue)) : 10;
     const paginated = Boolean(pageValue);
     const mimeByFormat: Record<string, string> = {
       pdf: "application/pdf",

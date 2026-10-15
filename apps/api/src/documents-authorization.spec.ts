@@ -90,6 +90,25 @@ describe("DocumentsController ACL scoping", () => {
     );
   };
 
+  it.each([
+    ["1.5", "20", 1, 20],
+    ["Infinity", "20", 1, 20],
+    ["NaN", "20", 1, 20],
+    ["-1", "20", 1, 20],
+    ["9007199254740992", "20", 1, 20],
+    ["2", "20.5", 2, 10],
+    ["2", "Infinity", 2, 10],
+    ["2", "-1", 2, 10],
+    ["2", "0", 2, 10],
+    ["1", "999", 1, 100],
+  ])("normalizes page %s and limit %s before querying the database", async (pageValue, limitValue, page, limit) => {
+    grant({ read: [general], edit: [general] });
+    count.mockResolvedValueOnce(41);
+    const result = await controller.list(request, "", undefined, undefined, undefined, "recent", String(pageValue), String(limitValue));
+    expect(result).toMatchObject({ page, limit });
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: (Number(page) - 1) * Number(limit), take: limit }));
+  });
+
   it("does not include manageable documents from another requested space", async () => {
     grant({ read: [general], edit: [general, itSpace] });
 
