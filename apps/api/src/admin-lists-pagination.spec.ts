@@ -13,7 +13,7 @@ describe.each([
     const list = (page?: string, limit?: string) => method === "auditEvents"
       ? controller.auditEvents(page, limit)
       : controller[method]("", page, limit);
-    return { findMany, list };
+    return { controller, findMany, count, list };
   }
 
   it.each([
@@ -28,6 +28,8 @@ describe.each([
     const h = setup();
     expect(await h.list(String(requestedPage), String(requestedLimit))).toMatchObject({ page, limit, total: 41 });
     expect(h.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: (Number(page) - 1) * Number(limit), take: limit }));
+    expect(h.count).toHaveBeenCalledWith({ where: {} });
+    expect(h.findMany.mock.calls[0][0].orderBy.at(-1)).toEqual({ id: "asc" });
   });
 
   if (method !== "auditEvents") {
@@ -37,6 +39,14 @@ describe.each([
       const options = h.findMany.mock.calls[0][0];
       expect(options).not.toHaveProperty("skip");
       expect(options).not.toHaveProperty("take");
+      expect(h.count).not.toHaveBeenCalled();
+    });
+  }
+  if (method === "groups") {
+    it.each(["name", "memberCount", "lastSyncedAt"])("preserves %s sorting and adds a unique tie breaker", async sort => {
+      const h = setup();
+      await h.controller.groups("", "1", "20", sort, "desc");
+      expect(h.findMany).toHaveBeenCalledWith(expect.objectContaining({ orderBy: [{ [sort]: "desc" }, { id: "asc" }] }));
     });
   }
 });

@@ -1701,12 +1701,12 @@ export class AdminController {
           },
         },
       },
-      orderBy,
+      orderBy: [orderBy, { id: "asc" }],
       ...(pageValue ? { skip: (page - 1) * limit, take: limit } : {}),
     };
     const [items, total] = await Promise.all([
       this.prisma.directoryGroup.findMany(queryOptions),
-      this.prisma.directoryGroup.count({ where }),
+      pageValue ? this.prisma.directoryGroup.count({ where }) : 0,
     ]);
     return pageValue ? { items, page, limit, total } : items;
   }
@@ -1819,12 +1819,12 @@ export class AdminController {
     const options: Prisma.AccessRuleFindManyArgs = {
       where,
       include: { group: true, space: true },
-      orderBy: [{ group: { name: order } }, { space: { slug: order } }],
+      orderBy: [{ group: { name: order } }, { space: { slug: order } }, { id: "asc" }],
       ...(pageValue ? { skip: (page - 1) * limit, take: limit } : {}),
     };
     const [items, total] = await Promise.all([
       this.prisma.accessRule.findMany(options),
-      this.prisma.accessRule.count({ where }),
+      pageValue ? this.prisma.accessRule.count({ where }) : 0,
     ]);
     return pageValue ? { items, page, limit, total } : items;
   }
@@ -2572,7 +2572,7 @@ export class AdminController {
     const [items, total] = await Promise.all([
       this.prisma.auditEvent.findMany({
         where,
-        orderBy: { occurredAt: "desc" },
+        orderBy: [{ occurredAt: "desc" }, { id: "asc" }],
         skip: (page - 1) * limit,
         take: limit,
       }),
