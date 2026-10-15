@@ -125,6 +125,13 @@ for (const width of [320, 1280]) {
       await page.getByLabel("Search help").fill(query);
       await expect(page.locator(".admin-help-technical code")).toContainText(value);
     }
+    await page.getByLabel("Search help").fill("canManageDocuments");
+    for (const [locale, content] of [["FR", "Documents gérés, Import de documents et Mes droits documentaires"], ["EN", "Managed documents, Document import and My document permissions"], ["ES", "Documentos gestionados, Importación documental y Mis permisos documentales"], ["SK", "Spravované dokumenty, Import dokumentov a Moje práva pre dokumenty"]]) {
+      await page.locator(".admin-language").getByRole("button", { name: locale, exact: true }).click();
+      await expect(page.locator(".admin-help article")).toContainText(content);
+      await expect(page.locator(".admin-help-technical code")).toContainText("limit=20&managed=true&space=it");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
     await page.locator(".admin-language").getByRole("button", { name: "FR", exact: true }).click();
     await expect(page.locator(".admin-help-technical summary")).toHaveText("Atelier technique : configuration pas à pas");
     await page.locator(".admin-language").getByRole("button", { name: "EN", exact: true }).click();

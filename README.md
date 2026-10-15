@@ -6,6 +6,12 @@ consultation, téléchargement et administration sont filtrés côté serveur.
 
 ## Dernières nouveautés
 
+### Gestion documentaire et affichage (15 octobre 2026)
+
+- Espace `/moderator` avec vues Documents gérés, Import de documents et Mes droits documentaires, et sous-menus pour les espaces autorisés. Les filtres sont appliqués par l'API, sans élargissement des droits.
+- Portail principal et espace modérateur : vingt documents au maximum par page, navigation Précédent/Suivant et retour en première page lors d'un changement d'espace. Les fiches documentaires s'adaptent aux écrans mobiles, QHD, 4K et ultralarges.
+- Boutons mobiles corrigés dans les catégories et la gouvernance des accès. L'API `/api/documents` normalise les paramètres de pagination invalides avant les requêtes PostgreSQL ; les limites valides restent plafonnées à 100.
+
 - Audit conservé sans limite de 50 événements. `AUDIT_RETENTION_DAYS=0` désactive la purge ; une durée positive approuvée active une maintenance quotidienne par lots. Les événements déjà supprimés ne sont pas récupérés.
 - Notifications durables dans une outbox PostgreSQL, transférées vers BullMQ par le worker avec reprise après panne Redis. Publication, revue et événements correspondants sont enregistrés atomiquement. Le transfert peut prendre environ une minute ; l’acceptation par le transport ne prouve pas la réception en boîte.
 - Planificateur exclusif entre workers, contrôle Docker fondé sur une activité récente et arrêt gracieux. Ne pas augmenter le nombre de workers sans conserver ce verrou.
@@ -455,7 +461,7 @@ métadonnées et fichiers du volume POSIX.
 ## Modérateurs documentaires
 
 Les administrateurs configurent les modérateurs dans
-**Configuration → Moderators**, pour un compte local, un utilisateur Active
+**Configuration → Comptes modérateurs**, pour un compte local, un utilisateur Active
 Directory ou un groupe Active Directory. Le rôle `MODERATOR` ne donne aucun
 accès à la configuration, aux comptes administrateurs ou aux secrets.
 
@@ -463,8 +469,20 @@ Par défaut, un modérateur peut gérer les documents dans les espaces autorisé
 L’administrateur peut modifier trois ACL : **Manage** (pré-requis),
 **Publish** et **Archive / delete**. Sans `Manage`, les permissions de
 publication et de suppression ne sont pas effectives. Le lien **Document
-management** apparaît dans le profil du modérateur et ouvre l’explorateur
-documentaire avec les actions autorisées.
+management** apparaît dans le profil du modérateur et ouvre l'espace dédié
+`/moderator`, avec les actions autorisées.
+
+Dans cet espace, **Documents gérés** affiche la liste globale. Ses sous-menus
+filtrent les fiches par espace autorisé, avec vingt documents par page.
+**Précédent/Suivant** conserve l'espace et la recherche ; changer d'espace ou
+revenir à la liste globale ramène en page 1. **Import de documents** et
+**Mes droits documentaires** sont des vues séparées : un simple changement
+de vue conserve les formulaires et fichiers sélectionnés. Un changement
+d'espace peut demander de confirmer l'abandon de modifications non enregistrées.
+
+**Éditer** corrige les métadonnées sans créer de version ; **Nouvelle version**
+remplace le fichier et conserve l'historique. Les libellés et infobulles suivent
+la langue de l'interface ; les titres et classements saisis ne sont pas traduits.
 
 La suppression par modérateur demande une confirmation, retire le document du
 catalogue et produit une entrée d’audit. La suppression définitive et le
