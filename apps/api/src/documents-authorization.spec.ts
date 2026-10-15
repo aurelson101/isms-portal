@@ -109,6 +109,24 @@ describe("DocumentsController ACL scoping", () => {
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: (Number(page) - 1) * Number(limit), take: limit }));
   });
 
+  it.each([
+    ["recent", "false"],
+    ["popular", "false"],
+    ["recent", "true"],
+    ["popular", "true"],
+  ] as const)("uses a unique pagination order for %s sorting with managed=%s", async (sort, managed) => {
+    grant({ read: [general], edit: [general] });
+    count.mockResolvedValueOnce(41);
+    await controller.list(request, "", undefined, undefined, undefined, sort, "2", "20", "false", "", "", "", managed);
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      skip: 20,
+      take: 20,
+      orderBy: sort === "popular"
+        ? [{ viewCount: "desc" }, { downloadCount: "desc" }, { publishedAt: "desc" }, { id: "asc" }]
+        : [{ publishedAt: "desc" }, { id: "asc" }],
+    }));
+  });
+
   it("does not include manageable documents from another requested space", async () => {
     grant({ read: [general], edit: [general, itSpace] });
 

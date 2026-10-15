@@ -623,8 +623,9 @@ export class DocumentsController {
               { viewCount: "desc" },
               { downloadCount: "desc" },
               { publishedAt: "desc" },
+              { id: "asc" },
             ]
-          : { publishedAt: "desc" },
+          : [{ publishedAt: "desc" }, { id: "asc" }],
       skip: paginated ? (page - 1) * limit : undefined,
       take: paginated ? limit : 100,
     });
