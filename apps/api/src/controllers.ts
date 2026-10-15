@@ -1681,8 +1681,8 @@ export class AdminController {
           ],
         }
       : {};
-    const page = Math.max(1, Number(pageValue) || 1);
-    const limit = Math.min(200, Math.max(1, Number(limitValue) || 50));
+    const page = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Math.min(1000000, Number(pageValue)) : 1;
+    const limit = Number.isSafeInteger(Number(limitValue)) && Number(limitValue) > 0 ? Math.min(200, Number(limitValue)) : 50;
     const orderBy =
       sort === "memberCount"
         ? { memberCount: order }
@@ -1814,8 +1814,8 @@ export class AdminController {
           ],
         }
       : {};
-    const page = Math.max(1, Number(pageValue) || 1);
-    const limit = Math.min(200, Math.max(1, Number(limitValue) || 50));
+    const page = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Math.min(1000000, Number(pageValue)) : 1;
+    const limit = Number.isSafeInteger(Number(limitValue)) && Number(limitValue) > 0 ? Math.min(200, Number(limitValue)) : 50;
     const options: Prisma.AccessRuleFindManyArgs = {
       where,
       include: { group: true, space: true },
@@ -2561,8 +2561,8 @@ export class AdminController {
     @Query("action") action?: string,
     @Query("result") result?: string,
   ) {
-    const page = Math.max(1, Number(pageValue) || 1);
-    const limit = Math.min(200, Math.max(1, Number(limitValue) || 50));
+    const page = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Math.min(1000000, Number(pageValue)) : 1;
+    const limit = Number.isSafeInteger(Number(limitValue)) && Number(limitValue) > 0 ? Math.min(200, Number(limitValue)) : 50;
     const where: Prisma.AuditEventWhereInput = {
       ...(action
         ? { action: { contains: action, mode: "insensitive" as const } }
