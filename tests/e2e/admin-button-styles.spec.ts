@@ -17,7 +17,7 @@ for (const width of [320, 768, 1280]) {
         <form class="moderator-search"><label>Search documents<input type="search"></label>
           <button id="search">Search</button><button id="reset">Reset</button></form>
         <div class="moderator-toolbar"><button id="refresh">Refresh</button></div>
-        <div class="matrix-heading" style="max-width: 121px"><button id="add-rule">Add a rule</button></div>
+        <div class="access-governance"><div class="button-row" style="max-width: 121px"><button id="preview-changes">Preview changes</button></div></div>
         <div class="space-category-row"><div class="button-row" style="max-width: 100px"><button id="add-category">Add subcategory</button></div></div>
       </main>`);
     for (const id of ["admin-action", "search", "reset", "refresh"]) {
@@ -35,7 +35,7 @@ for (const width of [320, 768, 1280]) {
     expect(await page.locator("#disabled").evaluate((element) => getComputedStyle(element).cursor)).toBe("not-allowed");
     expect(await page.locator("#primary").evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe("rgb(255, 255, 255)");
     expect(await page.locator('input').evaluate((element) => getComputedStyle(element).borderTopWidth)).toBe("1px");
-    for (const id of ["add-rule", "add-category"]) {
+    for (const id of ["preview-changes", "add-category"]) {
       await expect(page.locator(`#${id}`)).toHaveCSS("white-space", "normal");
       expect(await page.locator(`#${id}`).evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
     }

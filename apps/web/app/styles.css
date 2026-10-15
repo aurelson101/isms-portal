@@ -2467,7 +2467,7 @@ h1 {
   color: #17345f;
   font: inherit;
 }
-.matrix-heading button,
+.access-governance .button-row button,
 .space-category-row .button-row button {
   min-width: 0;
   white-space: normal;
