@@ -22,7 +22,7 @@ import { basename, extname } from "path";
 import { createConnection } from "net";
 import { ApiConsumes, ApiTags } from "@nestjs/swagger";
 import { register } from "prom-client";
-import { Prisma } from "@prisma/client";
+import { DocumentStatus, Prisma } from "@prisma/client";
 import type { Response } from "express";
 import type { IsmsRequest } from "./types";
 import { AdminOnly, isAdminIdentity, isModeratorIdentity, moderatorCan } from "./security";
@@ -369,8 +369,11 @@ export class DocumentsController {
     @Query("locale") documentLocale = "",
     @Query("sensitive") sensitive = "",
     @Query("managed") managed = "false",
+    @Query("status") status = "",
   ) {
     const q = query.trim().slice(0, 200);
+    const selectedStatus = Object.values(DocumentStatus).find(value => value === status);
+    if (status && !selectedStatus) throw new BadRequestException("Invalid document status");
     const requestedPage = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Math.min(1000000, Number(pageValue)) : 1;
     const limit = Number.isSafeInteger(Number(limitValue)) && Number(limitValue) > 0 ? Math.min(100, Number(limitValue)) : 10;
     const paginated = Boolean(pageValue);
@@ -517,6 +520,7 @@ export class DocumentsController {
     if (q && fullTextMatches.length === 0) return emptyResult;
     const where: Prisma.DocumentWhereInput = {
       deletedAt: null,
+      ...(selectedStatus ? { status: selectedStatus } : {}),
       OR: managed === "true"
         ? [{ spaceId: { in: managedSpaceIds } }]
         : [

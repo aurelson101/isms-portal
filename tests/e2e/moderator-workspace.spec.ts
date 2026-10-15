@@ -5,7 +5,7 @@ for (const width of [320, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
     const spaces = ["IT", "HR"].map(name => ({ id: name, slug: name.toLowerCase(), nameFr: name, nameEn: name, permissions: { edit: true } }));
-    const documents = Array.from({ length: 45 }, (_, index) => ({ id: String(index), status: "PUBLISHED", space: spaces[index < 24 ? 0 : 1], category: null, translations: [{ locale: "en", title: `Document ${index + 1}` }], versions: [{ id: `v${index}`, locale: "en", version: 1 }] }));
+    const documents = Array.from({ length: 45 }, (_, index) => ({ id: String(index), status: index % 3 === 0 ? "DRAFT" : "PUBLISHED", space: spaces[index < 24 ? 0 : 1], category: null, translations: [{ locale: "en", title: `Document ${index + 1}` }], versions: [{ id: `v${index}`, locale: "en", version: 1 }] }));
     const requests: URLSearchParams[] = [];
     await page.route("**/api/**", async route => {
       const url = new URL(route.request().url());
@@ -13,7 +13,8 @@ for (const width of [320, 1440]) {
       if (url.pathname !== "/api/documents") return route.fulfill({ json: {} });
       requests.push(url.searchParams);
       const scope = url.searchParams.get("space");
-      const filtered = documents.filter(document => !scope || document.space.slug === scope);
+      const status = url.searchParams.get("status");
+      const filtered = documents.filter(document => (!scope || document.space.slug === scope) && (!status || document.status === status));
       const current = Number(url.searchParams.get("page"));
       await route.fulfill({ json: { items: filtered.slice((current - 1) * 20, current * 20), page: current, totalPages: Math.ceil(filtered.length / 20) } });
     });
@@ -33,6 +34,20 @@ for (const width of [320, 1440]) {
     await expect(page.getByRole("heading", { name: "Managed documents : HR", exact: true })).toBeVisible();
     await expect(page.getByRole("article")).toHaveCount(20);
     await expect(pagination).toContainText("Page 1 of 2");
+    const status = page.getByRole("combobox", { name: "Status", exact: true });
+    await expect(status).toHaveCSS("min-height", "44px");
+    await status.selectOption("DRAFT");
+    await expect(page.getByRole("article")).toHaveCount(7);
+    await expect(pagination).toContainText("Page 1 of 1");
+    expect(requests.at(-1)?.get("space")).toBe("hr");
+    expect(requests.at(-1)?.get("status")).toBe("DRAFT");
+    await status.selectOption("PUBLISHED");
+    await expect(page.getByRole("article")).toHaveCount(14);
+    await page.getByRole("button", { name: "Reset", exact: true }).click();
+    await expect(page.getByRole("article")).toHaveCount(20);
+    await expect(status).toHaveValue("");
+    expect(requests.at(-1)?.has("status")).toBe(false);
+    expect(requests.at(-1)?.get("space")).toBe("hr");
     await next.click();
     await expect(page.getByRole("article")).toHaveCount(1);
     expect(requests.at(-1)?.get("space")).toBe("hr");

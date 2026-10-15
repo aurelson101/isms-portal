@@ -2227,6 +2227,7 @@ h1 {
 }
 .admin-form input,
 .moderator-search input,
+.moderator-search select,
 .admin-form select,
 .admin-form textarea {
   padding: 10px;
@@ -6377,6 +6378,8 @@ svg {
   .admin-help-topic-picker select { width: 100%; min-width: 0; min-height: 44px; padding: 8px 10px; background: #fff; border: 1px solid #becce0; border-radius: 6px; }
 }
 .moderator-search label { display: grid; flex: 1 1 220px; gap: 6px; }
+.moderator-search .moderator-status-filter { flex: 0 1 180px; }
+.moderator-status-filter select { min-height: 44px; font: inherit; }
 .moderator-search button { display: inline-flex; align-items: center; gap: 6px; }
 .moderator-search svg { width: 18px; height: 18px; }
 .moderator-workspace :is(section, form, label, .admin-page-heading > div) {
@@ -6422,6 +6425,7 @@ svg {
   .moderator-workspace, .moderator-shell > main.moderator-workspace { padding: 20px 16px 32px; gap: 20px; }
   .moderator-header-actions { flex-direction: column; align-items: flex-start; }
   .moderator-header-actions .login-language { margin-left: 0; }
+  .moderator-search .moderator-status-filter { flex-basis: 100%; }
   .moderator-workspace .admin-page-heading { flex-wrap: wrap; gap: 12px; }
   .moderator-workspace h1 { font-size: 26px; }
   .moderator-workspace h2 { font-size: 20px; }

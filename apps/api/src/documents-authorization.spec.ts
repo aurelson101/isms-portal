@@ -148,6 +148,25 @@ describe("DocumentsController ACL scoping", () => {
     });
   });
 
+  it.each(["DRAFT", "PUBLISHED", "ARCHIVED", "QUARANTINED"])("filters %s within the requested manageable space", async status => {
+    grant({ read: [general, itSpace], edit: [general, itSpace] });
+    await controller.list(request, "", undefined, undefined, "it", "recent", "1", "20", "false", "", "", "", "true", status);
+    expect(count).toHaveBeenCalledWith({ where: expect.objectContaining({ status, OR: [{ spaceId: { in: ["space-it"] } }] }) });
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status }), take: 20 }));
+  });
+
+  it("rejects invalid status filters before database access", async () => {
+    await expect(controller.list(request, "", undefined, undefined, undefined, "recent", "1", "20", "false", "", "", "", "true", "INVALID")).rejects.toThrow("Invalid document status");
+    expect(count).not.toHaveBeenCalled();
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it("does not expose drafts to a read-only user through the status filter", async () => {
+    grant({ read: [general] });
+    await controller.list(request, "", undefined, undefined, undefined, "recent", "1", "20", "false", "", "", "", "false", "DRAFT");
+    expect(count).toHaveBeenCalledWith({ where: expect.objectContaining({ status: "DRAFT", OR: [{ status: "PUBLISHED", spaceId: { in: ["space-general"] } }, { spaceId: { in: [] } }] }) });
+  });
+
   it("does not let management permissions bypass the search permission", async () => {
     grant({ search: [itSpace], edit: [general, itSpace] });
     queryRaw.mockResolvedValue([{ documentId: "document-it" }]);

@@ -40,6 +40,8 @@ export default function ModeratorPage() {
   const [hasActiveSearch, setHasActiveSearch] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState("");
   const spaceFilter = useRef("");
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const statusFilter = useRef("");
   const searchQuery = useRef("");
   const loadRequest = useRef(0);
   const loadController = useRef<AbortController | null>(null);
@@ -65,6 +67,7 @@ export default function ModeratorPage() {
     try {
     const query = new URLSearchParams({ page: String(page), limit: "20", managed: "true", q: searchQuery.current });
     if (spaceFilter.current) query.set("space", spaceFilter.current);
+    if (statusFilter.current) query.set("status", statusFilter.current);
     const [me, list] = await Promise.all([fetch("/api/me", { cache: "no-store", signal: controller.signal }), fetch(`/api/documents?${query}`, { cache: "no-store", signal: controller.signal })]);
     if (request !== loadRequest.current) return;
     if (me.status === 401) { window.location.assign("/login?return=/moderator"); return; }
@@ -256,7 +259,12 @@ export default function ModeratorPage() {
     {editing && <VersionForm document={editing} versionLocale={versionLocale} onLocaleChange={setVersionLocale} onUpload={uploadVersion} busy={busy} locale={locale} onCancel={() => closeEditor()} onDirty={() => { dirty.current = true; }} />}
     <section id="moderator-documents" tabIndex={-1} className="moderator-section">
       <div className="moderator-toolbar"><h2>{t("Documents gérés", "Managed documents")}{currentSpace && ` : ${locale === "fr" ? currentSpace.nameFr : currentSpace.nameEn || currentSpace.nameFr}`}</h2><button type="button" disabled={busy} onClick={() => loadPage(documentPage)}><Icon name="sync" />{t("Actualiser", "Refresh")}</button></div>
-      <form className="moderator-search" role="search" onSubmit={(event) => { event.preventDefault(); searchQuery.current = search.trim(); setHasActiveSearch(Boolean(searchQuery.current)); loadPage(1); }}><label>{t("Rechercher un document", "Search documents")}<input type="search" maxLength={200} value={search} disabled={busy} onChange={(event) => setSearch(event.target.value)} /></label><button type="submit" disabled={busy}><Icon name="search" />{t("Rechercher", "Search")}</button>{hasActiveSearch && <button type="button" disabled={busy} onClick={() => { setSearch(""); searchQuery.current = ""; setHasActiveSearch(false); loadPage(1); }}>{t("Réinitialiser", "Reset")}</button>}</form>
+      <form className="moderator-search" role="search" onSubmit={(event) => { event.preventDefault(); searchQuery.current = search.trim(); setHasActiveSearch(Boolean(searchQuery.current)); loadPage(1); }}>
+        <label>{t("Rechercher un document", "Search documents")}<input type="search" maxLength={200} value={search} disabled={busy} onChange={(event) => setSearch(event.target.value)} /></label>
+        <label className="moderator-status-filter">{t("État", "Status")}<select value={selectedStatus} disabled={busy} onChange={event => { statusFilter.current = event.target.value; setSelectedStatus(event.target.value); loadPage(1); }}><option value="">{t("Tous les documents", "All documents")}</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <button type="submit" disabled={busy}><Icon name="search" />{t("Rechercher", "Search")}</button>
+        {(hasActiveSearch || selectedStatus) && <button type="button" disabled={busy} onClick={() => { setSearch(""); searchQuery.current = ""; setHasActiveSearch(false); statusFilter.current = ""; setSelectedStatus(""); loadPage(1); }}>{t("Réinitialiser", "Reset")}</button>}
+      </form>
       <div className="moderator-document-grid" aria-busy={loading}>
         {loading && <p role="status">{t("Chargement…", "Loading…")}</p>}
         {!loading && !documents.length && <p>{t("Aucun document géré sur cette page.", "No managed document on this page.")}</p>}
