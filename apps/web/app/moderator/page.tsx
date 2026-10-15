@@ -223,7 +223,7 @@ export default function ModeratorPage() {
           setNavigationOpen(false);
           const target = document.getElementById(`moderator-${section}`);
           if (target instanceof HTMLDetailsElement) target.open = true;
-          target?.focus({ preventScroll: true });
+          window.requestAnimationFrame(() => target?.focus({ preventScroll: true }));
         }}><Icon name={icon} /><span>{label}</span></a>)}
       </nav>
       <a className="back-link" href="/explorer" onClick={(event) => { if (!canDiscard()) event.preventDefault(); else dirty.current = false; }}><Icon name="home" />{t("Retour au portail", "Back to portal")}</a>
@@ -231,38 +231,42 @@ export default function ModeratorPage() {
     <main className="admin-main moderator-workspace">
     <header className="admin-page-heading"><div><h1>{t("Espace modérateur", "Moderator workspace")}</h1><p>{t("Gestion documentaire limitée à vos droits effectifs.", "Document management limited to your effective permissions.")}</p></div><div className="moderator-header-actions"><div className="login-language" aria-label={t("Langue", "Language")}>{interfaceLocales.map(value => <button type="button" key={value} onClick={() => changeLocale(value)} aria-pressed={locale === value}>{value.toUpperCase()}</button>)}</div></div></header>
     {notice && <p className="notice" role="status">{noticeLabels[notice]}</p>}{error && <p className="error-state" role="alert">{error}</p>}
-    <details id="moderator-permissions" tabIndex={-1} className="moderator-permissions"><summary>{t("Mes droits documentaires", "My document permissions")} <span>{editable.length}</span></summary><div className="admin-account-list">{editable.map((space) => <div key={space.id}><span><strong>{locale === "fr" ? space.nameFr : space.nameEn || space.nameFr}</strong><small>{[space.permissions.edit && t("modifier", "edit"), space.permissions.publish && t("publier", "publish"), space.permissions.archive && t("archiver / supprimer", "archive / delete")].filter(Boolean).join(" · ")}</small></span></div>)}{!editable.length && <p className="admin-empty compact">{t("Aucun droit de gestion documentaire n’est attribué.", "No document management right is assigned.")}</p>}</div></details>
+    <details id="moderator-permissions" hidden={activeSection !== "permissions"} tabIndex={-1} className="moderator-permissions"><summary>{t("Mes droits documentaires", "My document permissions")} <span>{editable.length}</span></summary><div className="admin-account-list">{editable.map((space) => <div key={space.id}><span><strong>{locale === "fr" ? space.nameFr : space.nameEn || space.nameFr}</strong><small>{[space.permissions.edit && t("modifier", "edit"), space.permissions.publish && t("publier", "publish"), space.permissions.archive && t("archiver / supprimer", "archive / delete")].filter(Boolean).join(" · ")}</small></span></div>)}{!editable.length && <p className="admin-empty compact">{t("Aucun droit de gestion documentaire n’est attribué.", "No document management right is assigned.")}</p>}</div></details>
+    <section id="moderator-import" hidden={activeSection !== "import"} tabIndex={-1}><BatchImport locale={locale} disabled={busy || Boolean(editing || metadataEditing)} onComplete={() => load(documentPage)} onBusyChange={setMutationBusy} onPendingChange={(pending) => { importPending.current = pending; }} /></section>
+    <div className="moderator-document-view" hidden={activeSection !== "documents"}>
     {metadataEditing && <MetadataForm document={metadataEditing} categories={metadataCategories} value={metadata} onChange={setMetadata} onSave={saveMetadata} busy={busy} locale={locale} onCancel={() => closeEditor()} onDirty={() => { dirty.current = true; }} />}
     {editing && <VersionForm document={editing} versionLocale={versionLocale} onLocaleChange={setVersionLocale} onUpload={uploadVersion} busy={busy} locale={locale} onCancel={() => closeEditor()} onDirty={() => { dirty.current = true; }} />}
-    <section id="moderator-import" tabIndex={-1}><BatchImport locale={locale} disabled={busy || Boolean(editing || metadataEditing)} onComplete={() => load(documentPage)} onBusyChange={setMutationBusy} onPendingChange={(pending) => { importPending.current = pending; }} /></section>
     <section id="moderator-documents" tabIndex={-1} className="moderator-section">
       <div className="moderator-toolbar"><h2>{t("Documents gérés", "Managed documents")}</h2><button type="button" disabled={busy} onClick={() => loadPage(documentPage)}><Icon name="sync" />{t("Actualiser", "Refresh")}</button></div>
       <form className="moderator-search" role="search" onSubmit={(event) => { event.preventDefault(); searchQuery.current = search.trim(); setHasActiveSearch(Boolean(searchQuery.current)); loadPage(1); }}><label>{t("Rechercher un document", "Search documents")}<input type="search" maxLength={200} value={search} disabled={busy} onChange={(event) => setSearch(event.target.value)} /></label><button type="submit" disabled={busy}><Icon name="search" />{t("Rechercher", "Search")}</button>{hasActiveSearch && <button type="button" disabled={busy} onClick={() => { setSearch(""); searchQuery.current = ""; setHasActiveSearch(false); loadPage(1); }}>{t("Réinitialiser", "Reset")}</button>}</form>
-      <div className="admin-table-wrap"><table aria-busy={loading}><thead><tr><th>{t("Titre", "Title")}</th><th>{t("Espace", "Space")}</th><th>{t("Catégorie", "Category")}</th><th>{t("Version", "Version")}</th><th>{t("État", "Status")}</th><th>{t("Actions", "Actions")}</th></tr></thead><tbody>
-        {loading && <tr><td colSpan={6} role="status">{t("Chargement…", "Loading…")}</td></tr>}
-        {!loading && !documents.length && <tr><td colSpan={6}>{t("Aucun document géré sur cette page.", "No managed document on this page.")}</td></tr>}
+      <div className="moderator-document-grid" aria-busy={loading}>
+        {loading && <p role="status">{t("Chargement…", "Loading…")}</p>}
+        {!loading && !documents.length && <p>{t("Aucun document géré sur cette page.", "No managed document on this page.")}</p>}
         {!loading && rows.map(({ document, latest, title, permissions }) => {
           const canEdit = !!permissions?.edit;
           const canPublish = !!permissions?.publish;
           const canArchive = !!permissions?.archive;
-          return <tr key={document.id}>
-            <td data-label={t("Titre", "Title")}>{title}</td>
-            <td data-label={t("Espace", "Space")}>{locale === "fr" ? document.space.nameFr : document.space.nameEn}</td>
-            <td data-label={t("Catégorie", "Category")}>{document.category ? locale === "fr" ? document.category.nameFr : document.category.nameEn : t("Sans catégorie", "No category")}</td>
-            <td data-label={t("Version", "Version")}>{latest ? `v${latest.version}` : "-"}</td>
-            <td data-label={t("État", "Status")}><span className={`moderator-status ${document.status.toLowerCase()}`}>{statusLabels[document.status] || document.status}</span></td>
-            <td data-label={t("Actions", "Actions")}><div className="document-actions">
-              {canEdit && <button className="document-action" type="button" disabled={busy} onClick={() => void openMetadata(document)}><Icon name="documents" />{t("Éditer", "Edit")}</button>}
-              {canEdit && <button className="document-action" type="button" disabled={busy} onClick={() => openVersion(document)}><Icon name="upload" />{t("Nouvelle version", "New version")}</button>}
+          return <article key={document.id} className="moderator-document-card" aria-labelledby={`moderator-title-${document.id}`}>
+            <h3 id={`moderator-title-${document.id}`}>{title}</h3>
+            <dl>
+              <div><dt>{t("Espace", "Space")}</dt><dd>{locale === "fr" ? document.space.nameFr : document.space.nameEn}</dd></div>
+              <div><dt>{t("Catégorie", "Category")}</dt><dd>{document.category ? locale === "fr" ? document.category.nameFr : document.category.nameEn : t("Sans catégorie", "No category")}</dd></div>
+              <div><dt>{t("Version", "Version")}</dt><dd>{latest ? `v${latest.version}` : "-"}</dd></div>
+              <div><dt>{t("État", "Status")}</dt><dd><span className={`moderator-status ${document.status.toLowerCase()}`}>{statusLabels[document.status] || document.status}</span></dd></div>
+            </dl>
+            <div className="document-actions" role="group" aria-label={t("Actions", "Actions")}>
+              {canEdit && <button className="document-action moderator-icon-action" type="button" title={t("Éditer", "Edit")} disabled={busy} onClick={() => void openMetadata(document)}><Icon name="documents" /><span>{t("Éditer", "Edit")}</span></button>}
+              {canEdit && <button className="document-action moderator-icon-action" type="button" title={t("Nouvelle version", "New version")} disabled={busy} onClick={() => openVersion(document)}><Icon name="upload" /><span>{t("Nouvelle version", "New version")}</span></button>}
               {canPublish && document.status !== "PUBLISHED" && <button className="document-action publish" type="button" disabled={busy} onClick={() => void action(document.id, "publish")}><Icon name="publish" />{t("Publier", "Publish")}</button>}
-              {canArchive && document.status !== "ARCHIVED" && <button className="document-action archive" type="button" disabled={busy} onClick={() => void action(document.id, "archive")}><Icon name="archive" />{t("Archiver", "Archive")}</button>}
-              {canArchive && document.status === "ARCHIVED" && <button className="document-action" type="button" disabled={busy} onClick={() => void action(document.id, "restore")}><Icon name="restore" />{t("Restaurer", "Restore")}</button>}
-              {canArchive && <button className="document-action delete" type="button" disabled={busy} onClick={() => { if (window.confirm(t("Supprimer ce document ?", "Delete this document?"))) void action(document.id, "delete"); }}><Icon name="delete" />{t("Supprimer", "Delete")}</button>}
-            </div></td>
-          </tr>;
+              {canArchive && document.status !== "ARCHIVED" && <button className="document-action archive moderator-icon-action" type="button" title={t("Archiver", "Archive")} disabled={busy} onClick={() => void action(document.id, "archive")}><Icon name="archive" /><span>{t("Archiver", "Archive")}</span></button>}
+              {canArchive && document.status === "ARCHIVED" && <button className="document-action moderator-icon-action" type="button" title={t("Restaurer", "Restore")} disabled={busy} onClick={() => void action(document.id, "restore")}><Icon name="restore" /><span>{t("Restaurer", "Restore")}</span></button>}
+              {canArchive && <button className="document-action delete moderator-icon-action" type="button" title={t("Supprimer", "Delete")} disabled={busy} onClick={() => { if (window.confirm(t("Supprimer ce document ?", "Delete this document?"))) void action(document.id, "delete"); }}><Icon name="delete" /><span>{t("Supprimer", "Delete")}</span></button>}
+            </div>
+          </article>;
         })}
-      </tbody></table></div>
+      </div>
       {documentTotalPages > 1 && <nav className="document-pagination" aria-label={t("Pagination des documents", "Document pagination")}><button type="button" disabled={busy || documentPage <= 1} onClick={() => loadPage(documentPage - 1)}>← {t("Précédent", "Previous")}</button><span aria-live="polite">{t("Page", "Page")} {documentPage} {t("sur", "of")} {documentTotalPages}</span><button type="button" disabled={busy || documentPage >= documentTotalPages} onClick={() => loadPage(documentPage + 1)}>{t("Suivant", "Next")} →</button></nav>}
     </section>
+    </div>
   </main></div>;
 }

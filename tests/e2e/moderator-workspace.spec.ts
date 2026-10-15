@@ -1,6 +1,6 @@
 import { expect, test } from "./test";
 
-for (const width of [320, 768, 1440]) {
+for (const width of [320, 768, 1440, 1920, 2560, 3440, 3840, 5120]) {
   test(`moderator layout and four interface languages at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 });
     await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
@@ -47,18 +47,48 @@ for (const width of [320, 768, 1440]) {
       await expect(back).toHaveCSS("text-decoration-line", "none");
       await expect(back).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      if (width >= 1920) {
+        const layout = await page.locator(".moderator-shell").evaluate(element => {
+          const sidebar = element.querySelector("aside").getBoundingClientRect();
+          const main = element.querySelector("main").getBoundingClientRect();
+          return { sidebarWidth: sidebar.width, mainWidth: main.width, right: main.right };
+        });
+        expect(layout.mainWidth).toBeGreaterThanOrEqual(width - layout.sidebarWidth - 2);
+        expect(layout.right).toBeLessThanOrEqual(width);
+        if (width >= 2560) {
+          await expect(page.locator(".moderator-document-grid")).toHaveCSS("gap", "24px");
+          const cardWidth = await page.getByRole("article").evaluate(element => element.getBoundingClientRect().width);
+          expect(cardWidth).toBeGreaterThanOrEqual(width >= 3840 ? 440 : 400);
+        }
+      }
       expect(await page.locator(".document-actions button").evaluateAll(buttons => buttons.every(button => button.scrollWidth <= button.clientWidth + 1))).toBe(true);
+      const edit = page.locator(".document-actions .moderator-icon-action").first();
+      await expect(edit).toHaveAttribute("title", /\S/);
+      if (width > 900) {
+        await expect(edit).toHaveCSS("width", "44px");
+        const columns = await page.locator(".moderator-document-grid").evaluate(element => getComputedStyle(element).gridTemplateColumns.split(" ").length);
+        expect(columns).toBeGreaterThan(1);
+        await expect(page.getByRole("article")).toHaveCount(1);
+      } else {
+        await expect(edit.locator("span")).toHaveCSS("position", "static");
+      }
       await navigation.locator('a[href="#moderator-permissions"]').click();
       await expect(page).toHaveURL(/#moderator-permissions$/);
       await expect(navigation.locator('a[aria-current="location"]')).toHaveAttribute("href", "#moderator-permissions");
       await expect(page.locator(".moderator-permissions strong")).toHaveText("Documents");
+      await expect(page.locator(".moderator-document-view")).toBeHidden();
+      await expect(page.locator("#moderator-import")).toBeHidden();
       await page.locator(".moderator-permissions > summary").click();
       if (width <= 900) await toggle.click();
       await navigation.locator('a[href="#moderator-import"]').click();
       await expect(page).toHaveURL(/#moderator-import$/);
+      await expect(page.locator("#moderator-import")).toBeVisible();
+      await expect(page.locator(".moderator-permissions")).toBeHidden();
       if (width <= 900) await toggle.click();
       await navigation.locator('a[href="#moderator-documents"]').click();
       await expect(page).toHaveURL(/#moderator-documents$/);
+      await expect(page.locator(".moderator-document-view")).toBeVisible();
+      await expect(page.locator("#moderator-import")).toBeHidden();
       if (width <= 900) await expect(navigation).toBeHidden();
       await page.screenshot({ path: info.outputPath(`moderator-${locale}.png`), fullPage: true });
     }
@@ -128,8 +158,8 @@ for (const width of [320, 768, 1280]) {
       }
     });
     await page.goto("/moderator");
-    await expect(page.locator("table")).toContainText("Travel");
-    await expect(page.locator("table")).toContainText("v2");
+    await expect(page.getByRole("article")).toContainText("Travel");
+    await expect(page.getByRole("article")).toContainText("v2");
     const publish = page.getByRole("button", { name: "Publish", exact: true });
     const next = page.getByRole("navigation", { name: "Document pagination" }).getByRole("button", { name: /Next/ });
     await publish.click();
@@ -147,6 +177,14 @@ for (const width of [320, 768, 1280]) {
     await page.getByLabel("Change summary").fill("Updated policy");
     const file = page.getByLabel("File", { exact: true });
     await file.setInputFiles({ name: "policy.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n%%EOF") });
+    for (const section of ["permissions", "documents"]) {
+      if (width <= 900) await page.locator(".navigation-toggle").click();
+      await page.locator(`#moderator-navigation a[href="#moderator-${section}"]`).click();
+      if (section === "documents") await expect(page.locator(".moderator-document-view")).toBeVisible();
+      else await expect(page.locator(".moderator-document-view")).toBeHidden();
+    }
+    await expect(page.getByLabel("Change summary")).toHaveValue("Updated policy");
+    expect(await file.evaluate((input: HTMLInputElement) => input.files?.[0]?.name)).toBe("policy.pdf");
     await page.getByRole("button", { name: "Upload and scan", exact: true }).click();
     await expect(page.locator(".error-state[role=alert]")).toHaveText("Upload rejected");
     await expect(page.getByRole("button", { name: "Upload and scan", exact: true })).toBeEnabled();
@@ -172,7 +210,7 @@ for (const width of [320, 768, 1280]) {
     await expect(page.getByRole("navigation", { name: "Document pagination" })).toContainText("Page 1 of 2");
     expect(documentRequests - beforeRefresh).toBe(1);
     await page.getByRole("button", { name: "Restore", exact: true }).click();
-    await expect(page.locator("table")).toContainText("Draft");
+    await expect(page.getByRole("article")).toContainText("Draft");
     await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeEnabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath("moderator.png"), fullPage: true });

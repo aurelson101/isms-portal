@@ -715,13 +715,21 @@ h1 {
 @media (min-width: 1600px) {
   .shell main,
   .admin-shell main {
-    max-width: 1680px;
+    max-width: none;
     width: auto;
     margin-inline: 0;
   }
-  .document-grid {
-    grid-template-columns: repeat(4, minmax(240px, 1fr));
+  .shell .documents.document-grid {
+    grid-template-columns: repeat(auto-fill, minmax(var(--document-card-min, 280px), 1fr));
   }
+  .admin-shell .governance-grid { grid-template-columns: minmax(20rem, 28rem) minmax(0, 1fr); }
+}
+
+@media (min-width: 2560px) {
+  .shell, .admin-shell { --document-card-min: 400px; --document-grid-gap: 24px; --document-card-padding: 20px; }
+}
+@media (min-width: 3840px) {
+  .shell, .admin-shell { --document-card-min: 440px; }
 }
 
 @media (max-width: 900px) {
@@ -835,7 +843,7 @@ h1 {
   padding: 20px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 320px));
-  gap: 16px;
+  gap: var(--document-grid-gap, 16px);
   align-items: stretch;
   background: #f8fbff;
 }
@@ -6272,7 +6280,7 @@ svg {
 
 .moderator-workspace {
   width: 100%;
-  max-width: 1560px;
+  max-width: none;
   margin: 0 auto;
   padding: 28px 32px 48px;
   display: grid;
@@ -6301,8 +6309,16 @@ svg {
 .moderator-permissions > summary span { margin-left: 8px; padding: 2px 8px; border-radius: 4px; background: #e7eef8; }
 .moderator-permissions .admin-account-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); margin-bottom: 0; }
 .moderator-workspace .batch-import { margin: 0; }
+.moderator-document-view { display: grid; gap: 24px; min-width: 0; }
+.moderator-workspace > [hidden] { display: none; }
 .moderator-section { min-width: 0; }
-.moderator-workspace .admin-table-wrap { border-radius: 8px; }
+.moderator-document-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--document-card-min, 360px)), 1fr)); gap: var(--document-grid-gap, 16px); }
+.moderator-document-card { min-width: 0; display: flex; flex-direction: column; gap: 16px; padding: var(--document-card-padding, 16px); border: 1px solid #d5deeb; border-radius: 6px; background: #fff; }
+.moderator-document-card h3 { margin: 0; font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
+.moderator-document-card dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.moderator-document-card dt { color: #52617b; font-size: 12px; margin-bottom: 4px; }
+.moderator-document-card dd { margin: 0; overflow-wrap: anywhere; }
+.moderator-document-card .document-actions { margin-top: auto; padding-top: 12px; border-top: 1px solid #e2e8f0; }
 .moderator-status { display: inline-block; padding: 2px 8px; border-radius: 4px; background: #eef0f3; color: #45546b; font-size: 12px; font-weight: 650; white-space: nowrap; }
 .moderator-status.published { color: #16613d; background: #e5f6ec; }
 .moderator-status.draft { color: #805200; background: #fff2cf; }
@@ -6380,7 +6396,11 @@ svg {
 }
 .moderator-toolbar svg { width: 18px; height: 18px; }
 .moderator-workspace :is(button, .button) { min-height: 44px; }
-.moderator-workspace .document-actions { flex-wrap: wrap; max-width: 360px; }
+.moderator-workspace .document-actions { flex-wrap: wrap; min-width: 0; }
+@media (min-width: 901px) {
+  .moderator-workspace .moderator-icon-action { position: relative; width: 44px; height: 44px; padding: 10px; }
+  .moderator-icon-action > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 .moderator-workspace :is(button, input, select, textarea):focus-visible {
   outline: 2px solid #075ad4;
   outline-offset: 2px;
@@ -6401,10 +6421,6 @@ svg {
   .moderator-workspace h2 { font-size: 20px; }
   .moderator-fields { grid-template-columns: minmax(0, 1fr); }
   .moderator-fields .wide { grid-column: auto; }
-  .moderator-workspace .admin-table-wrap td { grid-template-columns: minmax(0, 35%) minmax(0, 1fr); }
-  .moderator-workspace .admin-table-wrap td[colspan] { grid-template-columns: minmax(0, 1fr); }
-  .moderator-workspace .admin-table-wrap tr { border-radius: 8px; }
-  .moderator-workspace .admin-table-wrap td:last-child { grid-template-columns: minmax(0, 1fr); }
   .moderator-workspace .document-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .moderator-workspace .document-actions button { width: 100%; white-space: normal; }
   .moderator-workspace .document-pagination { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
