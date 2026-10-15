@@ -6293,15 +6293,17 @@ svg {
 .moderator-workspace h2 { margin: 0; font-size: 20px; }
 .moderator-workspace .admin-page-heading p { margin: 0; color: #52617b; }
 .moderator-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.moderator-header-actions > .button-link { white-space: normal; }
-.moderator-header-actions svg { width: 18px; height: 18px; flex: 0 0 18px; }
+.moderator-shell > main.moderator-workspace { padding: 28px 32px 48px; align-content: start; }
+.moderator-shell main > .admin-page-heading { height: auto; }
+.moderator-shell .back-link svg { width: 18px; height: 18px; margin-right: 12px; vertical-align: middle; }
+.moderator-workspace [id^="moderator-"] { scroll-margin-top: 20px; }
 .moderator-permissions > summary { min-height: 44px; cursor: pointer; padding: 10px 0; font-weight: 650; }
 .moderator-permissions > summary span { margin-left: 8px; padding: 2px 8px; border-radius: 4px; background: #e7eef8; }
 .moderator-permissions .admin-account-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); margin-bottom: 0; }
-.moderator-workspace > .batch-import { margin: 0; }
+.moderator-workspace .batch-import { margin: 0; }
 .moderator-section { min-width: 0; }
 .moderator-workspace .admin-table-wrap { border-radius: 8px; }
-.moderator-status { display: inline-block; padding: 2px 8px; border-radius: 4px; background: #eef0f3; color: #45546b; font-size: 12px; font-weight: 650; }
+.moderator-status { display: inline-block; padding: 2px 8px; border-radius: 4px; background: #eef0f3; color: #45546b; font-size: 12px; font-weight: 650; white-space: nowrap; }
 .moderator-status.published { color: #16613d; background: #e5f6ec; }
 .moderator-status.draft { color: #805200; background: #fff2cf; }
 .moderator-status.quarantined { color: #9d2632; background: #ffeaed; }
@@ -6378,7 +6380,7 @@ svg {
 }
 .moderator-toolbar svg { width: 18px; height: 18px; }
 .moderator-workspace :is(button, .button) { min-height: 44px; }
-.moderator-workspace .document-actions { flex-wrap: wrap; }
+.moderator-workspace .document-actions { flex-wrap: wrap; max-width: 360px; }
 .moderator-workspace :is(button, input, select, textarea):focus-visible {
   outline: 2px solid #075ad4;
   outline-offset: 2px;
@@ -6391,7 +6393,7 @@ svg {
 .login-form input[type="checkbox"] { min-height: auto; }
 .login-tabs { flex-wrap: wrap; }
 @media (max-width: 600px) {
-  .moderator-workspace { padding: 20px 16px 32px; gap: 20px; }
+  .moderator-workspace, .moderator-shell > main.moderator-workspace { padding: 20px 16px 32px; gap: 20px; }
   .moderator-header-actions { flex-direction: column; align-items: flex-start; }
   .moderator-header-actions .login-language { margin-left: 0; }
   .moderator-workspace .admin-page-heading { flex-wrap: wrap; gap: 12px; }

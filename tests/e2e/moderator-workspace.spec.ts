@@ -26,14 +26,40 @@ for (const width of [320, 768, 1440]) {
       await page.getByRole("button", { name: locale, exact: true }).click();
       await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
       await expect(page.getByRole("heading", { name: documents, exact: true })).toBeVisible();
-      const back = page.locator(".moderator-header-actions .button-link");
+      const toggle = page.locator(".navigation-toggle");
+      const navigation = page.locator("#moderator-navigation");
+      if (width <= 900) {
+        await expect(navigation).toBeHidden();
+        await expect(page.locator("aside .back-link")).toBeHidden();
+        await toggle.click();
+        await expect(navigation).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(navigation).toBeHidden();
+        await expect(toggle).toBeFocused();
+        await toggle.click();
+      } else {
+        await expect(navigation).toBeVisible();
+        await expect(toggle).toBeHidden();
+      }
+      await expect(navigation.locator("a")).toHaveCount(3);
+      const back = page.locator(".moderator-shell > aside .back-link");
       await expect(back).toHaveAttribute("href", "/explorer");
       await expect(back).toHaveCSS("text-decoration-line", "none");
+      await expect(back).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       expect(await page.locator(".document-actions button").evaluateAll(buttons => buttons.every(button => button.scrollWidth <= button.clientWidth + 1))).toBe(true);
-      await page.locator(".moderator-permissions > summary").click();
+      await navigation.locator('a[href="#moderator-permissions"]').click();
+      await expect(page).toHaveURL(/#moderator-permissions$/);
+      await expect(navigation.locator('a[aria-current="location"]')).toHaveAttribute("href", "#moderator-permissions");
       await expect(page.locator(".moderator-permissions strong")).toHaveText("Documents");
       await page.locator(".moderator-permissions > summary").click();
+      if (width <= 900) await toggle.click();
+      await navigation.locator('a[href="#moderator-import"]').click();
+      await expect(page).toHaveURL(/#moderator-import$/);
+      if (width <= 900) await toggle.click();
+      await navigation.locator('a[href="#moderator-documents"]').click();
+      await expect(page).toHaveURL(/#moderator-documents$/);
+      if (width <= 900) await expect(navigation).toBeHidden();
       await page.screenshot({ path: info.outputPath(`moderator-${locale}.png`), fullPage: true });
     }
     await page.getByRole("button", { name: "EN", exact: true }).click();
