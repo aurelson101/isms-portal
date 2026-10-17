@@ -138,6 +138,20 @@ describe("Notification routing", () => {
       vi.unstubAllEnvs();
     }
   });
+  it.each(["", "/", "/0", "/2", "/15"])("honors the Redis database path %s", (pathname) => {
+    vi.stubEnv("REDIS_URL", `redis://redis.example:6379${pathname}`);
+    try {
+      const connection = notificationConnection();
+      expect(connection.db ?? 0).toBe(Number(pathname.slice(1)));
+      expect(connection.host).toBe("redis.example");
+    } finally { vi.unstubAllEnvs(); }
+  });
+  it.each(["-1", "1.5", "1/2", "9007199254740992", "secret-value"])("rejects an invalid Redis database %s without disclosing the URL", (database) => {
+    vi.stubEnv("REDIS_URL", `redis://user:private-password@redis.example/${database}`);
+    try {
+      expect(() => notificationConnection()).toThrow("REDIS_URL database must be a non-negative safe integer");
+    } finally { vi.unstubAllEnvs(); }
+  });
   it.each(["document.publish", "document.published"])("routes %s to authorized readers", async (action) => {
     const h = setup();
     const result = await h.service.prepare({ ...event, action });
