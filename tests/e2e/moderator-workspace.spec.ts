@@ -1,5 +1,26 @@
 import { expect, test } from "./test";
 
+test("moderator shows upload-only permissions without granting document management", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+  const spaces = [
+    { id: "upload", slug: "upload", nameFr: "Upload-only", nameEn: "Upload-only", permissions: { upload: true } },
+    { id: "reader", slug: "reader", nameFr: "Read-only", nameEn: "Read-only", permissions: { read: true } },
+    { id: "edit", slug: "edit", nameFr: "Edit-only", nameEn: "Edit-only", permissions: { edit: true } },
+  ];
+  await page.route("**/api/**", route => route.fulfill({ json: new URL(route.request().url()).pathname === "/api/me"
+    ? { isModerator: true, spaces } : { items: [], page: 1, totalPages: 1 } }));
+  await page.goto("/moderator#moderator-permissions");
+  const permissions = page.locator("#moderator-permissions");
+  await expect(permissions.locator("summary span")).toHaveText("2");
+  await expect(permissions.locator("strong")).toHaveText(["Upload-only", "Edit-only"]);
+  await expect(page.locator("#moderator-navigation").getByRole("link", { name: "Upload-only", exact: true })).toHaveCount(0);
+  await expect(page.locator("#moderator-navigation").getByRole("link", { name: "Edit-only", exact: true })).toHaveCount(1);
+  for (const [locale, label] of [["FR", "Déposer"], ["EN", "Upload"], ["ES", "Cargar"], ["SK", "Nahrať"]]) {
+    await page.getByRole("button", { name: locale, exact: true }).click();
+    await expect(permissions.locator(".admin-account-list > div").first().locator("small")).toHaveText(label);
+  }
+});
+
 test("moderator restores filters and pagination and debounces search", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
   const space = { id: "it", slug: "it", nameFr: "IT", nameEn: "IT", permissions: { edit: true } };
