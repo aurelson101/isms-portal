@@ -4,6 +4,7 @@
   "scripts": {
     "build": "next build",
     "start": "next start",
+    "test": "vitest run",
     "lint": "tsc --noEmit && eslint app next.config.ts --max-warnings=0"
   },
   "dependencies": {
