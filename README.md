@@ -10,6 +10,7 @@ consultation, téléchargement et administration sont filtrés côté serveur.
 
 - Modération : espace, état, recherche et page sont conservés dans l'URL au rechargement. La recherche attend 350 ms après la saisie et annule les anciennes requêtes ; les droits restent contrôlés par l'API.
 - La recherche des menus administrateur reconnaît aussi leurs libellés espagnols et slovaques.
+- L'espace modérateur reprend les contrôles de l'administration : barre de recherche, langues, actualisation et compte, avec des groupes de navigation repliables. Les menus et actions restent limités à ses droits effectifs.
 - `sh scripts/diagnose-postgres.sh` produit un bilan en lecture seule : connexions, cache, transactions, entretien automatique, index et temps cumulés des requêtes si `pg_stat_statements` est installé. Aucun contenu documentaire, texte SQL ou secret n'est affiché. Les compteurs sont cumulatifs depuis leur remise à zéro : un index peu utilisé ne doit pas être supprimé sans observation représentative.
 
 ### Gestion documentaire et affichage (15 octobre 2026)

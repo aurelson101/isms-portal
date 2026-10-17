@@ -67,6 +67,10 @@ for (const width of [320, 1440]) {
     await expect(page.getByRole("article")).toHaveCount(5);
     await expect(next).toBeDisabled();
     if (width <= 900) await page.locator(".navigation-toggle").click();
+    const documentMenu = page.locator("#moderator-navigation > details").first();
+    await documentMenu.locator("summary").click();
+    await expect(documentMenu.getByRole("link", { name: "HR", exact: true })).toBeHidden();
+    await documentMenu.locator("summary").click();
     await page.locator("#moderator-navigation").getByRole("link", { name: "HR", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Managed documents : HR", exact: true })).toBeVisible();
     await expect(page.getByRole("article")).toHaveCount(20);
@@ -109,11 +113,24 @@ for (const width of [320, 768, 1440, 1920, 2560, 3440, 3840, 5120]) {
       const url = new URL(route.request().url()), path = url.pathname;
       if (path === "/api/documents") queries.push(url.searchParams.get("q") || "");
       if (path === "/api/documents/document/publish") document.status = "PUBLISHED";
-      await route.fulfill({ json: path === "/api/me" ? { isAdmin: false, isModerator: true, spaces: [space] }
+      await route.fulfill({ json: path === "/api/me" ? { isAdmin: false, isModerator: true, displayName: "Test moderator", username: "moderator@example.test", spaces: [space] }
         : path === "/api/documents" ? { items: [document], page: 1, totalPages: 2 }
         : path.endsWith("/categories") ? [] : {} });
     });
     await page.goto("/moderator");
+    const toolbar = page.locator(".moderator-management-header");
+    await expect(toolbar.locator(".admin-language")).toHaveCount(1);
+    await expect(toolbar.getByRole("searchbox")).toHaveCount(1);
+    await expect(page.locator(".refresh-button")).toHaveCount(1);
+    if (width <= 600) await expect(page.locator(".refresh-button")).toHaveCSS("width", "44px");
+    await expect(page.locator('a[href^="/admin"]')).toHaveCount(0);
+    const profile = toolbar.locator(".admin-profile > summary");
+    await profile.click();
+    await expect(toolbar.locator(".admin-profile-menu")).toBeVisible();
+    await expect(toolbar.locator(".admin-profile-menu")).toContainText("moderator@example.test");
+    await page.keyboard.press("Escape");
+    await expect(toolbar.locator(".admin-profile-menu")).toBeHidden();
+    await expect(profile).toBeFocused();
     const languages = [
       ["FR", "Espace modérateur", "Documents gérés", "Éditer les métadonnées", "Document mis à jour."],
       ["EN", "Moderator workspace", "Managed documents", "Edit metadata", "Document updated."],

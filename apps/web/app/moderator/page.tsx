@@ -14,7 +14,7 @@ import { MetadataForm, VersionForm } from "./document-forms";
 import { BatchImport } from "../batch-import";
 import { documentFilters, documentPage as parseDocumentPage, latestVersion, translationFields, validateUpload, type Space, type Category, type ModeratorDocument as Document, type MetadataValues } from "./document-model";
 
-type Identity = { isAdmin: boolean; isModerator?: boolean; locale: Locale | null; spaces: Space[] };
+type Identity = { isAdmin: boolean; isModerator?: boolean; locale: Locale | null; spaces: Space[]; username?: string; displayName?: string; profilePhoto?: string | null };
 
 const messageOf = (response: Response) => responseMessage(response, "Request failed");
 
@@ -23,6 +23,7 @@ export default function ModeratorPage() {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("documents");
   const navigationToggle = useRef<HTMLButtonElement>(null);
+  const profileDetails = useRef<HTMLDetailsElement>(null);
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [documentPage, setDocumentPage] = useState(1);
@@ -51,6 +52,7 @@ export default function ModeratorPage() {
   const busy = loading || mutationBusy;
   const [locale, changeLocale] = useInterfaceLocale();
   const t = (fr: string, en: string) => translate(locale, fr, en);
+  const accountName = identity?.displayName || identity?.username || t("Espace modérateur", "Moderator workspace");
   const noticeLabels = {
     updated: t("Document mis à jour.", "Document updated."),
     metadata: t("Métadonnées enregistrées.", "Metadata saved."),
@@ -152,6 +154,13 @@ export default function ModeratorPage() {
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [navigationOpen]);
+  useEffect(() => {
+    const closeProfile = (event: PointerEvent) => {
+      if (!profileDetails.current?.contains(event.target as Node)) profileDetails.current?.removeAttribute("open");
+    };
+    document.addEventListener("pointerdown", closeProfile);
+    return () => document.removeEventListener("pointerdown", closeProfile);
+  }, []);
   const canDiscard = () => (!dirty.current && !importPending.current) || window.confirm(t("Abandonner les modifications non enregistrées ?", "Discard unsaved changes?"));
   const closeEditor = (force = false) => {
     if (!force && !canDiscard()) return;
@@ -261,22 +270,41 @@ export default function ModeratorPage() {
       </div>
       <nav id="moderator-navigation" aria-label={t("Espace modérateur", "Moderator workspace")}>
         {([
+          ["documents", t("Documents", "Documents"), [
           ["documents", "documents", t("Documents gérés", "Managed documents")],
           ["import", "upload", t("Import de documents", "Document import")],
+          ]],
+          ["account", t("Mon profil", "My profile"), [
           ["permissions", "rules", t("Mes droits documentaires", "My document permissions")],
-        ] as const).map(([section, icon, label]) => <div key={section} className="admin-navigation-group"><a href={`#moderator-${section}`} className={activeSection === section && (section !== "documents" || !selectedSpace) ? "active" : ""} aria-current={activeSection === section && (section !== "documents" || !selectedSpace) ? "location" : undefined} onClick={(event) => {
+          ]],
+        ] as const).map(([group, heading, items]) => <details key={group} className="admin-navigation-group" open><summary className="admin-navigation-heading">{heading}<Icon className="submenu-chevron" name="chevron" /></summary><div className="admin-navigation-submenu">{items.map(([section, icon, label]) => <div key={section}><a href={`#moderator-${section}`} className={activeSection === section && (section !== "documents" || !selectedSpace) ? "active" : ""} aria-current={activeSection === section && (section !== "documents" || !selectedSpace) ? "location" : undefined} onClick={(event) => {
           if (section === "documents" && !selectSpace("")) { event.preventDefault(); return; }
           setActiveSection(section);
           setNavigationOpen(false);
           const target = document.getElementById(`moderator-${section}`);
           if (target instanceof HTMLDetailsElement) target.open = true;
           window.requestAnimationFrame(() => target?.focus({ preventScroll: true }));
-        }}><Icon name={icon} /><span>{label}</span></a>{section === "documents" && <div className="admin-navigation-submenu">{editable.filter(space => space.slug).map(space => <a key={space.id} href="#moderator-documents" className={activeSection === "documents" && selectedSpace === space.slug ? "active" : ""} aria-current={activeSection === "documents" && selectedSpace === space.slug ? "location" : undefined} onClick={(event) => { if (!selectSpace(space.slug!)) event.preventDefault(); }}><Icon name="folder" /><span>{locale === "fr" ? space.nameFr : space.nameEn || space.nameFr}</span></a>)}</div>}</div>)}
+        }}><Icon name={icon} /><span>{label}</span></a>{section === "documents" && <div className="admin-navigation-submenu">{editable.filter(space => space.slug).map(space => <a key={space.id} href="#moderator-documents" className={activeSection === "documents" && selectedSpace === space.slug ? "active" : ""} aria-current={activeSection === "documents" && selectedSpace === space.slug ? "location" : undefined} onClick={(event) => { if (!selectSpace(space.slug!)) event.preventDefault(); }}><Icon name="folder" /><span>{locale === "fr" ? space.nameFr : space.nameEn || space.nameFr}</span></a>)}</div>}</div>)}</div></details>)}
       </nav>
       <a className="back-link" href="/explorer" onClick={(event) => { if (!canDiscard()) event.preventDefault(); else dirty.current = false; }}><Icon name="home" />{t("Retour au portail", "Back to portal")}</a>
     </aside>
     <main className="admin-main moderator-workspace">
-    <header className="admin-page-heading"><div><h1>{t("Espace modérateur", "Moderator workspace")}</h1><p>{t("Gestion documentaire limitée à vos droits effectifs.", "Document management limited to your effective permissions.")}</p></div><div className="moderator-header-actions"><div className="login-language" aria-label={t("Langue", "Language")}>{interfaceLocales.map(value => <button type="button" key={value} onClick={() => changeLocale(value)} aria-pressed={locale === value}>{value.toUpperCase()}</button>)}</div></div></header>
+    <header className="moderator-management-header">
+      {activeSection === "documents" ? <form id="moderator-document-search" className="admin-search" role="search" onSubmit={(event) => { event.preventDefault(); searchQuery.current = search.trim(); setHasActiveSearch(Boolean(searchQuery.current)); loadPage(1); }}>
+        <Icon name="search" /><input type="search" aria-label={t("Rechercher un document", "Search documents")} placeholder={t("Rechercher un document", "Search documents")} maxLength={200} value={search} disabled={mutationBusy || Boolean(editing || metadataEditing)} onChange={(event) => setSearch(event.target.value)} />
+        {search && <button type="button" className="admin-search-clear" aria-label={t("Effacer la recherche", "Clear search")} disabled={mutationBusy || Boolean(editing || metadataEditing)} onClick={() => setSearch("")}><Icon name="close" /></button>}
+      </form> : <strong className="moderator-current-section">{activeSection === "import" ? t("Import de documents", "Document import") : t("Mes droits documentaires", "My document permissions")}</strong>}
+      <div className="admin-language" role="group" aria-label={t("Langue de l’interface", "Interface language")}>{interfaceLocales.map(value => <button type="button" key={value} onClick={() => changeLocale(value)} aria-pressed={locale === value}>{value.toUpperCase()}</button>)}</div>
+      <button className="refresh-button" type="button" title={t("Actualiser", "Refresh")} aria-label={t("Actualiser", "Refresh")} disabled={busy} onClick={() => loadPage(documentPage)}><Icon name="sync" /><span>{t("Actualiser", "Refresh")}</span></button>
+      <details className="admin-profile" ref={profileDetails} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); profileDetails.current?.removeAttribute("open"); profileDetails.current?.querySelector("summary")?.focus(); } }}>
+        <summary className="admin-profile-button" aria-label={t("Mon profil", "My profile")}>
+          {identity.profilePhoto ? <img src={identity.profilePhoto} alt="" /> : <span className="admin-avatar" aria-hidden="true">{accountName.split(/\s+/u).map(part => part[0]).join("").slice(0, 2).toUpperCase()}</span>}
+          <span className="admin-identity"><strong>{accountName}</strong><small>{identity.username}</small></span><span aria-hidden="true"><Icon name="chevron" /></span>
+        </summary>
+        <div className="account-menu admin-profile-menu"><strong>{accountName}</strong><small>{identity.username}</small><a href="#moderator-permissions" onClick={() => profileDetails.current?.removeAttribute("open")}>{t("Mes droits documentaires", "My document permissions")}</a><a href="/explorer" onClick={event => { if (!canDiscard()) event.preventDefault(); else dirty.current = false; }}>{t("Retour au portail", "Back to portal")}</a></div>
+      </details>
+    </header>
+    <div className="admin-page-heading"><div><h1>{t("Espace modérateur", "Moderator workspace")}</h1><p>{t("Gestion documentaire limitée à vos droits effectifs.", "Document management limited to your effective permissions.")}</p></div></div>
     {notice && <p className="notice" role="status">{noticeLabels[notice]}</p>}{error && <p className="error-state" role="alert">{error}</p>}
     <details id="moderator-permissions" hidden={activeSection !== "permissions"} tabIndex={-1} className="moderator-permissions"><summary>{t("Mes droits documentaires", "My document permissions")} <span>{editable.length}</span></summary><div className="admin-account-list">{editable.map((space) => <div key={space.id}><span><strong>{locale === "fr" ? space.nameFr : space.nameEn || space.nameFr}</strong><small>{[space.permissions.edit && t("modifier", "edit"), space.permissions.publish && t("publier", "publish"), space.permissions.archive && t("archiver / supprimer", "archive / delete")].filter(Boolean).join(" · ")}</small></span></div>)}{!editable.length && <p className="admin-empty compact">{t("Aucun droit de gestion documentaire n’est attribué.", "No document management right is assigned.")}</p>}</div></details>
     <section id="moderator-import" hidden={activeSection !== "import"} tabIndex={-1}><BatchImport locale={locale} disabled={busy || Boolean(editing || metadataEditing)} onComplete={() => load(documentPage)} onBusyChange={setMutationBusy} onPendingChange={(pending) => { importPending.current = pending; }} /></section>
@@ -284,13 +312,12 @@ export default function ModeratorPage() {
     {metadataEditing && <MetadataForm document={metadataEditing} categories={metadataCategories} value={metadata} onChange={setMetadata} onSave={saveMetadata} busy={busy} locale={locale} onCancel={() => closeEditor()} onDirty={() => { dirty.current = true; }} />}
     {editing && <VersionForm document={editing} versionLocale={versionLocale} onLocaleChange={setVersionLocale} onUpload={uploadVersion} busy={busy} locale={locale} onCancel={() => closeEditor()} onDirty={() => { dirty.current = true; }} />}
     <section id="moderator-documents" tabIndex={-1} className="moderator-section">
-      <div className="moderator-toolbar"><h2>{t("Documents gérés", "Managed documents")}{currentSpace && ` : ${locale === "fr" ? currentSpace.nameFr : currentSpace.nameEn || currentSpace.nameFr}`}</h2><button type="button" disabled={busy} onClick={() => loadPage(documentPage)}><Icon name="sync" />{t("Actualiser", "Refresh")}</button></div>
-      <form className="moderator-search" role="search" onSubmit={(event) => { event.preventDefault(); searchQuery.current = search.trim(); setHasActiveSearch(Boolean(searchQuery.current)); loadPage(1); }}>
-        <label>{t("Rechercher un document", "Search documents")}<input type="search" maxLength={200} value={search} disabled={mutationBusy || Boolean(editing || metadataEditing)} onChange={(event) => setSearch(event.target.value)} /></label>
+      <div className="moderator-toolbar"><h2>{t("Documents gérés", "Managed documents")}{currentSpace && ` : ${locale === "fr" ? currentSpace.nameFr : currentSpace.nameEn || currentSpace.nameFr}`}</h2></div>
+      <div className="moderator-search">
         <label className="moderator-status-filter">{t("État", "Status")}<select value={selectedStatus} disabled={busy} onChange={event => { statusFilter.current = event.target.value; setSelectedStatus(event.target.value); loadPage(1); }}><option value="">{t("Tous les documents", "All documents")}</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <button type="submit" disabled={busy}><Icon name="search" />{t("Rechercher", "Search")}</button>
+        <button type="submit" form="moderator-document-search" disabled={busy}><Icon name="search" />{t("Rechercher", "Search")}</button>
         {(hasActiveSearch || selectedStatus) && <button type="button" disabled={busy} onClick={() => { setSearch(""); searchQuery.current = ""; setHasActiveSearch(false); statusFilter.current = ""; setSelectedStatus(""); loadPage(1); }}>{t("Réinitialiser", "Reset")}</button>}
-      </form>
+      </div>
       <div className="moderator-document-grid" aria-busy={loading}>
         {loading && <p role="status">{t("Chargement…", "Loading…")}</p>}
         {!loading && !documents.length && <p>{t("Aucun document géré sur cette page.", "No managed document on this page.")}</p>}

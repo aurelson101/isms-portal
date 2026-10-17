@@ -382,7 +382,8 @@ textarea:focus-visible {
   transition: transform 160ms ease;
 }
 .navigation-space.expanded > .space-menu .submenu-chevron,
-.admin-navigation-group.expanded > .admin-navigation-heading .submenu-chevron {
+.admin-navigation-group.expanded > .admin-navigation-heading .submenu-chevron,
+.admin-navigation-group[open] > summary .submenu-chevron {
   transform: rotate(90deg);
 }
 .category-submenu {
@@ -4070,6 +4071,8 @@ svg {
   text-transform: uppercase;
   gap: 10px;
 }
+.admin-shell > aside nav summary.admin-navigation-heading { display: flex; align-items: center; justify-content: space-between; min-height: 44px; cursor: pointer; list-style: none; letter-spacing: 0; }
+.admin-shell > aside nav summary.admin-navigation-heading::-webkit-details-marker { display: none; }
 .admin-shell > aside nav .admin-navigation-heading:hover,
 .admin-shell > aside nav .admin-navigation-heading:focus-visible {
   background: #ffffff12;
@@ -6301,15 +6304,20 @@ svg {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  border-bottom: 1px solid #d5deeb;
-  padding-bottom: 20px;
 }
-.moderator-workspace h1 { margin: 4px 0 8px; font-size: 28px; }
+.moderator-workspace h1 { margin: 0 0 8px; font-size: 32px; }
 .moderator-workspace h2 { margin: 0; font-size: 20px; }
 .moderator-workspace .admin-page-heading p { margin: 0; color: #52617b; }
-.moderator-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.moderator-shell > main.moderator-workspace { padding: 28px 32px 48px; align-content: start; }
-.moderator-shell main > .admin-page-heading { height: auto; }
+.moderator-shell > main.moderator-workspace { padding: 0 22px 40px; align-content: start; }
+.moderator-shell main > .moderator-management-header { display: flex; height: auto; min-height: 76px; flex-wrap: wrap; gap: 12px; padding: 12px 0; }
+.moderator-shell main > header.moderator-management-header > * { order: 0; }
+.moderator-management-header .admin-search { flex: 1 1 240px; width: auto; min-width: 0; }
+.moderator-management-header .admin-language { display: inline-flex; }
+.moderator-management-header .admin-profile > summary { border: 1px solid #b9c8dc; border-radius: 7px; background: #fff; cursor: pointer; list-style: none; }
+.moderator-management-header .admin-profile > summary::-webkit-details-marker { display: none; }
+.moderator-management-header .admin-identity { max-width: 180px; overflow-wrap: anywhere; }
+.moderator-management-header .admin-profile-button svg { width: 16px; height: 16px; }
+.moderator-current-section { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
 .moderator-shell .back-link svg { display: inline-block; width: 18px; height: 18px; margin-right: 12px; vertical-align: middle; }
 .moderator-workspace [id^="moderator-"] { scroll-margin-top: 20px; }
 .moderator-permissions > summary { min-height: 44px; cursor: pointer; padding: 10px 0; font-weight: 650; }
@@ -6398,19 +6406,13 @@ svg {
   justify-content: space-between;
   gap: 12px;
 }
-.moderator-toolbar button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.moderator-toolbar svg { width: 18px; height: 18px; }
 .moderator-workspace :is(button, .button) { min-height: 44px; }
 .moderator-workspace .document-actions { flex-wrap: wrap; min-width: 0; }
 @media (min-width: 901px) {
   .moderator-workspace .moderator-icon-action { position: relative; width: 44px; height: 44px; padding: 10px; }
   .moderator-icon-action > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
-.moderator-workspace :is(button, input, select, textarea):focus-visible {
+.moderator-workspace :is(button, input, select, textarea, summary):focus-visible {
   outline: 2px solid #075ad4;
   outline-offset: 2px;
 }
@@ -6422,9 +6424,10 @@ svg {
 .login-form input[type="checkbox"] { min-height: auto; }
 .login-tabs { flex-wrap: wrap; }
 @media (max-width: 600px) {
-  .moderator-workspace, .moderator-shell > main.moderator-workspace { padding: 20px 16px 32px; gap: 20px; }
-  .moderator-header-actions { flex-direction: column; align-items: flex-start; }
-  .moderator-header-actions .login-language { margin-left: 0; }
+  .moderator-workspace, .moderator-shell > main.moderator-workspace { padding: 0 16px 32px; gap: 20px; }
+  .moderator-shell main > .moderator-management-header { gap: 8px; }
+  .moderator-shell main > header.moderator-management-header .refresh-button { width: 44px; min-width: 44px; padding: 10px; }
+  .moderator-management-header .refresh-button span { display: none; }
   .moderator-search .moderator-status-filter { flex-basis: 100%; }
   .moderator-workspace .admin-page-heading { flex-wrap: wrap; gap: 12px; }
   .moderator-workspace h1 { font-size: 26px; }
