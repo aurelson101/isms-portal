@@ -291,13 +291,15 @@ export class NotificationService {
     const message = await this.prepare(job.data);
     if (!message) return { skipped: "Resource no longer eligible", accepted: 0, audience: 0 };
     if (!message.recipients.length) throw new Error("No eligible mail recipients: check active ACLs and the AD mail attribute");
-    const accepted = new Set(job.data.accepted || []);
+    const accepted = new Set((job.data.accepted || []).map(address => address.trim().toLowerCase()));
+    const audience = new Set(message.recipients.map(address => address.trim().toLowerCase()));
     for (const address of message.recipients) {
-      if (accepted.has(address)) continue;
+      const recipient = address.trim().toLowerCase();
+      if (accepted.has(recipient)) continue;
       const content = message.recipientMessages?.get(address) || message;
-      const result = await this.alerts.sendPreferredTo([address], content.subject, content.text, message.link, emailTemplate(job.data.action));
+      const result = await this.alerts.sendPreferredTo([address.trim()], content.subject, content.text, message.link, emailTemplate(job.data.action));
       if (!result.delivered) throw new Error("Microsoft Graph is not configured");
-      accepted.add(address);
+      accepted.add(recipient);
       await job.updateData({ ...job.data, accepted: [...accepted] });
     }
     if (job.data.action === "document-review.overdue" && job.data.reviewIds?.length)
@@ -309,6 +311,6 @@ export class NotificationService {
       const field = job.data.action === "document.review.reminder" ? "annualReviewReminderAt" : job.data.action === "document.review.overdue" ? "annualReviewOverdueAt" : "annualReviewNotifiedAt";
       await this.prisma.documentVersion.updateMany({ where: { id: job.data.documentVersionId, [field]: null }, data: { [field]: new Date() } });
     }
-    return { accepted: accepted.size, audience: message.recipients.length };
+    return { accepted: accepted.size, audience: audience.size };
   }
 }

@@ -193,6 +193,44 @@ describe("Notification routing", () => {
     expect(h.alerts.sendPreferredTo.mock.calls[0][0]).toEqual(["second@example.com"]);
     expect(job.updateData).toHaveBeenCalledWith(expect.objectContaining({ accepted: ["first@example.com", "second@example.com"] }));
   });
+  it("deduplicates case variants without mixing personalized messages", async () => {
+    const h = setup();
+    vi.spyOn(h.service, "prepare").mockResolvedValue({
+      recipients: [" Member@example.com ", "member@EXAMPLE.COM", "other@example.com"], subject: "Shared subject", text: "Shared body", link: "https://isms.example.com/",
+      recipientMessages: new Map([
+        [" Member@example.com ", { subject: "Member subject", text: "Member-only content" }],
+        ["other@example.com", { subject: "Other subject", text: "Other-only content" }],
+      ]),
+    });
+    const job = { data: event, updateData: vi.fn() };
+    expect(await h.service.process(job as never)).toEqual({ accepted: 2, audience: 2 });
+    expect(h.alerts.sendPreferredTo).toHaveBeenCalledTimes(2);
+    expect(h.alerts.sendPreferredTo.mock.calls[0].slice(0, 3)).toEqual([["Member@example.com"], "Member subject", "Member-only content"]);
+    expect(h.alerts.sendPreferredTo.mock.calls[1].slice(0, 3)).toEqual([["other@example.com"], "Other subject", "Other-only content"]);
+    expect(job.updateData).toHaveBeenLastCalledWith(expect.objectContaining({ accepted: ["member@example.com", "other@example.com"] }));
+  });
+  it("recognizes previously accepted recipients regardless of case or whitespace", async () => {
+    const h = setup();
+    vi.spyOn(h.service, "prepare").mockResolvedValue({ recipients: ["member@example.com", "other@example.com"], subject: "Subject", text: "Body", link: "https://isms.example.com/" });
+    const job = { data: { ...event, accepted: [" Member@EXAMPLE.COM "] }, updateData: vi.fn() };
+    expect(await h.service.process(job as never)).toEqual({ accepted: 2, audience: 2 });
+    expect(h.alerts.sendPreferredTo).toHaveBeenCalledTimes(1);
+    expect(h.alerts.sendPreferredTo.mock.calls[0][0]).toEqual(["other@example.com"]);
+  });
+  it("retries only the failed recipient when directory address casing changes", async () => {
+    const h = setup();
+    const message = { subject: "Subject", text: "Body", link: "https://isms.example.com/" };
+    vi.spyOn(h.service, "prepare")
+      .mockResolvedValueOnce({ ...message, recipients: ["First@example.com", "second@example.com"] })
+      .mockResolvedValueOnce({ ...message, recipients: ["first@example.com", "SECOND@example.com"] });
+    h.alerts.sendPreferredTo.mockResolvedValueOnce({ delivered: true }).mockRejectedValueOnce(new Error("Temporary delivery failure"));
+    const job = { data: { ...event, accepted: [] as string[] }, updateData: vi.fn() };
+    job.updateData.mockImplementation(async data => { job.data = data; });
+    await expect(h.service.process(job as never)).rejects.toThrow("Temporary delivery failure");
+    expect(job.data.accepted).toEqual(["first@example.com"]);
+    expect(await h.service.process(job as never)).toEqual({ accepted: 2, audience: 2 });
+    expect(h.alerts.sendPreferredTo.mock.calls.map(call => call[0])).toEqual([["First@example.com"], ["second@example.com"], ["SECOND@example.com"]]);
+  });
   it("marks an annual review version only after delivery", async () => {
     const h = setup(); vi.spyOn(h.service, "prepare").mockResolvedValue({ recipients: ["staff@example.com"], subject: "Subject", text: "Body", link: "https://isms.example.com/" });
     await h.service.process({ data: { ...event, action: "document.review.annual", documentVersionId: "version" }, updateData: vi.fn() } as never);
