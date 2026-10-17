@@ -1,5 +1,42 @@
 import { expect, test } from "./test";
 
+test("moderator restores filters and pagination and debounces search", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+  const space = { id: "it", slug: "it", nameFr: "IT", nameEn: "IT", permissions: { edit: true } };
+  const documents = Array.from({ length: 45 }, (_, index) => ({ id: String(index), status: "DRAFT", space, category: null, translations: [{ locale: "en", title: `Policy ${index + 1}` }], versions: [] }));
+  const requests: URLSearchParams[] = [];
+  await page.route("**/api/**", async route => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/api/me") return route.fulfill({ json: { isModerator: true, spaces: [space] } });
+    if (url.pathname !== "/api/documents") return route.fulfill({ json: {} });
+    requests.push(url.searchParams);
+    const filtered = documents.filter(document => document.translations[0].title.toLowerCase().includes((url.searchParams.get("q") || "").toLowerCase()));
+    const totalPages = Math.ceil(filtered.length / 20);
+    const current = Math.min(Number(url.searchParams.get("page")), Math.max(totalPages, 1));
+    return route.fulfill({ json: { items: filtered.slice((current - 1) * 20, current * 20), page: current, totalPages } });
+  });
+  await page.goto("/moderator?q=Policy&space=it&status=DRAFT&page=2#moderator-documents");
+  const search = page.getByRole("searchbox");
+  const pagination = page.getByRole("navigation", { name: "Document pagination" });
+  await expect(pagination).toContainText("Page 2 of 3");
+  await expect(search).toHaveValue("Policy");
+  await expect(page.getByRole("combobox", { name: "Status", exact: true })).toHaveValue("DRAFT");
+  await page.reload();
+  await expect(pagination).toContainText("Page 2 of 3");
+  await expect(page.getByRole("article")).toHaveCount(20);
+  const before = requests.length;
+  await search.fill("P");
+  await search.fill("Po");
+  await search.fill("Policy 2");
+  await expect(pagination).toContainText("Page 1 of 1");
+  await expect(page.getByRole("article")).toHaveCount(11);
+  expect(requests.length - before).toBe(1);
+  expect(requests.at(-1)?.get("space")).toBe("it");
+  expect(requests.at(-1)?.get("status")).toBe("DRAFT");
+  expect(new URL(page.url()).searchParams.get("q")).toBe("Policy 2");
+  expect(new URL(page.url()).searchParams.has("page")).toBe(false);
+});
+
 for (const width of [320, 1440]) {
   test(`moderator space menus and twenty-document pagination at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });

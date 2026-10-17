@@ -73,6 +73,13 @@ for (const language of ["es", "sk"] as const) test.describe(language, () => {
     await expect(page.getByRole("heading", { name: text.moderators, exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: text.addUser })).toBeVisible();
     await expect(page.locator('.admin-language button[aria-pressed="true"]')).toHaveText(language.toUpperCase());
+    if (width <= 900) await page.locator(".navigation-toggle").click();
+    const menuSearch = page.locator(".admin-menu-search input");
+    await menuSearch.fill(text.moderators);
+    await expect(page.locator("#admin-navigation .admin-navigation-submenu button")).toHaveCount(1);
+    await expect(page.locator("#admin-navigation .admin-navigation-submenu button")).toHaveText(text.moderators);
+    await menuSearch.fill("");
+    if (width <= 900) await page.locator(".navigation-toggle").click();
     for (const button of await page.locator('.admin-language button, .refresh-button').all()) {
       expect(await button.evaluate(element => getComputedStyle(element).whiteSpace)).toBe("nowrap");
     }
@@ -93,6 +100,8 @@ for (const language of ["es", "sk"] as const) test.describe(language, () => {
     await page.goto("/moderator");
     await expect(page.getByRole("heading", { name: text.moderator, exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: text.documents, exact: true })).toBeVisible();
+    if (width <= 900) await page.locator(".navigation-toggle").click();
+    await page.locator('#moderator-navigation a[href="#moderator-import"]').click();
     await page.getByRole("button", { name: text.batch, exact: true }).click();
     await expect(page.getByLabel(text.fileLanguage)).toHaveValue("fr");
     await noOverflow();

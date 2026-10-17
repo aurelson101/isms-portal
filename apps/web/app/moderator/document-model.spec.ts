@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categoryOptions, documentPage, latestVersion, translationFields, validateUpload, type ModeratorDocument } from "./document-model";
+import { categoryOptions, documentFilters, documentPage, latestVersion, translationFields, validateUpload, type ModeratorDocument } from "./document-model";
 
 const document: ModeratorDocument = {
   id: "doc", status: "PUBLISHED", space: { id: "space", nameFr: "Documents", nameEn: "Documents" }, category: null,
@@ -15,6 +15,15 @@ function upload() {
 }
 
 describe("moderator document model", () => {
+  it("restores document filters without accepting unrelated parameters", () => {
+    expect(documentFilters(new URLSearchParams("q=%20Policy%20&space=it&status=DRAFT&page=2&managed=false"))).toEqual({ q: "Policy", space: "it", status: "DRAFT", page: 2 });
+  });
+  it.each(["-1", "1.5", "Infinity", "9007199254740992"])("rejects invalid saved page %s", page => {
+    expect(documentFilters(new URLSearchParams({ page })).page).toBe(1);
+  });
+  it("bounds restored filters and rejects unknown statuses", () => {
+    expect(documentFilters(new URLSearchParams({ page: "2000000", q: "x".repeat(201), space: "y".repeat(201), status: "DELETED" }))).toEqual({ page: 1000000, q: "x".repeat(200), space: "y".repeat(200), status: "" });
+  });
   it("uses publication chronology across languages rather than comparing unrelated version counters", () => {
     const document = { versions: [{ id: "en", locale: "en", version: 5, createdAt: "2025-01-01" }, { id: "fr", locale: "fr", version: 1, createdAt: "2026-10-14" }] };
     expect(latestVersion(document)?.id).toBe("fr");

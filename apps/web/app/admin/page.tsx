@@ -441,8 +441,8 @@ export default function Admin() {
   const [navigationSearch, setNavigationSearch] = useState("");
   const navigationQuery = normalizeNavigationQuery(navigationSearch);
   const visibleNavigationGroups = useMemo(() => navigationGroups
-    .map(([id, label, items]): [string, string, typeof tabs] => [id, label, navigationQuery ? items.filter(([, , fr, en]) => normalizeNavigationQuery(`${fr} ${en}`).includes(navigationQuery)) : items])
-    .filter(([, , items]) => items.length > 0), [navigationQuery]);
+    .map(([id, label, items]): [string, string, typeof tabs] => [id, label, navigationQuery ? items.filter(([, , fr, en]) => normalizeNavigationQuery(`${fr} ${en} ${translate(locale, fr, en)}`).includes(navigationQuery)) : items])
+    .filter(([, , items]) => items.length > 0), [navigationQuery, locale]);
   const navigationToggle = useRef<HTMLButtonElement>(null);
   const [expandedNavigationGroups, setExpandedNavigationGroups] = useState<
     Set<string>

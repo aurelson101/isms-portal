@@ -17,7 +17,7 @@ for (const width of [320, 768, 1280]) {
       if (path === "/api/documents/publication-digest") { summaries.push(route.request().postDataJSON().documentIds); return route.fulfill({ status: summaries.length === 1 ? 503 : 200, json: summaries.length === 1 ? { message: "Queue temporarily unavailable" } : { queued: true } }); }
       return route.fulfill({ json: [] });
     });
-    await page.goto("/moderator");
+    await page.goto("/moderator#moderator-import");
     const batch = page.locator(".batch-import");
     await batch.getByRole("button", { name: "Import a batch" }).click();
     await batch.getByRole("combobox", { name: "Space", exact: true }).selectOption("space");
@@ -70,7 +70,7 @@ test("imports and publishes all 200 files with one publication summary", async (
     if (path === "/api/documents/publication-digest") { summaries.push(route.request().postDataJSON().documentIds); return route.fulfill({ json: { queued: true } }); }
     return route.fulfill({ json: [] });
   });
-  await page.goto("/moderator");
+  await page.goto("/moderator#moderator-import");
   const batch = page.locator(".batch-import");
   await batch.getByRole("button", { name: "Import a batch" }).click();
   await batch.getByRole("combobox", { name: "Space", exact: true }).selectOption("space");
@@ -98,7 +98,7 @@ test("does not reupload a document when publication alone fails", async ({ page 
     if (path === "/api/documents/publication-digest") { summaries++; return route.fulfill({ json: { queued: true } }); }
     return route.fulfill({ json: [] });
   });
-  await page.goto("/moderator"); const batch = page.locator(".batch-import");
+  await page.goto("/moderator#moderator-import"); const batch = page.locator(".batch-import");
   await batch.getByRole("button", { name: "Import a batch" }).click(); await batch.getByRole("combobox", { name: "Space", exact: true }).selectOption("space");
   await batch.getByLabel("Publish after scanning").check(); await batch.locator('input[type="file"]').setInputFiles(files[0]);
   await batch.getByRole("button", { name: "Process batch" }).click(); await expect(batch.getByText("Publication failed")).toBeVisible();
@@ -114,7 +114,7 @@ test("leaves an uncertain upload for manual verification without creating a dupl
     if (path === "/api/documents/upload") { uploads++; return route.abort("failed"); }
     return route.fulfill({ json: [] });
   });
-  await page.goto("/moderator"); const batch = page.locator(".batch-import");
+  await page.goto("/moderator#moderator-import"); const batch = page.locator(".batch-import");
   await batch.getByRole("button", { name: "Import a batch" }).click(); await batch.getByRole("combobox", { name: "Space", exact: true }).selectOption("space");
   await batch.locator('input[type="file"]').setInputFiles(files[0]); await batch.getByRole("button", { name: "Process batch" }).click();
   await expect(batch.getByText("Check before retry")).toBeVisible(); await expect(batch.getByRole("button", { name: "Process batch" })).toBeDisabled(); expect(uploads).toBe(1);
@@ -137,7 +137,7 @@ test("switching to an upload-only space clears publication and sends no summary"
     if (path === "/api/documents/publication-digest") { summaries++; return route.fulfill({ json: {} }); }
     return route.fulfill({ json: [] });
   });
-  await page.goto("/moderator"); const batch = page.locator(".batch-import");
+  await page.goto("/moderator#moderator-import"); const batch = page.locator(".batch-import");
   await batch.getByRole("button", { name: "Import a batch" }).click();
   const space = batch.getByRole("combobox", { name: "Space", exact: true });
   await space.selectOption("publish");
@@ -163,7 +163,7 @@ for (const documentId of ["", " "]) {
       if (path === "/api/documents/publication-digest") { summaries++; return route.fulfill({ json: {} }); }
       return route.fulfill({ json: [] });
     });
-    await page.goto("/moderator"); const batch = page.locator(".batch-import");
+    await page.goto("/moderator#moderator-import"); const batch = page.locator(".batch-import");
     await batch.getByRole("button", { name: "Import a batch" }).click();
     await batch.getByRole("combobox", { name: "Space", exact: true }).selectOption("space");
     await batch.getByLabel("Publish after scanning").check();

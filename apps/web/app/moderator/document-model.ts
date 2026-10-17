@@ -11,6 +11,17 @@ export type ModeratorDocument = {
 };
 export type MetadataValues = { locale: DocumentLocale; title: string; description: string; categoryId: string };
 
+export function documentFilters(query: URLSearchParams) {
+  const page = Number(query.get("page") || 1);
+  const status = query.get("status") || "";
+  return {
+    page: Number.isSafeInteger(page) && page > 0 ? Math.min(page, 1000000) : 1,
+    q: (query.get("q") || "").trim().slice(0, 200),
+    space: (query.get("space") || "").slice(0, 200),
+    status: ["DRAFT", "PUBLISHED", "ARCHIVED", "QUARANTINED"].includes(status) ? status : "",
+  };
+}
+
 export function latestVersion<T extends { id?: string; locale: string; version: number; createdAt?: string }>({ versions }: { versions: T[] }) {
   return versions.reduce<T | undefined>((latest, version) => {
     if (!latest) return version;

@@ -97,6 +97,14 @@ for (const destination of ["/explorer", "/moderator"]) {
   });
 }
 
+test("moderator session recovery retains document filters", async ({ page }) => {
+  await mockLogin(page);
+  const destination = "/moderator?space=it&status=DRAFT&page=2#moderator-documents";
+  await page.goto(destination);
+  await expect(page.locator(".login-sso")).toHaveAttribute("href", `/oauth2/start?rd=${encodeURIComponent(destination)}`);
+  expect(new URL(page.url()).searchParams.get("return")).toBe(destination);
+});
+
 test("admin SSO cannot return to an external or non-admin destination", async ({ page }) => {
   await mockLogin(page);
   for (const destination of ["//untrusted.example/", "/administrator", "/explorer"]) {

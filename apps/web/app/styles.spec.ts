@@ -3,8 +3,8 @@ import { fileURLToPath } from "node:url";
 import postcss from "postcss";
 import { expect, it } from "vitest";
 
-it("has no identical CSS rules in the same conditional scope", () => {
-  const root = postcss.parse(readFileSync(fileURLToPath(new URL("./styles.css", import.meta.url)), "utf8"));
+it.each(["styles.css", "batch-import.css", "document-layout.css", "approvals/approvals.css", "admin/storage.css"])("has no identical CSS rules in the same conditional scope in %s", filename => {
+  const root = postcss.parse(readFileSync(fileURLToPath(new URL(filename, import.meta.url)), "utf8"));
   const seen = new Set<string>(), duplicates: string[] = [];
   root.walkRules(rule => {
     const scope: string[] = []; let parent = rule.parent;
