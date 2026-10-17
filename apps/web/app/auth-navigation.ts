@@ -31,3 +31,9 @@ export function adminDestination(requested: string | null) {
   const destination = returnDestination(requested, "/admin");
   return /^\/admin(?:[/?#]|$)/.test(destination) ? destination : "/admin";
 }
+
+export function loginDestination(scope: "portal" | "admin" = "portal") {
+  const requested = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const destination = scope === "admin" ? adminDestination(requested) : returnDestination(requested);
+  return `${scope === "admin" ? "/admin/login" : "/login"}?return=${encodeURIComponent(destination)}`;
+}

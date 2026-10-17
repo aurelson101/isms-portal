@@ -95,10 +95,4 @@ export function getCachedPortalIdentity<T>() {
     : null;
 }
 
-function currentProtectedDestination() {
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
-}
-
-export function loginDestination() {
-  return `/login?return=${encodeURIComponent(currentProtectedDestination())}`;
-}
+export { loginDestination } from "./auth-navigation";

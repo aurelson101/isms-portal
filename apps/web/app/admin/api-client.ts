@@ -1,4 +1,5 @@
 import { fetchWithTimeout as fetch } from "../http-client";
+import { loginDestination } from "../auth-navigation";
 
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, options);
@@ -17,10 +18,7 @@ export async function api<T>(url: string, options?: RequestInit): Promise<T> {
           } | null)
         : null;
       if (!identity?.isAdmin) {
-        const requested = `${window.location.pathname}${window.location.hash}`;
-        window.location.replace(
-          `/admin/login?return=${encodeURIComponent(requested)}`,
-        );
+        window.location.replace(loginDestination("admin"));
       }
     }
     const payload = (await response

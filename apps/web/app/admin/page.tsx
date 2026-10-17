@@ -30,7 +30,7 @@ import {
 import { GovernancePanel } from "./governance-panel";
 import { StoragePanel } from "./storage-panel";
 import { HelpPanel } from "./help-panel";
-import { ssoDestination } from "../auth-navigation";
+import { loginDestination, ssoDestination } from "../auth-navigation";
 
 type Authentication = {
   source: string;
@@ -512,10 +512,7 @@ export default function Admin() {
       }>("/api/admin/check");
       if (!me.isAdmin) {
         setIsAdmin(false);
-        const requested = `${window.location.pathname}${window.location.hash}`;
-        window.location.replace(
-          `/admin/login?return=${encodeURIComponent(requested)}`,
-        );
+        window.location.replace(loginDestination("admin"));
         return;
       }
       setIsAdmin(true);
@@ -647,10 +644,7 @@ export default function Admin() {
         isAdmin: boolean;
       };
       if (!currentIdentity?.isAdmin) {
-        const requested = `${window.location.pathname}${window.location.hash}`;
-        window.location.replace(
-          `/admin/login?return=${encodeURIComponent(requested)}`,
-        );
+        window.location.replace(loginDestination("admin"));
         return;
       }
       setIdentity(currentIdentity);
@@ -1361,7 +1355,7 @@ export default function Admin() {
                       ? ssoDestination(authentication.loginUrl || "/oauth2/start", requested, "/admin")
                       : null;
                     window.location.assign(
-                      ssoUrl || `/admin/login?return=${encodeURIComponent(requested)}`,
+                      ssoUrl || loginDestination("admin"),
                     );
                   }}
                 >

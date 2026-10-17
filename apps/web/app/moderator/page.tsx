@@ -1,5 +1,6 @@
 "use client";
 import { fetchWithTimeout as fetch } from "../http-client";
+import { loginDestination } from "../auth-navigation";
 
 import { translate } from "../i18n/translate";
 import { useInterfaceLocale } from "../i18n/use-locale";
@@ -72,7 +73,7 @@ export default function ModeratorPage() {
     if (statusFilter.current) query.set("status", statusFilter.current);
     const [me, list] = await Promise.all([fetch("/api/me", { cache: "no-store", signal: controller.signal }), fetch(`/api/documents?${query}`, { cache: "no-store", signal: controller.signal })]);
     if (request !== loadRequest.current) return;
-    if (me.status === 401) { window.location.assign(`/login?return=${encodeURIComponent(`${window.location.pathname}${window.location.search}${window.location.hash}`)}`); return; }
+    if (me.status === 401) { window.location.assign(loginDestination()); return; }
     if (!me.ok) throw new Error(await messageOf(me));
     const current = await me.json() as Identity;
     if (request !== loadRequest.current) return;
