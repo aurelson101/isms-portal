@@ -189,6 +189,15 @@ en lecture seule et des volumes de données inscriptibles. Les journaux Docker
 sont limités à cinq fichiers de 10 Mo et les processus sont bornés par service.
 Ces protections ne remplacent pas TLS PostgreSQL ni une supervision externe.
 
+Les images de Nginx, Redis, PostgreSQL et du proxy SSO sont reconstruites depuis
+`deploy/images/` avec des bases epinglees par empreinte. Les paquets Alpine sont
+mis a jour ; `gosu` et le proxy SSO sont recompiles avec une version corrigee de
+Go. Reconstruire ces images avec `docker compose build --no-cache` lors des
+maintenances et les rescanner avant de recreer les services. Conserver une
+sauvegarde PostgreSQL et les anciennes images pour le retour arriere ; ne pas
+changer de version majeure de PostgreSQL par simple remplacement d'image.
+L'import PKCS#7 utilise OpenSSL, installe dans l'image API, sans `node-forge`.
+
 En développement ou sur un poste isolé, le portail est disponible sur
 <http://localhost:8080>. En production, ne pas exposer directement ce port.
 Créer un fichier local `docker-compose.production.yml`, non versionné :

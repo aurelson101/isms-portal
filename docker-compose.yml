@@ -8,7 +8,8 @@ x-logging: &bounded-logging
 services:
   reverse-proxy:
     logging: *bounded-logging
-    image: nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94
+    image: isms-portal/nginx-secure:1.30.6
+    build: { context: ., dockerfile: deploy/images/nginx.Dockerfile }
     restart: unless-stopped
     ports: ["127.0.0.1:8080:8080"]
     volumes:
@@ -127,7 +128,8 @@ services:
     logging: *bounded-logging
     read_only: true
     tmpfs: [/tmp, /var/run/postgresql]
-    image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    image: isms-portal/postgres-secure:17.11
+    build: { context: ., dockerfile: deploy/images/postgres.Dockerfile }
     command:
       - postgres
       - -c
@@ -159,7 +161,8 @@ services:
     logging: *bounded-logging
     read_only: true
     tmpfs: [/tmp]
-    image: redis:7.4.11-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+    image: isms-portal/redis-secure:7.4.11
+    build: { context: ., dockerfile: deploy/images/redis.Dockerfile }
     restart: unless-stopped
     env_file:
       - path: .env.redis
@@ -218,7 +221,7 @@ services:
 
   clamav:
     logging: *bounded-logging
-    image: clamav/clamav:1.4.6@sha256:57deb108fc4c72778aa83eafbca7bb7153e28c3f57c005afd38d31f16da86f23
+    image: clamav/clamav:1.4.6@sha256:b5b910ce43d595bf8a2fe401e34db56434602b2c755b7c2b07f00c917d04d469
     restart: unless-stopped
     volumes: [clamav-data:/var/lib/clamav]
     healthcheck:

@@ -380,9 +380,10 @@ for (const width of [320, 768, 1280]) {
     await page.locator(".login-alternative > summary").click();
     await page.getByLabel("Administrator username", { exact: true }).fill("admin@example.test");
     await page.getByLabel("Password", { exact: true }).fill("test-only-password");
-    await page.route("http://127.0.0.1:3100/admin", (route) => route.fulfill({ contentType: "text/html", body: "<h1>Administration</h1>" }));
+    const destination = new URL("/admin", page.url()).href;
+    await page.route(destination, (route) => route.fulfill({ contentType: "text/html", body: "<h1>Administration</h1>" }));
     await page.getByRole("button", { name: "Sign in to administration", exact: true }).click();
-    await expect(page).toHaveURL("http://127.0.0.1:3100/admin");
+    await expect(page).toHaveURL(destination);
   });
 }
 
@@ -400,9 +401,10 @@ for (const [requested, expected] of [["/moderator", "/moderator"], ["/\\external
     await page.locator(".login-alternative > summary").click();
     await page.getByLabel("Identifier", { exact: true }).fill("moderator@example.test");
     await page.getByLabel("Password", { exact: true }).fill("test-only-password");
-    await page.route(`http://127.0.0.1:3100${expected}`, (route) => route.fulfill({ contentType: "text/html", body: "<h1>Destination</h1>" }));
+    const destination = new URL(expected, page.url()).href;
+    await page.route(destination, (route) => route.fulfill({ contentType: "text/html", body: "<h1>Destination</h1>" }));
     await page.locator("form").getByRole("button", { name: "Sign in", exact: true }).click();
-    await expect(page).toHaveURL(`http://127.0.0.1:3100${expected}`);
+    await expect(page).toHaveURL(destination);
     await expect(page.getByRole("heading", { name: "Destination" })).toBeVisible();
   });
 }

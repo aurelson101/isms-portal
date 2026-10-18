@@ -1,5 +1,5 @@
 import { X509Certificate } from "crypto";
-import forge from "node-forge";
+import { execFileSync } from "child_process";
 
 const MAX_CERTIFICATE_BYTES = 48 * 1024;
 
@@ -14,17 +14,13 @@ const decodeText = (content: Buffer) => {
 
 const parsePkcs7 = (content: Buffer | string) => {
   try {
-    const message =
-      typeof content === "string"
-        ? forge.pkcs7.messageFromPem(content)
-        : forge.pkcs7.messageFromAsn1(
-            forge.asn1.fromDer(content.toString("binary")),
-          );
-    if (!("certificates" in message)) return [];
-    return (message.certificates || []).map(
-      (certificate: forge.pki.Certificate) =>
-        new X509Certificate(forge.pki.certificateToPem(certificate)),
-    );
+    const pem = typeof content === "string";
+    const input = pem ? content.replace(/-----BEGIN CMS-----/g, "-----BEGIN PKCS7-----").replace(/-----END CMS-----/g, "-----END PKCS7-----") : content;
+    const output = execFileSync("openssl", ["pkcs7", "-inform", pem ? "PEM" : "DER", "-print_certs"], {
+      input, encoding: "utf8", timeout: 3000, maxBuffer: MAX_CERTIFICATE_BYTES * 4,
+      windowsHide: true, stdio: ["pipe", "pipe", "pipe"],
+    });
+    return (output.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g) || []).map(block => new X509Certificate(block));
   } catch {
     return [];
   }
