@@ -48,6 +48,12 @@ describe("moderator document model", () => {
   it("normalizes invalid pagination metadata", () => expect(documentPage({ items: [], page: "2", totalPages: -1 }, 2)).toEqual({ items: [], page: 1, totalPages: 1 }));
   it("builds English category paths", () => expect(categoryOptions(categories, "en")[1].label).toBe("Travel / International"));
   it("builds French category paths", () => expect(categoryOptions(categories, "fr")[1].label).toBe("Voyages / International"));
+  it.each(["en", "es", "sk"] as const)("keeps category labels when English is missing in %s", locale => {
+    expect(categoryOptions([{ ...categories[0], nameEn: "" }], locale)[0].label).toBe("Voyages");
+  });
+  it("keeps category labels when French is missing", () => {
+    expect(categoryOptions([{ ...categories[0], nameFr: "" }], "fr")[0].label).toBe("Travel");
+  });
   it("handles missing category parents", () => expect(categoryOptions([categories[1]], "en")[0].label).toBe("International"));
   it("terminates cyclic category paths", () => expect(categoryOptions([{ ...categories[0], parentId: "child" }, categories[1]], "en")[0].label).toBe("International / Travel"));
   it("accepts uppercase extensions and trims values", () => { const data = validateUpload(upload(), "en"); expect(data.get("title")).toBe("Policy"); expect(data.get("changeSummary")).toBe("Updated"); });

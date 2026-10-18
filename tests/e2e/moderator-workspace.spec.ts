@@ -1,5 +1,97 @@
 import { expect, test } from "./test";
 
+test("moderator version forms discard the previous document file and summary", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+  const space = { id: "it", nameFr: "IT", nameEn: "IT", permissions: { edit: true } };
+  const documents = ["First", "Second"].map((title, index) => ({ id: String(index), status: "DRAFT", space, category: null, translations: [{ locale: "en", title }], versions: [{ id: `v${index}`, locale: "en", version: 1 }] }));
+  await page.route("**/api/**", route => route.fulfill({ json: new URL(route.request().url()).pathname === "/api/me"
+    ? { isModerator: true, spaces: [space] } : { items: documents, page: 1, totalPages: 1 } }));
+  await page.goto("/moderator");
+  await page.getByRole("button", { name: "New version", exact: true }).first().click();
+  const form = page.locator("#moderator-version-form");
+  await form.getByRole("textbox", { name: "Change summary" }).fill("First document changes");
+  await form.locator('input[type="file"]').setInputFiles({ name: "first.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.7") });
+  await form.getByRole("checkbox").check();
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "New version", exact: true }).nth(1).click();
+  await expect(form.getByRole("textbox", { name: "Title", exact: true })).toHaveValue("Second");
+  await expect(form.getByRole("textbox", { name: "Change summary" })).toHaveValue("");
+  await expect(form.locator('input[type="file"]')).toHaveValue("");
+  await expect(form.getByRole("checkbox")).not.toBeChecked();
+});
+
+test("moderator protects an editor from filters and preserves it across menu changes", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+  const space = { id: "it", nameFr: "IT", nameEn: "IT", permissions: { edit: true } };
+  const document = { id: "doc", status: "DRAFT", space, category: null, translations: [{ locale: "en", title: "Policy" }], versions: [{ id: "v1", locale: "en", version: 1 }] };
+  let lists = 0;
+  await page.route("**/api/**", route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/documents") lists++;
+    return route.fulfill({ json: path === "/api/me" ? { isModerator: true, spaces: [space] }
+      : path.endsWith("/categories") ? [] : { items: [document], page: 1, totalPages: 1 } });
+  });
+  await page.goto("/moderator?status=DRAFT");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const form = page.locator("#moderator-metadata-form");
+  await form.getByRole("textbox", { name: "Title", exact: true }).fill("Unsaved policy");
+  await expect(page.getByRole("combobox", { name: "Status", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Reset", exact: true })).toBeDisabled();
+  const before = lists;
+  await page.locator("#moderator-document-search").evaluate((element: HTMLFormElement) => element.requestSubmit());
+  expect(lists).toBe(before);
+  const imports = page.locator("#moderator-navigation").getByRole("link", { name: "Document import", exact: true });
+  await imports.click();
+  await expect(page.locator("#moderator-import")).toBeVisible();
+  await page.locator("#moderator-navigation").getByRole("link", { name: "Managed documents", exact: true }).click();
+  await expect(form).toBeVisible();
+  await expect(form.getByRole("textbox", { name: "Title", exact: true })).toHaveValue("Unsaved policy");
+});
+
+test("moderator cannot switch menus while an editor request is pending", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+  const space = { id: "it", nameFr: "IT", nameEn: "IT", permissions: { edit: true } };
+  const document = { id: "doc", status: "DRAFT", space, category: null, translations: [{ locale: "en", title: "Policy" }], versions: [] };
+  let release: () => void = () => {};
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/**", async route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/categories")) { await pending; return route.fulfill({ json: [] }); }
+    return route.fulfill({ json: path === "/api/me" ? { isModerator: true, spaces: [space] } : { items: [document], page: 1, totalPages: 1 } });
+  });
+  await page.goto("/moderator");
+  const requested = page.waitForRequest("**/api/documents/doc/categories");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await requested;
+  await page.locator("#moderator-navigation").getByRole("link", { name: "Document import", exact: true }).click();
+  await expect(page.locator("#moderator-documents")).toBeVisible();
+  await expect(page.locator("#moderator-import")).toBeHidden();
+  release();
+  await expect(page.locator("#moderator-metadata-form")).toBeVisible();
+});
+
+test("moderator redirects to login when only the document session expires", async ({ page }) => {
+  await page.route("**/api/**", route => {
+    const path = new URL(route.request().url()).pathname;
+    return route.fulfill(path === "/api/me" ? { json: { isModerator: true, spaces: [] } }
+      : path === "/api/documents" ? { status: 401, json: { message: "Unauthorized" } } : { json: {} });
+  });
+  await page.goto("/moderator");
+  await expect(page).toHaveURL(/\/login\?/);
+});
+
+test("moderator localizes a stalled document request timeout", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("isms-locale", "fr"));
+  await page.route("**/api/**", route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/documents") return;
+    return route.fulfill({ json: path === "/api/me" ? { isModerator: true, spaces: [] } : {} });
+  });
+  await page.goto("/moderator");
+  await expect(page.locator('.error-state[role="alert"]')).toContainText("Délai dépassé", { timeout: 20000 });
+});
+
 test("moderator shows upload-only permissions without granting document management", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
   const spaces = [

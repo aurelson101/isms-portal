@@ -17,19 +17,23 @@ export async function fetchWithTimeout(input: RequestInfo | URL, init: RequestIn
   const method = (init.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
   const read = ["GET", "HEAD", "OPTIONS"].includes(method);
   const controller = new AbortController();
-  const external = init.signal;
+  const external = init.signal === undefined && input instanceof Request ? input.signal : init.signal;
+  external?.throwIfAborted();
+  const combine = typeof AbortSignal.any === "function";
   const abort = () => controller.abort(external?.reason);
-  if (external?.aborted) abort();
-  else external?.addEventListener("abort", abort, { once: true });
+  if (external && !combine) external.addEventListener("abort", abort, { once: true });
+  const signal = external && combine ? AbortSignal.any([external, controller.signal]) : controller.signal;
+  const multipart = init.body instanceof FormData || (init.body === undefined && input instanceof Request
+    && /^multipart\/form-data(?:;|$)/i.test(input.headers.get("content-type") || ""));
   let timedOut = false;
-  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs ?? (init.body instanceof FormData ? 120000 : read ? 15000 : 30000));
+  const timer = setTimeout(() => { if (!signal.aborted) { timedOut = true; controller.abort(); } }, timeoutMs ?? (multipart ? 120000 : read ? 15000 : 30000));
   try {
-    return await globalThis.fetch(input, { ...init, signal: controller.signal });
+    return await globalThis.fetch(input, { ...init, signal });
   } catch (error) {
     if (timedOut) throw new RequestTimeoutError(!read);
     throw error;
   } finally {
     clearTimeout(timer);
-    external?.removeEventListener("abort", abort);
+    if (!combine) external?.removeEventListener("abort", abort);
   }
 }

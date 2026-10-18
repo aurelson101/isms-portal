@@ -1,5 +1,5 @@
 "use client";
-import { fetchWithTimeout as fetch } from "../http-client";
+import { fetchWithTimeout as fetch, RequestTimeoutError } from "../http-client";
 import { loginDestination } from "../auth-navigation";
 import { uploadAttempt, type UploadAttempt } from "../upload-attempt";
 
@@ -75,7 +75,7 @@ export default function ModeratorPage() {
     if (statusFilter.current) query.set("status", statusFilter.current);
     const [me, list] = await Promise.all([fetch("/api/me", { cache: "no-store", signal: controller.signal }), fetch(`/api/documents?${query}`, { cache: "no-store", signal: controller.signal })]);
     if (request !== loadRequest.current) return;
-    if (me.status === 401) { window.location.assign(loginDestination()); return; }
+    if (me.status === 401 || list.status === 401) { window.location.assign(loginDestination()); return; }
     if (!me.ok) throw new Error(await messageOf(me));
     const current = await me.json() as Identity;
     if (request !== loadRequest.current) return;
@@ -96,7 +96,7 @@ export default function ModeratorPage() {
     }
     window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
     } catch (reason) {
-      if (request === loadRequest.current) throw timedOut ? new Error("Request timed out") : reason;
+      if (request === loadRequest.current) throw timedOut ? new RequestTimeoutError(false) : reason;
     } finally {
       window.clearTimeout(timeout);
       if (request === loadRequest.current) setLoading(false);
@@ -115,7 +115,7 @@ export default function ModeratorPage() {
     return () => { loadRequest.current++; loadController.current?.abort(); };
   }, [load]);
   useEffect(() => {
-    if (!identity || mutationBusy || editing || metadataEditing || search.trim() === searchQuery.current) return;
+    if (activeSection !== "documents" || !identity || mutationBusy || editing || metadataEditing || search.trim() === searchQuery.current) return;
     const timeout = window.setTimeout(() => {
       if (search.trim() === searchQuery.current) return;
       searchQuery.current = search.trim();
@@ -124,7 +124,7 @@ export default function ModeratorPage() {
       void load(1).catch((reason) => setError(reason.message));
     }, 350);
     return () => window.clearTimeout(timeout);
-  }, [search, identity, mutationBusy, editing, metadataEditing, load]);
+  }, [activeSection, search, identity, mutationBusy, editing, metadataEditing, load]);
   useEffect(() => {
     const protect = (event: BeforeUnloadEvent) => {
       if (!dirty.current) return;
@@ -170,6 +170,12 @@ export default function ModeratorPage() {
     dirty.current = false;
     setEditing(null);
     setMetadataEditing(null);
+  };
+  const selectView = (section: string) => {
+    if (busy) return false;
+    setActiveSection(section);
+    setNavigationOpen(false);
+    return true;
   };
   const loadPage = (page: number) => { setError(""); void load(page).catch((reason) => setError(reason.message)); };
   const permissionsSpaces = useMemo(() => identity?.spaces.filter((space) => space.permissions.upload || space.permissions.edit || space.permissions.publish || space.permissions.archive) || [], [identity]);
@@ -284,9 +290,7 @@ export default function ModeratorPage() {
           ["permissions", "rules", t("Mes droits documentaires", "My document permissions")],
           ]],
         ] as const).map(([group, heading, items]) => <details key={group} className="admin-navigation-group" open><summary className="admin-navigation-heading">{heading}<Icon className="submenu-chevron" name="chevron" /></summary><div className="admin-navigation-submenu">{items.map(([section, icon, label]) => <div key={section}><a href={`#moderator-${section}`} className={activeSection === section && (section !== "documents" || !selectedSpace) ? "active" : ""} aria-current={activeSection === section && (section !== "documents" || !selectedSpace) ? "location" : undefined} onClick={(event) => {
-          if (section === "documents" && !selectSpace("")) { event.preventDefault(); return; }
-          setActiveSection(section);
-          setNavigationOpen(false);
+          if (!(section === "documents" ? selectSpace("") : selectView(section))) { event.preventDefault(); return; }
           const target = document.getElementById(`moderator-${section}`);
           if (target instanceof HTMLDetailsElement) target.open = true;
           window.requestAnimationFrame(() => target?.focus({ preventScroll: true }));
@@ -296,7 +300,7 @@ export default function ModeratorPage() {
     </aside>
     <main className="admin-main moderator-workspace">
     <header className="moderator-management-header">
-      {activeSection === "documents" ? <form id="moderator-document-search" className="admin-search" role="search" onSubmit={(event) => { event.preventDefault(); searchQuery.current = search.trim(); setHasActiveSearch(Boolean(searchQuery.current)); loadPage(1); }}>
+      {activeSection === "documents" ? <form id="moderator-document-search" className="admin-search" role="search" onSubmit={(event) => { event.preventDefault(); if (busy || editing || metadataEditing) return; searchQuery.current = search.trim(); setHasActiveSearch(Boolean(searchQuery.current)); loadPage(1); }}>
         <Icon name="search" /><input type="search" aria-label={t("Rechercher un document", "Search documents")} placeholder={t("Rechercher un document", "Search documents")} maxLength={200} value={search} disabled={mutationBusy || Boolean(editing || metadataEditing)} onChange={(event) => setSearch(event.target.value)} />
         {search && <button type="button" className="admin-search-clear" aria-label={t("Effacer la recherche", "Clear search")} disabled={mutationBusy || Boolean(editing || metadataEditing)} onClick={() => setSearch("")}><Icon name="close" /></button>}
       </form> : <strong className="moderator-current-section">{activeSection === "import" ? t("Import de documents", "Document import") : t("Mes droits documentaires", "My document permissions")}</strong>}
@@ -307,7 +311,7 @@ export default function ModeratorPage() {
           {identity.profilePhoto ? <img src={identity.profilePhoto} alt="" /> : <span className="admin-avatar" aria-hidden="true">{accountName.split(/\s+/u).map(part => part[0]).join("").slice(0, 2).toUpperCase()}</span>}
           <span className="admin-identity"><strong>{accountName}</strong><small>{identity.username}</small></span><span aria-hidden="true"><Icon name="chevron" /></span>
         </summary>
-        <div className="account-menu admin-profile-menu"><strong>{accountName}</strong><small>{identity.username}</small><a href="#moderator-permissions" onClick={() => profileDetails.current?.removeAttribute("open")}>{t("Mes droits documentaires", "My document permissions")}</a><a href="/explorer" onClick={event => { if (!canDiscard()) event.preventDefault(); else dirty.current = false; }}>{t("Retour au portail", "Back to portal")}</a></div>
+        <div className="account-menu admin-profile-menu"><strong>{accountName}</strong><small>{identity.username}</small><a href="#moderator-permissions" onClick={event => { if (!selectView("permissions")) event.preventDefault(); else profileDetails.current?.removeAttribute("open"); }}>{t("Mes droits documentaires", "My document permissions")}</a><a href="/explorer" onClick={event => { if (!canDiscard()) event.preventDefault(); else dirty.current = false; }}>{t("Retour au portail", "Back to portal")}</a></div>
       </details>
     </header>
     <div className="admin-page-heading"><div><h1>{t("Espace modérateur", "Moderator workspace")}</h1><p>{t("Gestion documentaire limitée à vos droits effectifs.", "Document management limited to your effective permissions.")}</p></div></div>
@@ -316,13 +320,13 @@ export default function ModeratorPage() {
     <section id="moderator-import" hidden={activeSection !== "import"} tabIndex={-1}><BatchImport locale={locale} disabled={busy || Boolean(editing || metadataEditing)} onComplete={() => load(documentPage)} onBusyChange={setMutationBusy} onPendingChange={(pending) => { importPending.current = pending; }} /></section>
     <div className="moderator-document-view" hidden={activeSection !== "documents"}>
     {metadataEditing && <MetadataForm document={metadataEditing} categories={metadataCategories} value={metadata} onChange={setMetadata} onSave={saveMetadata} busy={busy} locale={locale} onCancel={() => closeEditor()} onDirty={() => { dirty.current = true; }} />}
-    {editing && <VersionForm document={editing} versionLocale={versionLocale} onLocaleChange={setVersionLocale} onUpload={uploadVersion} busy={busy} locale={locale} onCancel={() => closeEditor()} onDirty={() => { dirty.current = true; }} />}
+    {editing && <VersionForm key={editing.id} document={editing} versionLocale={versionLocale} onLocaleChange={setVersionLocale} onUpload={uploadVersion} busy={busy} locale={locale} onCancel={() => closeEditor()} onDirty={() => { dirty.current = true; }} />}
     <section id="moderator-documents" tabIndex={-1} className="moderator-section">
       <div className="moderator-toolbar"><h2>{t("Documents gérés", "Managed documents")}{currentSpace && ` : ${locale === "fr" ? currentSpace.nameFr : currentSpace.nameEn || currentSpace.nameFr}`}</h2></div>
       <div className="moderator-search">
-        <label className="moderator-status-filter">{t("État", "Status")}<select value={selectedStatus} disabled={busy} onChange={event => { statusFilter.current = event.target.value; setSelectedStatus(event.target.value); loadPage(1); }}><option value="">{t("Tous les documents", "All documents")}</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <button type="submit" form="moderator-document-search" disabled={busy}><Icon name="search" />{t("Rechercher", "Search")}</button>
-        {(hasActiveSearch || selectedStatus) && <button type="button" disabled={busy} onClick={() => { setSearch(""); searchQuery.current = ""; setHasActiveSearch(false); statusFilter.current = ""; setSelectedStatus(""); loadPage(1); }}>{t("Réinitialiser", "Reset")}</button>}
+        <label className="moderator-status-filter">{t("État", "Status")}<select value={selectedStatus} disabled={busy || Boolean(editing || metadataEditing)} onChange={event => { statusFilter.current = event.target.value; setSelectedStatus(event.target.value); loadPage(1); }}><option value="">{t("Tous les documents", "All documents")}</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <button type="submit" form="moderator-document-search" disabled={busy || Boolean(editing || metadataEditing)}><Icon name="search" />{t("Rechercher", "Search")}</button>
+        {(hasActiveSearch || selectedStatus) && <button type="button" disabled={busy || Boolean(editing || metadataEditing)} onClick={() => { setSearch(""); searchQuery.current = ""; setHasActiveSearch(false); statusFilter.current = ""; setSelectedStatus(""); loadPage(1); }}>{t("Réinitialiser", "Reset")}</button>}
       </div>
       <div className="moderator-document-grid" aria-busy={loading}>
         {loading && <p role="status">{t("Chargement…", "Loading…")}</p>}
@@ -334,8 +338,8 @@ export default function ModeratorPage() {
           return <article key={document.id} className="moderator-document-card" aria-labelledby={`moderator-title-${document.id}`}>
             <h3 id={`moderator-title-${document.id}`}>{title}</h3>
             <dl>
-              <div><dt>{t("Espace", "Space")}</dt><dd>{locale === "fr" ? document.space.nameFr : document.space.nameEn}</dd></div>
-              <div><dt>{t("Catégorie", "Category")}</dt><dd>{document.category ? locale === "fr" ? document.category.nameFr : document.category.nameEn : t("Sans catégorie", "No category")}</dd></div>
+              <div><dt>{t("Espace", "Space")}</dt><dd>{locale === "fr" ? document.space.nameFr || document.space.nameEn : document.space.nameEn || document.space.nameFr}</dd></div>
+              <div><dt>{t("Catégorie", "Category")}</dt><dd>{document.category ? locale === "fr" ? document.category.nameFr || document.category.nameEn : document.category.nameEn || document.category.nameFr : t("Sans catégorie", "No category")}</dd></div>
               <div><dt>{t("Version", "Version")}</dt><dd>{latest ? `v${latest.version}` : "-"}</dd></div>
               <div><dt>{t("État", "Status")}</dt><dd><span className={`moderator-status ${document.status.toLowerCase()}`}>{statusLabels[document.status] || document.status}</span></dd></div>
             </dl>

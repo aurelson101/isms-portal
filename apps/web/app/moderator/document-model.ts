@@ -59,7 +59,7 @@ export function categoryOptions(categories: Category[], locale: Locale) {
     let current: Category | undefined = category;
     while (current && !seen.has(current.id)) {
       seen.add(current.id);
-      names.unshift(locale === "fr" ? current.nameFr : current.nameEn);
+      names.unshift(locale === "fr" ? current.nameFr || current.nameEn : current.nameEn || current.nameFr);
       current = current.parentId ? byId.get(current.parentId) : undefined;
     }
     return { id: category.id, label: names.join(" / ") };

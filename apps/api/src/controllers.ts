@@ -852,7 +852,7 @@ export class DocumentsController {
         where: { documentId_locale: { documentId, locale: body.locale } },
         update: {
           title: body.title.trim(),
-          description: body.description?.trim() || null,
+          ...(body.description !== undefined ? { description: body.description?.trim() || null } : {}),
         },
         create: {
           documentId,
@@ -2955,7 +2955,7 @@ export class DocumentAdminController {
         where: { documentId_locale: { documentId, locale: body.locale } },
         update: {
           title: body.title.trim(),
-          description: body.description?.trim() || null,
+          ...(body.description !== undefined ? { description: body.description?.trim() || null } : {}),
         },
         create: {
           documentId,

@@ -96,9 +96,11 @@ describe("Document antivirus distribution", () => {
   describe.each([DocumentsController, DocumentAdminController])(
     "%s version upload",
     (Controller) => {
-      it.each(["CLEAN", "INFECTED", "ERROR"])(
-        "requires publication again after scan %s",
-        async (status) => {
+      it.each(["CLEAN", "INFECTED", "ERROR"].flatMap(status =>
+        [undefined, "", " Updated description "].map(description => ({ status, description })),
+      ))(
+        "requires publication after scan $status and preserves description semantics ($description)",
+        async ({ status, description }) => {
           const update = vi.fn();
           const findFirst = vi
             .fn()
@@ -164,6 +166,7 @@ describe("Document antivirus distribution", () => {
               spaceId: "space",
               locale: "en",
               title: "Guide",
+              ...(description !== undefined ? { description } : {}),
             },
           );
           expect(update).toHaveBeenCalledWith({
@@ -173,6 +176,9 @@ describe("Document antivirus distribution", () => {
               status: status === "CLEAN" ? "DRAFT" : "QUARANTINED",
             },
           });
+          const translation = prisma.documentTranslation.upsert.mock.calls[0][0];
+          expect(translation.update).toEqual({ title: "Guide", ...(description !== undefined ? { description: description.trim() || null } : {}) });
+          expect(translation.create.description).toBe(description?.trim() || null);
           if (status !== "CLEAN") expect(getBuffer).not.toHaveBeenCalled();
         },
       );
