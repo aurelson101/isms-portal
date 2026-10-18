@@ -4,6 +4,12 @@ services:
       - ./deploy/nginx/nginx.sso.conf:/etc/nginx/nginx.conf:ro
 
   oauth2-proxy:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+        compress: "true"
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.4@sha256:b1b2021fe8f4004573e8d690dec6c7bb29cc44364572cf8510a05bf3a0ae2ded
     restart: unless-stopped
     environment:
@@ -47,5 +53,5 @@ services:
       retries: 12
     deploy:
       resources:
-        limits: { cpus: "0.50", memory: 256M }
+        limits: { cpus: "0.50", memory: 256M, pids: 128 }
         reservations: { memory: 64M }

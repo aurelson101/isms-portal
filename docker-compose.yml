@@ -34,6 +34,7 @@ services:
 
   frontend:
     logging: *bounded-logging
+    init: true
     build: { context: ., dockerfile: apps/web/Dockerfile }
     restart: unless-stopped
     environment:
@@ -57,6 +58,8 @@ services:
 
   api:
     logging: *bounded-logging
+    init: true
+    stop_grace_period: 150s
     build: { context: ., dockerfile: apps/api/Dockerfile }
     restart: unless-stopped
     env_file:
@@ -87,6 +90,7 @@ services:
 
   worker:
     logging: *bounded-logging
+    init: true
     stop_grace_period: 150s
     build: { context: ., dockerfile: apps/api/Dockerfile }
     command: ["node", "dist/worker.js"]
