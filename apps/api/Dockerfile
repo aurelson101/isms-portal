@@ -16,6 +16,7 @@ FROM node:22.23.3-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681
 ENV NODE_ENV=production
 WORKDIR /app
 RUN apk add --no-cache openssl \
+    && apk upgrade --no-cache \
     && addgroup -S isms && adduser -S isms -G isms
 COPY --from=build --chown=isms:isms /app/node_modules ./node_modules
 COPY --from=build --chown=isms:isms /app/apps/api/node_modules ./node_modules

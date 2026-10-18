@@ -11,7 +11,8 @@ RUN npm run build -w @isms/web
 FROM node:22.23.3-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
 ENV NODE_ENV=production
 WORKDIR /app
-RUN addgroup -S isms && adduser -S isms -G isms
+RUN apk upgrade --no-cache \
+    && addgroup -S isms && adduser -S isms -G isms
 COPY --from=build --chown=isms:isms /app/apps/web/.next/standalone ./
 COPY --from=build --chown=isms:isms /app/apps/web/.next/static ./apps/web/.next/static
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
