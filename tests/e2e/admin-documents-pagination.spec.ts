@@ -107,6 +107,9 @@ for (const width of [320, 390, 768, 1280]) {
     await page.waitForTimeout(350);
     await expect(table.locator("tbody tr").first().locator("td").first()).toContainText("Document 21");
     await expect(table.locator("tbody tr")).toHaveCount(20);
+    await expect(page).toHaveURL(/docPage=2/);
+    await page.reload();
+    await expect(table.locator("tbody tr").first().locator("td").first()).toContainText("Document 21");
     total = 20;
     await pagination.getByRole("button", { name: /Next/ }).click();
     await expect(table.locator("tbody tr").first().locator("td").first()).toContainText("Document 1");

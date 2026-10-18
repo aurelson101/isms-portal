@@ -5,6 +5,14 @@ import { prepareBrandLogo, updateBrandingCache } from "./branding";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("safe errors and branding", () => {
+  it("explains stale edits without exposing backend details", async () => {
+    vi.stubGlobal("localStorage", { getItem: () => "en" });
+    expect(await responseMessage(Response.json({ code: "DOCUMENT_CHANGED", message: "internal" }, { status: 409 }), "Fallback")).toContain("Your fields are preserved");
+  });
+  it.each([401, 403, 413, 503])("provides a meaningful fallback for HTTP %s", async status => {
+    vi.stubGlobal("localStorage", { getItem: () => "en" });
+    expect(await responseMessage(new Response("<html>Error</html>", { status }), "Fallback")).not.toBe("Fallback");
+  });
   it("handles string, array, invalid and non-JSON error bodies", async () => {
     expect(await responseMessage(Response.json({ message: "Denied" }), "Fallback")).toBe("Denied");
     expect(await responseMessage(Response.json({ message: ["First", 123, "Second"] }), "Fallback")).toBe("First. Second");

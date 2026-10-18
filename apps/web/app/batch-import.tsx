@@ -10,7 +10,7 @@ import { categoryOptions, validateUpload, type Space, type Category } from "./mo
 import "./batch-import.css";
 
 type BatchSpace = Space & { categories?: Category[] };
-type Item = { key: number; file: File; title: string; description?: string; documentId?: string; status: "pending" | "uploading" | "draft" | "publishing" | "published" | "failed" | "uncertain" | "quarantined"; error?: string };
+type Item = { key: number; file: File; title: string; description?: string; documentId?: string; uploadRequestId?: string; status: "pending" | "uploading" | "draft" | "publishing" | "published" | "failed" | "uncertain" | "quarantined"; error?: string };
 class ImportError extends Error {
   constructor(message: string, readonly uncertain = false, readonly status = 0) { super(message); }
 }
@@ -100,7 +100,9 @@ export function BatchImport({ locale, disabled = false, onComplete, onBusyChange
         if (!["pending", "failed"].includes(item.status)) continue;
         try {
           if (!item.documentId) {
+            item = { ...item, uploadRequestId: item.uploadRequestId || crypto.randomUUID() }; update(item);
             const data = new FormData();
+            data.set("uploadRequestId", item.uploadRequestId!);
             data.set("spaceId", spaceId); data.set("categoryId", categoryId); data.set("locale", fileLocale);
             data.set("title", item.title); data.set("changeSummary", "Initial version");
             data.set("description", item.description ?? description);

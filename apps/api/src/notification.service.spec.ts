@@ -231,6 +231,20 @@ describe("Notification routing", () => {
     expect(await h.service.process(job as never)).toEqual({ accepted: 2, audience: 2 });
     expect(h.alerts.sendPreferredTo.mock.calls.map(call => call[0])).toEqual([["First@example.com"], ["second@example.com"], ["SECOND@example.com"]]);
   });
+  it("resumes persisted recipient checkpoints in a fresh worker instance", async () => {
+    const first = setup();
+    const prepared = { recipients: ["first@example.com", "second@example.com"], subject: "Subject", text: "Body", link: "https://isms.example.com/" };
+    vi.spyOn(first.service, "prepare").mockResolvedValue(prepared);
+    first.alerts.sendPreferredTo.mockResolvedValueOnce({ delivered: true }).mockRejectedValueOnce(new Error("Service down"));
+    const job = { data: { ...event, accepted: [] as string[] }, updateData: vi.fn() };
+    job.updateData.mockImplementation(async data => { job.data = JSON.parse(JSON.stringify(data)); });
+    await expect(first.service.process(job as never)).rejects.toThrow("Service down");
+    const restarted = setup();
+    vi.spyOn(restarted.service, "prepare").mockResolvedValue(prepared);
+    expect(await restarted.service.process({ data: JSON.parse(JSON.stringify(job.data)), updateData: vi.fn() } as never)).toEqual({ accepted: 2, audience: 2 });
+    expect(restarted.alerts.sendPreferredTo).toHaveBeenCalledTimes(1);
+    expect(restarted.alerts.sendPreferredTo.mock.calls[0][0]).toEqual(["second@example.com"]);
+  });
   it("marks an annual review version only after delivery", async () => {
     const h = setup(); vi.spyOn(h.service, "prepare").mockResolvedValue({ recipients: ["staff@example.com"], subject: "Subject", text: "Body", link: "https://isms.example.com/" });
     await h.service.process({ data: { ...event, action: "document.review.annual", documentVersionId: "version" }, updateData: vi.fn() } as never);

@@ -1,6 +1,7 @@
 "use client";
 import { fetchWithTimeout as fetch } from "./http-client";
 import { translationFields } from "./moderator/document-model";
+import { uploadAttempt, type UploadAttempt } from "./upload-attempt";
 
 import { localizedPair, translate } from "./i18n/translate";
 
@@ -124,6 +125,7 @@ type ReviewEvidence = {
   version: { locale: string; version: number } | null;
 };
 type PortalDocument = {
+  updatedAt?: string;
   id: string;
   slug: string;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED" | "QUARANTINED";
@@ -687,6 +689,8 @@ export function Portal({
   const [securityReportOpen, setSecurityReportOpen] = useState(false);
   const [securityReportFeedback, setSecurityReportFeedback] = useState("");
   const [editing, setEditing] = useState<PortalDocument | null>(null);
+  const uploadRetry = useRef<UploadAttempt | null>(null);
+  const uploadInFlight = useRef(false);
   const [editVersionId, setEditVersionId] = useState("");
   const [editLocale, setEditLocale] = useState<DocumentLocale>("fr");
   const [editTitle, setEditTitle] = useState("");
@@ -3668,7 +3672,7 @@ export function Portal({
                 const metadataChanged = String(values.title).trim() !== (currentTranslation?.title || "") || String(values.description || "").trim() !== (currentTranslation?.description || "");
                 const categoryChanged = categoryId !== currentCategoryId;
                 const languageChanged = editing.versions.find((version) => version.id === editVersionId)?.locale !== editLocale;
-                const response = metadataChanged || categoryChanged || languageChanged ? await fetch(`/api/documents/${editing.id}/metadata`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ locale: editLocale, versionId: editVersionId, title: values.title, description: values.description, categoryId }) }) : null;
+                const response = metadataChanged || categoryChanged || languageChanged ? await fetch(`/api/documents/${editing.id}/metadata`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expectedUpdatedAt: editing.updatedAt, locale: editLocale, versionId: editVersionId, title: values.title, description: values.description, categoryId }) }) : null;
                 if (response && !response.ok) {
                   setActionError(t.error);
                   return;
@@ -3748,15 +3752,22 @@ export function Portal({
                 setActionError("");
                 const data = new FormData(event.currentTarget);
                 data.set("spaceId", selectedSpace.id);
-                const response = await fetch("/api/documents/upload", {
+                if (uploadInFlight.current) return;
+                uploadInFlight.current = true;
+                let response: Response;
+                try { response = await fetch("/api/documents/upload", {
                   method: "POST",
-                  body: data,
-                });
+                  body: uploadAttempt(data, uploadRetry),
+                }); } catch (error) {
+                  setActionError(error instanceof Error ? error.message : t.depositError);
+                  return;
+                } finally { uploadInFlight.current = false; }
                 if (!response.ok) {
                   setActionError(t.depositError);
                   return;
                 }
                 setDepositOpen(false);
+                uploadRetry.current = null;
                 await loadDocuments();
               }}
             >

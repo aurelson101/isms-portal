@@ -6,6 +6,7 @@ import { Icon } from "../icons";
 import { StorageSelect } from "../storage-select";
 import { BatchImport } from "../batch-import";
 import { DocumentMetadataFields } from "../document-metadata-fields";
+import { uploadAttempt, type UploadAttempt } from "../upload-attempt";
 import { translationFields, latestVersion, validateUpload } from "../moderator/document-model";
 import { api } from "./api-client";
 import { flattenCategories, paginationItems, type AdminDocument, type Space } from "./document-model";
@@ -41,6 +42,9 @@ export function DocumentsPanel({
   const [editedDescription, setEditedDescription] = useState("");
   const [savingMetadata, setSavingMetadata] = useState(false);
   const metadataInFlight = useRef(false);
+  const uploadInFlight = useRef(false);
+  const uploadRetry = useRef<UploadAttempt | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [sensitive, setSensitive] = useState(false);
   const [watermarkPosition, setWatermarkPosition] = useState<
     "HEADER" | "CENTER" | "FOOTER"
@@ -50,8 +54,35 @@ export function DocumentsPanel({
   const [documentTotal, setDocumentTotal] = useState(0);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const documentRequest = useRef(0);
+  const documentController = useRef<AbortController | null>(null);
   const [documentQuery, setDocumentQuery] = useState(search.trim().slice(0, 200));
   const [documentSort, setDocumentSort] = useState("updatedAt");
+  const [viewReady, setViewReady] = useState(false);
+  useEffect(() => {
+    const restore = () => {
+      const query = new URLSearchParams(window.location.search);
+      const page = Number(query.get("docPage") || 1);
+      setDocumentPage(Number.isSafeInteger(page) && page > 0 ? Math.min(page, 1000000) : 1);
+      const sort = query.get("docSort") || "updatedAt";
+      setDocumentSort(["updatedAt", "publishedAt", "status"].includes(sort) ? sort : "updatedAt");
+      if (query.has("docQ")) {
+        const text = (query.get("docQ") || "").trim().slice(0, 200);
+        onSearch(text); setDocumentQuery(text);
+      }
+      setViewReady(true);
+    };
+    restore();
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, [onSearch]);
+  useEffect(() => {
+    if (!viewReady) return;
+    const url = new URL(window.location.href);
+    for (const [key, value] of [["docPage", documentPage > 1 ? String(documentPage) : ""], ["docSort", documentSort !== "updatedAt" ? documentSort : ""], ["docQ", documentQuery]]) {
+      if (value) url.searchParams.set(key, value); else url.searchParams.delete(key);
+    }
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [viewReady, documentPage, documentSort, documentQuery]);
   useEffect(() => {
     const query = search.trim().slice(0, 200);
     if (query === documentQuery) return;
@@ -65,28 +96,32 @@ export function DocumentsPanel({
   );
   const loadDocuments = useCallback(async () => {
     const request = ++documentRequest.current;
+    documentController.current?.abort();
+    const controller = new AbortController();
+    documentController.current = controller;
     setDocumentsLoading(true);
     setPageDocuments([]);
     try {
       const result = await api<{ items: AdminDocument[]; total: number }>(
         `/api/admin/documents?${new URLSearchParams({ page: String(documentPage), limit: String(documentPageSize), q: documentQuery, sort: documentSort, order: "desc" })}`,
+        { signal: controller.signal },
       );
       if (request !== documentRequest.current) return;
       setPageDocuments(result.items);
       setDocumentTotal(result.total);
       setDocumentPage((page) => Math.min(page, Math.max(1, Math.ceil(result.total / documentPageSize))));
     } catch (error) {
-      if (request === documentRequest.current) onError((error as Error).message);
+      if (!controller.signal.aborted && request === documentRequest.current) onError((error as Error).message);
     } finally {
       if (request === documentRequest.current) setDocumentsLoading(false);
     }
   }, [documentPage, documentQuery, documentSort, onError]);
   useEffect(() => {
-    if (refreshing) return;
+    if (refreshing || !viewReady) return;
     const requests = documentRequest;
     void loadDocuments();
-    return () => { requests.current++; };
-  }, [loadDocuments, refreshing]);
+    return () => { requests.current++; documentController.current?.abort(); };
+  }, [loadDocuments, refreshing, viewReady]);
   const selectedSpace = spaces.find((space) => space.id === spaceId);
   const versionTranslation = versionUploadDocument?.translations.find(
     (translation) => translation.locale === locale,
@@ -112,27 +147,33 @@ export function DocumentsPanel({
         </select></label>
         <span role="status">{documentsLoading ? t("Chargement…") : `${documentTotal} ${t("documents", "documents")}`}</span>
       </div>
-      <BatchImport locale={locale} disabled={refreshing} onComplete={async () => { await loadDocuments(); await onChanged(); }} />
+      <BatchImport locale={locale} disabled={refreshing || uploading} onComplete={async () => { await loadDocuments(); await onChanged(); }} />
       <form
         key={versionUploadDocument?.id || "new-document"}
         id="document-upload-form"
         className="admin-form upload-form"
+        aria-busy={uploading}
         onSubmit={async (event: FormEvent<HTMLFormElement>) => {
           event.preventDefault();
+          if (uploadInFlight.current) return;
           const formElement = event.currentTarget;
           const data = new FormData(formElement);
           try { validateUpload(data, locale, { requireSummary: false }); }
           catch (error) { onError((error as Error).message); return; }
-          await api("/api/admin/documents", { method: "POST", body: data })
+          uploadInFlight.current = true;
+          setUploading(true);
+          await api("/api/admin/documents", { method: "POST", body: uploadAttempt(data, uploadRetry) })
             .then(async () => {
               formElement.reset();
+              uploadRetry.current = null;
               setSpaceId("");
               setVersionUploadDocument(null);
               setSensitive(false);
               setWatermarkPosition("CENTER");
               await onChanged();
             })
-            .catch((error) => onError(error.message));
+            .catch((error) => onError(error.message))
+            .finally(() => { uploadInFlight.current = false; setUploading(false); });
         }}
       >
         <input name="documentId" type="hidden" value={versionUploadDocument?.id || ""} />
@@ -260,8 +301,8 @@ export function DocumentsPanel({
           </section>
         )}
         <div className="button-row">
-          <button className="primary">{versionUploadDocument ? t("Déposer la nouvelle version") : t("Déposer et analyser")}</button>
-          {versionUploadDocument && <button type="button" onClick={() => { setVersionUploadDocument(null); setSpaceId(""); setSensitive(false); setWatermarkPosition("CENTER"); }}>{t("Annuler la modification")}</button>}
+          <button className="primary" disabled={uploading}>{uploading ? t("Traitement…", "Processing…") : versionUploadDocument ? t("Déposer la nouvelle version") : t("Déposer et analyser")}</button>
+          {versionUploadDocument && <button type="button" disabled={uploading} onClick={() => { setVersionUploadDocument(null); setSpaceId(""); setSensitive(false); setWatermarkPosition("CENTER"); }}>{t("Annuler la modification")}</button>}
         </div>
       </form>
       {editingMetadataDocument && (
@@ -274,7 +315,7 @@ export function DocumentsPanel({
             await api(`/api/documents/${editingMetadataDocument.id}/metadata`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ locale: editedLocale, versionId: latestVersion(editingMetadataDocument)?.id, title: editedTitle.trim(), description: editedDescription.trim(), categoryId: editedCategoryId || null }),
+              body: JSON.stringify({ expectedUpdatedAt: editingMetadataDocument.updatedAt, locale: editedLocale, versionId: latestVersion(editingMetadataDocument)?.id, title: editedTitle.trim(), description: editedDescription.trim(), categoryId: editedCategoryId || null }),
             });
             setEditingMetadataDocument(null);
             await onChanged();
@@ -414,6 +455,8 @@ export function DocumentsPanel({
                       type="button"
                       className="document-action"
                       onClick={() => {
+                        if (uploadInFlight.current) return;
+                        uploadRetry.current = null;
                         setVersionUploadDocument(document);
                         setSpaceId(document.space.id);
                         setSensitive(document.sensitive);

@@ -14,14 +14,18 @@ describe("DocumentsController ACL scoping", () => {
   const categoryFindFirst = vi.fn();
   const categoryFindMany = vi.fn().mockResolvedValue([]);
   const updateDocument = vi.fn().mockResolvedValue({});
+  const updateManyDocuments = vi.fn().mockResolvedValue({ count: 1 });
   const findVersion = vi.fn();
   const updateVersion = vi.fn().mockResolvedValue({});
   const upsertTranslation = vi.fn().mockResolvedValue({ locale: "en", title: "Guide" });
   const upsertActivity = vi.fn().mockResolvedValue({});
   const upsertFavorite = vi.fn();
+  const reviewFindMany = vi.fn().mockResolvedValue([]);
+  const deleteReviews = vi.fn().mockResolvedValue({ count: 0 });
+  const deleteNotifications = vi.fn().mockResolvedValue({ count: 0 });
   const queryRaw = vi.fn().mockResolvedValue([]);
   const prisma = {
-    document: { count, findMany, findFirst, update: updateDocument },
+    document: { count, findMany, findFirst, update: updateDocument, updateMany: updateManyDocuments },
     documentCategory: {
       findFirst: categoryFindFirst,
       findMany: categoryFindMany,
@@ -30,8 +34,10 @@ describe("DocumentsController ACL scoping", () => {
     documentTranslation: { upsert: upsertTranslation },
     userDocumentActivity: { upsert: upsertActivity },
     userFavorite: { upsert: upsertFavorite },
+    documentReview: { findMany: reviewFindMany, deleteMany: deleteReviews },
+    userNotification: { deleteMany: deleteNotifications },
     $queryRaw: queryRaw,
-    $transaction: vi.fn((operations: unknown[]) => Promise.all(operations)),
+    $transaction: vi.fn((operations: unknown[] | ((tx: unknown) => unknown)) => typeof operations === "function" ? operations(prisma) : Promise.all(operations)),
   } as unknown as PrismaService;
   const permittedSpacesFor = vi.fn();
   const can = vi.fn();
@@ -65,11 +71,15 @@ describe("DocumentsController ACL scoping", () => {
     categoryFindFirst.mockReset();
     categoryFindMany.mockReset().mockResolvedValue([]);
     updateDocument.mockClear();
+    updateManyDocuments.mockReset().mockResolvedValue({ count: 1 });
     findVersion.mockReset();
     updateVersion.mockClear();
     upsertTranslation.mockClear();
     upsertActivity.mockClear();
     upsertFavorite.mockReset();
+    reviewFindMany.mockReset().mockResolvedValue([]);
+    deleteReviews.mockClear();
+    deleteNotifications.mockClear();
     can.mockReset();
     permittedSpacesFor.mockReset();
   });
@@ -371,7 +381,7 @@ describe("DocumentsController ACL scoping", () => {
   });
 
   it("updates the selected file language together with its metadata", async () => {
-    findFirst.mockResolvedValue({ id: "doc-1", spaceId: general.id, categoryId: null, translations: [] });
+    findFirst.mockResolvedValue({ id: "doc-1", spaceId: general.id, categoryId: null, updatedAt: new Date("2026-01-01"), translations: [] });
     findVersion.mockResolvedValueOnce({ id: "version-1", locale: "fr", version: 1 }).mockResolvedValueOnce(null);
     can.mockResolvedValue(true);
 
@@ -389,5 +399,25 @@ describe("DocumentsController ACL scoping", () => {
     await expect(controller.updateMetadata(request, "doc-1", { locale: "en", versionId: "version-1", title: "Guide" })).rejects.toThrow("already exists");
     expect(updateVersion).not.toHaveBeenCalled();
     expect(upsertTranslation).not.toHaveBeenCalled();
+  });
+
+  it("rejects a stale metadata save before changing translations or language", async () => {
+    findFirst.mockResolvedValue({ id: "doc-1", spaceId: general.id, categoryId: null, updatedAt: new Date("2026-01-02"), translations: [] });
+    can.mockResolvedValue(true);
+    updateManyDocuments.mockResolvedValueOnce({ count: 0 });
+    await expect(controller.updateMetadata(request, "doc-1", { expectedUpdatedAt: "2026-01-01T00:00:00.000Z", locale: "en", title: "Stale title" })).rejects.toThrow("Document changed");
+    expect(updateManyDocuments).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "doc-1", deletedAt: null, updatedAt: new Date("2026-01-01") } }));
+    expect(upsertTranslation).not.toHaveBeenCalled();
+    expect(updateVersion).not.toHaveBeenCalled();
+  });
+
+  it("removes reviews and their notifications when a permitted document is deleted", async () => {
+    findFirst.mockResolvedValue({ id: "doc-1", spaceId: general.id });
+    reviewFindMany.mockResolvedValue([{ id: "review-1", evidenceObjectKey: null }]);
+    can.mockResolvedValue(true);
+    expect(await controller.removeByModerator(request, "doc-1")).toEqual({ deleted: true });
+    expect(deleteReviews).toHaveBeenCalledWith({ where: { documentId: "doc-1" } });
+    expect(deleteNotifications).toHaveBeenCalledWith({ where: { resourceType: "document-review", resourceId: { in: ["review-1"] } } });
+    expect(updateDocument).toHaveBeenCalledWith({ where: { id: "doc-1" }, data: { deletedAt: expect.any(Date), status: "ARCHIVED" } });
   });
 });

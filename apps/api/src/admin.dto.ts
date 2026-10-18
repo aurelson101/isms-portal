@@ -164,6 +164,10 @@ export class AnnualIncidentReportDto {
 }
 
 export class DocumentMetadataDto {
+  @IsOptional()
+  @IsDateString()
+  expectedUpdatedAt?: string;
+
   @IsIn(["fr", "en"])
   locale!: "fr" | "en";
 

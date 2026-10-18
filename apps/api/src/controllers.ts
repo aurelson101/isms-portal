@@ -18,6 +18,7 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { createHash, createHmac, randomUUID } from "crypto";
+import { findUploadReceipt, uploadReceipt } from "./upload-receipt";
 import { basename, extname } from "path";
 import { createConnection } from "net";
 import { ApiConsumes, ApiTags } from "@nestjs/swagger";
@@ -564,6 +565,7 @@ export class DocumentsController {
         sensitive: true,
         watermarkPosition: true,
         publishedAt: true,
+        updatedAt: true,
         viewCount: true,
         downloadCount: true,
         space: {
@@ -782,6 +784,10 @@ export class DocumentsController {
     ]);
     if (!space || (body.categoryId && !category))
       throw new BadRequestException("Invalid space or category");
+    const receipt = uploadReceipt(req.identity.username, body, file);
+    const previousUpload = await findUploadReceipt(this.prisma, receipt);
+    if (previousUpload) return previousUpload.document;
+    let replayed = false;
     const scan = await this.antivirus.scan(file.buffer);
     const documentId = existing?.id || randomUUID();
     const objectKey = await this.storage.uploadKey(`${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${randomUUID()}${extension}`, body.storageTargetId);
@@ -833,12 +839,13 @@ export class DocumentsController {
       });
       await tx.documentVersion.create({
         data: {
+          ...(receipt ? { id: receipt.id } : {}),
           documentId,
           locale: body.locale,
           version: (latest?.version || 0) + 1,
           storedFileId: storedFile.id,
           changeSummary: body.changeSummary?.trim() || automatedChange.summary,
-          changeDetails: automatedChange.details,
+          changeDetails: { ...automatedChange.details, ...(receipt ? { uploadRequestHash: receipt.fingerprint } : {}) },
         },
       });
       await tx.documentTranslation.upsert({
@@ -859,10 +866,15 @@ export class DocumentsController {
         include: { translations: true, versions: true },
       });
     }).catch(async (error) => {
+      const completed = await findUploadReceipt(this.prisma, receipt);
+      if (completed) {
+        if (completed.objectKey !== objectKey) await this.storage.removeObject(objectKey).catch(() => undefined);
+        replayed = true; return completed.document;
+      }
       await this.storage.removeObject(objectKey).catch(() => undefined);
       throw error;
     });
-    await this.audit.record(
+    if (!replayed) await this.audit.record(
       req,
       existing ? "document.version.upload" : "document.upload",
       `document:${documentId}`,
@@ -881,7 +893,7 @@ export class DocumentsController {
   ) {
     const document = await this.prisma.document.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true, spaceId: true, categoryId: true, translations: { where: { locale: body.locale }, select: { title: true, description: true } } },
+      select: { id: true, spaceId: true, categoryId: true, updatedAt: true, translations: { where: { locale: body.locale }, select: { title: true, description: true } } },
     });
     if (
       !document ||
@@ -911,11 +923,15 @@ export class DocumentsController {
     const existing = document.translations[0];
     const metadataChanged = !existing || existing.title !== title || existing.description !== description;
     const categoryChanged = body.categoryId !== undefined && body.categoryId !== document.categoryId;
-    const [translation] = await this.prisma.$transaction([
-      this.prisma.documentTranslation.upsert({ where: { documentId_locale: { documentId: id, locale: body.locale } }, update: { title, description }, create: { documentId: id, locale: body.locale, title, description } }),
-      ...(categoryChanged ? [this.prisma.document.update({ where: { id }, data: { categoryId: body.categoryId || null } })] : []),
-      ...(version && version.locale !== body.locale ? [this.prisma.documentVersion.update({ where: { id: version.id }, data: { locale: body.locale } })] : []),
-    ]);
+    const translation = await this.prisma.$transaction(async (tx) => {
+      const changed = await tx.document.updateMany({
+        where: { id, deletedAt: null, updatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : document.updatedAt },
+        data: { updatedAt: new Date(Math.max(Date.now(), document.updatedAt.getTime() + 1)), ...(categoryChanged ? { categoryId: body.categoryId || null } : {}) },
+      });
+      if (changed.count !== 1) throw new ConflictException({ code: "DOCUMENT_CHANGED", message: "Document changed; reopen the editor before saving" });
+      if (version && version.locale !== body.locale) await tx.documentVersion.update({ where: { id: version.id }, data: { locale: body.locale } });
+      return tx.documentTranslation.upsert({ where: { documentId_locale: { documentId: id, locale: body.locale } }, update: { title, description }, create: { documentId: id, locale: body.locale, title, description } });
+    });
     await this.audit.record(
       req,
       categoryChanged && !metadataChanged ? "document.category.update" : "document.metadata.update",
@@ -2869,6 +2885,10 @@ export class DocumentAdminController {
     ]);
     if (!space || (body.categoryId && !category))
       throw new BadRequestException("Invalid space or category");
+    const receipt = uploadReceipt(req.identity.username, body, file);
+    const previousUpload = await findUploadReceipt(this.prisma, receipt);
+    if (previousUpload) return previousUpload.document;
+    let replayed = false;
     const scan = await this.antivirus.scan(file.buffer);
     const documentId = existing?.id || randomUUID();
     const objectKey = await this.storage.uploadKey(`${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${randomUUID()}${extension}`, body.storageTargetId);
@@ -2922,12 +2942,13 @@ export class DocumentAdminController {
       });
       await tx.documentVersion.create({
         data: {
+          ...(receipt ? { id: receipt.id } : {}),
           documentId,
           locale: body.locale,
           version: (latest?.version || 0) + 1,
           storedFileId: storedFile.id,
           changeSummary: body.changeSummary?.trim() || automatedChange.summary,
-          changeDetails: automatedChange.details,
+          changeDetails: { ...automatedChange.details, ...(receipt ? { uploadRequestHash: receipt.fingerprint } : {}) },
         },
       });
       await tx.documentTranslation.upsert({
@@ -2948,10 +2969,15 @@ export class DocumentAdminController {
         include: { translations: true, versions: true },
       });
     }).catch(async (error) => {
+      const completed = await findUploadReceipt(this.prisma, receipt);
+      if (completed) {
+        if (completed.objectKey !== objectKey) await this.storage.removeObject(objectKey).catch(() => undefined);
+        replayed = true; return completed.document;
+      }
       await this.storage.removeObject(objectKey).catch(() => undefined);
       throw error;
     });
-    await this.audit.record(
+    if (!replayed) await this.audit.record(
       req,
       "document.upload",
       `document:${documentId}`,

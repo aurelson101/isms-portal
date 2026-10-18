@@ -1,6 +1,7 @@
 "use client";
 import { fetchWithTimeout as fetch } from "../http-client";
 import { loginDestination } from "../auth-navigation";
+import { uploadAttempt, type UploadAttempt } from "../upload-attempt";
 
 import { translate } from "../i18n/translate";
 import { useInterfaceLocale } from "../i18n/use-locale";
@@ -48,6 +49,7 @@ export default function ModeratorPage() {
   const loadRequest = useRef(0);
   const loadController = useRef<AbortController | null>(null);
   const mutationInFlight = useRef(false);
+  const uploadRetry = useRef<UploadAttempt | null>(null);
   const dirty = useRef(false);
   const importPending = useRef(false);
   const busy = loading || mutationBusy;
@@ -221,6 +223,7 @@ export default function ModeratorPage() {
   });
   const openVersion = (document: Document) => {
     if (!canDiscard()) return;
+    uploadRetry.current = null;
     dirty.current = false;
     const latest = latestVersion(document);
     setVersionLocale(latest?.locale === "en" ? "en" : "fr");
@@ -247,7 +250,7 @@ export default function ModeratorPage() {
     await mutate(async () => {
       const response = await fetch(`/api/documents/${metadataEditing.id}/metadata`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locale: metadata.locale, versionId: latestVersion(metadataEditing)?.id,
+        body: JSON.stringify({ expectedUpdatedAt: metadataEditing.updatedAt, locale: metadata.locale, versionId: latestVersion(metadataEditing)?.id,
           title: metadata.title.trim(), description: metadata.description.trim(), categoryId: metadata.categoryId || null }),
       });
       if (!response.ok) throw new Error(await messageOf(response));
@@ -257,10 +260,11 @@ export default function ModeratorPage() {
     });
   };
   const uploadVersion = async (data: FormData) => mutate(async () => {
-    const response = await fetch("/api/documents/upload", { method: "POST", body: validateUpload(data, locale) });
+    const response = await fetch("/api/documents/upload", { method: "POST", body: uploadAttempt(validateUpload(data, locale), uploadRetry) });
     if (!response.ok) throw new Error(await messageOf(response));
     closeEditor(true);
     setNotice("version");
+    uploadRetry.current = null;
     await load(documentPage);
   });
   if (!identity) return <main className="admin-main moderator-workspace"><p role="status">{t("Chargement de l’espace modérateur…", "Loading moderator workspace…")}</p>{error && <><p className="error-state" role="alert">{error}</p><button type="button" disabled={loading} onClick={() => loadPage(documentPage)}>{t("Réessayer", "Retry")}</button></>}</main>;

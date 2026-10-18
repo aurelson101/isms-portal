@@ -1,5 +1,6 @@
 import { fetchWithTimeout as fetch } from "../http-client";
 import { loginDestination } from "../auth-navigation";
+import { responseMessage } from "../request-errors";
 
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, options);
@@ -21,16 +22,7 @@ export async function api<T>(url: string, options?: RequestInit): Promise<T> {
         window.location.replace(loginDestination("admin"));
       }
     }
-    const payload = (await response
-      .json()
-      .catch(() => ({ message: response.statusText }))) as {
-      message?: string | string[];
-    };
-    throw new Error(
-      Array.isArray(payload.message)
-        ? payload.message.join(", ")
-        : payload.message || response.statusText,
-    );
+    throw new Error(await responseMessage(response, response.statusText));
   }
   return response.json() as Promise<T>;
 }
