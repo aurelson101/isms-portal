@@ -198,6 +198,20 @@ sauvegarde PostgreSQL et les anciennes images pour le retour arriere ; ne pas
 changer de version majeure de PostgreSQL par simple remplacement d'image.
 L'import PKCS#7 utilise OpenSSL, installe dans l'image API, sans `node-forge`.
 
+L'override `mammoth > argparse@2.0.1` conserve la conversion DOCX et l'outil CLI,
+mais retire l'ancienne dependance `sprintf-js` (CVE-2026-97058). Verifier avec
+`npm audit` et le test cible `apps/web/app/mammoth-security.spec.ts`.
+
+Si Docker Ubuntu reste en attente de correctif pour CVE-2026-92543, la mitigation
+temporaire consiste a epingler dans `/etc/hosts` les registres utilises
+(`docker.io`, `registry-1.docker.io`, `quay.io`) sur des IP publiques dont le
+certificat TLS a ete valide pour le nom attendu. Sauvegarder le fichier avant
+modification et tester les pulls par empreinte. Revalider ces entrees apres un
+redemarrage, avant maintenance et lors d'une rotation d'IP ; tout nouveau
+registre exige le meme controle. Cette mesure ne corrige pas le moteur Docker.
+Supprimer les entrees temporaires apres installation d'un paquet corrige et
+validation des pulls. Voir l'[avis Moby](https://github.com/moby/moby/security/advisories/GHSA-7cfq-22r6-qp73).
+
 En développement ou sur un poste isolé, le portail est disponible sur
 <http://localhost:8080>. En production, ne pas exposer directement ce port.
 Créer un fichier local `docker-compose.production.yml`, non versionné :

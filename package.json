@@ -24,6 +24,9 @@
     "node": ">=22"
   },
   "overrides": {
+    "mammoth": {
+      "argparse": "2.0.1"
+    },
     "@nestjs/swagger@11.4.6": {
       "js-yaml": "5.4.1"
     },
