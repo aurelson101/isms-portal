@@ -1,6 +1,7 @@
 "use client";
 
 import { translate } from "../i18n/translate";
+import { DocumentMetadataFields } from "../document-metadata-fields";
 
 import { useMemo } from "react";
 import type { Locale, DocumentLocale } from "../i18n/locale";
@@ -18,17 +19,11 @@ export function MetadataForm({ document, categories, value, onChange, onSave, ..
     <h2>{t("Éditer les métadonnées", "Edit metadata")}</h2>
     <form onChange={actions.onDirty} onSubmit={(event) => { event.preventDefault(); void onSave(); }} aria-busy={actions.busy}>
       <fieldset className="admin-form upload-form moderator-fields" disabled={actions.busy}>
-        <label>{t("Langue du document", "Document language")}<select value={value.locale} onChange={(event) => {
-          const locale = event.target.value as DocumentLocale;
-          onChange({ ...value, locale, ...translationFields(document, locale) });
-        }}><option value="fr">FR</option><option value="en">EN</option></select></label>
-        <label>{t("Titre", "Title")}<input required maxLength={255} value={value.title} onChange={(event) => onChange({ ...value, title: event.target.value })} /></label>
-        <label>{t("Description", "Description")}<textarea maxLength={2000} value={value.description} onChange={(event) => onChange({ ...value, description: event.target.value })} /></label>
-        <label>{t("Catégorie", "Category")}<select value={value.categoryId} onChange={(event) => onChange({ ...value, categoryId: event.target.value })}>
-          <option value="">{t("Sans catégorie", "No category")}</option>
+        <DocumentMetadataFields value={value} onChange={onChange} t={t}
+          onLocaleChange={(locale) => onChange({ ...value, locale, ...translationFields(document, locale) })}>
           {document.category && !options.some((option) => option.id === document.category!.id) && <option value={document.category.id}>{actions.locale === "fr" ? document.category.nameFr : document.category.nameEn}</option>}
           {options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-        </select></label>
+        </DocumentMetadataFields>
         <div className="button-row"><button className="primary" disabled={!value.title.trim()}>{t("Enregistrer", "Save")}</button><button type="button" onClick={actions.onCancel}>{t("Annuler", "Cancel")}</button></div>
       </fieldset>
     </form>

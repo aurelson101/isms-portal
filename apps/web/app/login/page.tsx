@@ -3,7 +3,7 @@
 import { withLocales } from "../i18n/translate";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { returnDestination, ssoDestination } from "../auth-navigation";
+import { configuredSsoDestination, returnDestination, ssoDestination } from "../auth-navigation";
 import { authConfig, loginFailure, loginRequest, LoginMethods, LoginToolbar, PasswordField } from "../login-shared";
 import { useInterfaceLocale } from "../i18n/use-locale";
 import { readLocale } from "../i18n/locale";
@@ -68,9 +68,7 @@ export default function LoginPage() {
       .then((config) => {
         if (controller.signal.aborted) return;
         setAvailable(config.directoryLoginEnabled);
-        const ssoUrl = config.ssoPilotUrl || config.ssoLoginUrl;
-        const pilot = config.ssoEnabled && ssoUrl ? ssoDestination(ssoUrl, parameters.get("return")) : null;
-        setPilotSsoUrl(pilot);
+        setPilotSsoUrl(configuredSsoDestination(config, parameters.get("return")));
         if (
           !config.ssoEnabled ||
           !config.ssoLoginUrl ||

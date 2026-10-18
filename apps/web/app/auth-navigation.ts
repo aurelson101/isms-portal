@@ -32,6 +32,12 @@ export function adminDestination(requested: string | null) {
   return /^\/admin(?:[/?#]|$)/.test(destination) ? destination : "/admin";
 }
 
+export function configuredSsoDestination(config: AuthConfig, requested: string | null, scope: "portal" | "admin" = "portal") {
+  const endpoint = config.ssoPilotUrl || config.ssoLoginUrl;
+  if (!config.ssoEnabled || !endpoint) return null;
+  return ssoDestination(endpoint, scope === "admin" ? adminDestination(requested) : requested);
+}
+
 export function loginDestination(scope: "portal" | "admin" = "portal") {
   const requested = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   const destination = scope === "admin" ? adminDestination(requested) : returnDestination(requested);

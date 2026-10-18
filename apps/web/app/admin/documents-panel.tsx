@@ -5,6 +5,7 @@ import type { Locale } from "../i18n/locale";
 import { Icon } from "../icons";
 import { StorageSelect } from "../storage-select";
 import { BatchImport } from "../batch-import";
+import { DocumentMetadataFields } from "../document-metadata-fields";
 import { translationFields, latestVersion, validateUpload } from "../moderator/document-model";
 import { api } from "./api-client";
 import { flattenCategories, paginationItems, type AdminDocument, type Space } from "./document-model";
@@ -286,21 +287,14 @@ export function DocumentsPanel({
         }}>
           <h2>{t("Éditer les métadonnées")}</h2>
           <p>{editingMetadataDocument.translations.map((item) => item.title).join(" / ")}</p>
-          <label>{t("Langue du document")}
-            <select value={editedLocale} onChange={(event) => selectMetadataLocale(editingMetadataDocument, event.target.value as "fr" | "en")}>
-              <option value="fr">FR</option><option value="en">EN</option>
-            </select>
-          </label>
-          <label>{t("Titre")}<input required maxLength={255} value={editedTitle} onChange={(event) => setEditedTitle(event.target.value)} /></label>
-          <label>{t("Description")}<textarea maxLength={2000} value={editedDescription} onChange={(event) => setEditedDescription(event.target.value)} /></label>
-          <label>{t("Catégorie")}
-            <select value={editedCategoryId} onChange={(event) => setEditedCategoryId(event.target.value)}>
-              <option value="">{t("Sans catégorie")}</option>
+          <DocumentMetadataFields t={t} disabled={savingMetadata}
+            value={{ locale: editedLocale, title: editedTitle, description: editedDescription, categoryId: editedCategoryId }}
+            onLocaleChange={(selected) => selectMetadataLocale(editingMetadataDocument, selected)}
+            onChange={(value) => { setEditedTitle(value.title); setEditedDescription(value.description); setEditedCategoryId(value.categoryId); }}>
               {flattenCategories(spaces.find((space) => space.id === editingMetadataDocument.space.id)?.categories || []).map(({ item, depth }) => (
                 <option key={item.id} value={item.id}>{`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}</option>
               ))}
-            </select>
-          </label>
+          </DocumentMetadataFields>
           <div className="button-row">
             <button className="primary" disabled={savingMetadata || !editedTitle.trim()}>{t("Enregistrer")}</button>
             <button type="button" disabled={savingMetadata} onClick={() => setEditingMetadataDocument(null)}>{t("Annuler")}</button>

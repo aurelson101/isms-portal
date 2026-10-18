@@ -1,9 +1,24 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { adminDestination, loginDestination, returnDestination } from "./auth-navigation";
+import { adminDestination, configuredSsoDestination, loginDestination, returnDestination, ssoDestination, type AuthConfig } from "./auth-navigation";
 import { loginDestination as sessionLoginDestination } from "./auth-session";
 
 beforeEach(() => vi.stubGlobal("window", { location: new URL("https://isms.example.test/moderator?space=it&status=DRAFT&page=2#moderator-documents") }));
 afterEach(() => vi.unstubAllGlobals());
+
+const config: AuthConfig = { directoryLoginEnabled: true, ssoEnabled: true, ssoLoginUrl: "/oauth2/start", ssoPilotUrl: null };
+
+it("shares configured SSO routing while keeping admin return boundaries", () => {
+  expect(configuredSsoDestination(config, "/moderator")).toBe("/oauth2/start?rd=%2Fmoderator");
+  expect(configuredSsoDestination(config, "/moderator", "admin")).toBe("/oauth2/start?rd=%2Fadmin");
+  expect(configuredSsoDestination(config, "/admin#documents", "admin")).toBe("/oauth2/start?rd=%2Fadmin%23documents");
+});
+
+it("honors pilot configuration and never enables disabled SSO", () => {
+  expect(configuredSsoDestination({ ...config, ssoPilotUrl: "/oauth2/start?pilot=1" }, "/")).toBe("/oauth2/start?pilot=1&rd=%2F");
+  expect(configuredSsoDestination({ ...config, ssoEnabled: false }, "/")).toBeNull();
+  expect(configuredSsoDestination({ ...config, ssoLoginUrl: null }, "/")).toBeNull();
+  expect(configuredSsoDestination({ ...config, ssoPilotUrl: "https://untrusted.example/oauth2/start" }, "/")).toBeNull();
+});
 
 it("preserves moderator filters and section when reconnecting", () => {
   const url = new URL(loginDestination(), window.location.origin);
@@ -31,4 +46,21 @@ it("keeps administrator reconnects within the administrator area", () => {
 it.each([null, "https://untrusted.example/", "//untrusted.example/", "/\\untrusted.example/", "/admin\nignored"])("rejects unsafe return destination %s", requested => {
   expect(returnDestination(requested)).toBe("/");
   expect(adminDestination(requested)).toBe("/admin");
+});
+
+it.each(["/moderator?space=it&page=2#moderator-documents", "/admin?q=travel#documents"])("preserves the SSO return destination %s", requested => {
+  const result = ssoDestination("/oauth2/start?pilot=1&rd=%2Fold", requested);
+  const url = new URL(result!, window.location.origin);
+  expect(url.pathname).toBe("/oauth2/start");
+  expect(url.searchParams.get("pilot")).toBe("1");
+  expect(url.searchParams.getAll("rd")).toEqual([requested]);
+});
+
+it.each(["https://untrusted.example/oauth2/start", "//untrusted.example/oauth2/start", "/oauth2-evil/start", "/admin"])("rejects an untrusted SSO endpoint %s", endpoint => {
+  expect(ssoDestination(endpoint, "/moderator")).toBeNull();
+});
+
+it("uses the admin fallback for an unsafe SSO return destination", () => {
+  const result = ssoDestination("/oauth2/start", "https://untrusted.example/", "/admin");
+  expect(result).toBe("/oauth2/start?rd=%2Fadmin");
 });

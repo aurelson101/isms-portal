@@ -6351,7 +6351,8 @@ svg {
 .admin-management-tools :is(input, select) { width: 100%; min-width: 0; min-height: 44px; padding: 8px 10px; border: 1px solid #becce0; border-radius: 6px; background: #fff; }
 .admin-management-tools > span { padding: 10px 0; }
 .admin-help { max-width: 1200px; min-width: 0; }
-.admin-help-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.admin-help-heading,
+.moderator-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .admin-help-heading h1 { margin-bottom: 0; }
 .admin-help-workspace { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); gap: 24px; border-top: 1px solid #d5deeb; padding-top: 18px; }
 .admin-help-topics { max-height: 65vh; overflow-y: auto; overscroll-behavior: contain; padding-right: 12px; border-right: 1px solid #d5deeb; scrollbar-gutter: stable; }
@@ -6398,13 +6399,6 @@ svg {
 }
 .moderator-workspace :is(h1, h2, p, td, .admin-account-list strong) {
   overflow-wrap: anywhere;
-}
-.moderator-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
 }
 .moderator-workspace :is(button, .button) { min-height: 44px; }
 .moderator-workspace .document-actions { flex-wrap: wrap; min-width: 0; }

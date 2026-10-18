@@ -1,5 +1,5 @@
 import { translate } from "../i18n/translate";
-import type { Locale, DocumentLocale } from "../i18n/locale";
+import type { Locale } from "../i18n/locale";
 
 export type Space = { id: string; slug?: string; nameFr: string; nameEn: string; permissions: Record<string, boolean> };
 export type Category = { id: string; parentId: string | null; nameFr: string; nameEn: string };
@@ -9,7 +9,7 @@ export type ModeratorDocument = {
   translations: Array<{ locale: string; title: string; description: string | null }>;
   versions: Array<{ id: string; locale: string; version: number; createdAt?: string }>;
 };
-export type MetadataValues = { locale: DocumentLocale; title: string; description: string; categoryId: string };
+export type { MetadataValues } from "../document-metadata-fields";
 
 export function documentFilters(query: URLSearchParams) {
   const page = Number(query.get("page") || 1);
