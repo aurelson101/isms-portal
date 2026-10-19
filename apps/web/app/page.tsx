@@ -20,6 +20,9 @@ import type { Locale, DocumentLocale } from "./i18n/locale";
 import { useInterfaceLocale } from "./i18n/use-locale";
 import { useBranding } from "./branding";
 import { StorageSelect } from "./storage-select";
+import dynamic from "next/dynamic";
+
+const ExcelReader = dynamic(() => import("./excel-reader").then((module) => module.ExcelReader), { ssr: false });
 
 type ViewMode = "list" | "grid";
 type DocumentSort = "recent" | "popular";
@@ -275,133 +278,37 @@ function SensitiveWatermark({ position }: { position: WatermarkPosition }) {
   );
 }
 
-function OfficePreview({
-  url,
-  mimeType,
-  locale,
-}: {
-  url: string;
-  mimeType: string;
-  locale: Locale;
-}) {
+function OfficePreview({ url, mimeType, locale }: { url: string; mimeType: string; locale: Locale }) {
+  return mimeType === excelMime ? <ExcelReader url={url} locale={locale} /> : <WordPreview url={url} locale={locale} />;
+}
+
+function WordPreview({ url, locale }: { url: string; locale: Locale }) {
   const t = copy[locale];
   const [text, setText] = useState("");
-  const [rows, setRows] = useState<string[][]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [truncated, setTruncated] = useState(false);
-
   useEffect(() => {
     const controller = new AbortController();
-    setState("loading");
-    setText("");
-    setRows([]);
-    setTruncated(false);
-    fetch(url, { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("preview");
-        const arrayBuffer = await response.arrayBuffer();
-        if (mimeType === wordMime) {
-          const mammoth = await import("mammoth");
-          const result = await mammoth.extractRawText({ arrayBuffer });
-          setTruncated(result.value.length > 200_000);
-          setText(result.value.slice(0, 200_000));
-        } else {
-          const { strFromU8, unzipSync } = await import("fflate");
-          const files = unzipSync(new Uint8Array(arrayBuffer), {
-            filter: (file) => {
-              const wanted =
-                file.name === "xl/sharedStrings.xml" ||
-                /^xl\/worksheets\/sheet\d+\.xml$/.test(file.name);
-              return wanted && file.originalSize <= 8 * 1024 * 1024;
-            },
-          });
-          const parser = new DOMParser();
-          const sharedXml = files["xl/sharedStrings.xml"];
-          const shared = sharedXml
-            ? Array.from(
-                parser
-                  .parseFromString(strFromU8(sharedXml), "application/xml")
-                  .getElementsByTagName("si"),
-              ).map((item) =>
-                Array.from(item.getElementsByTagName("t"))
-                  .map((node) => node.textContent || "")
-                  .join(""),
-              )
-            : [];
-          const sheetName = Object.keys(files)
-            .filter((name) => /^xl\/worksheets\/sheet\d+\.xml$/.test(name))
-            .sort()[0];
-          if (!sheetName) throw new Error("worksheet");
-          const sheet = parser.parseFromString(
-            strFromU8(files[sheetName]),
-            "application/xml",
-          );
-          const allRows = Array.from(sheet.getElementsByTagName("row"));
-          setTruncated(allRows.length > 100);
-          setRows(
-            allRows.slice(0, 100).map((row) => {
-              const values: string[] = [];
-              Array.from(row.getElementsByTagName("c"))
-                .slice(0, 30)
-                .forEach((cell) => {
-                  const reference = cell.getAttribute("r") || "";
-                  const letters = reference.match(/[A-Z]+/)?.[0] || "A";
-                  const column =
-                    letters
-                      .split("")
-                      .reduce(
-                        (value, letter) =>
-                          value * 26 + letter.charCodeAt(0) - 64,
-                        0,
-                      ) - 1;
-                  const raw =
-                    cell.getElementsByTagName("v")[0]?.textContent || "";
-                  const inline = Array.from(cell.getElementsByTagName("t"))
-                    .map((node) => node.textContent || "")
-                    .join("");
-                  values[column] =
-                    cell.getAttribute("t") === "s"
-                      ? shared[Number(raw)] || ""
-                      : inline || raw;
-                });
-              return values;
-            }),
-          );
-        }
-        setState("ready");
-      })
-      .catch((error) => {
-        if ((error as Error).name !== "AbortError") setState("error");
-      });
+    setState("loading"); setText(""); setTruncated(false);
+    void fetch(url, { signal: controller.signal }).then(async (response) => {
+      if (!response.ok) throw new Error("preview");
+      const arrayBuffer = await response.arrayBuffer();
+      const mammoth = await import("mammoth");
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      if (controller.signal.aborted) return;
+      setTruncated(result.value.length > 200_000);
+      setText(result.value.slice(0, 200_000));
+      setState("ready");
+    }).catch(() => { if (!controller.signal.aborted) setState("error"); });
     return () => controller.abort();
-  }, [mimeType, url]);
-
-  if (state === "loading")
-    return <p className="loading-state">{t.previewLoading}</p>;
+  }, [url]);
+  if (state === "loading") return <p className="loading-state">{t.previewLoading}</p>;
   if (state === "error") return <p className="error-state">{t.previewError}</p>;
-  return (
-    <div className="office-preview" aria-label={t.readonly}>
-      <strong className="readonly-label">{t.readonly}</strong>
-      {mimeType === wordMime ? (
-        <pre>{text}</pre>
-      ) : (
-        <div className="sheet-preview">
-          <table>
-            <tbody>
-              {rows.map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  {row.map((cell, cellIndex) => (
-                    <td key={cellIndex}>{cell}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {truncated && <small>{t.truncated}</small>}
-    </div>
-  );
+  return <div className="office-preview" aria-label={t.readonly}>
+    <strong className="readonly-label">{t.readonly}</strong>
+    <pre>{text}</pre>
+    {truncated && <small>{t.truncated}</small>}
+  </div>;
 }
 
 function PortalContentSkeleton({ label }: { label: string }) {
