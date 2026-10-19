@@ -6,6 +6,14 @@ consultation, téléchargement et administration sont filtrés côté serveur.
 
 ## Dernières nouveautés
 
+### Lecteur Microsoft Information Protection optionnel (19 octobre 2026)
+
+- Intégration pilote du SDK MIP pour les fichiers DOCX/XLSX chiffrés par Microsoft Purview, sans OneDrive ni SharePoint. L'original reste chiffré dans le stockage ISMS ; les fichiers ordinaires suivent le parcours existant.
+- Option **désactivée par défaut** : `MIP_READER_ENABLED=false`. Le service natif isolé se charge uniquement avec `docker-compose.mip.yml` et le profil `mip`.
+- L'API contrôle les ACL ISMS, exige une identité issue du SSO Microsoft et demande au SDK de travailler pour cet utilisateur. L'aperçu web exige les droits Purview `VIEW` et `EXTRACT`, avec analyse antivirus du contenu déchiffré. Un droit de lecture seul ne suffit pas à autoriser cette restitution web.
+- Cette intégration ne remplace pas un client Office gérant toutes les restrictions DRM. Pas de prise en charge des copies filigranées ISMS, fichiers protégés par mot de passe, anciens XLS, DKE/HYOK ou de tous les tenants/clouds Microsoft.
+- **Pas d'activation automatique en production** : une application Entra dédiée, un certificat et une recette sur des fichiers autorisés/refusés sont requis. Procédure et limites : [Lecteur MIP optionnel](docs/mip-reader.md).
+
 ### Navigation et diagnostic (17 octobre 2026)
 
 - Modération : espace, état, recherche et page sont conservés dans l'URL au rechargement. La recherche attend 350 ms après la saisie et annule les anciennes requêtes ; les droits restent contrôlés par l'API.

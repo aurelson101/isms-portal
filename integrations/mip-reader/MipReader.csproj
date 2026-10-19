@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NuGetAudit>true</NuGetAudit>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.InformationProtection.File.Ubuntu2404" Version="1.18.148" GeneratePathProperty="true" ExcludeAssets="compile" NoWarn="NU1701" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.91.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.InformationProtection">
+      <HintPath>$(PkgMicrosoft_InformationProtection_File_Ubuntu2404)/lib/dotnet/Microsoft.InformationProtection.dll</HintPath>
+    </Reference>
+    <Content Include="$(PkgMicrosoft_InformationProtection_File_Ubuntu2404)/dotnet/linux2/native/release/libmip_dotnet.so" Link="libmip_dotnet.so" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

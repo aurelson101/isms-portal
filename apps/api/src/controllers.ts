@@ -61,6 +61,7 @@ import { safeSsoPath } from "./http-security";
 import { publishWithReview } from "./publication-review";
 import { NotificationService } from "./notification.service";
 import { DocumentPublicationDigestDto } from "./document-digest.dto";
+import { isMipObjectKey, isProtectedOffice, readMipEnvelope, readMipOffice, scanMipUpload, withMipCapacity } from "./mip-reader";
 
 async function prepareVersionComparison(
   prisma: PrismaService, storage: StorageService, documentId: string,
@@ -70,7 +71,7 @@ async function prepareVersionComparison(
     where: { documentId, locale }, orderBy: { version: "desc" }, include: { storedFile: { include: { scans: { orderBy: { scannedAt: "desc" }, take: 1 } } } },
   });
   // Remote file I/O must not hold a database transaction open.
-  const change = previous && compare && previous.storedFile.scans[0]?.status === "CLEAN"
+  const change = previous && compare && !isMipObjectKey(previous.storedFile.objectKey) && previous.storedFile.scans[0]?.status === "CLEAN"
     ? compareDocumentVersions(await storage.getBuffer(previous.storedFile.objectKey), content, extension)
     : { details: { added: [], removed: [], modified: [] }, summary: previous ? "Comparison unavailable: antivirus validation required" : "Initial version" };
   return { previousId: previous?.id, change };
@@ -743,7 +744,7 @@ export class DocumentsController {
     const existing = body.documentId
       ? await this.prisma.document.findFirst({
           where: { id: body.documentId, deletedAt: null },
-          select: { id: true, spaceId: true },
+          select: { id: true, spaceId: true, sensitive: true },
         })
       : null;
     if (body.documentId && !existing) throw new NotFoundException();
@@ -761,9 +762,10 @@ export class DocumentsController {
     )
       throw new NotFoundException();
     const extension = extname(file.originalname).toLowerCase();
+    const protectedOffice = isProtectedOffice(file.buffer, extension);
     if (
       !allowedExtensions[extension]?.includes(file.mimetype) ||
-      !magicMatches(file.buffer, extension)
+      (!magicMatches(file.buffer, extension) && !protectedOffice)
     )
       throw new BadRequestException(
         "File extension, MIME type and content are inconsistent",
@@ -788,11 +790,13 @@ export class DocumentsController {
     const previousUpload = await findUploadReceipt(this.prisma, receipt);
     if (previousUpload) return previousUpload.document;
     let replayed = false;
-    const scan = await this.antivirus.scan(file.buffer);
+    const scan = protectedOffice
+      ? await scanMipUpload(req, file.buffer, extension, sensitive || !!existing?.sensitive, this.antivirus)
+      : await this.antivirus.scan(file.buffer);
     const documentId = existing?.id || randomUUID();
-    const objectKey = await this.storage.uploadKey(`${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${randomUUID()}${extension}`, body.storageTargetId);
+    const objectKey = await this.storage.uploadKey(`${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${protectedOffice ? "mip-" : ""}${randomUUID()}${extension}`, body.storageTargetId);
     const sha256 = createHash("sha256").update(file.buffer).digest("hex");
-    const comparison = await prepareVersionComparison(this.prisma, this.storage, documentId, body.locale, file.buffer, extension, scan.status === "CLEAN");
+    const comparison = await prepareVersionComparison(this.prisma, this.storage, documentId, body.locale, file.buffer, extension, scan.status === "CLEAN" && !protectedOffice);
     await this.storage.putObject(objectKey, file.buffer, {
       "Content-Type": file.mimetype,
       "X-Amz-Meta-Sha256": sha256,
@@ -1298,6 +1302,35 @@ export class DocumentsController {
       },
     });
     const safeName = basename(storedFile.originalName).replace(/[\r\n"]/g, "_");
+    if (inline && isMipObjectKey(storedFile.objectKey)) {
+      if (storedFile.size > BigInt(50 * 1024 * 1024)) throw new BadRequestException("Protected file is too large");
+      return withMipCapacity(async () => {
+        let plain: Buffer | undefined;
+        try {
+          plain = await readMipOffice(req, await readMipEnvelope(await this.storage.getObject(storedFile.objectKey)), extname(safeName).toLowerCase());
+          if ((await this.antivirus.scan(plain)).status !== "CLEAN") throw new ServiceUnavailableException("Protected preview did not pass antivirus validation");
+          await this.audit.record(req, "document.mip.preview", `document:${id}`, "success", { locale }, { notify: false });
+          response.setHeader("Content-Type", storedFile.mimeType);
+          response.setHeader("Content-Length", String(plain.length));
+          response.setHeader("Content-Disposition", `inline; filename="${safeName}"`);
+          response.setHeader("Cache-Control", "private, no-store");
+          response.setHeader("Pragma", "no-cache");
+          response.setHeader("X-Content-Type-Options", "nosniff");
+          const content = plain;
+          await new Promise<void>((resolve) => {
+            const finish = () => { content.fill(0); resolve(); };
+            const timer = setTimeout(() => { response.destroy(); finish(); }, 30000);
+            response.once("close", () => { clearTimeout(timer); finish(); });
+            response.end(content, () => { clearTimeout(timer); finish(); });
+          });
+          return;
+        } catch (error) {
+          plain?.fill(0);
+          await this.audit.record(req, "document.mip.preview", `document:${id}`, "denied", { locale }, { notify: false }).catch(() => undefined);
+          throw error;
+        }
+      });
+    }
     response.setHeader("Content-Type", storedFile.mimeType);
     response.setHeader("Content-Length", storedFile.size.toString());
     response.setHeader(
@@ -2852,7 +2885,7 @@ export class DocumentAdminController {
     const existing = body.documentId
       ? await this.prisma.document.findFirst({
           where: { id: body.documentId, deletedAt: null },
-          select: { id: true, spaceId: true },
+          select: { id: true, spaceId: true, sensitive: true },
         })
       : null;
     if (body.documentId && !existing) throw new NotFoundException();
@@ -2861,9 +2894,10 @@ export class DocumentAdminController {
         "A version must remain in its document space",
       );
     const extension = extname(file.originalname).toLowerCase();
+    const protectedOffice = isProtectedOffice(file.buffer, extension);
     if (
       !allowedExtensions[extension]?.includes(file.mimetype) ||
-      !magicMatches(file.buffer, extension)
+      (!magicMatches(file.buffer, extension) && !protectedOffice)
     ) {
       throw new BadRequestException(
         "File extension, MIME type and content are inconsistent",
@@ -2889,10 +2923,12 @@ export class DocumentAdminController {
     const previousUpload = await findUploadReceipt(this.prisma, receipt);
     if (previousUpload) return previousUpload.document;
     let replayed = false;
-    const scan = await this.antivirus.scan(file.buffer);
+    const scan = protectedOffice
+      ? await scanMipUpload(req, file.buffer, extension, sensitive || !!existing?.sensitive, this.antivirus)
+      : await this.antivirus.scan(file.buffer);
     const documentId = existing?.id || randomUUID();
-    const objectKey = await this.storage.uploadKey(`${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${randomUUID()}${extension}`, body.storageTargetId);
-    const comparison = await prepareVersionComparison(this.prisma, this.storage, documentId, body.locale, file.buffer, extension, scan.status === "CLEAN");
+    const objectKey = await this.storage.uploadKey(`${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${protectedOffice ? "mip-" : ""}${randomUUID()}${extension}`, body.storageTargetId);
+    const comparison = await prepareVersionComparison(this.prisma, this.storage, documentId, body.locale, file.buffer, extension, scan.status === "CLEAN" && !protectedOffice);
     await this.storage.putObject(objectKey, file.buffer, {
       "Content-Type": file.mimetype,
       "X-Amz-Meta-Sha256": createHash("sha256")
