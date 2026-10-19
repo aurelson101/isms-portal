@@ -3548,6 +3548,9 @@ svg {
   overflow: auto;
 }
 .excel-reader {
+  display: flex;
+  flex-direction: column;
+  max-height: 82dvh;
   min-width: 0;
   width: 100%;
   border: 1px solid #cbd5d1;
@@ -3555,6 +3558,9 @@ svg {
   overflow: hidden;
   background: #fff;
   color: #17251f;
+}
+.document-modal:not(.expanded):has(.excel-reader) {
+  width: min(2400px, 100%);
 }
 .excel-toolbar,
 .excel-footer,
@@ -3566,6 +3572,7 @@ svg {
 }
 .excel-toolbar,
 .excel-footer {
+  flex-shrink: 0;
   padding: 8px 10px;
   background: #f5f7f6;
 }
@@ -3585,7 +3592,10 @@ svg {
 .excel-toolbar button,
 .excel-pagination button { width: 34px; height: 34px; min-height: 34px; padding: 7px; flex: 0 0 34px; }
 .excel-scroll {
+  min-height: 0;
+  flex: 0 1 auto;
   max-height: 65vh;
+  max-height: 72dvh;
   overflow: auto;
   position: relative;
   overscroll-behavior: contain;
@@ -3600,6 +3610,8 @@ svg {
   color: #111;
 }
 .excel-canvas { position: relative; }
+.document-modal.expanded .excel-reader { max-height: 86dvh; }
+.document-modal.expanded .excel-scroll { max-height: 78dvh; }
 .excel-images { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; }
 .excel-images img { position: absolute; max-width: none; margin: 0; padding: 0; object-fit: fill; }
 .excel-grid :is(td, th) {

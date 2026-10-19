@@ -69,7 +69,7 @@ export function ExcelReader({ url, locale }: { url: string; locale: Locale }) {
   const displayedRowKey = displayed.map((row) => row.number).join(",");
   const visibleRows = header ? [header, ...displayed] : displayed;
   const tableWidth = sheet?.columns.reduce((sum, column) => sum + column.width, 46) || 46;
-  const scale = zoom ? zoom / 100 : viewportWidth >= 700 ? Math.min(1, viewportWidth / tableWidth) : 1;
+  const scale = zoom ? zoom / 100 : viewportWidth >= 700 ? Math.max(0.85, Math.min(1.5, viewportWidth / tableWidth)) : 1;
   useEffect(() => {
     const element = canvas.current;
     if (!element || !sheet) return;
@@ -139,7 +139,7 @@ export function ExcelReader({ url, locale }: { url: string; locale: Locale }) {
       <div className="excel-search"><Icon name="search" /><input type="search" aria-label={t.search} placeholder={t.search} value={query} onChange={(event) => { setQuery(event.target.value); setPage(0); }} /></div>
       <button type="button" className="secondary" aria-label={t.reset} title={t.reset} disabled={!query && !Object.keys(filters).length && !(useSaved && sheet.savedFilters.length)} onClick={() => { setFilters({}); setUseSaved(false); setQuery(""); setPage(0); }}><Icon name="restore" /></button>
       {sheet.savedFilters.length > 0 && <button type="button" className="secondary" title={t.saved} aria-label={t.saved} disabled={useSaved && !Object.keys(filters).length && !query} onClick={() => { setFilters({}); setUseSaved(true); setShowHidden(false); setQuery(""); setPage(0); }}><Icon name="sync" /></button>}
-      <select aria-label={t.zoom} value={zoom} onChange={(event) => setZoom(Number(event.target.value))}><option value={0}>{t.fit}</option>{[75, 100, 125, 150].map((value) => <option value={value} key={value}>{value}%</option>)}</select>
+      <select aria-label={t.zoom} value={zoom} onChange={(event) => setZoom(Number(event.target.value))}><option value={0}>{t.fit}</option>{[50, 75, 100, 125, 150, 175, 200].map((value) => <option value={value} key={value}>{value}%</option>)}</select>
       {dataRows.some((row) => row.hidden) && <label><input type="checkbox" checked={showHidden} onChange={(event) => { setShowHidden(event.target.checked); setPage(0); }} />{t.hidden}</label>}
     </div>
     <div className="excel-scroll" ref={scroll} tabIndex={0} role="region" aria-label={sheet.name} key={sheet.id}>
