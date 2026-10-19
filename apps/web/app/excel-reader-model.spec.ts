@@ -1,9 +1,25 @@
 import { describe, expect, it } from "vitest";
 import ExcelJS from "exceljs";
 import { zipSync, strToU8 } from "fflate";
-import { excelCellText, excelColor, excelSheetModel, readExcelBook } from "./excel-reader-model";
+import { excelCellText, excelColor, excelGroupValues, excelSheetModel, readExcelBook } from "./excel-reader-model";
 
 describe("formatted read-only Excel reader", () => {
+  it("extends group values without changing cells and stops at empty rows or the next value", () => {
+    const book = new ExcelJS.Workbook(); const sheet = book.addWorksheet("Groups");
+    sheet.getCell("A1").value = "Owner A";
+    sheet.getCell("B2").value = "Detail A";
+    sheet.getCell("A3").value = "Owner B";
+    sheet.getCell("B4").value = "Detail B";
+    sheet.getCell("B6").value = "Ungrouped";
+    const rows = excelSheetModel(sheet, book).rows;
+    const before = JSON.stringify(rows);
+    const groups = excelGroupValues(rows, [0]);
+    expect(groups.get(2)?.[0]).toBe("Owner A");
+    expect(groups.get(4)?.[0]).toBe("Owner B");
+    expect(groups.get(6)?.[0]).toBe("");
+    expect(rows[1].cells[0].text).toBe("");
+    expect(JSON.stringify(rows)).toBe(before);
+  });
   it("preserves merged cells, hidden columns, widths and direct formatting", () => {
     const book = new ExcelJS.Workbook(); const sheet = book.addWorksheet("Matrix");
     sheet.getCell("B2").value = "Classification";

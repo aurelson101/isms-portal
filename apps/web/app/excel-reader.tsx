@@ -4,7 +4,7 @@ import { fetchWithTimeout as fetch } from "./http-client";
 import { Icon } from "./icons";
 import { portalCatalog } from "./i18n/catalogs";
 import type { Locale } from "./i18n/locale";
-import { readExcelBook, type ExcelBook, type ExcelRow } from "./excel-reader-model";
+import { excelGroupValues, readExcelBook, type ExcelBook, type ExcelRow } from "./excel-reader-model";
 import { matchesSavedExcelFilter } from "./excel-saved-filters";
 
 const labels = {
@@ -12,6 +12,13 @@ const labels = {
   en: { saved: "Restore file filters", original: "Saved filter", image: "Embedded image", fit: "Fit width", sheets: "Worksheets", filter: "Filter", all: "All", blank: "(Blanks)", search: "Search worksheet", reset: "Clear filters", hidden: "Show hidden rows", previous: "Previous", next: "Next", rows: "rows", zoom: "Zoom", empty: "No results" },
   es: { saved: "Restaurar filtros del archivo", original: "Filtro guardado", image: "Imagen integrada", fit: "Ajustar", sheets: "Hojas", filter: "Filtrar", all: "Todo", blank: "(Vacías)", search: "Buscar en la hoja", reset: "Borrar filtros", hidden: "Mostrar filas ocultas", previous: "Anterior", next: "Siguiente", rows: "filas", zoom: "Zoom", empty: "Sin resultados" },
   sk: { saved: "Obnoviť filtre súboru", original: "Uložený filter", image: "Vložený obrázok", fit: "Prispôsobiť", sheets: "Hárky", filter: "Filtrovať", all: "Všetko", blank: "(Prázdne)", search: "Hľadať v hárku", reset: "Vymazať filtre", hidden: "Zobraziť skryté riadky", previous: "Predchádzajúce", next: "Ďalšie", rows: "riadkov", zoom: "Priblíženie", empty: "Žiadne výsledky" },
+};
+
+const groupLabels = {
+  fr: "Inclure les lignes suivantes sans valeur",
+  en: "Include following rows with blank values",
+  es: "Incluir filas siguientes sin valor",
+  sk: "Zahrnúť nasledujúce riadky bez hodnoty",
 };
 
 export function ExcelReader({ url, locale }: { url: string; locale: Locale }) {
@@ -24,6 +31,7 @@ export function ExcelReader({ url, locale }: { url: string; locale: Locale }) {
   const [useSaved, setUseSaved] = useState(true);
   const [query, setQuery] = useState("");
   const [showHidden, setShowHidden] = useState(false);
+  const [includeFollowing, setIncludeFollowing] = useState(false);
   const [page, setPage] = useState(0);
   const [zoom, setZoom] = useState(0);
   const scroll = useRef<HTMLDivElement>(null);
@@ -32,7 +40,7 @@ export function ExcelReader({ url, locale }: { url: string; locale: Locale }) {
   const [viewportWidth, setViewportWidth] = useState(0);
   useEffect(() => {
     const abort = new AbortController();
-    setState("loading"); setBook(null); setFilters({}); setUseSaved(true); setQuery(""); setPage(0); setShowHidden(false);
+    setState("loading"); setBook(null); setFilters({}); setUseSaved(true); setQuery(""); setPage(0); setShowHidden(false); setIncludeFollowing(false);
     void fetch(url, { signal: abort.signal }).then(async (response) => {
       if (!response.ok) throw new Error("preview");
       const value = await readExcelBook(await response.arrayBuffer(), locale);
@@ -51,6 +59,7 @@ export function ExcelReader({ url, locale }: { url: string; locale: Locale }) {
   }, [sheet]);
   const header = sheet?.filter ? sheet.rows.find((row) => row.number === sheet.filter!.headerRow) : undefined;
   const dataRows = sheet?.rows.filter((row) => !sheet.filter || row.number > sheet.filter.headerRow && row.number <= sheet.filter.lastRow) || [];
+  const groupValues = includeFollowing ? excelGroupValues(dataRows, Object.keys(filters).map(Number)) : null;
   const options = Object.fromEntries((sheet?.columns || []).map((column) => [column.index,
     [...new Set(dataRows.map((row) => row.cells[column.index]?.text || ""))].sort((a, b) => a.localeCompare(b, locale, { numeric: true })),
   ]));
@@ -60,7 +69,7 @@ export function ExcelReader({ url, locale }: { url: string; locale: Locale }) {
     const needsMask = useSaved && saved.some((filter) => filter.unsupported && !Object.hasOwn(filters, filter.column));
     return (showHidden || !row.hidden || saved.length > 0 && changed && !needsMask)
     && (!useSaved || saved.every((filter) => Object.hasOwn(filters, filter.column) || matchesSavedExcelFilter(row.cells[filter.column], filter)))
-    && Object.entries(filters).every(([column, text]) => text === null || (row.cells[Number(column)]?.text || "").toLowerCase() === text.toLowerCase())
+    && Object.entries(filters).every(([column, text]) => text === null || (text && groupValues ? groupValues.get(row.number)?.[Number(column)] || "" : row.cells[Number(column)]?.text || "").toLowerCase() === text.toLowerCase())
     && (!query.trim() || sheet?.columns.some((column) => row.cells[column.index]?.text.toLowerCase().includes(query.trim().toLowerCase())));
   });
   const pages = Math.max(1, Math.ceil(filtered.length / 100));
@@ -141,6 +150,7 @@ export function ExcelReader({ url, locale }: { url: string; locale: Locale }) {
       {sheet.savedFilters.length > 0 && <button type="button" className="secondary" title={t.saved} aria-label={t.saved} disabled={useSaved && !Object.keys(filters).length && !query} onClick={() => { setFilters({}); setUseSaved(true); setShowHidden(false); setQuery(""); setPage(0); }}><Icon name="sync" /></button>}
       <select aria-label={t.zoom} value={zoom} onChange={(event) => setZoom(Number(event.target.value))}><option value={0}>{t.fit}</option>{[50, 75, 100, 125, 150, 175, 200].map((value) => <option value={value} key={value}>{value}%</option>)}</select>
       {dataRows.some((row) => row.hidden) && <label><input type="checkbox" checked={showHidden} onChange={(event) => { setShowHidden(event.target.checked); setPage(0); }} />{t.hidden}</label>}
+      {sheet.filter && <label><input type="checkbox" checked={includeFollowing} onChange={(event) => { setIncludeFollowing(event.target.checked); setPage(0); }} />{groupLabels[locale]}</label>}
     </div>
     <div className="excel-scroll" ref={scroll} tabIndex={0} role="region" aria-label={sheet.name} key={sheet.id}>
       <div className="excel-canvas" ref={canvas} style={{ zoom: scale, width: tableWidth } as CSSProperties}>
@@ -156,7 +166,7 @@ export function ExcelReader({ url, locale }: { url: string; locale: Locale }) {
       {!filtered.length && <p role="status">{t.empty}</p>}
     </div>
     <div className="excel-footer">
-      <div className="excel-sheet-tabs" role="tablist" aria-label={t.sheets}>{book.sheets.map((entry) => <button type="button" key={entry.id} role="tab" aria-selected={entry.id === sheet.id} onClick={() => { setSheetId(entry.id); setFilters({}); setUseSaved(true); setQuery(""); setPage(0); setShowHidden(false); }}>{entry.name}</button>)}</div>
+      <div className="excel-sheet-tabs" role="tablist" aria-label={t.sheets}>{book.sheets.map((entry) => <button type="button" key={entry.id} role="tab" aria-selected={entry.id === sheet.id} onClick={() => { setSheetId(entry.id); setFilters({}); setUseSaved(true); setQuery(""); setPage(0); setShowHidden(false); setIncludeFollowing(false); }}>{entry.name}</button>)}</div>
       <div className="excel-pagination"><span aria-live="polite">{filtered.length} {t.rows} · {current + 1} / {pages}</span><button type="button" className="secondary" title={t.previous} aria-label={t.previous} disabled={current === 0} onClick={() => setPage(current - 1)}><Icon name="chevron" transform="rotate(180)" /></button><button type="button" className="secondary" title={t.next} aria-label={t.next} disabled={current + 1 >= pages} onClick={() => setPage(current + 1)}><Icon name="chevron" /></button></div>
     </div>
     {sheet.truncated && <small>{copy.truncated}</small>}

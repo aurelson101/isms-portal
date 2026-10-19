@@ -15,6 +15,26 @@ export type ExcelSheet = {
 };
 export type ExcelBook = { sheets: ExcelSheet[]; activeId: number };
 
+export function excelGroupValues(rows: ExcelRow[], columns: number[]): Map<number, Record<number, string>> {
+  const values = new Map<number, Record<number, string>>();
+  let previous: Record<number, string> = {};
+  for (const row of rows) {
+    if (!Object.values(row.cells).some((cell) => cell.text.trim())) {
+      previous = {};
+      values.set(row.number, {});
+      continue;
+    }
+    const current: Record<number, string> = {};
+    for (const column of columns) {
+      const text = row.cells[column]?.text || "";
+      current[column] = text.trim() ? text : previous[column] || "";
+    }
+    values.set(row.number, current);
+    previous = current;
+  }
+  return values;
+}
+
 const themeDefaults = ["FFFFFF", "000000", "E7E6E6", "44546A", "4472C4", "ED7D31", "A5A5A5", "FFC000", "5B9BD5", "70AD47", "0563C1", "954F72"];
 
 export function excelColor(color: (Partial<Color> & { indexed?: number; tint?: number }) | undefined, theme = themeDefaults): string | undefined {
