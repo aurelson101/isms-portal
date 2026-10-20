@@ -12,7 +12,9 @@ consultation, téléchargement et administration sont filtrés côté serveur.
 - Option **désactivée par défaut** : `MIP_READER_ENABLED=false`. Le service natif isolé se charge uniquement avec `docker-compose.mip.yml` et le profil `mip`.
 - L'API contrôle les ACL ISMS, exige une identité issue du SSO Microsoft et demande au SDK de travailler pour cet utilisateur. L'aperçu web exige les droits Purview `VIEW` et `EXTRACT`, avec analyse antivirus du contenu déchiffré. Un droit de lecture seul ne suffit pas à autoriser cette restitution web.
 - Cette intégration ne remplace pas un client Office gérant toutes les restrictions DRM. Pas de prise en charge des copies filigranées ISMS, fichiers protégés par mot de passe, anciens XLS, DKE/HYOK ou de tous les tenants/clouds Microsoft.
-- **Pas d'activation automatique en production** : une application Entra dédiée, un certificat et une recette sur des fichiers autorisés/refusés sont requis. Procédure et limites : [Lecteur MIP optionnel](docs/mip-reader.md).
+- **Configuration Entra** : ajouter **Azure Rights Management Service → Autorisations d'application → `Content.DelegatedReader`**, avec consentement administrateur. Cette permission n'appartient pas à Microsoft Graph. Ne pas ajouter `Content.SuperUser`.
+- Une application MIP dédiée est recommandée ; la réutilisation de l'application SSO et de son certificat est possible après validation explicite. Microsoft Graph `Mail.Send` reste réservé à l'application d'envoi des e-mails et n'est pas requis pour lire les fichiers Purview.
+- **Pas d'activation automatique en production** : configurer le certificat et les secrets hors Git, puis valider les accès autorisés/refusés avant d'activer `MIP_READER_ENABLED=true`. Procédure, paramètres et limites : [Lecteur MIP optionnel](docs/mip-reader.md).
 
 ### Navigation et diagnostic (17 octobre 2026)
 

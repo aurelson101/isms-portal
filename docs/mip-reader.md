@@ -47,9 +47,35 @@ au lecteur existant apres controle des droits et analyse antivirus.
 
 ## Preparer Entra et les secrets
 
-Creer une application Entra **dediee a la lecture MIP**. Ne pas reutiliser
-l'application d'envoi des emails Microsoft Graph. Le SSO OIDC ne confere pas
-automatiquement d'autorisation sur Azure Rights Management.
+Une application Entra **dediee a la lecture MIP** est recommandee pour isoler
+les permissions. En option, apres validation explicite par un administrateur,
+reutiliser l'application SSO et son certificat existant : renseigner son tenant
+et son client dans `MIP_TENANT_ID` et `MIP_CLIENT_ID`, puis monter le certificat
+et sa cle privee correspondante dans le service MIP. Le certificat public seul
+ne suffit pas. Conserver l'application d'envoi des emails Microsoft Graph
+separee. Le SSO OIDC ne confere pas automatiquement de droits Purview.
+
+### Autorisations API : Purview et Microsoft Graph
+
+1. Dans Entra, ouvrir **Inscriptions d'applications**, puis l'application MIP
+   dediee ou l'application SSO explicitement retenue.
+2. Ouvrir **API autorisees > Ajouter une autorisation > API utilisees par mon
+   organisation**, puis rechercher **Azure Rights Management Service**.
+3. Choisir **Autorisations d'application > Content.DelegatedReader**, ajouter
+   cette seule permission et faire accorder son consentement administrateur.
+   Verifier les permissions deja presentes avant toute action de consentement.
+4. Verifier que le statut de cette permission indique le consentement accorde.
+   Conserver les permissions SSO existantes ; ne pas modifier les URI de retour
+   ni les affectations d'utilisateurs pour activer ce lecteur.
+
+`Content.DelegatedReader` est une permission **Azure Rights Management Service**,
+pas une permission Microsoft Graph, malgre son affichage dans la meme page
+Entra. Aucune permission Graph supplementaire n'est requise pour ce lecteur.
+`Mail.Send` applicatif concerne uniquement les notifications par e-mail :
+le configurer dans l'application d'envoi distincte, avec consentement et
+restriction Exchange sur la boite expediteur. Le lecteur ne consulte pas les
+fichiers via OneDrive ou SharePoint et ne demande pas `Files.Read.All` ou
+`Sites.Read.All`.
 
 Ajouter l'autorisation d'application Azure Rights Management Service
 `Content.DelegatedReader` et faire accorder le consentement administrateur
@@ -180,6 +206,13 @@ TypeScript, controles de style et chargement natif du SDK dans un conteneur
 Ubuntu 24.04 isole. Aucun de ces controles ne remplace la recette de
 dechiffrement avec des fichiers et utilisateurs reels du tenant.
 
+Recette ciblee du 20 octobre 2026 : lecture d'un XLSX reel chiffre par Purview
+avec certificat et SSO, analyse antivirus du contenu, conservation de l'original
+chiffre, refus hors domaine autorise et refus d'acces non authentifie. Le lecteur
+a ete verifie sur mobile, bureau et ecran 4K. Ces resultats ne garantissent pas
+la compatibilite de tous les classeurs ou politiques : le refus d'un utilisateur
+SSO valide prive de droits sur un fichier reste a verifier dans chaque tenant.
+
 ## References Microsoft
 
 - [Vue d'ensemble du SDK MIP](https://learn.microsoft.com/en-us/information-protection/develop/overview)
@@ -190,8 +223,11 @@ dechiffrement avec des fichiers et utilisateurs reels du tenant.
 ## English Summary
 
 Optional, disabled-by-default pilot for Purview-encrypted DOCX/XLSX files stored
-directly in ISMS. No OneDrive/SharePoint upload is required. A separate Entra
-application, certificate and approved delegated-reader permission are required.
+directly in ISMS. No OneDrive/SharePoint upload is required. A dedicated Entra
+application is recommended; explicitly approved reuse of the SSO application
+and its certificate is supported. Add Azure Rights Management Service application
+permission Content.DelegatedReader with admin consent, not a Microsoft Graph
+permission. Graph Mail.Send remains separate and is not required by the reader.
 ISMS ACLs and the requesting user's VIEW and EXTRACT rights are checked.
 Browser preview is not a DRM-enforcing Office client: no-copy documents are denied.
 Ciphertext originals are retained, plaintext is scanned and temporary only.
