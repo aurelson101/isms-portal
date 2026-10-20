@@ -1,5 +1,4 @@
 import { readFileSync } from "fs";
-import { resolve } from "path";
 import { X509Certificate } from "crypto";
 import { execFileSync } from "child_process";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,7 +7,7 @@ import { parseCaCertificates } from "./certificate.parser";
 vi.mock("child_process", () => ({ execFileSync: vi.fn() }));
 
 const fixture = (name: string) =>
-  readFileSync(resolve(process.cwd(), "../../tests/fixtures", name));
+  readFileSync(new URL(`../../../tests/fixtures/${name}`, import.meta.url));
 
 describe("parseCaCertificates", () => {
   beforeEach(() => {

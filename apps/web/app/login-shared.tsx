@@ -68,11 +68,19 @@ export function loginFailure(response: Response | null, locale: Locale, invalid:
   return invalid;
 }
 
-export function loginRequest(endpoint: string, values: Record<string, unknown>) {
-  return fetch(endpoint, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(values),
-  }).catch(() => null);
+export async function loginRequest(endpoint: string, values: Record<string, unknown>) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  try {
+    return await fetch(endpoint, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values), signal: controller.signal,
+    });
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export function LoginToolbar({ locale, onLocaleChange, admin = false }: {
