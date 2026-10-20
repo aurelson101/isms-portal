@@ -3,6 +3,7 @@ import { fetchWithTimeout as fetch } from "./http-client";
 import { translationFields } from "./moderator/document-model";
 import { uploadAttempt, type UploadAttempt } from "./upload-attempt";
 import { normalizePdfPage, parsePdfProgress, type PdfZoom } from "./pdf-progress";
+import { copyDocumentLink, documentShareUrl } from "./document-share";
 
 import { localizedPair, translate } from "./i18n/translate";
 
@@ -593,7 +594,8 @@ export function Portal({
   const [reportMessage, setReportMessage] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportFeedback, setReportFeedback] = useState("");
-  const [linkCopied, setLinkCopied] = useState(false);
+  const [copiedDocumentId, setCopiedDocumentId] = useState<string | null>(null);
+  const [linkCopyFallback, setLinkCopyFallback] = useState<{ id: string; url: string } | null>(null);
   const [securityReportOpen, setSecurityReportOpen] = useState(false);
   const [securityReportFeedback, setSecurityReportFeedback] = useState("");
   const [editing, setEditing] = useState<PortalDocument | null>(null);
@@ -663,7 +665,8 @@ export function Portal({
   const closeDocument = useCallback(() => {
     setViewerExpanded(false);
     setOpened(null);
-    setLinkCopied(false);
+    setCopiedDocumentId(null);
+    setLinkCopyFallback(null);
     window.history.replaceState(null, "", "/explorer");
   }, []);
 
@@ -1319,7 +1322,8 @@ export function Portal({
       "",
       `/documents/${encodeURIComponent(slug)}`,
     );
-    setLinkCopied(false);
+    setCopiedDocumentId(null);
+    setLinkCopyFallback(null);
   }, [opened, openedLocale, locale]);
 
   useEffect(() => {
@@ -3003,13 +3007,17 @@ export function Portal({
                   type="button"
                   className="viewer-copy-link"
                   onClick={async () => {
-                    await navigator.clipboard.writeText(window.location.href);
-                    setLinkCopied(true);
+                    const id = opened.id;
+                    const url = documentShareUrl(window.location.origin, opened.slug);
+                    setCopiedDocumentId(null);
+                    setLinkCopyFallback(null);
+                    if (await copyDocumentLink(url)) setCopiedDocumentId(id);
+                    else setLinkCopyFallback({ id, url });
                   }}
                 >
                   <Icon name="publish" />
                   <span>
-                    {linkCopied
+                    {copiedDocumentId === opened.id
                       ? translate(locale, "Lien copié", "Link copied")
                       : translate(locale, "Copier le lien", "Copy link")}
                   </span>
@@ -3076,6 +3084,11 @@ export function Portal({
                 </button>
               </div>
             </div>
+            {linkCopyFallback?.id === opened.id && <div className="error-state" role="status">
+              <label>{({ fr: "Copie automatique indisponible. Lien du document :", en: "Automatic copying unavailable. Document link:", es: "Copia automática no disponible. Enlace del documento:", sk: "Automatické kopírovanie nie je dostupné. Odkaz na dokument:" })[locale]}
+                <input type="url" readOnly autoFocus value={linkCopyFallback.url} onFocus={(event) => event.currentTarget.select()} />
+              </label>
+            </div>}
             <div className="modal-locales">
               {(["fr", "en"] as Locale[]).map((item) => (
                 <button
