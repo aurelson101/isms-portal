@@ -3188,11 +3188,12 @@ export function Portal({
                   <button
                     type="button"
                     disabled={pdfPage <= 1}
+                    aria-label={translate(locale, "Précédent", "Previous")}
                     onClick={() =>
                       setPdfPage((current) => Math.max(1, current - 1))
                     }
                   >
-                    ←
+                    <Icon name="chevron" transform="rotate(180)" />
                   </button>
                   <label>
                     <span>{translate(locale, "Page", "Page")}</span>
@@ -3205,13 +3206,15 @@ export function Portal({
                         setPdfPage(Math.min(normalizePdfPage(Number(event.target.value)), pdfPageCount ?? Number.MAX_SAFE_INTEGER))
                       }
                     />
+                    <output aria-live="polite">{pdfPageCount !== null ? `/ ${pdfPageCount}` : ""}</output>
                   </label>
                   <button
                     type="button"
                     disabled={pdfPageCount !== null && pdfPage >= pdfPageCount}
+                    aria-label={translate(locale, "Suivant", "Next")}
                     onClick={() => setPdfPage((current) => Math.min(current + 1, pdfPageCount ?? Number.MAX_SAFE_INTEGER))}
                   >
-                    →
+                    <Icon name="chevron" />
                   </button>
                 </div>
                 <button

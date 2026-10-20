@@ -1199,6 +1199,7 @@ h1 {
 }
 .pdf-page-controls {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: stretch;
 }
 .pdf-page-controls label {
@@ -1218,6 +1219,7 @@ h1 {
   color: inherit;
   font: inherit;
 }
+.pdf-page-controls output { min-width: 4ch; white-space: nowrap; }
 .document-reader-meta > div {
   min-width: 0;
   padding: 0.65rem 0.75rem;
@@ -1245,6 +1247,7 @@ h1 {
   top: 62px;
   z-index: 7;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 8px;
@@ -1281,7 +1284,8 @@ h1 {
 }
 .pdf-zoom-controls {
   display: inline-grid;
-  grid-template-columns: 38px 68px 38px;
+  flex: 0 0 auto;
+  grid-template-columns: 44px minmax(112px, max-content) 44px;
   align-items: center;
 }
 .pdf-zoom-controls button {
@@ -1289,7 +1293,9 @@ h1 {
   font-size: 22px;
 }
 .pdf-zoom-controls output {
-  min-height: 38px;
+  min-height: 44px;
+  padding-inline: 8px;
+  white-space: nowrap;
   display: grid;
   place-items: center;
   border-block: 1px solid #b9c8dc;
@@ -1323,6 +1329,13 @@ h1 {
 }
 .pdf-readonly canvas { display: block; margin: 0 auto; background: #fff; }
 .pdf-accessible-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@media (min-width: 901px) and (min-height: 720px) {
+  .document-modal:has(.pdf-readonly) { display: flex; flex-direction: column; height: 94dvh; }
+  .document-modal:has(.pdf-readonly) > :not(.document-preview-frame) { flex-shrink: 0; }
+  .document-modal:has(.pdf-readonly) .document-preview-frame { flex: 1 0 240px; }
+  .document-modal:has(.pdf-readonly) .pdf-readonly { height: 100%; }
+  .document-modal.expanded:has(.pdf-readonly) { height: 100dvh; }
+}
 @media print { .pdf-readonly { display: none !important; } }
 .sensitive-watermark {
   position: absolute;
@@ -1973,11 +1986,6 @@ h1 {
     min-width: 0;
     text-align: center;
     overflow-wrap: anywhere;
-  }
-  .document-modal
-    .pdf-toolbar
-    > button:not(.pdf-mobile-action):nth-of-type(n + 2) {
-    display: none;
   }
   .pdf-mobile-action {
     display: inline-grid !important;

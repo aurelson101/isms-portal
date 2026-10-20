@@ -19,6 +19,12 @@ export function PdfPreview({ url, title, page, zoom, locale, onPageCount }: {
   const copy = portalCatalog[locale];
 
   useEffect(() => {
+    if (!frame.current) return;
+    frame.current.scrollTop = 0;
+    frame.current.scrollLeft = 0;
+  }, [url, page]);
+
+  useEffect(() => {
     let stopped = false;
     let task: PDFDocumentLoadingTask | undefined;
     setPdf(null); setState("loading"); setText("");
@@ -64,8 +70,8 @@ export function PdfPreview({ url, title, page, zoom, locale, onPageCount }: {
       await render.promise;
       if (stopped) return;
       setState("ready");
-      const content = await sheet.getTextContent();
-      if (!stopped) setText(content.items.map((item) => "str" in item ? item.str : "").join(" "));
+      const content = await sheet.getTextContent().catch(() => null);
+      if (!stopped && content) setText(content.items.map((item) => "str" in item ? item.str : "").join(" "));
     }).catch(() => { if (!stopped) setState("error"); });
     return () => { stopped = true; render?.cancel(); };
   }, [pdf, page, zoom, size]);
