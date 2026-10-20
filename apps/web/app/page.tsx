@@ -641,7 +641,6 @@ export function Portal({
   const [pdfPage, setPdfPage] = useState(1);
   const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
   const pdfProgressVersion = useRef<string | null>(null);
-  const [pdfOutlineOpen, setPdfOutlineOpen] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [authenticationFailure, setAuthenticationFailure] =
     useState<SessionFailure | null>(null);
@@ -1311,9 +1310,6 @@ export function Portal({
   const openedContentUrl = openedVersion
     ? `/api/documents/${opened?.id}/content?locale=${openedLocale}`
     : "";
-  const pdfSource = openedPdf
-    ? `${openedContentUrl}#toolbar=${opened?.permissions.download ? 1 : 0}&navpanes=${pdfOutlineOpen ? 1 : 0}&page=${pdfPage}&zoom=${pdfZoom}`
-    : openedContentUrl;
 
   useEffect(() => {
     if (!opened) return;
@@ -3218,14 +3214,6 @@ export function Portal({
                     →
                   </button>
                 </div>
-                {opened.permissions.download && <button
-                  type="button"
-                  className={pdfOutlineOpen ? "selected" : ""}
-                  aria-pressed={pdfOutlineOpen}
-                  onClick={() => setPdfOutlineOpen((current) => !current)}
-                >
-                  {translate(locale, "Signets / sommaire", "Bookmarks / outline")}
-                </button>}
                 <button
                   type="button"
                   className={pdfZoom === "page-width" ? "selected" : ""}
@@ -3260,29 +3248,18 @@ export function Portal({
                 >
                   ×
                 </button>
-                {opened.permissions.preview && opened.permissions.download && (
-                  <a
-                    href={openedContentUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={t.openNewTab}
-                  >
-                    {t.openNewTab}
-                  </a>
-                )}
               </div>
             )}
             {openedVersion && opened.permissions.preview ? (
               <>
                 <div className="document-preview-frame">
-                  {openedPdf && !opened.permissions.download ? (
+                  {openedPdf ? (
                     <PdfPreview url={openedContentUrl} title={titleFor(opened, openedLocale || locale)} page={pdfPage} zoom={pdfZoom} locale={locale} onPageCount={handlePdfPageCount} />
-                  ) : openedVersion.storedFile.mimeType === "application/pdf" ||
-                  openedVersion.storedFile.mimeType.startsWith("image/") ? (
+                  ) : openedVersion.storedFile.mimeType.startsWith("image/") ? (
                     <iframe
                       title={titleFor(opened, openedLocale || locale)}
-                      key={pdfSource}
-                      src={pdfSource}
+                      key={openedContentUrl}
+                      src={openedContentUrl}
                     />
                   ) : [wordMime, excelMime].includes(
                       openedVersion.storedFile.mimeType,
