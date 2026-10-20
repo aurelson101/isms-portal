@@ -3,6 +3,7 @@
 .env.redis
 credentials.txt
 node_modules/
+apps/web/public/pdfjs/
 .next/
 dist/
 coverage/

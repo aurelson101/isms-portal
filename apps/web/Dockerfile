@@ -15,6 +15,7 @@ RUN apk upgrade --no-cache \
     && addgroup -S isms && adduser -S isms -G isms
 COPY --from=build --chown=isms:isms /app/apps/web/.next/standalone ./
 COPY --from=build --chown=isms:isms /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build --chown=isms:isms /app/apps/web/public ./apps/web/public
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
     /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
     /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn*

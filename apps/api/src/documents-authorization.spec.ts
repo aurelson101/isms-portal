@@ -100,6 +100,13 @@ describe("DocumentsController ACL scoping", () => {
     );
   };
 
+  it.each(["preview", "download"] as const)("requires the explicit %s permission when streaming a PDF", async (permission) => {
+    findFirst.mockResolvedValue({ id: "pdf-1", spaceId: general.id, status: "PUBLISHED", versions: [] });
+    can.mockImplementation((_groups: string[], _spaceId: string, requested: Permission) => Promise.resolve(requested !== permission));
+    await expect(controller[permission](request, {} as never, "pdf-1", "en")).rejects.toThrow();
+    expect(upsertActivity).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["1.5", "20", 1, 20],
     ["Infinity", "20", 1, 20],

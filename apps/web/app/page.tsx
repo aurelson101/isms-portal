@@ -24,6 +24,7 @@ import { StorageSelect } from "./storage-select";
 import dynamic from "next/dynamic";
 
 const ExcelReader = dynamic(() => import("./excel-reader").then((module) => module.ExcelReader), { ssr: false });
+const PdfPreview = dynamic(() => import("./pdf-preview").then((module) => module.PdfPreview), { ssr: false });
 
 type ViewMode = "list" | "grid";
 type DocumentSort = "recent" | "popular";
@@ -638,6 +639,7 @@ export function Portal({
   const [viewerExpanded, setViewerExpanded] = useState(false);
   const [pdfZoom, setPdfZoom] = useState<PdfZoom>("page-width");
   const [pdfPage, setPdfPage] = useState(1);
+  const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
   const pdfProgressVersion = useRef<string | null>(null);
   const [pdfOutlineOpen, setPdfOutlineOpen] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -1394,6 +1396,7 @@ export function Portal({
 
   useEffect(() => {
     if (!openedVersion) return;
+    setPdfPageCount(null);
     try {
       const saved = parsePdfProgress(localStorage.getItem(`isms-pdf-progress:${openedVersion.id}`));
       setPdfPage(saved.page);
@@ -1403,6 +1406,11 @@ export function Portal({
       setPdfZoom("page-width");
     }
   }, [openedVersion]);
+
+  const handlePdfPageCount = useCallback((count: number) => {
+    setPdfPageCount(count);
+    setPdfPage((current) => Math.min(current, count));
+  }, []);
 
   useEffect(() => {
     if (!openedVersion || !openedPdf) return;
@@ -3195,27 +3203,29 @@ export function Portal({
                     <input
                       type="number"
                       min="1"
+                      max={pdfPageCount ?? undefined}
                       value={pdfPage}
                       onChange={(event) =>
-                        setPdfPage(normalizePdfPage(Number(event.target.value)))
+                        setPdfPage(Math.min(normalizePdfPage(Number(event.target.value)), pdfPageCount ?? Number.MAX_SAFE_INTEGER))
                       }
                     />
                   </label>
                   <button
                     type="button"
-                    onClick={() => setPdfPage((current) => current + 1)}
+                    disabled={pdfPageCount !== null && pdfPage >= pdfPageCount}
+                    onClick={() => setPdfPage((current) => Math.min(current + 1, pdfPageCount ?? Number.MAX_SAFE_INTEGER))}
                   >
                     →
                   </button>
                 </div>
-                <button
+                {opened.permissions.download && <button
                   type="button"
                   className={pdfOutlineOpen ? "selected" : ""}
                   aria-pressed={pdfOutlineOpen}
                   onClick={() => setPdfOutlineOpen((current) => !current)}
                 >
                   {translate(locale, "Signets / sommaire", "Bookmarks / outline")}
-                </button>
+                </button>}
                 <button
                   type="button"
                   className={pdfZoom === "page-width" ? "selected" : ""}
@@ -3250,7 +3260,7 @@ export function Portal({
                 >
                   ×
                 </button>
-                {opened.permissions.preview && (
+                {opened.permissions.preview && opened.permissions.download && (
                   <a
                     href={openedContentUrl}
                     target="_blank"
@@ -3265,7 +3275,9 @@ export function Portal({
             {openedVersion && opened.permissions.preview ? (
               <>
                 <div className="document-preview-frame">
-                  {openedVersion.storedFile.mimeType === "application/pdf" ||
+                  {openedPdf && !opened.permissions.download ? (
+                    <PdfPreview url={openedContentUrl} title={titleFor(opened, openedLocale || locale)} page={pdfPage} zoom={pdfZoom} locale={locale} onPageCount={handlePdfPageCount} />
+                  ) : openedVersion.storedFile.mimeType === "application/pdf" ||
                   openedVersion.storedFile.mimeType.startsWith("image/") ? (
                     <iframe
                       title={titleFor(opened, openedLocale || locale)}
