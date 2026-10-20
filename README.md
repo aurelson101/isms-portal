@@ -4,6 +4,31 @@ Portail documentaire ISMS/ISO 27001 en français, anglais, espagnol et slovaque,
 Directory. L’API applique un modèle _deny by default_ : espaces, recherche,
 consultation, téléchargement et administration sont filtrés côté serveur.
 
+## Licence et utilisation non commerciale
+
+ISMS Portal est distribué sous la licence **PolyForm Noncommercial 1.0.0**.
+Le texte intégral applicable est disponible dans [LICENSE.md](LICENSE.md).
+
+- L'utilisation, la modification et la redistribution sont autorisées pour les
+  finalités permises par cette licence, notamment les usages non commerciaux.
+- L'exploitation commerciale (vente, offre SaaS payante, intégration à une offre
+  commerciale ou prestation commerciale fondée sur le logiciel) n'est pas
+  autorisée par cette licence. Elle nécessite une autorisation distincte des
+  titulaires des droits.
+- Un usage interne en entreprise n'est pas automatiquement non commercial :
+  sa finalité doit respecter la licence. Pour une demande d'autorisation,
+  contacter le propriétaire du dépôt, [aurelson101](https://github.com/aurelson101).
+- Toute redistribution doit conserver la licence ou son URL ainsi que les
+  mentions obligatoires prévues par celle-ci.
+- Les dépendances et composants tiers restent soumis à leurs propres licences.
+  Cette licence ne remplace pas leurs conditions.
+- Le logiciel est fourni sans garantie, dans les limites prévues par la licence.
+
+Il s'agit d'une licence à **code source disponible** (*source available*),
+et non d'une licence open source au sens de l'OSI, puisque les usages commerciaux
+sont restreints. Le résumé ci-dessus est informatif ; le texte de la licence
+fait foi.
+
 ## Dernières nouveautés
 
 ### Lecteur Microsoft Information Protection optionnel (19 octobre 2026)
