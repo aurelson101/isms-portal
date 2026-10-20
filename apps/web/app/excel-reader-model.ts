@@ -116,6 +116,7 @@ export function excelSheetModel(sheet: Worksheet, workbook: Workbook, theme?: st
   let lastColumn = filter ? filter.lastColumn + 1 : 0;
   let lastRow = filter ? filter.lastRow : 0;
   sheet.eachRow((row, number) => {
+    lastRow = Math.max(lastRow, number);
     if (number > 5000) return;
     row.eachCell((cell, column) => { if (cell.value !== null && cell.value !== undefined) { lastColumn = Math.max(lastColumn, column); lastRow = Math.max(lastRow, number); } });
   });

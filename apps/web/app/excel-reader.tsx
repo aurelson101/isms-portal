@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { fetchWithTimeout as fetch } from "./http-client";
 import { Icon } from "./icons";
 import { portalCatalog } from "./i18n/catalogs";
@@ -58,19 +58,21 @@ export function ExcelReader({ url, locale }: { url: string; locale: Locale }) {
     return () => resize.disconnect();
   }, [sheet]);
   const header = sheet?.filter ? sheet.rows.find((row) => row.number === sheet.filter!.headerRow) : undefined;
-  const dataRows = sheet?.rows.filter((row) => !sheet.filter || row.number > sheet.filter.headerRow && row.number <= sheet.filter.lastRow) || [];
+  const dataRows = useMemo(() => sheet?.rows.filter((row) => !sheet.filter || row.number > sheet.filter.headerRow && row.number <= sheet.filter.lastRow) || [], [sheet]);
   const groupValues = includeFollowing ? excelGroupValues(dataRows, Object.keys(filters).map(Number)) : null;
-  const options = Object.fromEntries((sheet?.columns || []).map((column) => [column.index,
+  const options = useMemo(() => Object.fromEntries((sheet?.columns || []).filter((column) => sheet?.filter && column.index >= sheet.filter.firstColumn && column.index <= sheet.filter.lastColumn).map((column) => [column.index,
     [...new Set(dataRows.map((row) => row.cells[column.index]?.text || ""))].sort((a, b) => a.localeCompare(b, locale, { numeric: true })),
-  ]));
+  ])), [sheet, dataRows, locale]);
+  const saved = sheet?.savedFilters || [];
+  const activeFilters = Object.entries(filters).map(([column, text]) => [Number(column), text === null ? null : text.toLowerCase()] as const);
+  const changed = !useSaved || activeFilters.length > 0;
+  const needsMask = useSaved && saved.some((filter) => filter.unsupported && !Object.hasOwn(filters, filter.column));
+  const search = query.trim().toLowerCase();
   const filtered = dataRows.filter((row) => {
-    const saved = sheet?.savedFilters || [];
-    const changed = !useSaved || Object.keys(filters).length > 0;
-    const needsMask = useSaved && saved.some((filter) => filter.unsupported && !Object.hasOwn(filters, filter.column));
     return (showHidden || !row.hidden || saved.length > 0 && changed && !needsMask)
     && (!useSaved || saved.every((filter) => Object.hasOwn(filters, filter.column) || matchesSavedExcelFilter(row.cells[filter.column], filter)))
-    && Object.entries(filters).every(([column, text]) => text === null || (text && groupValues ? groupValues.get(row.number)?.[Number(column)] || "" : row.cells[Number(column)]?.text || "").toLowerCase() === text.toLowerCase())
-    && (!query.trim() || sheet?.columns.some((column) => row.cells[column.index]?.text.toLowerCase().includes(query.trim().toLowerCase())));
+    && activeFilters.every(([column, text]) => text === null || (text && groupValues ? groupValues.get(row.number)?.[column] || "" : row.cells[column]?.text || "").toLowerCase() === text)
+    && (!search || sheet?.columns.some((column) => row.cells[column.index]?.text.toLowerCase().includes(search)));
   });
   const pages = Math.max(1, Math.ceil(filtered.length / 100));
   const current = Math.min(page, pages - 1);
@@ -161,7 +163,7 @@ export function ExcelReader({ url, locale }: { url: string; locale: Locale }) {
         </thead>
         <tbody>{displayed.map((row) => <tr key={row.number} data-excel-row={row.number} style={{ height: row.height }}><th className="excel-row-number" scope="row">{row.number}</th>{cells(row)}</tr>)}</tbody>
       </table>
-      <div className="excel-images">{imagePositions.filter((image) => sheet.images.some((entry) => entry.src === image.src)).map((image, index) => <img key={image.id} src={image.src} alt={`${t.image} ${index + 1}`} draggable={false} style={{ left: image.left, top: image.top, width: image.width, height: image.height }} />)}</div>
+      <div className="excel-images">{imagePositions.filter((image) => sheet.images.some((entry) => entry.src === image.src)).map((image, index) => <img key={`${image.id}-${index}`} src={image.src} alt={`${t.image} ${index + 1}`} draggable={false} style={{ left: image.left, top: image.top, width: image.width, height: image.height }} />)}</div>
       </div>
       {!filtered.length && <p role="status">{t.empty}</p>}
     </div>

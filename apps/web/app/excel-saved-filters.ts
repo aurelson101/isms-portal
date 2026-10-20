@@ -50,8 +50,12 @@ export function worksheetSavedFilters(parts: Record<string, Uint8Array>, name: s
     const links = xml(source.slice(0, at + 1) + "_rels/" + source.slice(at + 1) + ".rels");
     const link = links && elements(links, "Relationship").find((item) => item.getAttribute("Id") === id && item.getAttribute("TargetMode") !== "External");
     if (!link) return undefined;
-    const target = new URL(link.getAttribute("Target") || "", "https://workbook.invalid/" + source);
-    return target.origin === "https://workbook.invalid" ? target.pathname.slice(1) : undefined;
+    try {
+      const target = new URL(link.getAttribute("Target") || "", "https://workbook.invalid/" + source);
+      return target.origin === "https://workbook.invalid" ? target.pathname.slice(1) : undefined;
+    } catch {
+      return undefined;
+    }
   };
   const workbook = xml("xl/workbook.xml");
   const entry = workbook && elements(workbook, "sheet").find((sheet) => sheet.getAttribute("name") === name);

@@ -4,6 +4,14 @@ import { zipSync, strToU8 } from "fflate";
 import { excelCellText, excelColor, excelGroupValues, excelSheetModel, readExcelBook } from "./excel-reader-model";
 
 describe("formatted read-only Excel reader", () => {
+  it("reports truncation even when the only value is beyond the preview row limit", () => {
+    const book = new ExcelJS.Workbook(); const sheet = book.addWorksheet("Long");
+    sheet.getCell("A5001").value = "Outside preview";
+    const model = excelSheetModel(sheet, book);
+    expect(model.truncated).toBe(true);
+    expect(model.rows).toHaveLength(5000);
+    expect(model.rows.some((row) => row.number > 5000)).toBe(false);
+  });
   it("extends group values without changing cells and stops at empty rows or the next value", () => {
     const book = new ExcelJS.Workbook(); const sheet = book.addWorksheet("Groups");
     sheet.getCell("A1").value = "Owner A";

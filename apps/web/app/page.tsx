@@ -2,6 +2,7 @@
 import { fetchWithTimeout as fetch } from "./http-client";
 import { translationFields } from "./moderator/document-model";
 import { uploadAttempt, type UploadAttempt } from "./upload-attempt";
+import { normalizePdfPage, parsePdfProgress, type PdfZoom } from "./pdf-progress";
 
 import { localizedPair, translate } from "./i18n/translate";
 
@@ -26,7 +27,6 @@ const ExcelReader = dynamic(() => import("./excel-reader").then((module) => modu
 
 type ViewMode = "list" | "grid";
 type DocumentSort = "recent" | "popular";
-type PdfZoom = number | "page-width" | "page-fit";
 type WatermarkPosition = "HEADER" | "CENTER" | "FOOTER";
 type SpacePermissions = {
   showMenu: boolean;
@@ -638,6 +638,7 @@ export function Portal({
   const [viewerExpanded, setViewerExpanded] = useState(false);
   const [pdfZoom, setPdfZoom] = useState<PdfZoom>("page-width");
   const [pdfPage, setPdfPage] = useState(1);
+  const pdfProgressVersion = useRef<string | null>(null);
   const [pdfOutlineOpen, setPdfOutlineOpen] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [authenticationFailure, setAuthenticationFailure] =
@@ -1394,11 +1395,9 @@ export function Portal({
   useEffect(() => {
     if (!openedVersion) return;
     try {
-      const saved = JSON.parse(
-        localStorage.getItem(`isms-pdf-progress:${openedVersion.id}`) || "{}",
-      ) as { page?: number; zoom?: PdfZoom };
-      setPdfPage(Math.max(1, saved.page || 1));
-      setPdfZoom(saved.zoom || "page-width");
+      const saved = parsePdfProgress(localStorage.getItem(`isms-pdf-progress:${openedVersion.id}`));
+      setPdfPage(saved.page);
+      setPdfZoom(saved.zoom);
     } catch {
       setPdfPage(1);
       setPdfZoom("page-width");
@@ -1407,10 +1406,19 @@ export function Portal({
 
   useEffect(() => {
     if (!openedVersion || !openedPdf) return;
-    localStorage.setItem(
-      `isms-pdf-progress:${openedVersion.id}`,
-      JSON.stringify({ page: pdfPage, zoom: pdfZoom }),
-    );
+    // Wait for restored state before saving a newly opened version.
+    if (pdfProgressVersion.current !== openedVersion.id) {
+      pdfProgressVersion.current = openedVersion.id;
+      return;
+    }
+    try {
+      localStorage.setItem(
+        `isms-pdf-progress:${openedVersion.id}`,
+        JSON.stringify({ page: pdfPage, zoom: pdfZoom }),
+      );
+    } catch {
+      // Reading remains available when browser storage is blocked or full.
+    }
   }, [openedVersion, openedPdf, pdfPage, pdfZoom]);
 
   useEffect(() => {
@@ -3189,7 +3197,7 @@ export function Portal({
                       min="1"
                       value={pdfPage}
                       onChange={(event) =>
-                        setPdfPage(Math.max(1, Number(event.target.value) || 1))
+                        setPdfPage(normalizePdfPage(Number(event.target.value)))
                       }
                     />
                   </label>

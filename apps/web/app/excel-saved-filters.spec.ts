@@ -9,6 +9,14 @@ const parse = (xml: string) => new DOMParser().parseFromString(xml, "application
 afterEach(() => vi.unstubAllGlobals());
 
 describe("saved workbook filters and cover fidelity", () => {
+  it.each(["http://[", "https://external.example/sheet.xml"])("ignores unsafe workbook relationships: %s", (target) => {
+    vi.stubGlobal("DOMParser", DOMParser);
+    const parts = {
+      "xl/workbook.xml": strToU8('<workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Matrix" r:id="rId1"/></sheets></workbook>'),
+      "xl/_rels/workbook.xml.rels": strToU8(`<Relationships><Relationship Id="rId1" Target="${target}"/></Relationships>`),
+    };
+    expect(worksheetSavedFilters(parts, "Matrix")).toEqual([]);
+  });
   it("does not confuse filter buttons with saved filter criteria", () => {
     expect(parseSavedFilters(parse('<worksheet><autoFilter ref="A1:A20"><filterColumn colId="0" hiddenButton="0"/></autoFilter></worksheet>'))).toEqual([]);
   });
