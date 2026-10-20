@@ -2,7 +2,8 @@
 
 import { localizedPair, translate } from "../i18n/translate";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { filterHelpTopics, normalizeHelpText } from "./help-search";
 import { Icon } from "../icons";
 import type { Locale } from "../i18n/locale";
 
@@ -32,6 +33,12 @@ const topics: Array<{ target: HelpTarget; title: Text; paragraphs: Text[] }> = [
   { target: "rules", title: ["Règles d'accès", "Access rules"], paragraphs: [
     ["Une règle associe un groupe à un espace et à des capacités distinctes : lecture, prévisualisation, téléchargement ou opérations de gestion. Utilisez les filtres groupe et espace pour contrôler la matrice, puis le bouton du groupe pour ouvrir l'éditeur.", "A rule associates a group with a space and distinct capabilities: reading, previewing, downloading or management operations. Filter by group and space to inspect the matrix, then use the group button to open the editor."],
     ["Accordez uniquement les capacités nécessaires et vérifiez les éventuelles restrictions par catégorie. Lecture et téléchargement sont indépendants. Les accès temporaires, anomalies et instantanés se suivent dans les outils de gouvernance des accès.", "Grant only necessary capabilities and check any category restrictions. Reading and downloading are independent. Temporary access, anomalies and snapshots are tracked in access governance tools."],
+  ] },
+  { target: "documents", title: ["PDF, Excel et fichiers protégés","PDF, Excel and protected files"], paragraphs: [
+    ["PDF : utilisez la navigation par page et le zoom. La progression est mémorisée par version dans ce navigateur si le stockage local est disponible ; elle n'est pas synchronisée entre appareils.","PDF: use page navigation and zoom. Reading progress is saved per version in this browser when local storage is available; it is not synchronized between devices."],
+    ["Excel : choisissez une feuille, recherchez dans celle-ci et ajustez les filtres des colonnes. Restaurer les filtres du fichier rétablit les critères enregistrés ; Effacer les filtres les retire. Inclure les lignes suivantes sans valeur est facultatif. Le filtrage est en lecture seule et ne modifie jamais le fichier déposé.","Excel: select a worksheet, search it and adjust column filters. Restore file filters returns to saved criteria; Clear filters removes them. Include following rows with blank values is optional. Filtering is read-only and never changes the uploaded file."],
+    ["L'aperçu Excel affiche 100 lignes par page, dans la limite de 5 000 lignes et 128 colonnes par feuille. Un avertissement de troncature signifie que l'aperçu est incomplet. Les lignes et feuilles masquées ne constituent pas un contrôle d'accès ; le téléchargement reste soumis aux droits ISMS.","Excel preview shows 100 rows per page, with a limit of 5,000 rows and 128 columns per worksheet. A truncation warning means the preview is incomplete. Hidden rows and sheets are not an access-control mechanism; download remains subject to ISMS permissions."],
+    ["Purview est facultatif et désactivé par défaut. Le lecteur MIP exige le SSO Microsoft, la configuration du certificat et l'autorisation d'application Content.DelegatedReader d'Azure Rights Management Service avec consentement administrateur, et non une permission Microsoft Graph. Les droits ISMS et les droits VIEW et EXTRACT de l'utilisateur sont requis ; le SSO seul ne suffit pas. N'ajoutez pas Content.SuperUser.","Purview is optional and disabled by default. The MIP reader requires Microsoft SSO, certificate configuration and Azure Rights Management Service application permission Content.DelegatedReader with administrator consent, not a Microsoft Graph permission. ISMS permissions and the user's VIEW and EXTRACT rights are required; SSO alone is insufficient. Do not add Content.SuperUser."],
   ] },
   { target: "documents", title: ["Dépôt et gestion documentaire", "Uploading and managing documents"], paragraphs: [
     ["Sélectionnez l'espace, la catégorie, la langue réelle du fichier, son titre et sa description. Ajoutez le fichier PDF, DOCX ou XLSX et le résumé des changements. Le dépôt passe par une analyse antivirus ; vérifiez le résultat avant la publication.", "Select the space, category, actual file language, title and description. Add the PDF, DOCX or XLSX file and change summary. Uploads undergo antivirus scanning; check the result before publication."],
@@ -396,11 +403,11 @@ const technicalExamples: Record<HelpTarget, { steps: Text[]; values: string; war
 export function HelpPanel({ locale, onNavigate }: { locale: Locale; onNavigate: (target: HelpTarget) => void }) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-  const visible = topics.map((topic, index) => ({ ...topic, index })).filter((topic) => {
+  const indexed = useMemo(() => topics.map((topic, index) => {
     const example = technicalExamples[topic.target];
-    return normalize([localizedPair(locale, topic.title), ...topic.paragraphs.map((text) => localizedPair(locale, text)), ...configuration[topic.target].steps.map((text) => localizedPair(locale, text)), localizedPair(locale, configuration[topic.target].check), ...(example?.steps.map((text) => localizedPair(locale, text)) || []), example?.values || "", localizedPair(locale, example?.warning) || ""].join(" ")).includes(normalize(query));
-  });
+    return { ...topic, index, searchText: normalizeHelpText([localizedPair(locale, topic.title), ...topic.paragraphs.map((text) => localizedPair(locale, text)), ...configuration[topic.target].steps.map((text) => localizedPair(locale, text)), localizedPair(locale, configuration[topic.target].check), ...(example?.steps.map((text) => localizedPair(locale, text)) || []), example?.values || "", localizedPair(locale, example?.warning) || ""].join(" ")) };
+  }), [locale]);
+  const visible = useMemo(() => filterHelpTopics(indexed, query), [indexed, query]);
   const selected = visible.find((topic) => topic.index === selectedIndex) || visible[0];
   const example = selected ? technicalExamples[selected.target] : undefined;
   const position = visible.findIndex((topic) => topic.index === selected?.index);
