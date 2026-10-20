@@ -31,6 +31,12 @@ fait foi.
 
 ## Dernières nouveautés
 
+- **SSO sans groupe (option)** : limiter l'acces aux comptes internes actifs
+  disposant d'une boite Exchange personnelle dans les domaines autorises.
+  Les boites partagees et invites sont refuses ; les ACL restent appliquees.
+  Validation Graph en lecture seule, certificat et refus en cas d'indisponibilite.
+  Voir [configuration et activation progressive](docs/sso.md).
+
 ### Lecteur Microsoft Information Protection optionnel (19 octobre 2026)
 
 - Intégration pilote du SDK MIP pour les fichiers DOCX/XLSX chiffrés par Microsoft Purview, sans OneDrive ni SharePoint. L'original reste chiffré dans le stockage ISMS ; les fichiers ordinaires suivent le parcours existant.

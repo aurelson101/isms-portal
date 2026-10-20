@@ -59,6 +59,19 @@ describe("IdentityMiddleware", () => {
     expect(req.identity.username).toBe("system");
   });
 
+  it.each(["/auth/config", "/auth/login", "/auth/directory-login"])("keeps %s available even with an ineligible SSO session", async route => {
+    const req = {
+      originalUrl: route,
+      headers: { "x-auth-mail": "shared@example.com" },
+      socket: { remoteAddress: "172.18.0.2" },
+    } as unknown as IsmsRequest;
+    const next = vi.fn();
+    await middleware.use(req, response() as never, next);
+    expect(req.identity.source).toBe("anonymous");
+    expect(auth.enrichSsoIdentity).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledOnce();
+  });
+
   it("keeps branding reads public but authenticates branding updates", async () => {
     const publicRequest = {
       method: "GET",

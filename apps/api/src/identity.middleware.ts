@@ -39,6 +39,20 @@ export class IdentityMiddleware implements NestMiddleware {
       };
       return next();
     }
+    if (
+      route === "/auth/login" ||
+      route === "/auth/directory-login" ||
+      route === "/auth/config"
+    ) {
+      req.identity = {
+        username: "anonymous",
+        displayName: "Anonymous",
+        groups: [],
+        source: "anonymous",
+        sessionExpiresAt: null,
+      };
+      return next();
+    }
     if (route === "/admin" || route.startsWith("/admin/")) {
       const adminIdentity = await this.auth.adminSessionIdentity(req);
       if (adminIdentity) {
@@ -65,20 +79,6 @@ export class IdentityMiddleware implements NestMiddleware {
     );
     if (sessionIdentity) {
       req.identity = sessionIdentity;
-      return next();
-    }
-    if (
-      route === "/auth/login" ||
-      route === "/auth/directory-login" ||
-      route === "/auth/config"
-    ) {
-      req.identity = {
-        username: "anonymous",
-        displayName: "Anonymous",
-        groups: [],
-        source: "anonymous",
-        sessionExpiresAt: null,
-      };
       return next();
     }
     throw new UnauthorizedException();

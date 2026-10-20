@@ -1,0 +1,16 @@
+# Optional mailbox eligibility policy. Keep Entra assignment required until validated.
+services:
+  api:
+    environment:
+      SSO_MAILBOX_POLICY_ENABLED: ${SSO_MAILBOX_POLICY_ENABLED:-false}
+      SSO_MAILBOX_ALLOWED_DOMAINS: ${SSO_MAILBOX_ALLOWED_DOMAINS:-}
+      SSO_MAILBOX_TENANT_ID: ${ENTRA_TENANT_ID:-}
+      SSO_MAILBOX_CLIENT_ID: ${ENTRA_CLIENT_ID:-}
+      SSO_MAILBOX_CERTIFICATE_FILE: /run/secrets/sso_mailbox_certificate
+      SSO_MAILBOX_PRIVATE_KEY_FILE: /run/secrets/sso_mailbox_private_key
+    secrets: [sso_mailbox_certificate, sso_mailbox_private_key]
+secrets:
+  sso_mailbox_certificate:
+    file: ${SSO_MAILBOX_CERTIFICATE_HOST_FILE:?SSO mailbox certificate required}
+  sso_mailbox_private_key:
+    file: ${SSO_MAILBOX_PRIVATE_KEY_HOST_FILE:?SSO mailbox private key required}

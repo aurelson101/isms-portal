@@ -17,6 +17,7 @@ import type { Response } from "express";
 import { PrismaService } from "./prisma.service";
 import { DirectoryService } from "./directory.service";
 import type { Identity, IsmsRequest } from "./types";
+import { SsoMailboxPolicy } from "./sso-mailbox-policy";
 
 const scrypt = promisify(scryptCallback);
 const adminCookieName = "isms_admin_session";
@@ -62,6 +63,7 @@ const totp = (secret: string, timestamp = Date.now()) => {
 
 @Injectable()
 export class AuthService implements OnModuleInit {
+  private readonly ssoMailboxPolicy = new SsoMailboxPolicy();
   private readonly activityTouchIntervalMs = 5 * 60 * 1000;
 
   private activityTouchDue(lastActivityAt?: Date | null) {
@@ -260,6 +262,7 @@ export class AuthService implements OnModuleInit {
   }
 
   async enrichSsoIdentity(identity: Identity, forceDirectoryRefresh = false) {
+    if (identity.source === "trusted-proxy") await this.ssoMailboxPolicy.assertAllowed(identity.username);
     let enrichedIdentity = identity;
     if (
       identity.source === "trusted-proxy" &&

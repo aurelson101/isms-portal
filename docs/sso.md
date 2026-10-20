@@ -1,5 +1,45 @@
 # SSO
 
+## Optional personal mailbox eligibility (without an access group)
+
+`docker-compose.sso-mailbox.yml` adds an opt-in API check for SSO identities.
+It requires an enabled internal Entra account (`userType=Member`), an exact
+mail-domain match, and Exchange `mailboxSettings/userPurpose` equal to `user`.
+Shared mailboxes, rooms, equipment, guests and ambiguous identities are denied.
+The mailbox check does not replace document ACLs or Conditional Access/MFA.
+
+1. Grant the certificate-authenticated SSO application Microsoft Graph application
+   permissions `User.Read.All` and `MailboxSettings.Read`, with admin consent.
+   No `Mail.Read`, `Mail.Send` or write permission is needed for this policy.
+2. Configure `SSO_MAILBOX_ALLOWED_DOMAINS=example.com` and the certificate/private
+   key host paths shown in `.env.example`. Files must stay outside Git and be
+   readable only by the service/operator. An existing application certificate
+   can be reused if explicitly authorized; mount it through Docker secrets.
+3. Add the mailbox overlay after the existing production/SSO overlays. Set
+   `SSO_MAILBOX_POLICY_ENABLED=true` and recreate only the API service. Persist
+   this flag and `SSO_MAILBOX_ALLOWED_DOMAINS` in the API's `.env.app` as well:
+   accidentally omitting the secrets overlay must deny SSO, not disable policy.
+4. Keep Entra's **Assignment required** enabled during the pilot. Verify a real
+   personal mailbox can access `/api/me`; shared, disabled and guest accounts
+   must fail. Confirm local administrator and AD fallback still work.
+5. Only after validation, disable **Assignment required** on the enterprise
+   application. Entra can then authenticate tenant accounts without assignment;
+   ISMS still denies ineligible accounts on protected API requests. A successful
+   Microsoft authentication alone does not grant document access.
+
+Graph failures fail closed (HTTP 503); ineligible accounts receive HTTP 403.
+Successful eligibility is cached for at most 60 seconds; denials for 15 seconds.
+Changes can therefore take up to 60 seconds to affect an existing SSO session.
+Authentication configuration and password-login endpoints remain accessible to
+allow fallback even when an existing SSO session is ineligible. This policy is
+SSO-only and does not change existing password-login rules.
+
+Rollback: re-enable **Assignment required** first, then restore the previous API
+image/configuration. Do not disable the mailbox policy while unrestricted Entra
+authentication is still enabled.
+
+Microsoft reference: [Get mailbox settings and user purpose](https://learn.microsoft.com/en-us/graph/api/user-get-mailboxsettings?view=graph-rest-1.0).
+
 L’API expose une abstraction `IdentityProvider` avec deux modes :
 
 - identité transmise par un proxy SSO de confiance.
