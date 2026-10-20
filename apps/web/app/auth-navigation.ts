@@ -7,9 +7,14 @@ export type AuthConfig = {
 
 export function returnDestination(requested: string | null, fallback = "/") {
   // eslint-disable-next-line no-control-regex -- Redirect destinations must reject control characters.
-  if (!requested?.startsWith("/") || requested.startsWith("//") || /[\\\u0000-\u001f\u007f]/.test(requested)) return fallback;
+  const invalidCharacters = /[\\\u0000-\u001f\u007f]/;
+  if (!requested?.startsWith("/") || requested.startsWith("//") || invalidCharacters.test(requested)) return fallback;
   try {
     const url = new URL(requested, window.location.origin);
+    const path = decodeURIComponent(url.pathname);
+    if (path.startsWith("//") || invalidCharacters.test(path)) return fallback;
+    const route = new URL(path, window.location.origin).pathname.replace(/\/+/g, "/");
+    if (/^\/(?:login|admin\/login|moderator\/login|oauth2)(?:\/|$)/i.test(route)) return fallback;
     return url.origin === window.location.origin ? `${url.pathname}${url.search}${url.hash}` : fallback;
   } catch {
     return fallback;

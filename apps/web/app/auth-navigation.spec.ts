@@ -64,3 +64,17 @@ it("uses the admin fallback for an unsafe SSO return destination", () => {
   const result = ssoDestination("/oauth2/start", "https://untrusted.example/", "/admin");
   expect(result).toBe("/oauth2/start?rd=%2Fadmin");
 });
+
+it.each(["/login", "/login?return=/admin", "/admin/login#documents", "/moderator/login", "/oauth2/start", "/oauth2/callback?code=example", "/oauth2/sign_out", "/%6cogin", "/admin/%6cogin", "/%6fauth2/start", "/admin/../login", "/LOGIN/", "/admin//login", "/admin/%2flogin", "/documents%2f..%2flogin"])("prevents an authentication return loop through %s", requested => {
+  expect(returnDestination(requested)).toBe("/");
+  expect(adminDestination(requested)).toBe("/admin");
+  expect(ssoDestination("/oauth2/start", requested, "/admin")).toBe("/oauth2/start?rd=%2Fadmin");
+});
+
+it.each(["/%2funtrusted.example", "/%5cuntrusted.example", "/admin%0aignored", "/admin%7fignored", "/%zz"])("rejects encoded or malformed return paths %s", requested => {
+  expect(returnDestination(requested)).toBe("/");
+});
+
+it.each(["/documents/login-guide", "/admin#sso", "/moderator?space=it#documents"])("keeps legitimate application destinations %s", requested => {
+  expect(returnDestination(requested)).toBe(requested);
+});
