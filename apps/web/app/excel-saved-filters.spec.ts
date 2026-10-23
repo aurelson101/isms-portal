@@ -33,6 +33,35 @@ describe("saved workbook filters and cover fidelity", () => {
     expect(matchesSavedExcelFilter({ text: "12,00 EUR", raw: "12" }, filter)).toBe(true);
     expect(matchesSavedExcelFilter({ text: "25,00 EUR", raw: "25" }, filter)).toBe(false);
   });
+  it.each([
+    { text: "50%", raw: "0.5" },
+    { text: "0012", raw: "12" },
+    { text: "12,00 EUR", raw: "12" },
+  ])("matches a saved selection against formatted cell text: $text", cell => {
+    const original = { ...cell };
+    expect(matchesSavedExcelFilter(cell, { column: 0, values: [cell.text] })).toBe(true);
+    expect(matchesSavedExcelFilter(cell, { column: 0, values: [cell.raw] })).toBe(true);
+    expect(matchesSavedExcelFilter(cell, { column: 0, values: ["unmatched"] })).toBe(false);
+    expect(cell).toEqual(original);
+  });
+  it("keeps regular saved selections exact rather than substring matches", () => {
+    expect(matchesSavedExcelFilter({ text: "Highly Confidential", raw: "Highly Confidential" }, { column: 0, values: ["Confidential"] })).toBe(false);
+  });
+  it("restores a formatted percentage selection from an actual XLSX container", async () => {
+    vi.stubGlobal("DOMParser", DOMParser);
+    const workbook = new ExcelJS.Workbook(); const sheet = workbook.addWorksheet("Percentages");
+    sheet.addRows([["Ratio"], [0.5], [0.75]]); sheet.autoFilter = "A1:A3";
+    sheet.getCell("A2").numFmt = "0%"; sheet.getCell("A3").numFmt = "0%";
+    const parts = unzipSync(new Uint8Array(await workbook.xlsx.writeBuffer()));
+    parts["xl/worksheets/sheet1.xml"] = strToU8(strFromU8(parts["xl/worksheets/sheet1.xml"]).replace(/<autoFilter[^>]*\/>/, '<autoFilter ref="A1:A3"><filterColumn colId="0"><filters><filter val="50%"/></filters></filterColumn></autoFilter>'));
+    const bytes = zipSync(parts); const original = bytes.slice();
+    const result = await readExcelBook(bytes.buffer as ArrayBuffer, "fr");
+    const model = result.sheets[0]; const filter = model.savedFilters[0];
+    expect(model.rows[1].cells[0].text).toBe("50%");
+    expect(matchesSavedExcelFilter(model.rows[1].cells[0], filter)).toBe(true);
+    expect(matchesSavedExcelFilter(model.rows[2].cells[0], filter)).toBe(false);
+    expect(bytes).toEqual(original);
+  });
   it("compares numerically equivalent decimal criteria correctly", () => {
     const [filter] = parseSavedFilters(parse('<worksheet><autoFilter ref="A1:A20"><filterColumn colId="0"><customFilters><customFilter operator="equal" val="12.0"/></customFilters></filterColumn></autoFilter></worksheet>'));
     expect(matchesSavedExcelFilter({ text: "12,00", raw: "12" }, filter)).toBe(true);

@@ -106,7 +106,12 @@ export function matchesSavedExcelFilter(cell: FilterCell | undefined, filter: Sa
     return filter.custom.and ? results.every(Boolean) : results.some(Boolean);
   }
   if (filter.blank && raw === "") return true;
-  if (filter.values?.some((value) => value.toLowerCase() === raw.toLowerCase())) return true;
+  const rawText = raw.toLowerCase();
+  const displayText = cell?.text.toLowerCase() ?? rawText;
+  if (filter.values?.some((value) => {
+    const expected = value.toLowerCase();
+    return expected === rawText || expected === displayText;
+  })) return true;
   if (cell?.date && filter.dates?.length) {
     const date = new Date(cell.date);
     const fields: Record<string, number> = { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate(), hour: date.getUTCHours(), minute: date.getUTCMinutes(), second: date.getUTCSeconds() };
