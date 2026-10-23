@@ -1,11 +1,28 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchWithTimeout, RequestTimeoutError } from "./http-client";
+import { fetchWithTimeout, requestTimeout, RequestTimeoutError } from "./http-client";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 const blocked = () => vi.fn((_input, init) => new Promise((_resolve, reject) => {
   init.signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
 }));
 describe("shared browser requests", () => {
+  it.each([undefined, 0, -1, NaN, Infinity, -Infinity])("uses a safe default for invalid timeout %s", value => {
+    expect(requestTimeout(value, 15000)).toBe(15000);
+  });
+  it("caps timers before the browser integer overflow limit", () => {
+    expect(requestTimeout(Number.MAX_SAFE_INTEGER, 15000)).toBe(2147483647);
+  });
+  it("rounds positive timeout values without producing a zero timer", () => {
+    expect(requestTimeout(0.2, 15000)).toBe(1);
+    expect(requestTimeout(100.8, 15000)).toBe(100);
+  });
+  it("supports already-aborted signals without throwIfAborted", async () => {
+    const controller = new AbortController(); controller.abort();
+    Object.defineProperty(controller.signal, "throwIfAborted", { value: undefined });
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    await expect(fetchWithTimeout("/api/me", { signal: controller.signal })).rejects.toMatchObject({ name: "AbortError" });
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it("preserves response objects and credentials", async () => {
     const response = new Response("{}"), fetch = vi.fn().mockResolvedValue(response); vi.stubGlobal("fetch", fetch);
     expect(await fetchWithTimeout("/api/me", { credentials: "same-origin" })).toBe(response);

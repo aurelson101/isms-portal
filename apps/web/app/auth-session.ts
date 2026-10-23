@@ -1,3 +1,5 @@
+import { requestTimeout } from "./http-client";
+
 export type SessionFailure =
   | "unauthorized"
   | "forbidden"
@@ -12,8 +14,10 @@ export class SessionError extends Error {
 
 let pendingIdentity: Promise<unknown> | null = null;
 let cachedIdentity: { value: unknown; expiresAt: number } | null = null;
+let identityVersion = 0;
+let pendingForced = false;
 
-function fetchIdentity(timeoutMs: number) {
+function fetchIdentity(timeoutMs: number, version: number) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
   const startedAt = performance.now();
@@ -23,15 +27,25 @@ function fetchIdentity(timeoutMs: number) {
     signal: controller.signal,
   })
     .then(async (response) => {
-      performance.measure("isms.identity-check", {
-        start: startedAt,
-        end: performance.now(),
-        detail: { status: response.status },
-      });
+      try {
+        performance.clearMeasures("isms.identity-check");
+        performance.measure("isms.identity-check", {
+          start: startedAt,
+          end: performance.now(),
+          detail: { status: response.status },
+        });
+      } catch { /* Optional browser metrics must never prevent authentication. */ }
       if (response.status === 401) throw new SessionError("unauthorized");
       if (response.status === 403) throw new SessionError("forbidden");
       if (!response.ok) throw new SessionError("unavailable");
       return response.json().then((value) => {
+        if (version !== identityVersion) throw new SessionError("unavailable");
+        if (
+          !value || Array.isArray(value) || typeof value !== "object" ||
+          typeof value.username !== "string" || !value.username.trim() ||
+          value.username.length > 255 || typeof value.isAdmin !== "boolean" ||
+          typeof value.isModerator !== "boolean"
+        ) throw new SessionError("unavailable");
         cachedIdentity = { value, expiresAt: Date.now() + 60_000 };
         return value;
       });
@@ -69,6 +83,8 @@ export function getPortalIdentity<T>(options?: {
   signal?: AbortSignal;
   timeoutMs?: number;
 }) {
+  if (options?.signal?.aborted)
+    return Promise.reject(new DOMException("Aborted", "AbortError"));
   if (
     !options?.force &&
     cachedIdentity?.expiresAt &&
@@ -78,11 +94,16 @@ export function getPortalIdentity<T>(options?: {
       Promise.resolve(cachedIdentity.value),
       options?.signal,
     );
-  if (!pendingIdentity || options?.force) {
-    const request = fetchIdentity(options?.timeoutMs ?? 8_000);
+  if (!pendingIdentity || (options?.force && !pendingForced)) {
+    cachedIdentity = null;
+    pendingForced = Boolean(options?.force);
+    const request = fetchIdentity(requestTimeout(options?.timeoutMs, 8_000), ++identityVersion);
     pendingIdentity = request;
     const clearPending = () => {
-      if (pendingIdentity === request) pendingIdentity = null;
+      if (pendingIdentity === request) {
+        pendingIdentity = null;
+        pendingForced = false;
+      }
     };
     void request.then(clearPending, clearPending);
   }
@@ -90,6 +111,7 @@ export function getPortalIdentity<T>(options?: {
 }
 
 export function getCachedPortalIdentity<T>() {
+  if (cachedIdentity && cachedIdentity.expiresAt <= Date.now()) cachedIdentity = null;
   return cachedIdentity?.expiresAt && cachedIdentity.expiresAt > Date.now()
     ? (cachedIdentity.value as T)
     : null;

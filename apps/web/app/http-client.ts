@@ -1,5 +1,11 @@
 import { readLocale } from "./i18n/locale";
 
+export function requestTimeout(value: number | undefined, fallback: number) {
+  return value !== undefined && Number.isFinite(value) && value > 0
+    ? Math.min(2147483647, Math.max(1, Math.floor(value)))
+    : fallback;
+}
+
 export class RequestTimeoutError extends Error {
   constructor(readonly uncertain: boolean) {
     const messages = {
@@ -18,7 +24,7 @@ export async function fetchWithTimeout(input: RequestInfo | URL, init: RequestIn
   const read = ["GET", "HEAD", "OPTIONS"].includes(method);
   const controller = new AbortController();
   const external = init.signal === undefined && input instanceof Request ? input.signal : init.signal;
-  external?.throwIfAborted();
+  if (external?.aborted) throw external.reason ?? new DOMException("Aborted", "AbortError");
   const combine = typeof AbortSignal.any === "function";
   const abort = () => controller.abort(external?.reason);
   if (external && !combine) external.addEventListener("abort", abort, { once: true });
@@ -26,7 +32,7 @@ export async function fetchWithTimeout(input: RequestInfo | URL, init: RequestIn
   const multipart = init.body instanceof FormData || (init.body === undefined && input instanceof Request
     && /^multipart\/form-data(?:;|$)/i.test(input.headers.get("content-type") || ""));
   let timedOut = false;
-  const timer = setTimeout(() => { if (!signal.aborted) { timedOut = true; controller.abort(); } }, timeoutMs ?? (multipart ? 120000 : read ? 15000 : 30000));
+  const timer = setTimeout(() => { if (!signal.aborted) { timedOut = true; controller.abort(); } }, requestTimeout(timeoutMs, multipart ? 120000 : read ? 15000 : 30000));
   try {
     return await globalThis.fetch(input, { ...init, signal });
   } catch (error) {
