@@ -632,18 +632,24 @@ export default function Admin() {
     else if (item.bottom > bounds.bottom) nav.scrollTop += item.bottom - bounds.bottom;
   }, [tab, navigationOpen, expandedNavigationGroups, navigationQuery]);
   useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
     const checkSession = async () => {
       const response = await fetch("/api/admin/check", {
         cache: "no-store",
+        signal: controller.signal,
       }).catch(() => null);
-      if (!response?.ok) {
+      if (!active || !response) return;
+      if (response.status === 401 || response.status === 403) {
         setSessionExpired(true);
         return;
       }
-      const currentIdentity = (await response.json()) as typeof identity & {
+      if (!response.ok) return;
+      const currentIdentity = (await response.json().catch(() => null)) as (typeof identity & {
         isAdmin: boolean;
-      };
-      if (!currentIdentity?.isAdmin) {
+      }) | null;
+      if (!active || typeof currentIdentity?.isAdmin !== "boolean") return;
+      if (!currentIdentity.isAdmin) {
         window.location.replace(loginDestination("admin"));
         return;
       }
@@ -651,7 +657,11 @@ export default function Admin() {
       setSessionExpired(false);
     };
     const timer = window.setInterval(() => void checkSession(), 60_000);
-    return () => window.clearInterval(timer);
+    return () => {
+      active = false;
+      controller.abort();
+      window.clearInterval(timer);
+    };
   }, []);
   const selectTab = (next: Tab) => {
     activateTab(next);
