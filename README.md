@@ -230,7 +230,7 @@ en lecture seule et des volumes de données inscriptibles. Les journaux Docker
 sont limités à cinq fichiers de 10 Mo et les processus sont bornés par service.
 Ces protections ne remplacent pas TLS PostgreSQL ni une supervision externe.
 
-Les images de Nginx, Redis, PostgreSQL et du proxy SSO sont reconstruites depuis
+Les images de Nginx, Redis, PostgreSQL, ClamAV et du proxy SSO sont reconstruites depuis
 `deploy/images/` avec des bases epinglees par empreinte. Les paquets Alpine sont
 mis a jour ; `gosu` et le proxy SSO sont recompiles avec une version corrigee de
 Go. Reconstruire ces images avec `docker compose build --no-cache` lors des
@@ -238,6 +238,12 @@ maintenances et les rescanner avant de recreer les services. Conserver une
 sauvegarde PostgreSQL et les anciennes images pour le retour arriere ; ne pas
 changer de version majeure de PostgreSQL par simple remplacement d'image.
 L'import PKCS#7 utilise OpenSSL, installe dans l'image API, sans `node-forge`.
+
+La base applicative utilise Node.js 22.23.4 et Next.js 16.4.2. Les bases Node,
+Go et .NET sont epinglees par empreinte ; le proxy SSO utilise une base
+distroless non-root. Le lecteur MIP optionnel applique aussi les correctifs
+Ubuntu disponibles. Un audit npm sans alerte ne remplace pas le scan des images :
+conserver le suivi des avis sans correctif editeur apres chaque reconstruction.
 
 L'override `mammoth > argparse@2.0.1` conserve la conversion DOCX et l'outil CLI,
 mais retire l'ancienne dependance `sprintf-js` (CVE-2026-97058). Verifier avec
@@ -679,8 +685,8 @@ docker run --rm -v "$PWD:/workspace" -w /workspace \
 ./scripts/diagnose.sh
 docker compose exec api node node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma
 docker compose exec api node prisma/seed.js
-docker run --rm -v "$PWD:/app" -w /app node:22.23.2-alpine npm test
-docker run --rm -v "$PWD:/app" -w /app node:22.23.2-alpine npm run lint
+docker run --rm -v "$PWD:/app" -w /app node:22.23.4-alpine npm test
+docker run --rm -v "$PWD:/app" -w /app node:22.23.4-alpine npm run lint
 docker run --rm --network host -v "$PWD:/work" -w /work \
   mcr.microsoft.com/playwright:v1.55.1-noble npx playwright test
 # Recette E2E isolée : crée puis détruit une pile et des volumes dédiés sur 18080.

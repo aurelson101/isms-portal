@@ -35,6 +35,6 @@
     "@types/multer": "^2.0.0",
     "@types/node": "22.13.1",
     "typescript": "5.9.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.12"
   }
 }
