@@ -974,7 +974,16 @@ export class DocumentsController {
       const category = await this.prisma.documentCategory.findFirst({ where: { id: body.categoryId, spaceId: document.spaceId, deletedAt: null }, select: { id: true } });
       if (!category) throw new BadRequestException("Invalid category for this document space");
     }
-    const updated = await this.prisma.document.update({ where: { id }, data: { categoryId: body.categoryId || null }, select: { id: true, categoryId: true } });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const changed = await tx.document.updateMany({
+        where: { id, deletedAt: null, spaceId: document.spaceId, categoryId: document.categoryId },
+        data: { categoryId: body.categoryId || null },
+      });
+      if (changed.count !== 1) throw new ConflictException("Document changed; refresh and retry");
+      const result = await tx.document.findFirst({ where: { id }, select: { id: true, categoryId: true } });
+      if (!result) throw new NotFoundException();
+      return result;
+    });
     await this.audit.record(req, "document.category.update", `document:${id}`, "success", { before: document.categoryId, after: updated.categoryId });
     return updated;
   }

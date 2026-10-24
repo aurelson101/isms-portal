@@ -420,6 +420,74 @@ describe("DocumentsController ACL scoping", () => {
     expect(updateVersion).not.toHaveBeenCalled();
   });
 
+  it("reclassifies a document only in its authorized unchanged space and category", async () => {
+    findFirst.mockResolvedValueOnce({ id: "doc-1", spaceId: general.id, categoryId: "old-category" })
+      .mockResolvedValueOnce({ id: "doc-1", categoryId: "new-category" });
+    can.mockResolvedValue(true);
+    categoryFindFirst.mockResolvedValueOnce({ id: "new-category" });
+    expect(await controller.updateCategory(request, "doc-1", { categoryId: "new-category" })).toEqual({ id: "doc-1", categoryId: "new-category" });
+    expect(can).toHaveBeenCalledWith(request.identity.groups, general.id, "edit");
+    expect(categoryFindFirst).toHaveBeenCalledWith({
+      where: { id: "new-category", spaceId: general.id, deletedAt: null }, select: { id: true },
+    });
+    expect(updateManyDocuments).toHaveBeenCalledWith({
+      where: { id: "doc-1", deletedAt: null, spaceId: general.id, categoryId: "old-category" },
+      data: { categoryId: "new-category" },
+    });
+    expect(updateDocument).not.toHaveBeenCalled();
+    expect(updateVersion).not.toHaveBeenCalled();
+    expect(auditRecord).toHaveBeenCalledWith(request, "document.category.update", "document:doc-1", "success", { before: "old-category", after: "new-category" });
+  });
+
+  it("allows removing a category without creating a document version", async () => {
+    findFirst.mockResolvedValueOnce({ id: "doc-1", spaceId: general.id, categoryId: "old-category" })
+      .mockResolvedValueOnce({ id: "doc-1", categoryId: null });
+    can.mockResolvedValue(true);
+    expect(await controller.updateCategory(request, "doc-1", { categoryId: null })).toEqual({ id: "doc-1", categoryId: null });
+    expect(categoryFindFirst).not.toHaveBeenCalled();
+    expect(updateManyDocuments).toHaveBeenCalledWith(expect.objectContaining({ data: { categoryId: null } }));
+    expect(updateVersion).not.toHaveBeenCalled();
+  });
+
+  it("does not assign a missing, deleted or cross-space category", async () => {
+    findFirst.mockResolvedValueOnce({ id: "doc-1", spaceId: general.id, categoryId: null });
+    can.mockResolvedValue(true);
+    categoryFindFirst.mockResolvedValueOnce(null);
+    await expect(controller.updateCategory(request, "doc-1", { categoryId: "other-category" })).rejects.toMatchObject({ status: 400 });
+    expect(updateManyDocuments).not.toHaveBeenCalled();
+    expect(auditRecord).not.toHaveBeenCalled();
+  });
+
+  it("does not look up a target category without document edit rights", async () => {
+    findFirst.mockResolvedValueOnce({ id: "doc-1", spaceId: general.id, categoryId: null });
+    can.mockResolvedValue(false);
+    await expect(controller.updateCategory(request, "doc-1", { categoryId: "new-category" })).rejects.toMatchObject({ status: 404 });
+    expect(categoryFindFirst).not.toHaveBeenCalled();
+    expect(updateManyDocuments).not.toHaveBeenCalled();
+    expect(auditRecord).not.toHaveBeenCalled();
+  });
+
+  it("rejects a concurrent document move, deletion or reclassification", async () => {
+    findFirst.mockResolvedValueOnce({ id: "doc-1", spaceId: general.id, categoryId: "old-category" });
+    can.mockResolvedValue(true);
+    updateManyDocuments.mockResolvedValueOnce({ count: 0 });
+    await expect(controller.updateCategory(request, "doc-1", { categoryId: null })).rejects.toThrow("Document changed; refresh and retry");
+    expect(findFirst).toHaveBeenCalledTimes(1);
+    expect(updateManyDocuments).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "doc-1", deletedAt: null, spaceId: general.id, categoryId: "old-category" },
+    }));
+    expect(updateDocument).not.toHaveBeenCalled();
+    expect(auditRecord).not.toHaveBeenCalled();
+  });
+
+  it("does not report successful reclassification after a database failure", async () => {
+    findFirst.mockResolvedValueOnce({ id: "doc-1", spaceId: general.id, categoryId: null });
+    can.mockResolvedValue(true);
+    updateManyDocuments.mockRejectedValueOnce(new Error("database unavailable"));
+    await expect(controller.updateCategory(request, "doc-1", { categoryId: null })).rejects.toThrow("database unavailable");
+    expect(auditRecord).not.toHaveBeenCalled();
+  });
+
   it("restores an archived document only inside the authorized space", async () => {
     const archived = { id: "doc-1", spaceId: general.id, status: "ARCHIVED", versions: [], favorites: [], translations: [] };
     findFirst.mockResolvedValueOnce(archived).mockResolvedValueOnce({ ...archived, status: "DRAFT" });
