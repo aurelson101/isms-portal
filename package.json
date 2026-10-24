@@ -39,7 +39,8 @@
     "source-map-js": "1.2.2",
     "@xmldom/xmldom": "0.8.15",
     "fflate": "0.8.3",
-    "multer": "2.4.0",
+    "multer": "2.5.0",
+    "body-parser": "2.4.0",
     "qs": "6.16.0"
   },
   "knip": {

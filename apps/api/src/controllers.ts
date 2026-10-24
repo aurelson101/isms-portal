@@ -2857,7 +2857,14 @@ export class DocumentAdminController {
 
   @Post(":id/trash/restore")
   async restoreFromTrash(@Req() req: IsmsRequest, @Param("id") id: string) {
-    const document = await this.prisma.document.update({ where: { id }, data: { deletedAt: null, status: "ARCHIVED" } });
+    const document = await this.prisma.$transaction(async (tx) => {
+      const restored = await tx.document.updateMany({
+        where: { id, deletedAt: { not: null } },
+        data: { deletedAt: null, status: "ARCHIVED" },
+      });
+      if (restored.count !== 1) throw new NotFoundException("Document not found in trash");
+      return tx.document.findUnique({ where: { id } });
+    });
     await this.audit.record(req, "document.trash.restore", `document:${id}`, "success");
     return document;
   }
