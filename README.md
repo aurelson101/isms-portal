@@ -1049,3 +1049,14 @@ Les filtres d'audit sont limites a 200 caracteres pour `action` et 64 pour `resu
 L'export CSV ajoute une tabulation aux cellules pouvant etre interpretees comme
 des formules dans un tableur. Utiliser l'export JSON pour conserver les valeurs
 originales lors d'un traitement automatise.
+
+## Packages Docker
+
+Les images `isms-portal-api` (API et worker) et `isms-portal-web` sont publiees
+dans GHCR avec les etiquettes `latest` et le SHA complet du commit. Verifier
+la reussite du workflow `Supply chain` avant de les utiliser.
+
+Le workflow manuel `Clean previous package version` accepte le SHA complet
+`old_tag` a retirer. Il exige une nouvelle publication valide sur `main`,
+protege `latest`, les signatures et les manifestes partages, et refuse les
+versions portant d'autres etiquettes. Il ne modifie pas le serveur de production.

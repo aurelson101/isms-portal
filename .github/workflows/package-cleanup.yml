@@ -1,0 +1,34 @@
+name: Clean previous package version
+
+on:
+  workflow_dispatch:
+    inputs:
+      old_tag:
+        description: Full commit SHA of the previous package version to delete
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  packages: write
+
+concurrency:
+  group: package-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Check cleanup safeguards
+        run: node --test .github/scripts/package-cleanup.test.mjs
+      - name: Delete only the selected previous version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OLD_TAG: ${{ inputs.old_tag }}
+        run: node .github/scripts/package-cleanup.mjs
