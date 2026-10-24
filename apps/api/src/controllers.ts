@@ -1017,6 +1017,8 @@ export class DocumentsController {
       ))
     )
       throw new NotFoundException();
+    if (status === "DRAFT" && document.status !== "ARCHIVED")
+      throw new ConflictException("Only archived documents can be restored");
     if (
       status === "PUBLISHED" &&
       (document.versions.length === 0 ||
@@ -1036,7 +1038,18 @@ export class DocumentsController {
     const publication = status === "PUBLISHED"
       ? await publishWithReview(this.prisma, id, document.versions.slice().sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0]?.id || null, !document.publishedAt, publishedAt, { request: req, action: "document.published", details: distributedFiles.length ? { distributedFiles } : undefined, notify: !document.suppressEmailNotifications })
       : null;
-    const updated = publication?.document || await this.prisma.document.update({ where: { id }, data: { status } });
+    const updated = publication?.document || (status === "DRAFT"
+      ? await this.prisma.$transaction(async (tx) => {
+          const restored = await tx.document.updateMany({
+            where: { id, deletedAt: null, status: "ARCHIVED", spaceId: document.spaceId },
+            data: { status: "DRAFT" },
+          });
+          if (restored.count !== 1) throw new ConflictException("Document changed; refresh and retry");
+          const result = await tx.document.findFirst({ where: { id } });
+          if (!result) throw new NotFoundException();
+          return result;
+        })
+      : await this.prisma.document.update({ where: { id }, data: { status } }));
     if (publication) {
       for (const event of publication.events) await this.audit.committed(event);
     } else await this.audit.record(

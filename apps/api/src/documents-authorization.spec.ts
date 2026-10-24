@@ -8,6 +8,7 @@ const general = { id: "space-general", slug: "general" };
 const itSpace = { id: "space-it", slug: "it" };
 
 describe("DocumentsController ACL scoping", () => {
+  const auditRecord = vi.fn().mockResolvedValue(undefined);
   const count = vi.fn().mockResolvedValue(0);
   const findMany = vi.fn().mockResolvedValue([]);
   const findFirst = vi.fn();
@@ -50,7 +51,7 @@ describe("DocumentsController ACL scoping", () => {
     authorization,
     {} as never,
     {} as never,
-    { record: vi.fn().mockResolvedValue(undefined) } as never,
+    { record: auditRecord } as never,
     {} as never,
     {} as never,
   );
@@ -64,6 +65,7 @@ describe("DocumentsController ACL scoping", () => {
   } as IsmsRequest;
 
   beforeEach(() => {
+    auditRecord.mockClear();
     count.mockClear();
     findMany.mockClear();
     queryRaw.mockReset().mockResolvedValue([]);
@@ -416,6 +418,55 @@ describe("DocumentsController ACL scoping", () => {
     expect(updateManyDocuments).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "doc-1", deletedAt: null, updatedAt: new Date("2026-01-01") } }));
     expect(upsertTranslation).not.toHaveBeenCalled();
     expect(updateVersion).not.toHaveBeenCalled();
+  });
+
+  it("restores an archived document only inside the authorized space", async () => {
+    const archived = { id: "doc-1", spaceId: general.id, status: "ARCHIVED", versions: [], favorites: [], translations: [] };
+    findFirst.mockResolvedValueOnce(archived).mockResolvedValueOnce({ ...archived, status: "DRAFT" });
+    can.mockResolvedValue(true);
+    expect(await controller.userRestore(request, "doc-1")).toMatchObject({ status: "DRAFT" });
+    expect(can).toHaveBeenCalledWith(request.identity.groups, general.id, "archive");
+    expect(updateManyDocuments).toHaveBeenCalledWith({
+      where: { id: "doc-1", deletedAt: null, status: "ARCHIVED", spaceId: general.id },
+      data: { status: "DRAFT" },
+    });
+    expect(updateDocument).not.toHaveBeenCalled();
+    expect(auditRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["PUBLISHED", "DRAFT", "QUARANTINED"])("does not restore a %s document", async (status) => {
+    findFirst.mockResolvedValue({ id: "doc-1", spaceId: general.id, status });
+    can.mockResolvedValue(true);
+    await expect(controller.userRestore(request, "doc-1")).rejects.toThrow("Only archived documents can be restored");
+    expect(updateManyDocuments).not.toHaveBeenCalled();
+    expect(updateDocument).not.toHaveBeenCalled();
+    expect(auditRecord).not.toHaveBeenCalled();
+  });
+
+  it("does not disclose document state when restoration is unauthorized", async () => {
+    findFirst.mockResolvedValue({ id: "doc-1", spaceId: general.id, status: "PUBLISHED" });
+    can.mockResolvedValue(false);
+    await expect(controller.userRestore(request, "doc-1")).rejects.toMatchObject({ status: 404 });
+    expect(updateManyDocuments).not.toHaveBeenCalled();
+    expect(auditRecord).not.toHaveBeenCalled();
+  });
+
+  it("rejects a restoration when the document state or space changed concurrently", async () => {
+    findFirst.mockResolvedValueOnce({ id: "doc-1", spaceId: general.id, status: "ARCHIVED" });
+    can.mockResolvedValue(true);
+    updateManyDocuments.mockResolvedValueOnce({ count: 0 });
+    await expect(controller.userRestore(request, "doc-1")).rejects.toThrow("Document changed; refresh and retry");
+    expect(findFirst).toHaveBeenCalledTimes(1);
+    expect(updateDocument).not.toHaveBeenCalled();
+    expect(auditRecord).not.toHaveBeenCalled();
+  });
+
+  it("does not report a successful restoration after a database failure", async () => {
+    findFirst.mockResolvedValueOnce({ id: "doc-1", spaceId: general.id, status: "ARCHIVED" });
+    can.mockResolvedValue(true);
+    updateManyDocuments.mockRejectedValueOnce(new Error("database unavailable"));
+    await expect(controller.userRestore(request, "doc-1")).rejects.toThrow("database unavailable");
+    expect(auditRecord).not.toHaveBeenCalled();
   });
 
   it("removes reviews and their notifications when a permitted document is deleted", async () => {
