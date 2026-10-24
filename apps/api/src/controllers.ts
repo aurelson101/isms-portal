@@ -1739,6 +1739,8 @@ export class AdminController {
     @Query("sort") sort = "name",
     @Query("order") order: "asc" | "desc" = "asc",
   ) {
+    if (typeof query !== "string") throw new BadRequestException("q must be a string");
+    if (order !== "asc" && order !== "desc") throw new BadRequestException("order must be asc or desc");
     const q = query.trim().slice(0, 120);
     const where: Prisma.DirectoryGroupWhereInput = q
       ? {
@@ -1867,6 +1869,8 @@ export class AdminController {
     @Query("limit") limitValue = "50",
     @Query("order") order: "asc" | "desc" = "asc",
   ) {
+    if (typeof query !== "string") throw new BadRequestException("q must be a string");
+    if (order !== "asc" && order !== "desc") throw new BadRequestException("order must be asc or desc");
     const q = query.trim().slice(0, 120);
     const where: Prisma.AccessRuleWhereInput = q
       ? {
@@ -2625,9 +2629,13 @@ export class AdminController {
   async auditEvents(
     @Query("page") pageValue = "1",
     @Query("limit") limitValue = "50",
-    @Query("action") action?: string,
-    @Query("result") result?: string,
+    @Query("action") action?: unknown,
+    @Query("result") result?: unknown,
   ) {
+    if (action !== undefined && typeof action !== "string") throw new BadRequestException("action must be a string");
+    if (result !== undefined && typeof result !== "string") throw new BadRequestException("result must be a string");
+    if (action !== undefined && action.length > 200) throw new BadRequestException("action must not exceed 200 characters");
+    if (result !== undefined && result.length > 64) throw new BadRequestException("result must not exceed 64 characters");
     const page = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Math.min(1000000, Number(pageValue)) : 1;
     const limit = Number.isSafeInteger(Number(limitValue)) && Number(limitValue) > 0 ? Math.min(200, Number(limitValue)) : 50;
     const where: Prisma.AuditEventWhereInput = {
@@ -2663,13 +2671,17 @@ export class AdminController {
       `Export audit log as ${normalizedFormat}`,
     );
     const items = await this.prisma.auditEvent.findMany({
-      orderBy: { occurredAt: "desc" },
+      orderBy: [{ occurredAt: "desc" }, { id: "asc" }],
       take: 10000,
     });
     await this.sensitiveApprovals.execute(approvalId);
     if (normalizedFormat === "csv") {
-      const escape = (value: unknown) =>
-        `"${String(value ?? "").replace(/"/g, '""')}"`;
+      const escape = (value: unknown) => {
+        const text = String(value ?? "");
+        const unsafe = /^[\s\uFEFF]*[=+@\-\uFF1D\uFF0B\uFF0D\uFF20]/u.test(text) || /^[\t\r\n]/.test(text);
+        // Spreadsheet display safety; the JSON export retains the original values.
+        return `"${(unsafe ? "\t" + text : text).replace(/"/g, '""')}"`;
+      };
       const lines = [
         [
           "occurredAt",

@@ -1044,3 +1044,8 @@ Les listes administratives volumineuses acceptent les paramètres serveur
 `page`, `limit`, `q`, `sort` et `order` sur les routes des groupes, documents
 et règles. Le journal d’audit accepte également `action` et `result`. La limite
 est plafonnée à 200 éléments par page.
+
+Les filtres d'audit sont limites a 200 caracteres pour `action` et 64 pour `result`.
+L'export CSV ajoute une tabulation aux cellules pouvant etre interpretees comme
+des formules dans un tableur. Utiliser l'export JSON pour conserver les valeurs
+originales lors d'un traitement automatise.
