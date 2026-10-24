@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { BadRequestException } from "@nestjs/common";
 import { DocumentAdminController } from "./controllers";
 
 function setup() {
@@ -24,6 +25,26 @@ describe("Admin document pagination", () => {
   it("keeps the legacy array response for existing clients", async () => {
     const h = setup();
     expect(await h.controller.list()).toEqual(h.items);
+    expect(h.document.count).not.toHaveBeenCalled();
+  });
+  it.each(["updatedAt", "status", "publishedAt"])("preserves ascending sorting for %s", async (sort) => {
+    const h = setup();
+    await h.controller.list("", "1", "20", sort, "asc");
+    expect(h.document.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      orderBy: [{ [sort]: "asc" }, { id: "asc" }],
+    }));
+  });
+  it.each([{ order: "invalid" }, { order: "ASC" }, { order: "" }, { order: ["asc", "desc"] }])("rejects invalid direction $order before querying the database", async ({ order }) => {
+    const h = setup();
+    await expect(h.controller.list("", "1", "20", "updatedAt", order as never)).rejects.toBeInstanceOf(BadRequestException);
+    expect(h.document.findMany).not.toHaveBeenCalled();
+    expect(h.document.count).not.toHaveBeenCalled();
+  });
+  it.each([{ q: null }, { q: ["first", "second"] }, { q: { title: "document" } }])("rejects non-string searches before querying the database", async ({ q }) => {
+    const h = setup();
+    await expect(h.controller.list(q as never, "1", "20")).rejects.toBeInstanceOf(BadRequestException);
+    expect(h.document.findMany).not.toHaveBeenCalled();
+    expect(h.document.count).not.toHaveBeenCalled();
   });
   it("loads only the fields needed by governance selectors without counting", async () => {
     const h = setup();

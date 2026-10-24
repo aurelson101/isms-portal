@@ -2794,6 +2794,8 @@ export class DocumentAdminController {
     @Query("order") order: "asc" | "desc" = "desc",
     @Query("summary") summary?: string,
   ) {
+    if (typeof query !== "string") throw new BadRequestException("q must be a string");
+    if (order !== "asc" && order !== "desc") throw new BadRequestException("order must be asc or desc");
     const q = query.trim().slice(0, 200);
     const where: Prisma.DocumentWhereInput = {
       deletedAt: null,
@@ -2845,7 +2847,7 @@ export class DocumentAdminController {
     };
     const [items, total] = await Promise.all([
       this.prisma.document.findMany(options),
-      this.prisma.document.count({ where }),
+      pageValue ? this.prisma.document.count({ where }) : Promise.resolve(0),
     ]);
     return pageValue ? { items, page, limit, total } : items;
   }
