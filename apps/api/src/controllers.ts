@@ -3083,9 +3083,13 @@ export class DocumentAdminController {
 
   @Post(":id/restore")
   async restore(@Req() req: IsmsRequest, @Param("id") id: string) {
-    const updated = await this.prisma.document.update({
-      where: { id },
-      data: { status: "DRAFT" },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const restored = await tx.document.updateMany({
+        where: { id, deletedAt: null, status: "ARCHIVED" },
+        data: { status: "DRAFT" },
+      });
+      if (restored.count !== 1) throw new NotFoundException("Archived document not found");
+      return tx.document.findUnique({ where: { id } });
     });
     await this.audit.record(
       req,

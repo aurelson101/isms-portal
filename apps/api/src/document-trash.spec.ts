@@ -11,6 +11,36 @@ const controller = new DocumentAdminController(prisma as never, {} as never, {} 
 
 beforeEach(() => vi.clearAllMocks());
 
+describe("archived document restoration", () => {
+  it("returns an archived document to draft without changing its metadata", async () => {
+    const document = { id, status: "DRAFT", deletedAt: null, categoryId: "category", sensitive: true };
+    tx.document.updateMany.mockResolvedValueOnce({ count: 1 });
+    tx.document.findUnique.mockResolvedValueOnce(document);
+    await expect(controller.restore(req, id)).resolves.toBe(document);
+    expect(tx.document.updateMany).toHaveBeenCalledWith({
+      where: { id, deletedAt: null, status: "ARCHIVED" }, data: { status: "DRAFT" },
+    });
+    expect(audit.record).toHaveBeenCalledWith(req, "document.restore", `document:${id}`, "success");
+  });
+
+  it("does not restore missing, deleted or non-archived documents", async () => {
+    tx.document.updateMany.mockResolvedValueOnce({ count: 0 });
+    await expect(controller.restore(req, id)).rejects.toBeInstanceOf(NotFoundException);
+    expect(tx.document.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id, deletedAt: null, status: "ARCHIVED" },
+    }));
+    expect(tx.document.findUnique).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it("does not log success if reading the restored document fails", async () => {
+    tx.document.updateMany.mockResolvedValueOnce({ count: 1 });
+    tx.document.findUnique.mockRejectedValueOnce(new Error("database unavailable"));
+    await expect(controller.restore(req, id)).rejects.toThrow("database unavailable");
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+});
+
 describe("document trash restoration", () => {
   it("restores only a deleted document, archived and with its metadata intact", async () => {
     const document = { id, status: "ARCHIVED", deletedAt: null, categoryId: "category", spaceId: "space", sensitive: true };
