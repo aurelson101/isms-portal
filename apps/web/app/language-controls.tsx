@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useBranding } from "./branding";
+import { fetchWithTimeout } from "./http-client";
 import {
   interfaceLocales,
   isLocale,
@@ -131,4 +132,41 @@ export function LanguageSelect({
       ))}
     </select>
   );
+}
+
+export function ProfileLanguage({ locale, defaultLocale, onChange }: {
+  locale: Locale;
+  defaultLocale?: Locale | null;
+  onChange: (locale: Locale) => void;
+}) {
+  const { enabled } = useLanguageSettings();
+  const preferred = defaultLocale && enabled.includes(defaultLocale) ? defaultLocale : locale;
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<"saved" | "failed" | null>(null);
+  const pending = useRef(false);
+  const save = async (next: Locale) => {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    setResult(null);
+    try {
+      const response = await fetchWithTimeout("/api/me/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locale: next }),
+      });
+      if (!response.ok) throw new Error("Language preference was not saved");
+      onChange(next);
+      setResult("saved");
+    } catch {
+      setResult("failed");
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
+  };
+  return <div className="admin-form profile-language" aria-busy={busy}>
+    <label>{languageUi[locale].profile}<LanguageSelect value={preferred} syncValue={false} disabled={busy} onValueChange={next => void save(next)} /></label>
+    {result && <small role={result === "failed" ? "alert" : "status"} className={result === "failed" ? "error-state" : "notice"}>{languageUi[locale][result]}</small>}
+  </div>;
 }

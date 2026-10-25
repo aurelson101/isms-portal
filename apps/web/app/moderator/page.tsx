@@ -6,7 +6,7 @@ import { uploadAttempt, type UploadAttempt } from "../upload-attempt";
 import { translate } from "../i18n/translate";
 import { useInterfaceLocale } from "../i18n/use-locale";
 import { isLocale, type Locale } from "../i18n/locale";
-import { LanguageButtons } from "../language-controls";
+import { LanguageButtons, ProfileLanguage } from "../language-controls";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../icons";
@@ -315,7 +315,7 @@ export default function ModeratorPage() {
           {identity.profilePhoto ? <img src={identity.profilePhoto} alt="" /> : <span className="admin-avatar" aria-hidden="true">{accountName.split(/\s+/u).map(part => part[0]).join("").slice(0, 2).toUpperCase()}</span>}
           <span className="admin-identity"><strong>{accountName}</strong><small>{identity.username}</small></span><span aria-hidden="true"><Icon name="chevron" /></span>
         </summary>
-        <div className="account-menu admin-profile-menu"><strong>{accountName}</strong><small>{identity.username}</small><a href="#moderator-permissions" onClick={event => { if (!selectView("permissions")) event.preventDefault(); else profileDetails.current?.removeAttribute("open"); }}>{t("Mes droits documentaires", "My document permissions")}</a><a href="/explorer?workspace=preferences" onClick={event => { if (!canDiscard()) event.preventDefault(); else dirty.current = false; }}>{t("Préférences d’affichage", "Display preferences")}</a><a href="/explorer" onClick={event => { if (!canDiscard()) event.preventDefault(); else dirty.current = false; }}>{t("Retour au portail", "Back to portal")}</a></div>
+        <div className="account-menu admin-profile-menu"><strong>{accountName}</strong><small>{identity.username}</small><ProfileLanguage locale={locale} defaultLocale={identity.locale} onChange={next => { changeLocale(next); setIdentity(current => current ? { ...current, locale: next } : current); }} /><a href="#moderator-permissions" onClick={event => { if (!selectView("permissions")) event.preventDefault(); else profileDetails.current?.removeAttribute("open"); }}>{t("Mes droits documentaires", "My document permissions")}</a><a href="/explorer?workspace=preferences" onClick={event => { if (!canDiscard()) event.preventDefault(); else dirty.current = false; }}>{t("Préférences d’affichage", "Display preferences")}</a><a href="/explorer" onClick={event => { if (!canDiscard()) event.preventDefault(); else dirty.current = false; }}>{t("Retour au portail", "Back to portal")}</a></div>
       </details>
     </header>
     <div className="admin-page-heading"><div><h1>{t("Espace modérateur", "Moderator workspace")}</h1><p>{t("Gestion documentaire limitée à vos droits effectifs.", "Document management limited to your effective permissions.")}</p></div></div>

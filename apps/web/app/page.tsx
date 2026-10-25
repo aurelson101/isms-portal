@@ -20,7 +20,7 @@ import { Icon } from "./icons";
 import { portalCatalog as copy } from "./i18n/catalogs";
 import type { Locale, DocumentLocale } from "./i18n/locale";
 import { interfaceLocales, isLocale } from "./i18n/locale";
-import { LanguageButtons, LanguageSelect, useLanguageSettings, languageUi } from "./language-controls";
+import { LanguageButtons, LanguageSelect, ProfileLanguage, useLanguageSettings, languageUi } from "./language-controls";
 import { useInterfaceLocale } from "./i18n/use-locale";
 import { useBranding } from "./branding";
 import { StorageSelect } from "./storage-select";
@@ -1059,11 +1059,12 @@ export function Portal({
   const changeLocale = async (next: Locale) => {
     setLocale(next);
     setSelectedLocales((current) => ({ ...current }));
-    await fetch("/api/me/preferences", {
+    const response = await fetch("/api/me/preferences", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ locale: next }),
-    }).catch(() => undefined);
+    }).catch(() => null);
+    if (response?.ok) setIdentity(current => current ? { ...current, locale: next } : current);
   };
 
   const selectCategory = (spaceSlug: string, categoryId: string) => {
@@ -1105,6 +1106,7 @@ export function Portal({
         body: JSON.stringify(next),
       });
       if (!response.ok) throw new Error("preferences");
+      setIdentity(current => current ? { ...current, locale: next.locale } : current);
       if (next.locale !== locale) setLocale(next.locale);
       setViewMode(next.viewMode);
       setDensity(next.density);
@@ -1723,6 +1725,7 @@ export function Portal({
             <div className="account-menu">
               <strong>{identity?.displayName}</strong>
               <small>{identity?.username}</small>
+              <ProfileLanguage locale={locale} defaultLocale={identity?.locale} onChange={next => { setLocale(next); setIdentity(current => current ? { ...current, locale: next } : current); }} />
               <span
                 className={
                   identity?.authentication.ssoConnected
