@@ -7,9 +7,18 @@ import { filterHelpTopics, normalizeHelpText } from "./help-search";
 import { Icon } from "../icons";
 import type { Locale } from "../i18n/locale";
 
-type HelpTarget = "dashboard" | "documents" | "groups" | "rules" | "spaces" | "governance" | "requests" | "directory" | "sso" | "certificates" | "storage" | "integrations" | "alert-channels" | "alert-policy" | "health" | "observability" | "audit" | "settings" | "profile" | "administrators" | "moderators" | "trash" | "incidents" | "advanced-settings";
+type HelpTarget = "dashboard" | "documents" | "groups" | "rules" | "spaces" | "governance" | "requests" | "directory" | "sso" | "certificates" | "storage" | "integrations" | "alert-channels" | "alert-policy" | "health" | "observability" | "audit" | "settings" | "languages" | "profile" | "administrators" | "moderators" | "trash" | "incidents" | "advanced-settings";
 type Text = [string, string];
+const languageHelp: Record<"title" | "profile" | "admin" | "upload" | "fallback" | "check", Text> = {
+  title: ["Langues et préférences personnelles", "Languages and personal preferences"],
+  profile: ["Depuis votre profil, ouvrez Préférences d’affichage, choisissez la langue par défaut de votre interface et attendez la confirmation. Ce choix est enregistré dans votre compte et s'applique aux espaces utilisateur, modérateur et administrateur, y compris sur un autre appareil.", "From your profile, open Display preferences, choose your default interface language and wait for confirmation. The choice is saved in your account and applies to the user, moderator and administrator workspaces, including on another device."],
+  admin: ["Dans Administration > Langues, cochez les langues disponibles parmi FR, EN, ES et SK, puis sélectionnez une langue par défaut du portail et enregistrez. Au moins une langue doit rester active ; la langue par défaut doit être active. Rechargez les autres onglets après une modification.", "In Administration > Languages, enable the available languages among FR, EN, ES and SK, select the portal default language and save. At least one language must remain enabled; the default language must be enabled. Reload other tabs after a change."],
+  upload: ["Lors d'un dépôt, d'un import par lot ou d'une nouvelle version, choisissez la langue réelle du fichier parmi les langues actives. La langue du fichier est indépendante de celle de l'interface ; ce choix ne traduit pas le contenu. Les documents existants restent lisibles si leur langue est désactivée.", "For an upload, batch import or new version, choose the actual file language from the enabled languages. File language is independent of interface language; this choice does not translate content. Existing documents remain readable if their language is disabled."],
+  fallback: ["Une préférence personnelle active est prioritaire. Si elle est désactivée, le portail utilise une langue active du navigateur, puis la langue par défaut du portail. Désactiver une langue masque les choix correspondants dans l'interface et les nouveaux dépôts ; cela ne supprime aucun document.", "An enabled personal preference takes priority. If it is disabled, the portal uses an enabled browser language, then the portal default language. Disabling a language hides the corresponding interface and new-upload choices; it does not delete any document."],
+  check: ["Vérifiez la langue après reconnexion, les choix proposés au dépôt et l'accès aux anciens documents. Si l'enregistrement échoue, réessayez et attendez la confirmation avant de quitter les préférences.", "Check the language after signing in again, the upload choices and access to existing documents. If saving fails, retry and wait for confirmation before leaving preferences."],
+};
 const topics: Array<{ target: HelpTarget; title: Text; paragraphs: Text[] }> = [
+  { target: "languages", title: languageHelp.title, paragraphs: [languageHelp.profile, languageHelp.admin, languageHelp.upload, languageHelp.fallback] },
   { target: "dashboard", title: ["Fonctionnement et rôles", "Overview and roles"], paragraphs: [
     ["ISMS Portal centralise les documents et leur gouvernance. Les utilisateurs consultent les contenus autorisés ; les modérateurs gèrent les documents selon leurs droits effectifs ; les administrateurs configurent le portail, les accès et l'exploitation.", "ISMS Portal centralizes documents and their governance. Users view authorized content; moderators manage documents according to their effective permissions; administrators configure the portal, access and operations."],
     ["Le tableau de bord rassemble les indicateurs et les éléments à traiter. Les changements sensibles doivent rester traçables. Les droits sont contrôlés par l'API : masquer un bouton ne constitue pas une autorisation.", "The dashboard summarizes indicators and items requiring action. Sensitive changes must remain traceable. Permissions are enforced by the API: hiding a button is not an authorization control."],
@@ -126,6 +135,7 @@ const topics: Array<{ target: HelpTarget; title: Text; paragraphs: Text[] }> = [
 ];
 
 const configuration: Record<HelpTarget, { steps: Text[]; check: Text }> = {
+  languages: { steps: [languageHelp.admin, languageHelp.profile, languageHelp.upload], check: languageHelp.check },
   dashboard: { steps: [["Actualisez les indicateurs.", "Refresh the indicators."], ["Ouvrez les éléments à traiter dans leur menu.", "Open items requiring action in their menu."], ["Vérifiez la disparition de l'alerte après traitement.", "Check that the alert clears after resolution."]], check: ["Comparez les compteurs avec les listes concernées.", "Compare counters with the relevant lists."] },
   spaces: { steps: [["Créez l'espace avec ses noms FR et EN.", "Create the space with its FR and EN names."], ["Ajoutez les catégories et leur hiérarchie.", "Add categories and their hierarchy."], ["Associez les groupes et droits dans Règles d'accès.", "Associate groups and permissions in Access rules."]], check: ["Vérifiez le classement et l'accès avec un compte utilisateur.", "Check classification and access with a user account."] },
   directory: { steps: [["Renseignez serveur, port, base de recherche et compte de service.", "Enter server, port, search base and service account."], ["Configurez TLS et la chaîne CA pour LDAPS.", "Configure TLS and the CA chain for LDAPS."], ["Testez la connexion, puis lancez la synchronisation.", "Test the connection, then run synchronization."]], check: ["En cas d'échec : DNS, connectivité, certificat, DN et droits du compte de service.", "If unsuccessful: check DNS, connectivity, certificate, DN and service account permissions."] },
@@ -160,6 +170,11 @@ const topicGroups: Array<{ title: Text; targets: HelpTarget[] }> = [
 ];
 
 const technicalExamples: Record<HelpTarget, { steps: Text[]; values: string; warning: Text; source?: { label: Text; url: string } }> = {
+  languages: {
+    steps: [languageHelp.admin, languageHelp.profile],
+    values: 'Admin > Languages: /admin#languages\nSetting: portal.languages\n{"enabled":["fr","en","es","sk"],"defaultLocale":"fr"}\nProfile > Display preferences: /explorer?workspace=preferences\nPriority: enabled personal preference > enabled browser language > portal default',
+    warning: languageHelp.fallback,
+  },
   dashboard: {
     steps: [
       ["Actualisez le tableau de bord et notez l'heure de mesure. Comparez les documents, demandes et revues avec leurs listes : un compteur décrit un état, pas une preuve de bon fonctionnement.", "Refresh the dashboard and record the measurement time. Compare documents, requests and reviews with their lists: a counter describes a state, not proof of correct operation."],
