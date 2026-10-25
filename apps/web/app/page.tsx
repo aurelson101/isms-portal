@@ -27,6 +27,13 @@ import dynamic from "next/dynamic";
 const ExcelReader = dynamic(() => import("./excel-reader").then((module) => module.ExcelReader), { ssr: false });
 const PdfPreview = dynamic(() => import("./pdf-preview").then((module) => module.PdfPreview), { ssr: false });
 
+const preferenceCopy = {
+  fr: { view: "Vue par défaut", saved: "Préférences enregistrées.", failed: "Échec de l’enregistrement. Réessayez.", reset: "Rétablir les préférences par défaut" },
+  en: { view: "Default view", saved: "Preferences saved.", failed: "Unable to save preferences. Try again.", reset: "Restore default preferences" },
+  es: { view: "Vista predeterminada", saved: "Preferencias guardadas.", failed: "No se pudieron guardar las preferencias. Inténtelo de nuevo.", reset: "Restaurar preferencias predeterminadas" },
+  sk: { view: "Predvolené zobrazenie", saved: "Predvoľby boli uložené.", failed: "Predvoľby sa nepodarilo uložiť. Skúste to znova.", reset: "Obnoviť predvolené nastavenia" },
+};
+
 function ReaderInformation({ summary, children }: { summary: string; children: ReactNode }) {
   const [expanded, setExpanded] = useState(() =>
     typeof window === "undefined" || !window.matchMedia("(max-width: 640px)").matches,
@@ -653,6 +660,15 @@ export function Portal({
   const [textScale, setTextScale] = useState(100);
   const [highContrast, setHighContrast] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [savingPreferences, setSavingPreferences] = useState(false);
+  const [preferenceResult, setPreferenceResult] = useState<"saved" | "failed" | null>(null);
+  const preferenceSaveInFlight = useRef(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("workspace") === "preferences") {
+      setPersonalSection("preferences");
+      setToolsOpen(true);
+    }
+  }, []);
   const [documentSort, setDocumentSort] = useState<DocumentSort>("recent");
   const [viewerExpanded, setViewerExpanded] = useState(false);
   const [pdfZoom, setPdfZoom] = useState<PdfZoom>("page-width");
@@ -1073,23 +1089,34 @@ export function Portal({
       `/explorer?space=${encodeURIComponent(spaceSlug)}&category=${encodeURIComponent(categorySlug)}${documentSort === "popular" ? "&sort=popular" : ""}`,
     );
   };
-  const changeViewMode = (next: ViewMode) => {
-    setViewMode(next);
-    localStorage.setItem("isms-document-view", next);
-    if (identity)
-      void fetch("/api/user-tools/preferences", {
+  const saveDisplayPreferences = async (changes: Partial<NonNullable<Identity["preferences"]>>) => {
+    if (!identity || preferenceSaveInFlight.current) return;
+    preferenceSaveInFlight.current = true;
+    setSavingPreferences(true);
+    setPreferenceResult(null);
+    const next = { viewMode, density, textScale, highContrast, reducedMotion, ...changes };
+    try {
+      const response = await fetch("/api/user-tools/preferences", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          locale,
-          viewMode: next,
-          density,
-          textScale,
-          highContrast,
-          reducedMotion,
-        }),
+        body: JSON.stringify({ locale, ...next }),
       });
+      if (!response.ok) throw new Error("preferences");
+      setViewMode(next.viewMode);
+      setDensity(next.density);
+      setTextScale(next.textScale);
+      setHighContrast(next.highContrast);
+      setReducedMotion(next.reducedMotion);
+      try { localStorage.setItem("isms-document-view", next.viewMode); } catch { /* Server preferences remain available when browser storage is blocked. */ }
+      setPreferenceResult("saved");
+    } catch {
+      setPreferenceResult("failed");
+    } finally {
+      preferenceSaveInFlight.current = false;
+      setSavingPreferences(false);
+    }
   };
+  const changeViewMode = (next: ViewMode) => { void saveDisplayPreferences({ viewMode: next }); };
   const saveCurrentSearch = async () => {
     const name = window.prompt(
       translate(locale, "Nom de la recherche", "Search name"),
@@ -2882,32 +2909,22 @@ export function Portal({
                 </div>
               )}
               {personalSection === "preferences" && (
-                <fieldset className="personal-tools-preferences">
+                <fieldset className="personal-tools-preferences" disabled={savingPreferences} aria-busy={savingPreferences}>
                   <legend>
                     {translate(locale, "Préférences d’affichage", "Display preferences")}
                   </legend>
                   <label>
+                    {preferenceCopy[locale].view}
+                    <select value={viewMode} onChange={event => void saveDisplayPreferences({ viewMode: event.target.value as ViewMode })}>
+                      <option value="list">{t.listView}</option>
+                      <option value="grid">{t.gridView}</option>
+                    </select>
+                  </label>
+                  <label>
                     {translate(locale, "Densité", "Density")}
                     <select
                       value={density}
-                      onChange={(event) => {
-                        const next = event.target.value as
-                          | "comfortable"
-                          | "compact";
-                        setDensity(next);
-                        void fetch("/api/user-tools/preferences", {
-                          method: "PUT",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            locale,
-                            viewMode,
-                            density: next,
-                            textScale,
-                            highContrast,
-                            reducedMotion,
-                          }),
-                        });
-                      }}
+                      onChange={event => void saveDisplayPreferences({ density: event.target.value as "comfortable" | "compact" })}
                     >
                       <option value="comfortable">
                         {translate(locale, "Confortable", "Comfortable")}
@@ -2921,22 +2938,7 @@ export function Portal({
                     {translate(locale, "Taille du texte", "Text size")}
                     <select
                       value={textScale}
-                      onChange={(event) => {
-                        const next = Number(event.target.value);
-                        setTextScale(next);
-                        void fetch("/api/user-tools/preferences", {
-                          method: "PUT",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            locale,
-                            viewMode,
-                            density,
-                            textScale: next,
-                            highContrast,
-                            reducedMotion,
-                          }),
-                        });
-                      }}
+                      onChange={event => void saveDisplayPreferences({ textScale: Number(event.target.value) })}
                     >
                       <option value={85}>85 %</option>
                       <option value={100}>100 %</option>
@@ -2948,22 +2950,7 @@ export function Portal({
                     <input
                       type="checkbox"
                       checked={highContrast}
-                      onChange={(event) => {
-                        const next = event.target.checked;
-                        setHighContrast(next);
-                        void fetch("/api/user-tools/preferences", {
-                          method: "PUT",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            locale,
-                            viewMode,
-                            density,
-                            textScale,
-                            highContrast: next,
-                            reducedMotion,
-                          }),
-                        });
-                      }}
+                      onChange={event => void saveDisplayPreferences({ highContrast: event.target.checked })}
                     />
                     {translate(locale, "Contraste renforcé", "High contrast")}
                   </label>
@@ -2971,25 +2958,14 @@ export function Portal({
                     <input
                       type="checkbox"
                       checked={reducedMotion}
-                      onChange={(event) => {
-                        const next = event.target.checked;
-                        setReducedMotion(next);
-                        void fetch("/api/user-tools/preferences", {
-                          method: "PUT",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            locale,
-                            viewMode,
-                            density,
-                            textScale,
-                            highContrast,
-                            reducedMotion: next,
-                          }),
-                        });
-                      }}
+                      onChange={event => void saveDisplayPreferences({ reducedMotion: event.target.checked })}
                     />
                     {translate(locale, "Réduire les animations", "Reduce motion")}
                   </label>
+                  <button type="button" onClick={() => void saveDisplayPreferences({ viewMode: "list", density: "comfortable", textScale: 100, highContrast: false, reducedMotion: false })}>
+                    {preferenceCopy[locale].reset}
+                  </button>
+                  {preferenceResult && <p className={preferenceResult === "failed" ? "error-state" : "notice"} role={preferenceResult === "failed" ? "alert" : "status"}>{preferenceCopy[locale][preferenceResult]}</p>}
                 </fieldset>
               )}
             </div>

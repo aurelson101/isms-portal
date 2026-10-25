@@ -5919,6 +5919,7 @@ function SettingsPanel({
       {section === "profile" && (
       <section className="admin-card profile-settings">
         <h2>{t("Profil administrateur")}</h2>
+        <a href="/explorer?workspace=preferences">{t("Préférences d’affichage", "Display preferences")}</a>
         {profilePhoto && (
           <img className="profile-photo" src={profilePhoto} alt="" />
         )}
