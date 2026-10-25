@@ -124,9 +124,9 @@ for (const file of fs
       );
       for (const property of node.initializer.properties)
         if (ts.isPropertyAssignment(property)) {
-          if (localized.every(Boolean)) {
+          if (localized.some(Boolean)) {
             for (const [index, locale] of ["es", "sk"].entries()) {
-              const translation = localized[index].initializer.properties.find(
+              const translation = localized[index]?.initializer.properties.find(
                 (candidate) =>
                   ts.isPropertyAssignment(candidate) &&
                   candidate.name.getText(source) ===

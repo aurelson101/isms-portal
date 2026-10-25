@@ -28,6 +28,9 @@ fi
 # Browser tests exercise the portal through the API. The background worker is
 # intentionally excluded so this disposable stack remains viable beside a
 # production deployment on a small host.
+docker compose $compose_args up -d --build --wait postgres
+(cd "$project_root" && sh scripts/provision-runtime-credentials.sh $compose_args)
+docker compose $compose_args run --rm --build migrate
 docker compose $compose_args up -d --build --wait reverse-proxy
 docker compose $compose_args exec -T api node prisma/seed.js
 

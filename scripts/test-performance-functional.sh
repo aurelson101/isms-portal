@@ -22,6 +22,9 @@ test -f "$project_root/.env" || {
   exit 1
 }
 
+docker compose $compose_args up -d --build --wait postgres
+(cd "$project_root" && sh scripts/provision-runtime-credentials.sh $compose_args)
+docker compose $compose_args run --rm --build migrate
 docker compose $compose_args up -d --build --wait
 docker compose $compose_args exec -T api node prisma/seed.js
 docker compose $compose_args exec -T api node prisma/performance-seed.js
