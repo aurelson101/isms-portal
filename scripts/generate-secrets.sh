@@ -7,6 +7,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 project_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 env_example="$project_root/.env.example"
 env_file="$project_root/.env"
+redis_env_file="$project_root/.env.redis"
 credentials_file="$project_root/credentials.txt"
 mode=generate
 force=false
@@ -39,7 +40,7 @@ for argument in "$@"; do
   esac
 done
 
-for target in "$env_file" "$credentials_file"; do
+for target in "$env_file" "$redis_env_file" "$credentials_file"; do
   if [ -L "$target" ]; then
     printf 'Refus de suivre le lien symbolique %s\n' "$target" >&2
     exit 1
@@ -182,22 +183,25 @@ if [ ! -f "$env_example" ]; then
   exit 1
 fi
 
-if [ "$force" != true ] && { [ -e "$env_file" ] || [ -e "$credentials_file" ]; }; then
+if [ "$force" != true ] && { [ -e "$env_file" ] || [ -e "$redis_env_file" ] || [ -e "$credentials_file" ]; }; then
   printf '.env ou credentials.txt existe déjà ; utilisez --force uniquement pour une rotation volontaire.\n' >&2
   exit 1
 fi
 
 postgres_password=$(openssl rand -hex 32)
+redis_password=$(openssl rand -hex 32)
 encryption_key=$(openssl rand -base64 32 | tr -d '\n')
 admin_password=$(openssl rand -base64 32 | tr -d '\n')
 oauth2_proxy_cookie_secret=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '\n')
 
 env_tmp=$(mktemp "$project_root/.env.tmp.XXXXXX")
 credentials_tmp=$(mktemp "$project_root/.credentials.txt.tmp.XXXXXX")
-trap 'rm -f "$env_tmp" "$credentials_tmp"' EXIT HUP INT TERM
+redis_env_tmp=$(mktemp "$project_root/.env.redis.tmp.XXXXXX")
+trap 'rm -f "$env_tmp" "$redis_env_tmp" "$credentials_tmp"' EXIT HUP INT TERM
 
 awk \
   -v postgres_password="$postgres_password" \
+  -v redis_password="$redis_password" \
   -v encryption_key="$encryption_key" \
   -v admin_password="$admin_password" \
   -v oauth2_proxy_cookie_secret="$oauth2_proxy_cookie_secret" '
@@ -207,6 +211,14 @@ awk \
   }
   /^DATABASE_URL=/ {
     print "DATABASE_URL=postgresql://isms:" postgres_password "@postgres:5432/isms"
+    next
+  }
+  /^REDIS_URL=/ {
+    print "REDIS_URL=redis://:" redis_password "@redis:6379"
+    next
+  }
+  /^OAUTH2_PROXY_REDIS_PASSWORD=/ {
+    print "OAUTH2_PROXY_REDIS_PASSWORD=" redis_password
     next
   }
   /^ENCRYPTION_KEY=/ {
@@ -225,10 +237,13 @@ awk \
 ' "$env_example" > "$env_tmp"
 
 chmod 600 "$env_tmp"
+printf 'REDIS_PASSWORD=%s\n' "$redis_password" > "$redis_env_tmp"
+chmod 600 "$redis_env_tmp"
+mv -f "$redis_env_tmp" "$redis_env_file"
 mv -f "$env_tmp" "$env_file"
 write_credentials "$credentials_tmp"
 mv -f "$credentials_tmp" "$credentials_file"
 trap - EXIT HUP INT TERM
 
-printf '.env et credentials.txt générés avec les permissions 600.\n'
+printf '.env, .env.redis et credentials.txt générés avec les permissions 600.\n'
 printf 'Conservez credentials.txt dans un emplacement sécurisé et hors de Git.\n'
