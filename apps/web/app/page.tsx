@@ -19,6 +19,8 @@ import {
 import { Icon } from "./icons";
 import { portalCatalog as copy } from "./i18n/catalogs";
 import type { Locale, DocumentLocale } from "./i18n/locale";
+import { interfaceLocales, isLocale } from "./i18n/locale";
+import { LanguageButtons, LanguageSelect, useLanguageSettings, languageUi } from "./language-controls";
 import { useInterfaceLocale } from "./i18n/use-locale";
 import { useBranding } from "./branding";
 import { StorageSelect } from "./storage-select";
@@ -478,7 +480,7 @@ function DocumentRows({
               {selectedVersion?.createdAt ? new Date(selectedVersion.createdAt).toLocaleDateString(locale) : "—"}
             </span>
             <span className="locales">
-              {(["fr", "en"] as Locale[]).map((item) => (
+              {interfaceLocales.filter(item => document.versions.some(version => version.locale === item)).map((item) => (
                 <button
                   className={selected === item ? "selected" : ""}
                   disabled={!available.includes(item)}
@@ -588,6 +590,7 @@ export function Portal({
   const branding = useBranding();
   const router = useRouter();
   const [locale, setLocale] = useInterfaceLocale();
+  const languageSettings = useLanguageSettings();
   const [identity, setIdentity] = useState<Identity | null>(() =>
     getCachedPortalIdentity<Identity>(),
   );
@@ -887,7 +890,7 @@ export function Portal({
     setFavoritesOnly(requestedFavorites);
     if (["pdf", "docx", "xlsx"].includes(requestedFormat || ""))
       setDocumentFormat(requestedFormat || "");
-    if (["fr", "en"].includes(requestedLanguage || ""))
+    if (isLocale(requestedLanguage))
       setDocumentLanguage(requestedLanguage || "");
     if (["true", "false"].includes(requestedSensitivity || ""))
       setDocumentSensitivity(requestedSensitivity || "");
@@ -1089,19 +1092,20 @@ export function Portal({
       `/explorer?space=${encodeURIComponent(spaceSlug)}&category=${encodeURIComponent(categorySlug)}${documentSort === "popular" ? "&sort=popular" : ""}`,
     );
   };
-  const saveDisplayPreferences = async (changes: Partial<NonNullable<Identity["preferences"]>>) => {
+  const saveDisplayPreferences = async (changes: Partial<NonNullable<Identity["preferences"]>> & { locale?: Locale }) => {
     if (!identity || preferenceSaveInFlight.current) return;
     preferenceSaveInFlight.current = true;
     setSavingPreferences(true);
     setPreferenceResult(null);
-    const next = { viewMode, density, textScale, highContrast, reducedMotion, ...changes };
+    const next = { locale, viewMode, density, textScale, highContrast, reducedMotion, ...changes };
     try {
       const response = await fetch("/api/user-tools/preferences", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locale, ...next }),
+        body: JSON.stringify(next),
       });
       if (!response.ok) throw new Error("preferences");
+      if (next.locale !== locale) setLocale(next.locale);
       setViewMode(next.viewMode);
       setDensity(next.density);
       setTextScale(next.textScale);
@@ -1698,22 +1702,7 @@ export function Portal({
             role="group"
             aria-label={t.interfaceLanguage}
           >
-            <button
-              onClick={() => void changeLocale("fr")}
-              aria-pressed={locale === "fr"}
-            >
-              FR
-            </button>
-            <i />{" "}
-            <button
-              onClick={() => void changeLocale("en")}
-              aria-pressed={locale === "en"}
-            >
-              EN
-            </button>
-            <i />{" "}
-            <button onClick={() => void changeLocale("es")} aria-pressed={locale === "es"}>ES</button>
-            <button onClick={() => void changeLocale("sk")} aria-pressed={locale === "sk"}>SK</button>
+            <LanguageButtons locale={locale} onChange={value => void changeLocale(value)} />
           </div>
           <button
             className="help"
@@ -2193,8 +2182,7 @@ export function Portal({
                           }
                         >
                           <option value="">{t.allLanguages}</option>
-                          <option value="fr">FR</option>
-                          <option value="en">EN</option>
+                          {languageSettings.enabled.map(value => <option key={value} value={value}>{value.toUpperCase()}</option>)}
                         </select>
                         <select
                           value={documentSensitivity}
@@ -2297,7 +2285,7 @@ export function Portal({
                   onOpen={setOpened}
                   onEdit={(document) => {
                     const version = document.versions.find((item) => item.locale === selectedLocales[document.id]) || document.versions[0];
-                    const documentLocale = version?.locale === "en" ? "en" : "fr";
+                    const documentLocale = isLocale(version?.locale) ? version.locale : locale;
                     const translation = document.translations.find((item) => item.locale === documentLocale) || document.translations[0];
                     setEditVersionId(version?.id || "");
                     setEditLocale(documentLocale);
@@ -2913,6 +2901,7 @@ export function Portal({
                   <legend>
                     {translate(locale, "Préférences d’affichage", "Display preferences")}
                   </legend>
+                  <label>{languageUi[locale].profile}<LanguageSelect value={locale} syncValue={false} onValueChange={value => void saveDisplayPreferences({ locale: value })} /></label>
                   <label>
                     {preferenceCopy[locale].view}
                     <select value={viewMode} onChange={event => void saveDisplayPreferences({ viewMode: event.target.value as ViewMode })}>
@@ -3082,7 +3071,7 @@ export function Portal({
               </label>
             </div>}
             <div className="modal-locales">
-              {(["fr", "en"] as Locale[]).map((item) => (
+              {interfaceLocales.filter(item => opened.versions.some(version => version.locale === item)).map((item) => (
                 <button
                   key={item}
                   disabled={
@@ -3595,16 +3584,12 @@ export function Portal({
             >
               <label>
                 {translate(locale, "Langue", "Language")}
-                <select name="locale" value={editLocale} onChange={(event) => {
-                  const selected = event.target.value as DocumentLocale;
+                <LanguageSelect name="locale" value={editLocale} preserveCurrent onValueChange={selected => {
                   setEditLocale(selected);
                   const fields = translationFields(editing, selected);
                   setEditTitle(fields.title);
                   setEditDescription(fields.description);
-                }}>
-                  <option value="fr">FR</option>
-                  <option value="en">EN</option>
-                </select>
+                }} />
               </label>
               <label>
                 {translate(locale, "Titre", "Title")}
@@ -3685,26 +3670,7 @@ export function Portal({
             >
               <fieldset className="document-language-field">
                 <legend>{t.documentLanguage}</legend>
-                <div className="document-language-options">
-                  <label className="document-language-option">
-                    <input
-                      name="locale"
-                      type="radio"
-                      value="fr"
-                      defaultChecked={locale !== "en"}
-                    />
-                    <span>FR</span>
-                  </label>
-                  <label className="document-language-option">
-                    <input
-                      name="locale"
-                      type="radio"
-                      value="en"
-                      defaultChecked={locale === "en"}
-                    />
-                    <span>EN</span>
-                  </label>
-                </div>
+                <LanguageSelect name="locale" defaultValue={locale} required />
                 <small>{t.documentLanguageHint}</small>
               </fieldset>
               <label>

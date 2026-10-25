@@ -1,6 +1,14 @@
 export const interfaceLocales = ["fr", "en", "es", "sk"] as const;
 export type Locale = typeof interfaceLocales[number];
-export type DocumentLocale = "fr" | "en";
+export type DocumentLocale = Locale;
+export type LanguageSettings = { enabled: Locale[]; defaultLocale: Locale };
+export const defaultLanguageSettings: LanguageSettings = { enabled: [...interfaceLocales], defaultLocale: "fr" };
+export const normalizeLanguageSettings = (value?: Partial<LanguageSettings> | null): LanguageSettings => {
+  const enabled = interfaceLocales.filter(locale => Array.isArray(value?.enabled) && value.enabled.includes(locale));
+  return enabled.length ? { enabled, defaultLocale: enabled.includes(value?.defaultLocale as Locale) ? value!.defaultLocale! : enabled[0] } : defaultLanguageSettings;
+};
+export const resolveEnabledLocale = (preferred: string | null | undefined, settings: LanguageSettings, languages: readonly string[] = typeof navigator === "undefined" ? [] : navigator.languages || []): Locale =>
+  settings.enabled.find(locale => locale === preferred) || languages.map(language => language.toLowerCase().split(/[-_]/)[0]).find((locale): locale is Locale => settings.enabled.includes(locale as Locale)) || settings.defaultLocale;
 
 export const isLocale = (value: string | null | undefined): value is Locale =>
   value === "fr" || value === "en" || value === "es" || value === "sk";

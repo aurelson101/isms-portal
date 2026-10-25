@@ -12,6 +12,7 @@ import { AuditService } from "./audit.service";
 import { PrismaService } from "./prisma.service";
 import { AdminOnly } from "./security";
 import type { IsmsRequest } from "./types";
+import { readLanguageSettings } from "./language-settings";
 
 const BRANDING_KEY = "portal.branding";
 const DEFAULT_BRANDING = { title: "ISMS Portal", logoDataUrl: null } as const;
@@ -67,6 +68,7 @@ export class BrandingController {
     return {
       title: value?.title || DEFAULT_BRANDING.title,
       logoDataUrl: value?.logoDataUrl || null,
+      languages: readLanguageSettings((await this.prisma.applicationSetting.findUnique({ where: { key: "portal.languages" } }))?.value),
     };
   }
 

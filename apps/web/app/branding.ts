@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { normalizeLanguageSettings, type LanguageSettings } from "./i18n/locale";
 
-export type PortalBranding = { title: string; logoDataUrl: string | null };
+export type PortalBranding = { title: string; logoDataUrl: string | null; languages?: LanguageSettings };
 export const defaultBranding: PortalBranding = {
   title: "ISMS Portal",
   logoDataUrl: null,
@@ -15,6 +16,7 @@ const LOGO_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const normalizeBranding = (value: Partial<PortalBranding> | null): PortalBranding => ({
   title: typeof value?.title === "string" && value.title.trim() ? value.title.trim() : defaultBranding.title,
   logoDataUrl: typeof value?.logoDataUrl === "string" && /^data:image\/(png|jpeg|webp);base64,/i.test(value.logoDataUrl) ? value.logoDataUrl : null,
+  languages: normalizeLanguageSettings(value?.languages),
 });
 
 const canvasBlob = (canvas: HTMLCanvasElement, quality: number) =>
@@ -86,7 +88,7 @@ const loadBranding = () => {
 };
 
 export const updateBrandingCache = (branding: PortalBranding) => {
-  branding = normalizeBranding(branding);
+  branding = normalizeBranding({ ...cachedBranding, ...branding });
   cachedBranding = branding;
   brandingRequest = Promise.resolve(branding);
   document.title = branding.title;

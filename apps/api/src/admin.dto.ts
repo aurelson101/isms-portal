@@ -168,8 +168,8 @@ export class DocumentMetadataDto {
   @IsDateString()
   expectedUpdatedAt?: string;
 
-  @IsIn(["fr", "en"])
-  locale!: "fr" | "en";
+  @IsIn(["fr", "en", "es", "sk"])
+  locale!: "fr" | "en" | "es" | "sk";
 
   @IsOptional()
   @IsUUID("4")

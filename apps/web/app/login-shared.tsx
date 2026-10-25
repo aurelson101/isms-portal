@@ -4,7 +4,8 @@ import { translate } from "./i18n/translate";
 
 import { type ReactNode, useId, useState } from "react";
 import { useBranding } from "./branding";
-import { interfaceLocales, type Locale } from "./i18n/locale";
+import type { Locale } from "./i18n/locale";
+import { LanguageButtons } from "./language-controls";
 import type { AuthConfig } from "./auth-navigation";
 
 const methodsCopy = {
@@ -95,7 +96,7 @@ export function LoginToolbar({ locale, onLocaleChange, admin = false }: {
         : translate(locale, "Portail documentaire", "Document portal")}</small></div>
     </div>
     <div className="login-language" aria-label={translate(locale, "Langue", "Language")}>
-      {interfaceLocales.map((value) => <button key={value} type="button" onClick={() => onLocaleChange(value)} aria-pressed={locale === value}>{value.toUpperCase()}</button>)}
+      <LanguageButtons locale={locale} onChange={onLocaleChange} />
     </div>
   </div>;
 }

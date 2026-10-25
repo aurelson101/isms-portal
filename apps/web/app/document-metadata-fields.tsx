@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { DocumentLocale } from "./i18n/locale";
+import { LanguageSelect } from "./language-controls";
 
 export type MetadataValues = { locale: DocumentLocale; title: string; description: string; categoryId: string };
 
@@ -14,9 +15,7 @@ export function DocumentMetadataFields({ value, onChange, onLocaleChange, t, chi
   disabled?: boolean;
 }) {
   return <>
-    <label>{t("Langue du document", "Document language")}<select disabled={disabled} value={value.locale} onChange={(event) => onLocaleChange(event.target.value as DocumentLocale)}>
-      <option value="fr">FR</option><option value="en">EN</option>
-    </select></label>
+    <label>{t("Langue du document", "Document language")}<LanguageSelect disabled={disabled} value={value.locale} onValueChange={onLocaleChange} preserveCurrent /></label>
     <label>{t("Titre", "Title")}<input disabled={disabled} required maxLength={255} value={value.title} onChange={(event) => onChange({ ...value, title: event.target.value })} /></label>
     <label>{t("Description", "Description")}<textarea disabled={disabled} maxLength={2000} value={value.description} onChange={(event) => onChange({ ...value, description: event.target.value })} /></label>
     <label>{t("Catégorie", "Category")}<select disabled={disabled} value={value.categoryId} onChange={(event) => onChange({ ...value, categoryId: event.target.value })}>

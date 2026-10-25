@@ -5,6 +5,7 @@ import { translate } from "./i18n/translate";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
 import type { Locale, DocumentLocale } from "./i18n/locale";
+import { LanguageSelect } from "./language-controls";
 import { responseMessage } from "./request-errors";
 import { categoryOptions, validateUpload, type Space, type Category } from "./moderator/document-model";
 import "./batch-import.css";
@@ -38,7 +39,7 @@ export function BatchImport({ locale, disabled = false, onComplete, onBusyChange
   const [spaceId, setSpaceId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [description, setDescription] = useState("");
-  const [fileLocale, setFileLocale] = useState<DocumentLocale>(locale === "en" ? "en" : "fr");
+  const [fileLocale, setFileLocale] = useState<DocumentLocale>(locale);
   const [publish, setPublish] = useState(false);
   const [notifications, setNotifications] = useState("digest");
   const [items, setItems] = useState<Item[]>([]);
@@ -139,7 +140,7 @@ export function BatchImport({ locale, disabled = false, onComplete, onBusyChange
       <fieldset className="batch-options" disabled={disabled || running || loading || locked}>
         <label>{t("Espace", "Space")}<select required value={spaceId} onChange={(event) => { setSpaceId(event.target.value); setCategoryId(""); if (!spaces.find((space) => space.id === event.target.value)?.permissions.publish) setPublish(false); }}><option value="">{t("Sélectionner…", "Select…")}</option>{spaces.map((space) => <option key={space.id} value={space.id}>{locale === "fr" ? space.nameFr : space.nameEn}</option>)}</select></label>
         <label>{t("Catégorie", "Category")}<select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="">{t("Sans catégorie", "No category")}</option>{categoryOptions(selectedSpace?.categories || [], locale).map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
-        <label>{t("Langue des fichiers", "File language")}<select value={fileLocale} onChange={(event) => setFileLocale(event.target.value as DocumentLocale)}><option value="fr">FR</option><option value="en">EN</option></select></label>
+        <label>{t("Langue des fichiers", "File language")}<LanguageSelect value={fileLocale} onValueChange={setFileLocale} /></label>
         <label>{t("Notifications e-mail", "Email notifications")}<select value={notifications} onChange={(event) => setNotifications(event.target.value)}><option value="digest">{t("Récapitulatif groupé des publications", "Grouped publication summary")}</option><option value="none">{t("Ne pas envoyer d’e-mail", "Do not send email")}</option></select></label>
         <label className="batch-description">{t("Description commune du lot (facultative)", "Shared description (optional)")}<textarea rows={3} maxLength={2000} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
         <label className="batch-check"><input type="checkbox" checked={publish} disabled={!selectedSpace?.permissions.publish} onChange={(event) => setPublish(event.target.checked)} />{t("Publier après analyse", "Publish after scanning")}</label>

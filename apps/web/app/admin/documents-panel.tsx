@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ComponentType } from "react";
 import type { Locale } from "../i18n/locale";
+import { isLocale } from "../i18n/locale";
+import { LanguageSelect } from "../language-controls";
 import { Icon } from "../icons";
 import { StorageSelect } from "../storage-select";
 import { BatchImport } from "../batch-import";
@@ -37,7 +39,7 @@ export function DocumentsPanel({
     useState<AdminDocument | null>(null);
   const [editingMetadataDocument, setEditingMetadataDocument] = useState<AdminDocument | null>(null);
   const [editedCategoryId, setEditedCategoryId] = useState("");
-  const [editedLocale, setEditedLocale] = useState<"fr" | "en">("fr");
+  const [editedLocale, setEditedLocale] = useState<Locale>("fr");
   const [editedTitle, setEditedTitle] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
   const [savingMetadata, setSavingMetadata] = useState(false);
@@ -129,7 +131,7 @@ export function DocumentsPanel({
   const nextVersion = versionUploadDocument
     ? Math.max(0, ...versionUploadDocument.versions.map((version) => version.version)) + 1
     : null;
-  const selectMetadataLocale = (document: AdminDocument, documentLocale: "fr" | "en") => {
+  const selectMetadataLocale = (document: AdminDocument, documentLocale: Locale) => {
     const fields = translationFields(document, documentLocale);
     setEditedLocale(documentLocale);
     setEditedTitle(fields.title);
@@ -224,16 +226,7 @@ export function DocumentsPanel({
         )}
         <fieldset className="document-language-field">
           <legend>{t("Langue du document")}</legend>
-          <div className="document-language-options">
-            <label className="document-language-option">
-              <input name="locale" type="radio" value="fr" defaultChecked={versionTranslation?.locale !== "en"} />
-              <span>FR</span>
-            </label>
-            <label className="document-language-option">
-              <input name="locale" type="radio" value="en" defaultChecked={versionTranslation?.locale === "en"} />
-              <span>EN</span>
-            </label>
-          </div>
+          <LanguageSelect name="locale" defaultValue={versionTranslation?.locale || locale} required />
           <small>{t("Indique uniquement la langue du fichier.")}</small>
         </fieldset>
         <label>
@@ -444,7 +437,8 @@ export function DocumentsPanel({
                       onClick={() => {
                         setEditingMetadataDocument(document);
                         setEditedCategoryId(document.category?.id || "");
-                        selectMetadataLocale(document, latestVersion(document)?.locale === "en" ? "en" : "fr");
+                        const currentLocale = latestVersion(document)?.locale;
+                        selectMetadataLocale(document, isLocale(currentLocale) ? currentLocale : locale);
                         window.setTimeout(() => window.document.getElementById("document-metadata-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
                       }}
                     >

@@ -5,7 +5,8 @@ import { uploadAttempt, type UploadAttempt } from "../upload-attempt";
 
 import { translate } from "../i18n/translate";
 import { useInterfaceLocale } from "../i18n/use-locale";
-import { interfaceLocales, type Locale } from "../i18n/locale";
+import { isLocale, type Locale } from "../i18n/locale";
+import { LanguageButtons } from "../language-controls";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../icons";
@@ -31,7 +32,7 @@ export default function ModeratorPage() {
   const [documentPage, setDocumentPage] = useState(1);
   const [documentTotalPages, setDocumentTotalPages] = useState(1);
   const [editing, setEditing] = useState<Document | null>(null);
-  const [versionLocale, setVersionLocale] = useState<"fr" | "en">("fr");
+  const [versionLocale, setVersionLocale] = useState<Locale>("fr");
   const [metadataEditing, setMetadataEditing] = useState<Document | null>(null);
   const [metadata, setMetadata] = useState<MetadataValues>({ locale: "fr", title: "", description: "", categoryId: "" });
   const [metadataCategories, setMetadataCategories] = useState<Category[]>([]);
@@ -232,7 +233,7 @@ export default function ModeratorPage() {
     uploadRetry.current = null;
     dirty.current = false;
     const latest = latestVersion(document);
-    setVersionLocale(latest?.locale === "en" ? "en" : "fr");
+    setVersionLocale(isLocale(latest?.locale) ? latest.locale : locale);
     setMetadataEditing(null);
     setEditing(document);
   };
@@ -243,7 +244,8 @@ export default function ModeratorPage() {
       if (!response.ok) throw new Error(await messageOf(response));
       const categories: unknown = await response.json();
       if (!Array.isArray(categories)) throw new Error("Invalid category response");
-      const selected = latestVersion(document)?.locale === "en" ? "en" : "fr";
+      const currentLocale = latestVersion(document)?.locale;
+      const selected = isLocale(currentLocale) ? currentLocale : locale;
       setMetadataCategories(categories as Category[]);
       setMetadata({ locale: selected, ...translationFields(document, selected), categoryId: document.category?.id || "" });
       dirty.current = false;
@@ -304,7 +306,7 @@ export default function ModeratorPage() {
         <Icon name="search" /><input type="search" aria-label={t("Rechercher un document", "Search documents")} placeholder={t("Rechercher un document", "Search documents")} maxLength={200} value={search} disabled={mutationBusy || Boolean(editing || metadataEditing)} onChange={(event) => setSearch(event.target.value)} />
         {search && <button type="button" className="admin-search-clear" aria-label={t("Effacer la recherche", "Clear search")} disabled={mutationBusy || Boolean(editing || metadataEditing)} onClick={() => setSearch("")}><Icon name="close" /></button>}
       </form> : <strong className="moderator-current-section">{activeSection === "import" ? t("Import de documents", "Document import") : t("Mes droits documentaires", "My document permissions")}</strong>}
-      <div className="admin-language" role="group" aria-label={t("Langue de l’interface", "Interface language")}>{interfaceLocales.map(value => <button type="button" key={value} onClick={() => changeLocale(value)} aria-pressed={locale === value}>{value.toUpperCase()}</button>)}</div>
+      <div className="admin-language" role="group" aria-label={t("Langue de l’interface", "Interface language")}><LanguageButtons locale={locale} onChange={changeLocale} /></div>
       <button className="refresh-button" type="button" title={t("Actualiser", "Refresh")} aria-label={t("Actualiser", "Refresh")} disabled={busy} onClick={() => loadPage(documentPage)}><Icon name="sync" /><span>{t("Actualiser", "Refresh")}</span></button>
       <details className="admin-profile" ref={profileDetails} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); profileDetails.current?.removeAttribute("open"); profileDetails.current?.querySelector("summary")?.focus(); } }}>
         <summary className="admin-profile-button" aria-label={t("Mon profil", "My profile")}>

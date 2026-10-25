@@ -63,6 +63,8 @@ import { NotificationService } from "./notification.service";
 import { DocumentPublicationDigestDto } from "./document-digest.dto";
 import { isMipObjectKey, isProtectedOffice, readMipEnvelope, readMipOffice, scanMipUpload, withMipCapacity } from "./mip-reader";
 
+import { supportedLanguages, validateLanguageSettings } from "./language-settings";
+
 async function prepareVersionComparison(
   prisma: PrismaService, storage: StorageService, documentId: string,
   locale: string, content: Buffer, extension: string, compare = true,
@@ -385,7 +387,7 @@ export class DocumentsController {
       xlsx: allowedExtensions[".xlsx"][0],
     };
     const selectedMime = mimeByFormat[format.toLowerCase()];
-    const selectedLocale = ["fr", "en"].includes(documentLocale)
+    const selectedLocale = (supportedLanguages as readonly string[]).includes(documentLocale)
       ? documentLocale
       : "";
     const emptyResult = paginated
@@ -734,8 +736,8 @@ export class DocumentsController {
     @Body() body: Record<string, string>,
   ) {
     if (!file) throw new BadRequestException("A file is required");
-    if (!["fr", "en"].includes(body.locale))
-      throw new BadRequestException("Locale must be fr or en");
+    if (!(supportedLanguages as readonly string[]).includes(body.locale))
+      throw new BadRequestException("Unsupported document language");
     if (!body.spaceId || !body.title?.trim())
       throw new BadRequestException("spaceId and title are required");
     const sensitive = body.sensitive === "true";
@@ -1254,7 +1256,7 @@ export class DocumentsController {
     permission: Permission,
     inline: boolean,
   ) {
-    if (!["fr", "en"].includes(locale))
+    if (!(supportedLanguages as readonly string[]).includes(locale))
       throw new BadRequestException("Unsupported locale");
     const document = await this.prisma.document.findFirst({
       where: { id, deletedAt: null },
@@ -2748,6 +2750,7 @@ export class AdminController {
   ) {
     if (!/^[a-z][a-z0-9.-]{1,79}$/.test(key))
       throw new BadRequestException("Invalid setting key");
+    if (key === "portal.languages") value = validateLanguageSettings(value);
     const sensitive = /(password|secret|token|credential|bind)/i.test(key);
     const jsonValue = sensitive
       ? ({
@@ -2918,8 +2921,8 @@ export class DocumentAdminController {
     @Body() body: Record<string, string>,
   ) {
     if (!file) throw new BadRequestException("A file is required");
-    if (!["fr", "en"].includes(body.locale))
-      throw new BadRequestException("Locale must be fr or en");
+    if (!(supportedLanguages as readonly string[]).includes(body.locale))
+      throw new BadRequestException("Unsupported document language");
     if (!body.spaceId || !body.title?.trim())
       throw new BadRequestException("spaceId and title are required");
     const sensitive = body.sensitive === "true";

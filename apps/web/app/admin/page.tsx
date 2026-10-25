@@ -2,6 +2,8 @@
 import { fetchWithTimeout as fetch } from "../http-client";
 import { api } from "./api-client";
 import { DocumentsPanel } from "./documents-panel";
+import { LanguagesPanel } from "./languages-panel";
+import { LanguageButtons } from "../language-controls";
 import { flattenCategories, paginationItems, type Space, type Category, type AdminDocument } from "./document-model";
 
 import { localizedPair, localizeRecord, translate } from "../i18n/translate";
@@ -108,6 +110,7 @@ type Tab =
   | "observability"
   | "health"
   | "settings"
+  | "languages"
   | "profile"
   | "administrators"
   | "advanced-settings"
@@ -333,6 +336,7 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["observability", "health", "Observabilité", "Observability"],
   ["audit", "audit", "Journal d’audit", "Audit log"],
   ["settings", "settings", "Identité visuelle", "Branding"],
+  ["languages", "settings", "Langues", "Languages"],
   ["profile", "settings", "Profil administrateur", "Administrator profile"],
   ["administrators", "groups", "Comptes administrateurs", "Administrator accounts"],
   ["moderators", "groups", "Comptes modérateurs", "Moderator accounts"],
@@ -347,7 +351,7 @@ const navigationGroups: Array<[string, string, typeof tabs]> = [
   ["content", "Contenu et accès", tabs.filter(([key]) => ["groups", "rules", "spaces", "documents", "trash", "incidents", "requests"].includes(key))],
   ["infrastructure", "Infrastructure", tabs.filter(([key]) => ["governance", "directory", "sso", "certificates"].includes(key))],
   ["system", "Supervision", tabs.filter(([key]) => ["health", "observability", "audit"].includes(key))],
-  ["configuration", "Configuration", tabs.filter(([key]) => ["settings", "profile", "administrators", "advanced-settings", "integrations", "alert-channels", "alert-policy", "moderators", "storage"].includes(key))],
+  ["configuration", "Configuration", tabs.filter(([key]) => ["settings", "languages", "profile", "administrators", "advanced-settings", "integrations", "alert-channels", "alert-policy", "moderators", "storage"].includes(key))],
 ];
 const normalizeNavigationQuery = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 const permissionKeys = [
@@ -898,26 +902,7 @@ export default function Admin() {
                 role="group"
                 aria-label={t("Langue de l’interface")}
               >
-                <button
-                  type="button"
-                  aria-pressed={locale === "fr"}
-                  onClick={() => void changeLocale("fr")}
-                >
-                  FR
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={locale === "en"}
-                  onClick={() => void changeLocale("en")}
-                >
-                  EN
-                </button>
-                <button type="button" aria-pressed={locale === "es"} onClick={() => void changeLocale("es")}>
-                  ES
-                </button>
-                <button type="button" aria-pressed={locale === "sk"} onClick={() => void changeLocale("sk")}>
-                  SK
-                </button>
+                <LanguageButtons locale={locale} onChange={value => void changeLocale(value)} />
               </div>
               <button className="refresh-button" onClick={() => void refresh()}>
                 <Icon name="sync" /> <span>{t("Actualiser")}</span>
@@ -961,22 +946,7 @@ export default function Admin() {
                       role="group"
                       aria-label={t("Langue de l’interface")}
                     >
-                      <button
-                        type="button"
-                        aria-pressed={locale === "fr"}
-                        onClick={() => void changeLocale("fr")}
-                      >
-                        Français
-                      </button>
-                      <button
-                        type="button"
-                        aria-pressed={locale === "en"}
-                        onClick={() => void changeLocale("en")}
-                      >
-                        English
-                      </button>
-                      <button type="button" aria-pressed={locale === "es"} onClick={() => void changeLocale("es")}>Español</button>
-                      <button type="button" aria-pressed={locale === "sk"} onClick={() => void changeLocale("sk")}>Slovenčina</button>
+                      <LanguageButtons locale={locale} onChange={value => void changeLocale(value)} />
                     </div>
                     <span
                       className={
@@ -1136,6 +1106,7 @@ export default function Admin() {
                   />
                 )}
                 {tab === "sso" && <SsoPanel identity={identity} />}
+                {tab === "languages" && <LanguagesPanel locale={locale} />}
                 {tab === "certificates" && (
                   <CertificatesPanel
                     certificates={certificates}

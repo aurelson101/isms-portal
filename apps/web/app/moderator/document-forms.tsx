@@ -2,6 +2,7 @@
 
 import { translate } from "../i18n/translate";
 import { DocumentMetadataFields } from "../document-metadata-fields";
+import { LanguageSelect } from "../language-controls";
 
 import { useMemo } from "react";
 import type { Locale, DocumentLocale } from "../i18n/locale";
@@ -42,7 +43,7 @@ export function VersionForm({ document, versionLocale, onLocaleChange, onUpload,
     <form onChange={actions.onDirty} onSubmit={(event) => { event.preventDefault(); void onUpload(new FormData(event.currentTarget)); }} aria-busy={actions.busy}>
       <fieldset className="admin-form upload-form moderator-fields" disabled={actions.busy}>
         <input name="documentId" type="hidden" value={document.id} /><input name="spaceId" type="hidden" value={document.space.id} />
-        <label>{t("Langue", "Language")}<select name="locale" value={versionLocale} onChange={(event) => onLocaleChange(event.target.value as DocumentLocale)}><option value="fr">FR</option><option value="en">EN</option></select></label>
+        <label>{t("Langue", "Language")}<LanguageSelect name="locale" value={versionLocale} onValueChange={onLocaleChange} /></label>
         <label>{t("Titre", "Title")}<input key={`${document.id}-${versionLocale}`} name="title" required maxLength={255} defaultValue={title} /></label>
         <label className="wide">{t("Résumé des changements", "Change summary")}<textarea name="changeSummary" required maxLength={2000} /></label>
         <label>{t("Fichier", "File")}<input name="file" type="file" required accept=".pdf,.docx,.xlsx" /></label>
