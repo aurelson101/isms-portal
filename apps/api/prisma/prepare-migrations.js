@@ -16,9 +16,9 @@ async function main() {
       "Existing pre-migration schema detected; recording the validated baseline.",
     );
     const result = spawnSync(
-      "npx",
+      process.execPath,
       [
-        "prisma",
+        require.resolve("prisma/build/index.js"),
         "migrate",
         "resolve",
         "--applied",

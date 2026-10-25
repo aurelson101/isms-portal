@@ -113,7 +113,9 @@ export default function ModeratorPage() {
     setSearch(filters.q);
     setHasActiveSearch(Boolean(filters.q));
     void load(filters.page).catch((reason) => setError(reason.message));
-    return () => { loadRequest.current++; loadController.current?.abort(); };
+    const requests = loadRequest;
+    const controller = loadController;
+    return () => { requests.current++; controller.current?.abort(); };
   }, [load]);
   useEffect(() => {
     if (activeSection !== "documents" || !identity || mutationBusy || editing || metadataEditing || search.trim() === searchQuery.current) return;

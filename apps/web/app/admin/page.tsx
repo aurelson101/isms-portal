@@ -4,7 +4,7 @@ import { api } from "./api-client";
 import { DocumentsPanel } from "./documents-panel";
 import { LanguagesPanel } from "./languages-panel";
 import { LanguageButtons } from "../language-controls";
-import { flattenCategories, paginationItems, type Space, type Category, type AdminDocument } from "./document-model";
+import { flattenCategories, type Space, type AdminDocument } from "./document-model";
 
 import { localizedPair, localizeRecord, translate } from "../i18n/translate";
 
@@ -4464,6 +4464,7 @@ function ObservabilityPanel({
   const [liveDashboard, setLiveDashboard] = useState(dashboard);
   const operationLock = useRef(false);
   const settingsLoaded = useRef(false);
+  const [settingsReady, setSettingsReady] = useState(false);
   const operationsRequest = useRef(0);
   const operationsController = useRef<AbortController | null>(null);
   const [workFilter, setWorkFilter] = useState("ALL");
@@ -4639,6 +4640,7 @@ function ObservabilityPanel({
         setAlertPolicy(policy);
         setAlertChannels((current) => ({ ...current, ...channels }));
         settingsLoaded.current = true;
+        setSettingsReady(true);
       }
       setLastUpdated(new Date());
     } catch {
@@ -4647,14 +4649,18 @@ function ObservabilityPanel({
       window.clearTimeout(timeout);
       if (request === operationsRequest.current) setOperationsLoading(false);
     }
-  }, [locale]);
+  }, [locale, setAlertPolicy, setAlertChannels]);
   useEffect(() => {
     void reloadOperations();
-    return () => { operationsRequest.current++; operationsController.current?.abort(); };
+    const requests = operationsRequest;
+    const controller = operationsController;
+    return () => { requests.current++; controller.current?.abort(); };
   }, [reloadOperations]);
   useEffect(() => {
     if (view === "overview") void reloadEmailDeliveries();
-    return () => { emailRequest.current++; emailController.current?.abort(); };
+    const requests = emailRequest;
+    const controller = emailController;
+    return () => { requests.current++; controller.current?.abort(); };
   }, [reloadEmailDeliveries, view]);
   useEffect(() => {
     setPortalOrigin(window.location.origin);
@@ -4832,7 +4838,7 @@ function ObservabilityPanel({
         </div>
       </div>
       {operationsError && <p className="error-state" role="alert">{operationsError}</p>}
-      <fieldset className="observability-controls" disabled={operationsLoading || operationsBusy || emailBusy || !settingsLoaded.current}>
+      <fieldset className="observability-controls" disabled={operationsLoading || operationsBusy || emailBusy || !settingsReady}>
       {view === "overview" && <>
       <div className="summary-grid">
         <article>
