@@ -7,7 +7,7 @@ import { copyDocumentLink, documentShareUrl } from "./document-share";
 
 import { localizedPair, translate } from "./i18n/translate";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   getCachedPortalIdentity,
@@ -26,6 +26,22 @@ import dynamic from "next/dynamic";
 
 const ExcelReader = dynamic(() => import("./excel-reader").then((module) => module.ExcelReader), { ssr: false });
 const PdfPreview = dynamic(() => import("./pdf-preview").then((module) => module.PdfPreview), { ssr: false });
+
+function ReaderInformation({ summary, children }: { summary: string; children: ReactNode }) {
+  const [expanded, setExpanded] = useState(() =>
+    typeof window === "undefined" || !window.matchMedia("(max-width: 640px)").matches,
+  );
+  return (
+    <details
+      className="document-reader-information"
+      open={expanded}
+      onToggle={event => setExpanded(event.currentTarget.open)}
+    >
+      <summary>{summary}</summary>
+      {children}
+    </details>
+  );
+}
 
 type ViewMode = "list" | "grid";
 type DocumentSort = "recent" | "popular";
@@ -3108,10 +3124,10 @@ export function Portal({
                 </button>
               ))}
             </div>
-            <details className="document-reader-information" open>
-              <summary>
-                {translate(locale, "Informations documentaires", "Document information")}
-              </summary>
+            <ReaderInformation
+              key={opened.id}
+              summary={translate(locale, "Informations documentaires", "Document information")}
+            >
               <dl className="document-reader-meta">
                 <div>
                   <dt>{translate(locale, "Emplacement", "Location")}</dt>
@@ -3137,7 +3153,7 @@ export function Portal({
                   <dd>{openedLocale?.toUpperCase() || "—"}</dd>
                 </div>
               </dl>
-            </details>
+            </ReaderInformation>
             {openedVersion?.changeDetails &&
               (openedVersion.changeDetails.added?.length || 0) +
                 (openedVersion.changeDetails.removed?.length || 0) +
