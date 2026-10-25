@@ -2962,7 +2962,7 @@ export function Portal({
                     />
                     {translate(locale, "Réduire les animations", "Reduce motion")}
                   </label>
-                  <button type="button" onClick={() => void saveDisplayPreferences({ viewMode: "list", density: "comfortable", textScale: 100, highContrast: false, reducedMotion: false })}>
+                  <button type="button" className="primary" onClick={() => void saveDisplayPreferences({ viewMode: "list", density: "comfortable", textScale: 100, highContrast: false, reducedMotion: false })}>
                     {preferenceCopy[locale].reset}
                   </button>
                   {preferenceResult && <p className={preferenceResult === "failed" ? "error-state" : "notice"} role={preferenceResult === "failed" ? "alert" : "status"}>{preferenceCopy[locale][preferenceResult]}</p>}
