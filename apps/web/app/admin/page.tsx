@@ -3,7 +3,7 @@ import { fetchWithTimeout as fetch } from "../http-client";
 import { api } from "./api-client";
 import { DocumentsPanel } from "./documents-panel";
 import { LanguagesPanel } from "./languages-panel";
-import { LanguageButtons } from "../language-controls";
+import { LanguageButtons, ProfileLanguage } from "../language-controls";
 import { flattenCategories, type Space, type AdminDocument } from "./document-model";
 
 import { localizedPair, localizeRecord, translate } from "../i18n/translate";
@@ -585,11 +585,12 @@ export default function Admin() {
 
   const changeLocale = async (next: Locale) => {
     setLocale(next);
-    await fetch("/api/me/preferences", {
+    const response = await fetch("/api/me/preferences", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ locale: next }),
-    }).catch(() => undefined);
+    }).catch(() => null);
+    if (response?.ok) setIdentity(current => current ? { ...current, locale: next } : current);
   };
 
   const activateTab = useCallback((requested: string) => {
@@ -941,13 +942,10 @@ export default function Admin() {
                       {identity?.displayName || t("Administrateur ISMS")}
                     </strong>
                     <small>{identity?.username}</small>
-                    <div
-                      className="admin-profile-language-mobile"
-                      role="group"
-                      aria-label={t("Langue de l’interface")}
-                    >
-                      <LanguageButtons locale={locale} onChange={value => void changeLocale(value)} />
-                    </div>
+                    <ProfileLanguage locale={locale} defaultLocale={identity?.locale} onChange={next => {
+                      setLocale(next);
+                      setIdentity(current => current ? { ...current, locale: next } : current);
+                    }} />
                     <span
                       className={
                         identity?.authentication.ssoConnected
