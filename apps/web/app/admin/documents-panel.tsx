@@ -55,6 +55,8 @@ export function DocumentsPanel({
   const [pageDocuments, setPageDocuments] = useState<AdminDocument[]>([]);
   const [documentTotal, setDocumentTotal] = useState(0);
   const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [changingStatus, setChangingStatus] = useState<string | null>(null);
+  const statusInFlight = useRef(false);
   const documentRequest = useRef(0);
   const documentController = useRef<AbortController | null>(null);
   const [documentQuery, setDocumentQuery] = useState(search.trim().slice(0, 200));
@@ -136,6 +138,24 @@ export function DocumentsPanel({
     setEditedLocale(documentLocale);
     setEditedTitle(fields.title);
     setEditedDescription(fields.description);
+  };
+  const changeStatus = async (document: AdminDocument, status: string) => {
+    if (statusInFlight.current || status === document.status) return;
+    statusInFlight.current = true;
+    setChangingStatus(document.id);
+    try {
+      if (!(await confirmAction(`${t("État")} : ${statusLabel(document.status)} → ${statusLabel(status)} ?`))) return;
+      await api(`/api/admin/documents/${document.id}/status`, {
+        method: "PUT", body: JSON.stringify({ status }),
+      });
+      await loadDocuments();
+      await onChanged();
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      statusInFlight.current = false;
+      setChangingStatus(null);
+    }
   };
   return (
     <>
@@ -428,7 +448,19 @@ export function DocumentsPanel({
                     ))}
                   </div>
                 </td>
-                <td data-label={t("État")}>{statusLabel(document.status)}</td>
+                <td data-label={t("État")}>
+                  <select
+                    aria-label={`${t("État")} : ${document.translations[0]?.title || document.id}`}
+                    value={document.status}
+                    disabled={!!changingStatus || refreshing || document.status === "QUARANTINED"}
+                    aria-busy={changingStatus === document.id}
+                    onChange={event => void changeStatus(document, event.target.value)}
+                  >
+                    {["DRAFT", "PUBLISHED", "ARCHIVED", ...(document.status === "QUARANTINED" ? ["QUARANTINED"] : [])].map(status => (
+                      <option key={status} value={status}>{statusLabel(status)}</option>
+                    ))}
+                  </select>
+                </td>
                 <td data-label={t("Actions")}>
                   <div className="document-actions">
                     <button
@@ -461,51 +493,6 @@ export function DocumentsPanel({
                       <Icon name="upload" />
                       {t("Nouvelle version")}
                     </button>
-                    {document.status !== "PUBLISHED" && (
-                      <button
-                        className="document-action publish"
-                        onClick={() =>
-                          api(`/api/admin/documents/${document.id}/publish`, {
-                            method: "POST",
-                          })
-                            .then(onChanged)
-                            .catch((error) => onError(error.message))
-                        }
-                      >
-                        <Icon name="publish" />
-                        {t("Publier")}
-                      </button>
-                    )}
-                    {document.status !== "ARCHIVED" && (
-                      <button
-                        className="document-action archive"
-                        onClick={() =>
-                          api(`/api/admin/documents/${document.id}/archive`, {
-                            method: "POST",
-                          })
-                            .then(onChanged)
-                            .catch((error) => onError(error.message))
-                        }
-                      >
-                        <Icon name="archive" />
-                        {t("Archiver")}
-                      </button>
-                    )}
-                    {document.status === "ARCHIVED" && (
-                      <button
-                        className="document-action restore"
-                        onClick={() =>
-                          api(`/api/admin/documents/${document.id}/restore`, {
-                            method: "POST",
-                          })
-                            .then(onChanged)
-                            .catch((error) => onError(error.message))
-                        }
-                      >
-                        <Icon name="restore" />
-                        {t("Restaurer")}
-                      </button>
-                    )}
                     <button
                       className="document-action delete"
                       onClick={async () => {

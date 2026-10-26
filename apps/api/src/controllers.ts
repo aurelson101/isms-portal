@@ -41,6 +41,7 @@ import {
   DocumentCategoryAssignmentDto,
   DirectoryGroupDto,
   DocumentMetadataDto,
+  DocumentStatusDto,
   ImportDirectoryGroupDto,
   LocalePreferenceDto,
   SpaceDto,
@@ -3100,6 +3101,27 @@ export class DocumentAdminController {
     const publication = await publishWithReview(this.prisma, id, document.versions.slice().sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0]?.id || null, !document.publishedAt, new Date(), { request: req, action: "document.publish", details: distributedFiles.length ? { distributedFiles } : undefined, notify: !document.suppressEmailNotifications });
     const updated = publication.document;
     for (const event of publication.events) await this.audit.committed(event);
+    return updated;
+  }
+
+  @Put(":id/status")
+  async changeStatus(@Req() req: IsmsRequest, @Param("id") id: string, @Body() body: DocumentStatusDto) {
+    const document = await this.prisma.document.findFirst({ where: { id, deletedAt: null } });
+    if (!document) throw new NotFoundException();
+    if (document.status === "QUARANTINED") throw new ConflictException("Quarantined documents cannot change status");
+    if (document.status === body.status) return document;
+    if (body.status === "PUBLISHED") return this.publish(req, id);
+    if (body.status === "ARCHIVED") return this.archive(req, id);
+    if (document.status === "ARCHIVED") return this.restore(req, id);
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const changed = await tx.document.updateMany({
+        where: { id, deletedAt: null, status: document.status },
+        data: { status: "DRAFT" },
+      });
+      if (changed.count !== 1) throw new ConflictException("Document changed; refresh and retry");
+      return tx.document.findUnique({ where: { id } });
+    });
+    await this.audit.record(req, "document.draft", `document:${id}`, "success");
     return updated;
   }
 

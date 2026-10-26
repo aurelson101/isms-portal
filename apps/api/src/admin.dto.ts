@@ -163,6 +163,11 @@ export class AnnualIncidentReportDto {
   audienceGroupIds?: string[];
 }
 
+export class DocumentStatusDto {
+  @IsIn(["DRAFT", "PUBLISHED", "ARCHIVED"])
+  status!: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+}
+
 export class DocumentMetadataDto {
   @IsOptional()
   @IsDateString()
