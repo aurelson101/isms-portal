@@ -1,5 +1,43 @@
 import { expect, test } from "./test";
 
+test("admin state changes send JSON and refresh the selected state", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+  const document = {
+    id: "document", status: "DRAFT", sensitive: false,
+    translations: [{ locale: "en", title: "State test" }],
+    space: { id: "space", nameEn: "Documents", nameFr: "Documents" },
+    versions: [{ locale: "en", version: 1, createdAt: "2026-01-01T00:00:00Z" }],
+  };
+  const states: string[] = [];
+  await page.route("**/api/**", async route => {
+    const request = route.request();
+    const { pathname } = new URL(request.url());
+    if (pathname === "/api/admin/check") return route.fulfill({ json: { isAdmin: true, username: "admin@example.test", locale: "en", authentication: { source: "local", diagnostics: {} } } });
+    if (pathname === "/api/admin/documents") return route.fulfill({ json: { items: [document], total: 1 } });
+    if (pathname === "/api/admin/documents/document/status") {
+      expect(request.method()).toBe("PUT");
+      expect(request.headers()["content-type"]).toMatch(/^application\/json\b/);
+      document.status = request.postDataJSON().status;
+      states.push(document.status);
+      return route.fulfill({ json: document });
+    }
+    if (pathname === "/api/admin/audit") return route.fulfill({ json: { items: [] } });
+    if (pathname === "/api/admin/dashboard") return route.fulfill({ json: null });
+    if (pathname === "/api/health/details") return route.fulfill({ json: { services: {} } });
+    if (pathname === "/api/branding") return route.fulfill({ json: {} });
+    return route.fulfill({ json: [] });
+  });
+  await page.goto("/admin#documents");
+  const state = page.getByRole("combobox", { name: "Status : State test", exact: true });
+  for (const value of ["PUBLISHED", "ARCHIVED", "DRAFT"]) {
+    await state.selectOption(value);
+    await page.locator(".confirmation-actions button").last().click();
+    await expect(state).toHaveValue(value);
+    await expect(state).toBeEnabled();
+  }
+  expect(states).toEqual(["PUBLISHED", "ARCHIVED", "DRAFT"]);
+});
+
 for (const width of [320, 1280]) {
   for (const description of ["", null]) {
     test(`admin metadata preserves ${description === null ? "absent" : "empty"} translated descriptions and prevents duplicate saves at ${width}px`, async ({ page }) => {

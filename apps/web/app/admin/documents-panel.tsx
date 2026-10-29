@@ -146,7 +146,7 @@ export function DocumentsPanel({
     try {
       if (!(await confirmAction(`${t("État")} : ${statusLabel(document.status)} → ${statusLabel(status)} ?`))) return;
       await api(`/api/admin/documents/${document.id}/status`, {
-        method: "PUT", body: JSON.stringify({ status }),
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
       });
       await loadDocuments();
       await onChanged();
