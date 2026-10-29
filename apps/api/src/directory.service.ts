@@ -491,60 +491,60 @@ export class DirectoryService {
     const results: Record<string, unknown> = {};
     const startedAt = Date.now();
     try {
-      results.dns = await withTimeout(async () => {
-        const answer = await lookup(connection.primaryHost);
-        return { ok: true, address: answer.address };
-      }, connection.timeoutMs);
-      results.tcp = await new Promise((resolve, reject) => {
-        const socket = createConnection({
-          host: connection.primaryHost,
-          port: connection.port,
-        });
-        socket.setTimeout(connection.timeoutMs);
-        socket.once("connect", () => {
-          socket.destroy();
-          resolve({ ok: true });
-        });
-        socket.once("timeout", () => {
-          socket.destroy();
-          reject(new Error("TCP timeout"));
-        });
-        socket.once("error", reject);
-      });
-      if (connection.protocol === "LDAPS") {
-        if (!connection.caCertificate)
-          throw new Error("A trusted CA certificate is required for LDAPS");
-        results.tls = await new Promise((resolve, reject) => {
-          const socket = tlsConnect(
-            {
-              host: connection.primaryHost,
-              port: connection.port,
-              servername: connection.primaryHost,
-              ca: [connection.caCertificate!.pem],
-              rejectUnauthorized: true,
-              minVersion: "TLSv1.2",
-            },
-            () => {
-              const peer = socket.getPeerCertificate();
-              socket.destroy();
-              resolve({
-                ok: true,
-                subject: peer.subject?.CN,
-                validTo: peer.valid_to,
-              });
-            },
-          );
+      const { client, host } = await this.bindWithFallback(connection);
+      results.bind = { ok: true, host, fallback: host !== connection.primaryHost };
+      try {
+        results.dns = await withTimeout(async () => {
+          const answer = await lookup(host);
+          return { ok: true, address: answer.address, host };
+        }, connection.timeoutMs);
+        results.tcp = await new Promise((resolve, reject) => {
+          const socket = createConnection({
+            host,
+            port: connection.port,
+          });
           socket.setTimeout(connection.timeoutMs);
+          socket.once("connect", () => {
+            socket.destroy();
+            resolve({ ok: true });
+          });
           socket.once("timeout", () => {
             socket.destroy();
-            reject(new Error("TLS timeout"));
+            reject(new Error("TCP timeout"));
           });
           socket.once("error", reject);
         });
-      }
-      const { client, host } = await this.bindWithFallback(connection);
-      results.bind = { ok: true, host };
-      try {
+        if (connection.protocol === "LDAPS") {
+          if (!connection.caCertificate)
+            throw new Error("A trusted CA certificate is required for LDAPS");
+          results.tls = await new Promise((resolve, reject) => {
+            const socket = tlsConnect(
+              {
+                host,
+                port: connection.port,
+                servername: host,
+                ca: [connection.caCertificate!.pem],
+                rejectUnauthorized: true,
+                minVersion: "TLSv1.2",
+              },
+              () => {
+                const peer = socket.getPeerCertificate();
+                socket.destroy();
+                resolve({
+                  ok: true,
+                  subject: peer.subject?.CN,
+                  validTo: peer.valid_to,
+                });
+              },
+            );
+            socket.setTimeout(connection.timeoutMs);
+            socket.once("timeout", () => {
+              socket.destroy();
+              reject(new Error("TLS timeout"));
+            });
+            socket.once("error", reject);
+          });
+        }
         const userResult = await client.search(
           connection.userBaseDn || connection.baseDn,
           {
