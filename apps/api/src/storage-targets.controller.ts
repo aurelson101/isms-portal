@@ -45,8 +45,9 @@ export class StorageOptionsController {
 
   @Get()
   async list(@Req() req: IsmsRequest, @Query("spaceId") spaceId: string) {
-    if (!spaceId || !(await this.authorization.can(req.identity.groups, spaceId, "upload") || await this.authorization.can(req.identity.groups, spaceId, "edit")))
-      throw new ForbiddenException();
+    if (!spaceId) throw new ForbiddenException();
+    const permissions = await this.authorization.permittedSpacesFor(req.identity.groups, ["upload", "edit"], spaceId);
+    if (![...permissions.values()].some(spaces => spaces.some(space => space.id === spaceId))) throw new ForbiddenException();
     return this.targets.available();
   }
 }

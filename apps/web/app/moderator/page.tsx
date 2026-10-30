@@ -249,7 +249,7 @@ export default function ModeratorPage() {
       const currentLocale = latestVersion(document)?.locale;
       const selected = isLocale(currentLocale) ? currentLocale : locale;
       setMetadataCategories(categories as Category[]);
-      setMetadata({ locale: selected, ...translationFields(document, selected), categoryId: document.category?.id || "" });
+      setMetadata({ locale: selected, ...translationFields(document, selected), categoryId: document.category?.id || "", metadata: document.metadata || {} });
       dirty.current = false;
       setEditing(null);
       setMetadataEditing(document);
@@ -261,7 +261,7 @@ export default function ModeratorPage() {
       const response = await fetch(`/api/documents/${metadataEditing.id}/metadata`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ expectedUpdatedAt: metadataEditing.updatedAt, locale: metadata.locale, versionId: latestVersion(metadataEditing)?.id,
-          title: metadata.title.trim(), description: metadata.description.trim(), categoryId: metadata.categoryId || null }),
+          title: metadata.title.trim(), description: metadata.description.trim(), categoryId: metadata.categoryId || null, ...(JSON.stringify(metadata.metadata || {}) !== JSON.stringify(metadataEditing.metadata || {}) ? { metadata: metadata.metadata || {} } : {}) }),
       });
       if (!response.ok) throw new Error(await messageOf(response));
       closeEditor(true);

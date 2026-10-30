@@ -1,6 +1,7 @@
 "use client";
 import { fetchWithTimeout as fetch } from "./http-client";
 import { translationFields } from "./moderator/document-model";
+import { CustomMetadataFields } from "./document-metadata-fields";
 import { uploadAttempt, type UploadAttempt } from "./upload-attempt";
 import { normalizePdfPage, parsePdfProgress, type PdfZoom } from "./pdf-progress";
 import { copyDocumentLink, documentShareUrl } from "./document-share";
@@ -155,6 +156,7 @@ type ReviewEvidence = {
   version: { locale: string; version: number } | null;
 };
 type PortalDocument = {
+  metadata?: Record<string, string>;
   updatedAt?: string;
   id: string;
   slug: string;
@@ -631,6 +633,7 @@ export function Portal({
   const [editLocale, setEditLocale] = useState<DocumentLocale>("fr");
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editMetadata, setEditMetadata] = useState<Record<string, string>>({});
   const [depositOpen, setDepositOpen] = useState(false);
   const [actionError, setActionError] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
@@ -2294,6 +2297,7 @@ export function Portal({
                     setEditLocale(documentLocale);
                     setEditTitle(translation?.title || "");
                     setEditDescription(translation?.description || "");
+                    setEditMetadata(document.metadata || {});
                     setEditing(document);
                   }}
                   onTransition={(document, action) =>
@@ -3120,6 +3124,7 @@ export function Portal({
                   <dt>{translate(locale, "Langue", "Language")}</dt>
                   <dd>{openedLocale?.toUpperCase() || "—"}</dd>
                 </div>
+                {Object.entries(opened.metadata || {}).map(([field, value]) => <div className="document-reader-custom-field" key={field}><dt>{field}</dt><dd>{value}</dd></div>)}
               </dl>
             </ReaderInformation>
             {openedVersion?.changeDetails &&
@@ -3573,10 +3578,10 @@ export function Portal({
                 const categoryId = String(values.categoryId || "") || null;
                 const currentCategoryId = editing.category?.id || null;
                 const currentTranslation = editing.translations.find((translation) => translation.locale === editLocale);
-                const metadataChanged = String(values.title).trim() !== (currentTranslation?.title || "") || String(values.description || "").trim() !== (currentTranslation?.description || "");
+                const metadataChanged = String(values.title).trim() !== (currentTranslation?.title || "") || String(values.description || "").trim() !== (currentTranslation?.description || "") || JSON.stringify(editMetadata) !== JSON.stringify(editing.metadata || {});
                 const categoryChanged = categoryId !== currentCategoryId;
                 const languageChanged = editing.versions.find((version) => version.id === editVersionId)?.locale !== editLocale;
-                const response = metadataChanged || categoryChanged || languageChanged ? await fetch(`/api/documents/${editing.id}/metadata`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expectedUpdatedAt: editing.updatedAt, locale: editLocale, versionId: editVersionId, title: values.title, description: values.description, categoryId }) }) : null;
+                const response = metadataChanged || categoryChanged || languageChanged ? await fetch(`/api/documents/${editing.id}/metadata`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expectedUpdatedAt: editing.updatedAt, locale: editLocale, versionId: editVersionId, title: values.title, description: values.description, categoryId, ...(JSON.stringify(editMetadata) !== JSON.stringify(editing.metadata || {}) ? { metadata: editMetadata } : {}) }) }) : null;
                 if (response && !response.ok) {
                   setActionError(t.error);
                   return;
@@ -3618,6 +3623,7 @@ export function Portal({
                   {populatedCategories(identity?.spaces.find((space) => space.id === editing.space.id) || editing.space).map((category) => <option key={category.id} value={category.id}>{"  ".repeat(category.depth)}{locale === "fr" ? category.nameFr : category.nameEn}</option>)}
                 </select>
               </label>
+              <CustomMetadataFields value={editMetadata} onChange={setEditMetadata} t={(fr, en) => translate(locale, fr, en)} />
               <div className="button-row">
                 <button className="primary">{t.save}</button>
                 <button type="button" onClick={() => setEditing(null)}>

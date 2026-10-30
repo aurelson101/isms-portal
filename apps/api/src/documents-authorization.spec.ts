@@ -163,8 +163,8 @@ describe("DocumentsController ACL scoping", () => {
     expect(count).toHaveBeenCalledWith({
       where: expect.objectContaining({
         OR: [
-          { status: "PUBLISHED", spaceId: { in: [] } },
-          { spaceId: { in: ["space-it"] } },
+          expect.objectContaining({ status: "PUBLISHED", spaceId: { in: [] } }),
+          expect.objectContaining({ spaceId: { in: ["space-it"] } }),
         ],
       }),
     });
@@ -180,7 +180,7 @@ describe("DocumentsController ACL scoping", () => {
 
     expect(count).toHaveBeenCalledWith({
       where: expect.objectContaining({
-        OR: [{ spaceId: { in: ["space-it"] } }],
+        OR: [expect.objectContaining({ spaceId: { in: ["space-it"] } })],
       }),
     });
   });
@@ -188,7 +188,7 @@ describe("DocumentsController ACL scoping", () => {
   it.each(["DRAFT", "PUBLISHED", "ARCHIVED", "QUARANTINED"])("filters %s within the requested manageable space", async status => {
     grant({ read: [general, itSpace], edit: [general, itSpace] });
     await controller.list(request, "", undefined, undefined, "it", "recent", "1", "20", "false", "", "", "", "true", status);
-    expect(count).toHaveBeenCalledWith({ where: expect.objectContaining({ status, OR: [{ spaceId: { in: ["space-it"] } }] }) });
+    expect(count).toHaveBeenCalledWith({ where: expect.objectContaining({ status, OR: [expect.objectContaining({ spaceId: { in: ["space-it"] } })] }) });
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status }), take: 20 }));
   });
 
@@ -201,7 +201,7 @@ describe("DocumentsController ACL scoping", () => {
   it("does not expose drafts to a read-only user through the status filter", async () => {
     grant({ read: [general] });
     await controller.list(request, "", undefined, undefined, undefined, "recent", "1", "20", "false", "", "", "", "false", "DRAFT");
-    expect(count).toHaveBeenCalledWith({ where: expect.objectContaining({ status: "DRAFT", OR: [{ status: "PUBLISHED", spaceId: { in: ["space-general"] } }, { spaceId: { in: [] } }] }) });
+    expect(count).toHaveBeenCalledWith({ where: expect.objectContaining({ status: "DRAFT", OR: [expect.objectContaining({ status: "PUBLISHED", spaceId: { in: ["space-general"] } }), expect.objectContaining({ spaceId: { in: [] } })] }) });
   });
 
   it("does not let management permissions bypass the search permission", async () => {
@@ -222,8 +222,8 @@ describe("DocumentsController ACL scoping", () => {
     expect(count).toHaveBeenCalledWith({
       where: expect.objectContaining({
         OR: [
-          { status: "PUBLISHED", spaceId: { in: ["space-it"] } },
-          { spaceId: { in: ["space-it"] } },
+          expect.objectContaining({ status: "PUBLISHED", spaceId: { in: ["space-it"] } }),
+          expect.objectContaining({ spaceId: { in: ["space-it"] } }),
         ],
         id: { in: ["document-it"] },
       }),
@@ -276,8 +276,8 @@ describe("DocumentsController ACL scoping", () => {
       where: expect.objectContaining({
         favorites: { some: { identity: "acl-user@example.test" } },
         OR: [
-          { status: "PUBLISHED", spaceId: { in: ["space-general"] } },
-          { spaceId: { in: [] } },
+          expect.objectContaining({ status: "PUBLISHED", spaceId: { in: ["space-general"] } }),
+          expect.objectContaining({ spaceId: { in: [] } }),
         ],
       }),
     });
@@ -426,7 +426,8 @@ describe("DocumentsController ACL scoping", () => {
     can.mockResolvedValue(true);
     categoryFindFirst.mockResolvedValueOnce({ id: "new-category" });
     expect(await controller.updateCategory(request, "doc-1", { categoryId: "new-category" })).toEqual({ id: "doc-1", categoryId: "new-category" });
-    expect(can).toHaveBeenCalledWith(request.identity.groups, general.id, "edit");
+    expect(can).toHaveBeenCalledWith(request.identity.groups, general.id, "edit", "old-category");
+    expect(can).toHaveBeenCalledWith(request.identity.groups, general.id, "edit", "new-category");
     expect(categoryFindFirst).toHaveBeenCalledWith({
       where: { id: "new-category", spaceId: general.id, deletedAt: null }, select: { id: true },
     });
@@ -493,7 +494,7 @@ describe("DocumentsController ACL scoping", () => {
     findFirst.mockResolvedValueOnce(archived).mockResolvedValueOnce({ ...archived, status: "DRAFT" });
     can.mockResolvedValue(true);
     expect(await controller.userRestore(request, "doc-1")).toMatchObject({ status: "DRAFT" });
-    expect(can).toHaveBeenCalledWith(request.identity.groups, general.id, "archive");
+    expect(can).toHaveBeenCalledWith(request.identity.groups, general.id, "archive", null);
     expect(updateManyDocuments).toHaveBeenCalledWith({
       where: { id: "doc-1", deletedAt: null, status: "ARCHIVED", spaceId: general.id },
       data: { status: "DRAFT" },

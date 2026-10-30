@@ -23,6 +23,7 @@ import { integrationArtifact, integrationArtifacts } from "./integration-artifac
 import { AdminOnly } from "./security";
 import { PrismaService } from "./prisma.service";
 import { AuthorizationService } from "./authorization.service";
+import { categoryAllowed, categoryDocumentWhere } from "./category-permissions";
 import { AuditService } from "./audit.service";
 import { StorageService } from "./storage.service";
 import { AntivirusService } from "./antivirus.service";
@@ -95,21 +96,15 @@ export class UserToolsController {
           select: {
             id: true,
             spaceId: true,
+            categoryId: true,
             status: true,
             translations: { select: { locale: true, title: true } },
           },
         },
       },
     });
-    const readable = new Set(
-      (
-        await this.authorization.permittedSpaces(req.identity.groups, "read")
-      ).map((space) => space.id),
-    );
-    return activities.filter(
-      ({ document }) =>
-        document.status === "PUBLISHED" && readable.has(document.spaceId),
-    );
+    const readable = await this.authorization.permittedSpaces(req.identity.groups, "read");
+    return activities.filter(({ document }) => document.status === "PUBLISHED" && categoryAllowed(readable.find(space => space.id === document.spaceId), document.categoryId));
   }
 
   @Delete("recent")
@@ -133,15 +128,15 @@ export class UserToolsController {
       where: { identity: req.identity.username },
       select: { lastSeenAt: true },
     });
-    const readableSpaceIds = (
-      await this.authorization.permittedSpaces(req.identity.groups, "read")
-    ).map((space) => space.id);
+    const readable = await this.authorization.permittedSpaces(req.identity.groups, "read");
+    const readableSpaceIds = readable.map(space => space.id);
     const since = preference?.lastSeenAt || new Date(0);
     const documents = await this.prisma.document.findMany({
       where: {
         deletedAt: null,
         status: "PUBLISHED",
         spaceId: { in: readableSpaceIds },
+        AND: [categoryDocumentWhere(readable)],
         updatedAt: { gt: since },
       },
       select: {
@@ -309,14 +304,14 @@ export class UserToolsController {
   async report(@Req() req: IsmsRequest, @Body() body: DocumentReportDto) {
     const document = await this.prisma.document.findFirst({
       where: { id: body.documentId, deletedAt: null },
-      select: { id: true, spaceId: true, status: true },
+      select: { id: true, spaceId: true, categoryId: true, status: true },
     });
     const allowed = document
       ? document.status === "PUBLISHED"
         ? await this.authorization.can(
             req.identity.groups,
             document.spaceId,
-            "read",
+            "read", document.categoryId ?? null,
           )
         : (
             await Promise.all(
@@ -324,7 +319,7 @@ export class UserToolsController {
                 this.authorization.can(
                   req.identity.groups,
                   document.spaceId,
-                  permission,
+                  permission, document.categoryId ?? null,
                 ),
               ),
             )
@@ -350,9 +345,10 @@ export class UserToolsController {
   }
 
   @Get("document-reports")
-  reports(@Req() req: IsmsRequest) {
+  async reports(@Req() req: IsmsRequest) {
+    const spaces = await this.authorization.permittedSpaces(req.identity.groups, "read");
     return this.prisma.documentReport.findMany({
-      where: { identity: req.identity.username },
+      where: { identity: req.identity.username, document: { deletedAt: null, AND: [categoryDocumentWhere(spaces)] } },
       include: {
         document: {
           select: { slug: true, translations: true },
@@ -371,7 +367,7 @@ export class UserToolsController {
     const version = await this.prisma.documentVersion.findFirst({
       where: { id: body.versionId, documentId: body.documentId },
       include: {
-        document: { select: { spaceId: true, status: true, deletedAt: true } },
+        document: { select: { spaceId: true, categoryId: true, status: true, deletedAt: true } },
         storedFile: { select: { sha256: true } },
       },
     });
@@ -383,7 +379,7 @@ export class UserToolsController {
         !(await this.authorization.can(
           req.identity.groups,
           version.document.spaceId,
-          "read",
+          "read", version.document.categoryId,
         )))
     )
       throw new NotFoundException();

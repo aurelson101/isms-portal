@@ -15,6 +15,7 @@ import {
   MinLength,
   ValidateIf,
   ValidateNested,
+  ValidateBy,
 } from "class-validator";
 import { Type } from "class-transformer";
 
@@ -110,6 +111,7 @@ export class CategoryDto extends SpaceDto {
 export class AccessRuleDto {
   @IsUUID() groupId!: string;
   @IsUUID() spaceId!: string;
+  @IsOptional() @IsUUID() categoryId?: string | null;
   @IsBoolean() showMenu!: boolean;
   @IsBoolean() read!: boolean;
   @IsBoolean() search!: boolean;
@@ -169,6 +171,15 @@ export class DocumentStatusDto {
 }
 
 export class DocumentMetadataDto {
+  @ValidateIf((_object, value) => value !== undefined)
+  @ValidateBy({ name: "documentMetadata", validator: {
+    validate: value => value !== null && typeof value === "object" && !Array.isArray(value)
+      && Object.keys(value).length <= 20 && Object.entries(value).every(([key, item]) =>
+        /^[\p{L}\p{N}][\p{L}\p{N} _.-]{0,63}$/u.test(key) && !["__proto__", "constructor", "prototype"].includes(key)
+        && typeof item === "string" && item.length <= 1000),
+    defaultMessage: () => "Metadata must contain at most 20 named text fields (64 characters per name, 1000 per value)",
+  } })
+  metadata?: Record<string, string>;
   @IsOptional()
   @IsDateString()
   expectedUpdatedAt?: string;

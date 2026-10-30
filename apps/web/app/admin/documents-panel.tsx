@@ -42,6 +42,7 @@ export function DocumentsPanel({
   const [editedLocale, setEditedLocale] = useState<Locale>("fr");
   const [editedTitle, setEditedTitle] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
+  const [editedMetadata, setEditedMetadata] = useState<Record<string, string>>({});
   const [savingMetadata, setSavingMetadata] = useState(false);
   const metadataInFlight = useRef(false);
   const uploadInFlight = useRef(false);
@@ -328,7 +329,7 @@ export function DocumentsPanel({
             await api(`/api/documents/${editingMetadataDocument.id}/metadata`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ expectedUpdatedAt: editingMetadataDocument.updatedAt, locale: editedLocale, versionId: latestVersion(editingMetadataDocument)?.id, title: editedTitle.trim(), description: editedDescription.trim(), categoryId: editedCategoryId || null }),
+              body: JSON.stringify({ expectedUpdatedAt: editingMetadataDocument.updatedAt, locale: editedLocale, versionId: latestVersion(editingMetadataDocument)?.id, title: editedTitle.trim(), description: editedDescription.trim(), categoryId: editedCategoryId || null, ...(JSON.stringify(editedMetadata) !== JSON.stringify(editingMetadataDocument.metadata || {}) ? { metadata: editedMetadata } : {}) }),
             });
             setEditingMetadataDocument(null);
             await onChanged();
@@ -342,9 +343,9 @@ export function DocumentsPanel({
           <h2>{t("Éditer les métadonnées")}</h2>
           <p>{editingMetadataDocument.translations.map((item) => item.title).join(" / ")}</p>
           <DocumentMetadataFields t={t} disabled={savingMetadata}
-            value={{ locale: editedLocale, title: editedTitle, description: editedDescription, categoryId: editedCategoryId }}
+            value={{ locale: editedLocale, title: editedTitle, description: editedDescription, categoryId: editedCategoryId, metadata: editedMetadata }}
             onLocaleChange={(selected) => selectMetadataLocale(editingMetadataDocument, selected)}
-            onChange={(value) => { setEditedTitle(value.title); setEditedDescription(value.description); setEditedCategoryId(value.categoryId); }}>
+            onChange={(value) => { setEditedTitle(value.title); setEditedDescription(value.description); setEditedCategoryId(value.categoryId); setEditedMetadata(value.metadata || {}); }}>
               {flattenCategories(spaces.find((space) => space.id === editingMetadataDocument.space.id)?.categories || []).map(({ item, depth }) => (
                 <option key={item.id} value={item.id}>{`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}</option>
               ))}
@@ -468,6 +469,7 @@ export function DocumentsPanel({
                       className="document-action"
                       onClick={() => {
                         setEditingMetadataDocument(document);
+                        setEditedMetadata(document.metadata || {});
                         setEditedCategoryId(document.category?.id || "");
                         const currentLocale = latestVersion(document)?.locale;
                         selectMetadataLocale(document, isLocale(currentLocale) ? currentLocale : locale);

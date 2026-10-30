@@ -1,10 +1,29 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { DocumentLocale } from "./i18n/locale";
 import { LanguageSelect } from "./language-controls";
 
-export type MetadataValues = { locale: DocumentLocale; title: string; description: string; categoryId: string };
+export type MetadataValues = { locale: DocumentLocale; title: string; description: string; categoryId: string; metadata?: Record<string, string> };
+
+export function CustomMetadataFields({ value, onChange, t, disabled = false }: {
+  value: Record<string, string>; onChange: (value: Record<string, string>) => void;
+  t: (fr: string, en: string) => string; disabled?: boolean;
+}) {
+  const [name, setName] = useState("");
+  const key = name.trim();
+  const canAdd = Object.keys(value).length < 20 && /^[\p{L}\p{N}][\p{L}\p{N} _.-]{0,63}$/u.test(key)
+    && !["__proto__", "constructor", "prototype"].includes(key) && !Object.hasOwn(value, key);
+  return <fieldset className="admin-form wide" disabled={disabled}>
+    <legend>{t("Champs personnalisés", "Custom fields")}</legend>
+    {Object.entries(value).map(([field, content]) => <div className="button-row" key={field}>
+      <label>{field}<input maxLength={1000} value={content} onChange={event => onChange({ ...value, [field]: event.target.value })} /></label>
+      <button type="button" aria-label={`${t("Supprimer", "Delete")} ${field}`} onClick={() => onChange(Object.fromEntries(Object.entries(value).filter(([item]) => item !== field)))}>{t("Supprimer", "Delete")}</button>
+    </div>)}
+    <div className="button-row"><label>{t("Nom du champ", "Field name")}<input value={name} maxLength={64} onChange={event => setName(event.target.value)} /></label>
+      <button type="button" disabled={!canAdd} onClick={() => { onChange({ ...value, [key]: "" }); setName(""); }}>{t("Ajouter", "Add")}</button></div>
+  </fieldset>;
+}
 
 export function DocumentMetadataFields({ value, onChange, onLocaleChange, t, children, disabled = false }: {
   value: MetadataValues;
@@ -22,5 +41,6 @@ export function DocumentMetadataFields({ value, onChange, onLocaleChange, t, chi
       <option value="">{t("Sans catégorie", "No category")}</option>
       {children}
     </select></label>
+    <CustomMetadataFields value={value.metadata || {}} onChange={metadata => onChange({ ...value, metadata })} t={t} disabled={disabled} />
   </>;
 }

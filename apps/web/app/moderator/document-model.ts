@@ -4,6 +4,7 @@ import type { Locale } from "../i18n/locale";
 export type Space = { id: string; slug?: string; nameFr: string; nameEn: string; permissions: Record<string, boolean> };
 export type Category = { id: string; parentId: string | null; nameFr: string; nameEn: string };
 export type ModeratorDocument = {
+  metadata?: Record<string, string>;
   updatedAt?: string;
   id: string; status: string; space: Pick<Space, "id" | "nameFr" | "nameEn">;
   category: Pick<Category, "id" | "nameFr" | "nameEn"> | null;

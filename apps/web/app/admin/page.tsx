@@ -209,6 +209,8 @@ type Rule = {
   id: string;
   groupId: string;
   spaceId: string;
+  categoryId?: string | null;
+  category?: { id: string; nameFr: string; nameEn: string } | null;
   group: Group;
   space: Space;
   showMenu: boolean;
@@ -386,6 +388,7 @@ const emptyRule = (
 ): Omit<Rule, "id" | "group" | "space"> => ({
   groupId,
   spaceId,
+  categoryId: null,
   showMenu: false,
   read: false,
   search: false,
@@ -680,6 +683,7 @@ export default function Admin() {
       permissionKeys.reduce((draft, key) => ({ ...draft, [key]: rule[key] }), {
         groupId: rule.groupId,
         spaceId: rule.spaceId,
+        categoryId: rule.categoryId || null,
         validFrom: rule.validFrom || null,
         validUntil: rule.validUntil || null,
         lifetime: rule.lifetime !== false,
@@ -690,7 +694,7 @@ export default function Admin() {
   const filteredRules = useMemo(
     () =>
       rules.filter((rule) =>
-        `${rule.group.name} ${rule.space.nameFr} ${rule.space.nameEn}`
+        `${rule.group.name} ${rule.space.nameFr} ${rule.space.nameEn} ${rule.category?.nameFr || ""} ${rule.category?.nameEn || ""}`
           .toLowerCase()
           .includes(search.toLowerCase()),
       ),
@@ -1170,7 +1174,7 @@ export default function Admin() {
                 <select
                   value={ruleDraft.spaceId}
                   onChange={(event) =>
-                    setRuleDraft({ ...ruleDraft, spaceId: event.target.value })
+                    setRuleDraft({ ...ruleDraft, spaceId: event.target.value, categoryId: null })
                   }
                 >
                   <option value="">{t("Sélectionner…")}</option>
@@ -1181,6 +1185,11 @@ export default function Admin() {
                   ))}
                 </select>
               </label>
+              <label>{t("Catégorie")}<select value={ruleDraft.categoryId || ""} disabled={!ruleDraft.spaceId} onChange={event => setRuleDraft({ ...ruleDraft, categoryId: event.target.value || null })}>
+                <option value="">{t("Tout l’espace (héritage)", "Entire space (inheritance)")}</option>
+                {flattenCategories(spaces.find(space => space.id === ruleDraft.spaceId)?.categories || []).map(({ item, depth }) => <option key={item.id} value={item.id}>{`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}</option>)}
+              </select></label>
+              <p>{t("Les droits du parent sont hérités sauf si une règle existe pour cette catégorie.", "Parent permissions are inherited unless this category has its own rules.")}</p>
               <h3>{t("Permissions accordées")}</h3>
               {permissionKeys.map((key) => (
                 <label className="toggle" key={key}>
@@ -1958,6 +1967,7 @@ function RulesPanel({
                   </td>
                   <td data-label={t("Espace")}>
                     {locale === "fr" ? rule.space.nameFr : rule.space.nameEn}
+                    {rule.category && <small> / {locale === "fr" ? rule.category.nameFr : rule.category.nameEn}</small>}
                   </td>
                   {permissionKeys.map((key) => (
                     <td key={key} data-label={localizedPair(locale, permissionLabels[key])}>{rule[key] ? "✓" : "—"}</td>
@@ -5812,7 +5822,7 @@ function SettingsPanel({
               const saved = await api<PortalBranding>("/api/branding", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(portalBranding),
+                body: JSON.stringify({ title: portalBranding.title, logoDataUrl: portalBranding.logoDataUrl }),
               });
               setPortalBranding(saved);
               updateBrandingCache(saved);

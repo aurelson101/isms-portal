@@ -1,4 +1,8 @@
 export const slovakMessages: Readonly<Record<string, string>> = {
+  "Custom fields": "Vlastné polia",
+  "Field name": "Názov poľa",
+  "Entire space (inheritance)": "Celý priestor (dedenie)",
+  "Parent permissions are inherited unless this category has its own rules.": "Dedia sa oprávnenia nadradenej úrovne, pokiaľ táto kategória nemá vlastné pravidlá.",
   "Languages and personal preferences": "Jazyky a osobné predvoľby",
   "From your profile, open Display preferences, choose your default interface language and wait for confirmation. The choice is saved in your account and applies to the user, moderator and administrator workspaces, including on another device.": "Vo svojom profile otvorte Predvoľby zobrazenia, vyberte predvolený jazyk rozhrania a počkajte na potvrdenie. Voľba sa uloží do účtu a platí pre priestory používateľa, moderátora a správcu aj na inom zariadení.",
   "In Administration > Languages, enable the available languages among FR, EN, ES and SK, select the portal default language and save. At least one language must remain enabled; the default language must be enabled. Reload other tabs after a change.": "V Správa > Jazyky zapnite dostupné jazyky FR, EN, ES a SK, vyberte predvolený jazyk portálu a uložte nastavenia. Aspoň jeden jazyk musí zostať zapnutý; predvolený jazyk musí byť zapnutý. Po zmene obnovte ostatné karty.",

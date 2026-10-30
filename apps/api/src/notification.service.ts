@@ -115,11 +115,11 @@ export class NotificationService {
     return [...new Set(recipients)];
   }
 
-  async spaceAudience(spaceId: string, permission: Permission) {
+  async spaceAudience(spaceId: string, permission: Permission, categoryId: string | null = null) {
     const groups = await this.prisma.directoryGroup.findMany({ where: { active: true, OR: [{ accessRules: { some: { spaceId } } }, { ownedSpaces: { some: { id: spaceId } } }, { temporaryAccessGrants: { some: { spaceId } } }] }, select: { name: true, distinguishedName: true, directoryConnectionId: true } });
     const recipients: string[] = [];
     for (const group of groups) {
-      if (await this.authorization.can([group.name], spaceId, permission))
+      if (await this.authorization.can([group.name], spaceId, permission, categoryId))
         recipients.push(...await this.directory.emailsForGroup(group.distinguishedName, group.directoryConnectionId || undefined));
     }
     return [...new Set(recipients)];
@@ -137,10 +137,11 @@ export class NotificationService {
     const audienceBySpace = new Map<string, string[]>();
     const summaries = new Map<string, string[]>();
     for (const document of documents) {
-      let audience = audienceBySpace.get(document.spaceId);
+      const audienceKey = `${document.spaceId}:${document.categoryId || ""}`;
+      let audience = audienceBySpace.get(audienceKey);
       if (!audience) {
-        audience = await this.spaceAudience(document.spaceId, "read");
-        audienceBySpace.set(document.spaceId, audience);
+        audience = await this.spaceAudience(document.spaceId, "read", document.categoryId);
+        audienceBySpace.set(audienceKey, audience);
       }
       const translation = document.translations.find((item) => item.locale === "en") || document.translations[0];
       const entry = `${translation?.title || document.slug} (v${document.versions[0]?.version || "-"})\n${document.space.nameEn || document.space.nameFr} / ${document.category?.nameEn || document.category?.nameFr || "Uncategorized"}\n${portalLink(`/documents/${encodeURIComponent(document.slug)}`)}`;
@@ -195,9 +196,9 @@ export class NotificationService {
       const item = await this.prisma.documentReport.findUnique({ where: { id } });
       if (!item) return null;
       documentId = item.documentId;
-      const doc = await this.prisma.document.findUnique({ where: { id: documentId }, select: { spaceId: true } });
+      const doc = await this.prisma.document.findUnique({ where: { id: documentId }, select: { spaceId: true, categoryId: true } });
       recipients = [...await this.staff(), ...await this.directory.emailsForIdentities([item.identity, ...(item.resolvedBy ? [item.resolvedBy] : [])])];
-      if (doc) recipients.push(...await this.spaceAudience(doc.spaceId, "edit"));
+      if (doc) recipients.push(...await this.spaceAudience(doc.spaceId, "edit", doc.categoryId));
       lines.push(`Reported by: ${item.identity}`, `Status: ${item.status}`, `Reason: ${item.reason}`, `Message: ${item.message || ""}`, `Resolution: ${item.resolutionComment || "Pending"}`);
     } else if (resource.startsWith("sensitive-approval:")) {
       const item = await this.prisma.sensitiveOperationApproval.findUnique({ where: { id } });
@@ -245,7 +246,7 @@ export class NotificationService {
       if (published && doc.status !== "PUBLISHED") return null;
       if (resource.startsWith("document:")) {
         const permission = action === "document.delete" ? "archive" : "publish";
-        recipients = annualReview ? await this.staff("edit") : published ? await this.spaceAudience(doc.spaceId, "read") : [...await this.staff(permission), ...await this.spaceAudience(doc.spaceId, permission)];
+        recipients = annualReview ? await this.staff("edit") : published ? await this.spaceAudience(doc.spaceId, "read", doc.categoryId) : [...await this.staff(permission), ...await this.spaceAudience(doc.spaceId, permission, doc.categoryId)];
       }
       const translation = doc.translations.find((item) => item.locale === "en") || doc.translations[0];
       const title = translation?.title || doc.slug;

@@ -160,7 +160,7 @@ describe("Notification routing", () => {
     expect(result?.text).toContain("Security category within IT");
     expect(h.directory.emailsForGroup).toHaveBeenCalledTimes(1);
     expect(h.directory.emailsForGroup).toHaveBeenCalledWith("CN=IT", "dc");
-    expect(h.auth.can).toHaveBeenCalledWith(["expired"], "it", "read");
+    expect(h.auth.can).toHaveBeenCalledWith(["expired"], "it", "read", null);
   });
   it("never sends a publication to readers when the document is draft", async () => {
     const h = setup(); h.prisma.document.findUnique.mockResolvedValue({ status: "DRAFT", space: {} } as never);
@@ -182,7 +182,7 @@ describe("Notification routing", () => {
   it("routes reports to managers and the reporter", async () => {
     const h = setup(); const result = await h.service.prepare({ ...event, action: "document-report.create", resource: "document-report:report" });
     expect(result?.recipients).toEqual(expect.arrayContaining(["user@example.com", "member@example.com"]));
-    expect(h.auth.can).toHaveBeenCalledWith(["IT"], "it", "edit");
+    expect(h.auth.can).toHaveBeenCalledWith(["IT"], "it", "edit", null);
   });
   it("records accepted recipients and does not resend them on retry", async () => {
     const h = setup();

@@ -65,6 +65,7 @@ import { DocumentPublicationDigestDto } from "./document-digest.dto";
 import { isMipObjectKey, isProtectedOffice, readMipEnvelope, readMipOffice, scanMipUpload, withMipCapacity } from "./mip-reader";
 
 import { supportedLanguages, validateLanguageSettings } from "./language-settings";
+import { categoryAllowed, categoryDocumentWhere } from "./category-permissions";
 
 async function prepareVersionComparison(
   prisma: PrismaService, storage: StorageService, documentId: string,
@@ -130,6 +131,7 @@ const accessPermissionKeys = [
 const accessRuleData = (body: AccessRuleDto) => ({
   groupId: body.groupId,
   spaceId: body.spaceId,
+  categoryId: body.categoryId || null,
   ...Object.fromEntries(accessPermissionKeys.map((key) => [key, body[key]])),
   validFrom: body.validFrom ? new Date(body.validFrom) : null,
   lifetime: body.lifetime ?? !body.validUntil,
@@ -527,10 +529,10 @@ export class DocumentsController {
       deletedAt: null,
       ...(selectedStatus ? { status: selectedStatus } : {}),
       OR: managed === "true"
-        ? [{ spaceId: { in: managedSpaceIds } }]
+        ? [{ spaceId: { in: managedSpaceIds }, AND: [{ OR: permissionEntries.filter(([permission]) => ["edit", "publish", "archive"].includes(permission)).map(([, records]) => categoryDocumentWhere(records)) }] }]
         : [
-            { status: "PUBLISHED", spaceId: { in: readableSpaceIds } },
-            { spaceId: { in: managedSpaceIds } },
+            { status: "PUBLISHED", spaceId: { in: readableSpaceIds }, AND: [categoryDocumentWhere(spaces)] },
+            { spaceId: { in: managedSpaceIds }, AND: [{ OR: permissionEntries.filter(([permission]) => ["edit", "publish", "archive"].includes(permission)).map(([, records]) => categoryDocumentWhere(records)) }, ...(q ? [categoryDocumentWhere(spaces)] : [])] },
           ],
       ...(q
         ? { id: { in: fullTextMatches.map((match) => match.documentId) } }
@@ -565,6 +567,7 @@ export class DocumentsController {
       select: {
         id: true,
         slug: true,
+        metadata: true,
         status: true,
         sensitive: true,
         watermarkPosition: true,
@@ -639,12 +642,7 @@ export class DocumentsController {
       ...document,
       favorite: document.favorites.length > 0,
       permissions: {
-        preview: permissionSpaces.preview.has(document.space.id),
-        download: permissionSpaces.download.has(document.space.id),
-        upload: permissionSpaces.upload.has(document.space.id),
-        edit: permissionSpaces.edit.has(document.space.id),
-        publish: permissionSpaces.publish.has(document.space.id),
-        archive: permissionSpaces.archive.has(document.space.id),
+        ...Object.fromEntries(permissionEntries.map(([permission, records]) => [permission, categoryAllowed(records.find(space => space.id === document.space.id), document.category?.id)])),
       },
       versions: document.versions.map((version) => ({
         ...version,
@@ -670,16 +668,16 @@ export class DocumentsController {
   async addFavorite(@Req() req: IsmsRequest, @Param("id") id: string) {
     const document = await this.prisma.document.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true, spaceId: true, status: true },
+      select: { id: true, spaceId: true, categoryId: true, status: true },
     });
     const allowed = document
       ? document.status === "PUBLISHED"
         ? await this.authorization.can(
             req.identity.groups,
             document.spaceId,
-            "read",
+            "read", document.categoryId ?? null,
           )
-        : await this.canManageDocument(req, document.spaceId)
+        : await this.canManageDocument(req, document.spaceId, document.categoryId ?? null)
       : false;
     if (!document || !allowed) throw new NotFoundException();
     await this.prisma.userFavorite.upsert({
@@ -708,11 +706,11 @@ export class DocumentsController {
     if (!isAdminIdentity(req.identity.groups) && !isModeratorIdentity(req.identity.groups)) throw new NotFoundException();
     const documents = await this.prisma.document.findMany({
       where: { id: { in: body.documentIds }, status: "PUBLISHED", deletedAt: null, suppressEmailNotifications: true, space: { deletedAt: null } },
-      select: { id: true, spaceId: true },
+      select: { id: true, spaceId: true, categoryId: true },
     });
     if (documents.length !== body.documentIds.length) throw new NotFoundException();
-    for (const spaceId of new Set(documents.map((document) => document.spaceId)))
-      if (!await this.authorization.can(req.identity.groups, spaceId, "publish")) throw new NotFoundException();
+    for (const document of documents)
+      if (!await this.authorization.can(req.identity.groups, document.spaceId, "publish", document.categoryId)) throw new NotFoundException();
     const documentIds = documents.map((document) => document.id).sort();
     const batchId = createHash("sha256").update(JSON.stringify([req.identity.username, documentIds])).digest("hex");
     try {
@@ -747,7 +745,7 @@ export class DocumentsController {
     const existing = body.documentId
       ? await this.prisma.document.findFirst({
           where: { id: body.documentId, deletedAt: null },
-          select: { id: true, spaceId: true, sensitive: true },
+          select: { id: true, spaceId: true, categoryId: true, sensitive: true },
         })
       : null;
     if (body.documentId && !existing) throw new NotFoundException();
@@ -761,6 +759,7 @@ export class DocumentsController {
         req.identity.groups,
         body.spaceId,
         requiredPermission,
+        existing ? existing.categoryId : body.categoryId || null,
       ))
     )
       throw new NotFoundException();
@@ -907,7 +906,7 @@ export class DocumentsController {
       !(await this.authorization.can(
         req.identity.groups,
         document.spaceId,
-        "edit",
+        "edit", document.categoryId ?? null,
       ))
     )
       throw new NotFoundException();
@@ -915,6 +914,7 @@ export class DocumentsController {
       const category = await this.prisma.documentCategory.findFirst({ where: { id: body.categoryId, spaceId: document.spaceId, deletedAt: null }, select: { id: true } });
       if (!category) throw new BadRequestException("Invalid category for this document space");
     }
+    if (body.categoryId !== undefined && (body.categoryId || null) !== (document.categoryId || null) && !await this.authorization.can(req.identity.groups, document.spaceId, "edit", body.categoryId || null)) throw new NotFoundException();
     const version = body.versionId ? await this.prisma.documentVersion.findFirst({
       where: { id: body.versionId, documentId: id }, select: { id: true, locale: true, version: true },
     }) : null;
@@ -933,7 +933,7 @@ export class DocumentsController {
     const translation = await this.prisma.$transaction(async (tx) => {
       const changed = await tx.document.updateMany({
         where: { id, deletedAt: null, updatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : document.updatedAt },
-        data: { updatedAt: new Date(Math.max(Date.now(), document.updatedAt.getTime() + 1)), ...(categoryChanged ? { categoryId: body.categoryId || null } : {}) },
+        data: { updatedAt: new Date(Math.max(Date.now(), document.updatedAt.getTime() + 1)), ...(categoryChanged ? { categoryId: body.categoryId || null } : {}), ...(body.metadata !== undefined ? { metadata: body.metadata } : {}) },
       });
       if (changed.count !== 1) throw new ConflictException({ code: "DOCUMENT_CHANGED", message: "Document changed; reopen the editor before saving" });
       if (version && version.locale !== body.locale) await tx.documentVersion.update({ where: { id: version.id }, data: { locale: body.locale } });
@@ -956,10 +956,13 @@ export class DocumentsController {
 
   @Get(":id/categories")
   async editableCategories(@Req() req: IsmsRequest, @Param("id") id: string) {
-    const document = await this.prisma.document.findFirst({ where: { id, deletedAt: null }, select: { spaceId: true } });
-    if (!document || !(await this.authorization.can(req.identity.groups, document.spaceId, "edit"))) throw new NotFoundException();
+    const document = await this.prisma.document.findFirst({ where: { id, deletedAt: null }, select: { spaceId: true, categoryId: true } });
+    if (!document || !(await this.authorization.can(req.identity.groups, document.spaceId, "edit", document.categoryId ?? null,))) throw new NotFoundException();
+    const scopes = await this.authorization.permittedSpacesFor(req.identity.groups, ["edit"]);
+    const scope = scopes.get("edit")?.find(space => space.id === document.spaceId);
+    if (!scope) return [];
     return this.prisma.documentCategory.findMany({
-      where: { spaceId: document.spaceId, deletedAt: null },
+      where: { spaceId: document.spaceId, deletedAt: null, ...(scope?.aclCategories ? { id: { in: scope.aclCategories } } : {}) },
       select: { id: true, parentId: true, nameFr: true, nameEn: true },
       orderBy: { nameFr: "asc" },
     });
@@ -972,11 +975,12 @@ export class DocumentsController {
     @Body() body: DocumentCategoryAssignmentDto,
   ) {
     const document = await this.prisma.document.findFirst({ where: { id, deletedAt: null }, select: { id: true, spaceId: true, categoryId: true } });
-    if (!document || !(await this.authorization.can(req.identity.groups, document.spaceId, "edit"))) throw new NotFoundException();
+    if (!document || !(await this.authorization.can(req.identity.groups, document.spaceId, "edit", document.categoryId ?? null,))) throw new NotFoundException();
     if (body.categoryId) {
       const category = await this.prisma.documentCategory.findFirst({ where: { id: body.categoryId, spaceId: document.spaceId, deletedAt: null }, select: { id: true } });
       if (!category) throw new BadRequestException("Invalid category for this document space");
     }
+    if (!await this.authorization.can(req.identity.groups, document.spaceId, "edit", body.categoryId || null)) throw new NotFoundException();
     const updated = await this.prisma.$transaction(async (tx) => {
       const changed = await tx.document.updateMany({
         where: { id, deletedAt: null, spaceId: document.spaceId, categoryId: document.categoryId },
@@ -1025,7 +1029,7 @@ export class DocumentsController {
       !(await this.authorization.can(
         req.identity.groups,
         document.spaceId,
-        permission,
+        permission, document.categoryId ?? null,
       ))
     )
       throw new NotFoundException();
@@ -1073,15 +1077,11 @@ export class DocumentsController {
       { notify: !document.suppressEmailNotifications },
     );
     if (status === "PUBLISHED" && document.favorites.length > 0) {
-      const title =
-        document.translations.find((item) => item.locale === "fr")?.title ||
-        document.translations[0]?.title ||
-        id;
       await this.prisma.userNotification.createMany({
         data: document.favorites.map(({ identity }) => ({
           identity,
           title: "Document publié ou mis à jour",
-          message: title,
+          message: "",
           resourceType: "document",
           resourceId: id,
         })),
@@ -1144,12 +1144,12 @@ export class DocumentsController {
       ? await this.authorization.can(
           req.identity.groups,
           document.spaceId,
-          "read",
+          "read", document.categoryId ?? null,
         )
       : false;
     const canManage =
       document && document.status !== "PUBLISHED"
-        ? await this.canManageDocument(req, document.spaceId)
+        ? await this.canManageDocument(req, document.spaceId, document.categoryId ?? null)
         : false;
     if (
       !document ||
@@ -1194,7 +1194,7 @@ export class DocumentsController {
         this.authorization.can(
           req.identity.groups,
           document.spaceId,
-          permission,
+          permission, document.categoryId ?? null,
         ),
       ),
     );
@@ -1264,6 +1264,7 @@ export class DocumentsController {
       select: {
         id: true,
         spaceId: true,
+        categoryId: true,
         status: true,
         sensitive: true,
         versions: {
@@ -1278,12 +1279,12 @@ export class DocumentsController {
       ? await this.authorization.can(
           req.identity.groups,
           document.spaceId,
-          permission,
+          permission, document.categoryId ?? null,
         )
       : false;
     const canManage =
       document && document.status !== "PUBLISHED"
-        ? await this.canManageDocument(req, document.spaceId)
+        ? await this.canManageDocument(req, document.spaceId, document.categoryId ?? null)
         : false;
     if (
       !document ||
@@ -1388,8 +1389,8 @@ export class DocumentsController {
 
   @Delete(":id")
   async removeByModerator(@Req() req: IsmsRequest, @Param("id") id: string) {
-    const document = await this.prisma.document.findFirst({ where: { id, deletedAt: null }, select: { id: true, spaceId: true } });
-    if (!document || !(await this.authorization.can(req.identity.groups, document.spaceId, "archive"))) throw new NotFoundException();
+    const document = await this.prisma.document.findFirst({ where: { id, deletedAt: null }, select: { id: true, spaceId: true, categoryId: true } });
+    if (!document || !(await this.authorization.can(req.identity.groups, document.spaceId, "archive", document.categoryId ?? null,))) throw new NotFoundException();
     const reviewIds = await this.prisma.documentReview.findMany({ where: { documentId: id }, select: { id: true, evidenceObjectKey: true } });
     await this.prisma.$transaction([
       this.prisma.userNotification.deleteMany({ where: { resourceType: "document-review", resourceId: { in: reviewIds.map((review) => review.id) } } }),
@@ -1401,10 +1402,10 @@ export class DocumentsController {
     return { deleted: true };
   }
 
-  private async canManageDocument(req: IsmsRequest, spaceId: string) {
+  private async canManageDocument(req: IsmsRequest, spaceId: string, categoryId: string | null) {
     const permissions = await Promise.all(
       (["edit", "publish", "archive"] as const).map((permission) =>
-        this.authorization.can(req.identity.groups, spaceId, permission),
+        this.authorization.can(req.identity.groups, spaceId, permission, categoryId),
       ),
     );
     return permissions.some(Boolean);
@@ -1492,6 +1493,8 @@ export class AdminController {
       throw new BadRequestException("Access rules require an active AD group");
     if (!space)
       throw new BadRequestException("Access rules require an active space");
+    if (body.categoryId && !await this.prisma.documentCategory.findFirst({ where: { id: body.categoryId, spaceId: body.spaceId, deletedAt: null }, select: { id: true } }))
+      throw new BadRequestException("Access rules require a category in the selected space");
     const validFrom = body.validFrom ? new Date(body.validFrom) : null;
     const validUntil = body.validUntil ? new Date(body.validUntil) : null;
     if (body.lifetime && validUntil)
@@ -1901,7 +1904,7 @@ export class AdminController {
     const limit = Number.isSafeInteger(Number(limitValue)) && Number(limitValue) > 0 ? Math.min(200, Number(limitValue)) : 50;
     const options: Prisma.AccessRuleFindManyArgs = {
       where,
-      include: { group: true, space: true },
+      include: { group: true, space: true, category: true },
       orderBy: [{ group: { name: order } }, { space: { slug: order } }, { id: "asc" }],
       ...(pageValue ? { skip: (page - 1) * limit, take: limit } : {}),
     };
@@ -1918,7 +1921,7 @@ export class AdminController {
     try {
       const rule = await this.prisma.accessRule.create({
         data: accessRuleData(body),
-        include: { group: true, space: true },
+        include: { group: true, space: true, category: true },
       });
       await this.audit.record(
         req,
@@ -1954,7 +1957,7 @@ export class AdminController {
       rule = await this.prisma.accessRule.update({
         where: { id },
         data: accessRuleData(body),
-        include: { group: true, space: true },
+        include: { group: true, space: true, category: true },
       });
     } catch (error) {
       if (
@@ -2039,7 +2042,7 @@ export class AdminController {
     const now = new Date();
     const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const rules = await this.prisma.accessRule.findMany({
-      include: { group: true, space: true },
+      include: { group: true, space: true, category: true },
       orderBy: { updatedAt: "desc" },
     });
     return rules.flatMap((rule) => {
@@ -2100,18 +2103,16 @@ export class AdminController {
     @Body() body: AccessRuleBulkDto,
   ) {
     for (const rule of body.rules) await this.validateAccessRuleTargets(rule);
-    const saved = await this.prisma.$transaction(
-      body.rules.map((rule) =>
-        this.prisma.accessRule.upsert({
-          where: {
-            groupId_spaceId: { groupId: rule.groupId, spaceId: rule.spaceId },
-          },
-          update: accessRuleData(rule),
-          create: accessRuleData(rule),
-          include: { group: true, space: true },
-        }),
-      ),
-    );
+    const saved = await this.prisma.$transaction(async tx => {
+      const records = [];
+      for (const rule of body.rules) {
+        const where = { groupId: rule.groupId, spaceId: rule.spaceId, categoryId: rule.categoryId || null };
+        const existing = await tx.accessRule.findFirst({ where, select: { id: true } });
+        const options = { data: accessRuleData(rule), include: { group: true, space: true, category: true } };
+        records.push(existing ? await tx.accessRule.update({ where: { id: existing.id }, ...options }) : await tx.accessRule.create(options));
+      }
+      return records;
+    });
     await this.audit.record(
       req,
       "access-rule.bulk",

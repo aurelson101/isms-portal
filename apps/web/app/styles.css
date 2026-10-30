@@ -1234,6 +1234,14 @@ h1 {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+.document-reader-meta .document-reader-custom-field {
+  grid-column: 1 / -1;
+}
+.document-reader-meta .document-reader-custom-field dd {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: visible;
+}
 .document-reader-meta dd {
   margin: 0.2rem 0 0;
   overflow: hidden;

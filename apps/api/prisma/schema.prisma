@@ -161,6 +161,7 @@ model DocumentCategory {
   parent    DocumentCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children  DocumentCategory[] @relation("CategoryHierarchy")
   documents Document[]
+  accessRules AccessRule[]
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
   deletedAt DateTime?
@@ -181,6 +182,7 @@ model Document {
   sensitive         Boolean                @default(false)
   watermarkPosition WatermarkPosition      @default(CENTER)
   suppressEmailNotifications Boolean       @default(false)
+  metadata          Json                   @default("{}")
   viewCount         Int                    @default(0)
   downloadCount     Int                    @default(0)
   publishedAt       DateTime?
@@ -440,6 +442,8 @@ model AccessRule {
   group              DirectoryGroup @relation(fields: [groupId], references: [id])
   spaceId            String
   space              DocumentSpace  @relation(fields: [spaceId], references: [id])
+  categoryId         String?
+  category           DocumentCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   showMenu           Boolean        @default(false)
   read               Boolean        @default(false)
   search             Boolean        @default(false)
@@ -459,7 +463,8 @@ model AccessRule {
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
-  @@unique([groupId, spaceId])
+  @@unique([groupId, spaceId, categoryId])
+  @@index([categoryId])
   @@index([spaceId])
   @@index([validFrom, validUntil])
   @@index([lifetime, certificationDueAt])

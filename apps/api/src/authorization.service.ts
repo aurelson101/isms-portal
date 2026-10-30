@@ -6,8 +6,9 @@ import type {
 } from "@prisma/client";
 import { PrismaService } from "./prisma.service";
 import { isAdminIdentity, isModeratorIdentity, moderatorCan } from "./security";
+import { categoryAllowed, resolveCategories, type CategoryScope } from "./category-permissions";
 
-type SpaceWithRule = DocumentSpace & {
+type SpaceWithRule = DocumentSpace & CategoryScope & {
   accessRules: Array<AccessRule & { group?: { name: string } }>;
   temporaryAccessGrants: Array<{ group: { name: string }; validUntil: Date }>;
   ownerGroup: { name: string; active: boolean } | null;
@@ -42,6 +43,7 @@ export class AuthorizationService {
   async permittedSpacesFor(
     groups: string[],
     permissions: readonly Permission[],
+    spaceId?: string,
   ) {
     const result = new Map<Permission, SpaceWithRule[]>(
       permissions.map((permission) => [permission, []]),
@@ -59,6 +61,7 @@ export class AuthorizationService {
     const spaces = (await this.prisma.documentSpace.findMany({
       where: {
         deletedAt: null,
+        ...(spaceId ? { id: spaceId } : {}),
         ...(!administrator && !moderator
           ? {
               OR: [
@@ -96,7 +99,7 @@ export class AuthorizationService {
       include: {
         accessRules: {
           where: {
-            group: groupFilter,
+            group: { active: true },
             AND: [
               { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
               { OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
@@ -128,37 +131,46 @@ export class AuthorizationService {
       orderBy: { slug: "asc" },
     })) as SpaceWithRule[];
     for (const permission of permissions) {
+      const matches = (rule: SpaceWithRule["accessRules"][number]) => !rule.group || groups.some(name => name.toLowerCase() === rule.group!.name.toLowerCase());
       result.set(
         permission,
-        administrator || moderatorCan(groups, permission)
-          ? spaces
-          : spaces.filter((space) =>
-              permission !== "download" &&
-              space.ownerGroup &&
-              space.ownerGroup.active &&
-              groups.some(
-                (name) =>
-                  name.toLowerCase() === space.ownerGroup!.name.toLowerCase(),
-              )
-                ? true
-                : space.accessRules.some((rule) => rule[permission]) ||
-                  (temporaryGrantPermissions.has(permission) &&
-                    (space.temporaryAccessGrants?.length || 0) > 0),
-            ),
+        spaces.map(space => {
+          const privileged = administrator || moderatorCan(groups, permission);
+          const owner = permission !== "download" && space.ownerGroup?.active && groups.some(name => name.toLowerCase() === space.ownerGroup!.name.toLowerCase());
+          const aclRoot = Boolean(privileged || owner || space.accessRules.some(rule => !rule.categoryId && matches(rule) && rule[permission])
+            || (temporaryGrantPermissions.has(permission) && (space.temporaryAccessGrants?.length || 0) > 0));
+          const aclCategories = privileged || owner ? (space.categories || []).map(category => category.id)
+            : resolveCategories(space.categories || [], space.accessRules.map(rule => ({ categoryId: rule.categoryId, allowed: matches(rule) && rule[permission] })), aclRoot);
+          return { ...space, accessRules: space.accessRules.filter(matches), aclRoot, aclCategories };
+        }).filter(space => space.aclRoot || space.aclCategories.length > 0),
       );
     }
     return result;
   }
 
   async permittedSpaces(groups: string[], permission: Permission) {
-    return (await this.permittedSpacesFor(groups, [permission])).get(
+    const permissions = await this.permittedSpacesFor(groups, permission === "showMenu" ? [permission, "read"] : [permission]);
+    const spaces = permissions.get(
       permission,
     )!;
+    if (permission !== "showMenu") return spaces;
+    return spaces.map(space => {
+      const readable = permissions.get("read")?.find(item => item.id === space.id);
+      const visible = new Set(space.aclCategories);
+      const nodes = new Map((space.categories || []).map(category => [category.id, category]));
+      for (const id of [...visible]) {
+        let parent = nodes.get(id)?.parentId;
+        const visited = new Set<string>();
+        while (parent && !visited.has(parent)) { visited.add(parent); visible.add(parent); parent = nodes.get(parent)?.parentId; }
+      }
+      return { ...space, categories: (space.categories || []).filter(category => visible.has(category.id)).map(category => ({ ...category, _count: categoryAllowed(readable, category.id) ? category._count : { documents: 0 } })) };
+    });
   }
 
-  async can(groups: string[], spaceId: string, permission: Permission) {
+  async can(groups: string[], spaceId: string, permission: Permission, categoryId?: string | null) {
     if (isAdminIdentity(groups) || moderatorCan(groups, permission)) return true;
     if (groups.length === 0) return false;
+    if (categoryId !== undefined) return categoryAllowed((await this.permittedSpacesFor(groups, [permission], spaceId)).get(permission)!.find(space => space.id === spaceId), categoryId);
     const now = new Date();
     const administrator = isAdminIdentity(groups) || isModeratorIdentity(groups);
     const groupNames = groups.map((name) => ({
@@ -176,6 +188,7 @@ export class AuthorizationService {
             {
               accessRules: {
                 some: {
+                  categoryId: null,
                   group: {
                     active: true,
                     OR: groupNames,
