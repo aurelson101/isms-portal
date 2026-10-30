@@ -283,6 +283,21 @@ describe("DocumentsController ACL scoping", () => {
     });
   });
 
+  it("searches metadata with bound parameters while preserving favorite and ACL filters", async () => {
+    grant({ search: [general] });
+    queryRaw.mockResolvedValue([{ documentId: "metadata-match" }]);
+    await controller.list(request, "POL-001", undefined, undefined, undefined, "recent", "1", "20", "true");
+    const sql = queryRaw.mock.calls[0][0];
+    expect(sql.sql).toContain("jsonb_each_text(document.metadata)");
+    expect(sql.sql).not.toContain("POL-001");
+    expect(sql.values).toContain("%POL-001%");
+    expect(count).toHaveBeenCalledWith({ where: expect.objectContaining({
+      id: { in: ["metadata-match"] },
+      favorites: { some: { identity: "acl-user@example.test" } },
+      OR: [expect.objectContaining({ spaceId: { in: ["space-general"] } }), expect.objectContaining({ spaceId: { in: [] } })],
+    }) });
+  });
+
   it("does not allow favoriting a document without read permission", async () => {
     findFirst.mockResolvedValue({
       id: "document-1",

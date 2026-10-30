@@ -1,4 +1,6 @@
 const messages: ReadonlyArray<readonly [string, string, string]> = [
+  ["Ajoutez une référence, un responsable ou des mots-clés. Ces champs sont recherchables, y compris dans vos favoris, sans modifier la version du fichier.", "Add a reference, owner or keywords. These fields are searchable, including in your favorites, without changing the file version.", "Añada una referencia, un responsable o palabras clave. Estos campos se pueden buscar, también en sus favoritos, sin cambiar la versión del archivo."],
+  ["Mots-clés", "Keywords", "Palabras clave"],
   ["Champs personnalisés", "Custom fields", "Campos personalizados"],
   ["Nom du champ", "Field name", "Nombre del campo"],
   ["Tout l’espace (héritage)", "Entire space (inheritance)", "Todo el espacio (herencia)"],

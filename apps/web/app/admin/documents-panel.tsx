@@ -451,6 +451,7 @@ export function DocumentsPanel({
                 </td>
                 <td data-label={t("État")}>
                   <select
+                    className="document-status-select"
                     aria-label={`${t("État")} : ${document.translations[0]?.title || document.id}`}
                     value={document.status}
                     disabled={!!changingStatus || refreshing || document.status === "QUARANTINED"}

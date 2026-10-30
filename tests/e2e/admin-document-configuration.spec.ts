@@ -24,12 +24,15 @@ for (const width of [390, 1440]) {
       return route.fulfill({ json: pathname === "/api/branding" ? {} : [] });
     });
     await page.goto("/admin#documents");
+    const status = page.locator(".document-status-select");
+    await expect(status).toHaveValue("PUBLISHED");
+    expect(await status.evaluate(element => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
     await page.locator(".document-actions button").first().click();
     const form = page.locator("#document-metadata-form");
     await form.getByRole("textbox", { name: "Reference", exact: true }).fill("POL-002");
-    await form.getByRole("textbox", { name: "Field name", exact: true }).fill("Reference");
+    await form.getByRole("combobox", { name: "Field name", exact: true }).fill("Reference");
     await expect(form.getByRole("button", { name: "Add", exact: true })).toBeDisabled();
-    await form.getByRole("textbox", { name: "Field name", exact: true }).fill("Owner");
+    await form.getByRole("combobox", { name: "Field name", exact: true }).fill("Owner");
     await form.getByRole("button", { name: "Add", exact: true }).click();
     await form.getByRole("textbox", { name: "Owner", exact: true }).fill("Quality");
     await form.getByRole("button", { name: "Save", exact: true }).click();
@@ -76,4 +79,36 @@ test("admin access rules select nested categories and clear stale selections whe
   await expect.poll(() => saved?.categoryId).toBe(space.categories[1].id);
   expect(saved?.read).toBe(true);
   expect(saved?.spaceId).toBe(space.id);
+});
+
+test("space branches collapse and ACL filters include nested categories", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+  const rule = { id: "rule", group, space, categoryId: space.categories[1].id, category: space.categories[1], read: true };
+  await page.route("**/api/**", async route => {
+    const { pathname } = new URL(route.request().url());
+    if (pathname === "/api/admin/check") return route.fulfill({ json: { isAdmin: true, username: "admin@example.test", locale: "en", authentication: {} } });
+    if (pathname === "/api/admin/spaces") return route.fulfill({ json: [space] });
+    if (pathname === "/api/admin/groups") return route.fulfill({ json: [group] });
+    if (pathname === "/api/admin/access-rules") return route.fulfill({ json: [rule] });
+    if (pathname === "/api/admin/audit") return route.fulfill({ json: { items: [] } });
+    if (pathname === "/api/admin/dashboard") return route.fulfill({ json: null });
+    if (pathname === "/api/health/details") return route.fulfill({ json: { services: {} } });
+    return route.fulfill({ json: pathname === "/api/branding" ? {} : [] });
+  });
+  await page.goto("/admin#spaces");
+  const branch = page.getByRole("button", { name: "Test space", exact: true });
+  await branch.click();
+  await expect(page.locator(".space-category-list")).toBeHidden();
+  await branch.click();
+  const parent = page.getByRole("button", { name: "Category : Parent", exact: true });
+  await parent.click();
+  await expect(page.locator(".space-category-name strong", { hasText: "Child" })).toHaveCount(0);
+  await parent.click();
+  await expect(page.locator(".space-category-name strong", { hasText: "Child" })).toBeVisible();
+  await page.goto("/admin#rules");
+  const scope = page.getByRole("combobox", { name: "Space", exact: true });
+  await scope.selectOption(`${space.id}:${space.categories[1].id}`);
+  await expect(page.getByRole("button", { name: "Edit Readers", exact: true })).toBeVisible();
+  await scope.selectOption(`${space.id}:${space.categories[0].id}`);
+  await expect(page.getByText("No access rule matches this search.", { exact: true })).toBeVisible();
 });

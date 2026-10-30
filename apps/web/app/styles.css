@@ -2448,6 +2448,31 @@ h1 {
 .directory-purge-card button {
   flex: 0 0 auto;
 }
+.document-status-select {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 8px 30px 8px 10px;
+  border: 1px solid #7892b8;
+  border-radius: 7px;
+  background-color: white;
+  color: #17345f;
+  font: inherit;
+}
+.document-status-select:focus-visible { outline: 2px solid #0867eb; outline-offset: 2px; }
+.document-status-select:disabled { opacity: .65; cursor: wait; }
+.custom-metadata-fields { grid-column: 1 / -1; min-width: 0; }
+.custom-metadata-fields > p { grid-column: 1 / -1; margin: 0; color: #516582; }
+.custom-metadata-fields .button-row { align-items: end; }
+.custom-metadata-fields .button-row label { flex: 1; min-width: 0; }
+#document-metadata-form { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+#document-metadata-form > h2,
+#document-metadata-form > p,
+#document-metadata-form > .button-row { grid-column: 1 / -1; }
+@media (max-width: 700px) { #document-metadata-form { grid-template-columns: minmax(0, 1fr); } }
+.space-management-title .space-branch-toggle,
+.space-category-row .space-branch-toggle { border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.space-management-title .space-branch-toggle { padding: 0; }
+.space-category-list[hidden] { display: none; }
 .upload-form,
 .directory-form {
   grid-template-columns: repeat(3, minmax(180px, 1fr));

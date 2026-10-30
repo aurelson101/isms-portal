@@ -521,6 +521,7 @@ export class DocumentsController {
             OR translation."title" ILIKE ${`%${q}%`}
             OR coalesce(translation."description", '') ILIKE ${`%${q}%`}
             OR document.slug ILIKE ${`%${q}%`}
+            OR EXISTS (SELECT 1 FROM jsonb_each_text(document.metadata) AS field WHERE field.key ILIKE ${`%${q}%`} OR field.value ILIKE ${`%${q}%`})
           LIMIT 500
         `)
       : [];
@@ -2836,13 +2837,19 @@ export class DocumentAdminController {
     if (typeof query !== "string") throw new BadRequestException("q must be a string");
     if (order !== "asc" && order !== "desc") throw new BadRequestException("order must be asc or desc");
     const q = query.trim().slice(0, 200);
+    const metadataMatches = q ? await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT id FROM "Document" WHERE "deletedAt" IS NULL
+      AND EXISTS (SELECT 1 FROM jsonb_each_text(metadata) AS field WHERE field.key ILIKE ${`%${q}%`} OR field.value ILIKE ${`%${q}%`})
+    `) : [];
     const where: Prisma.DocumentWhereInput = {
       deletedAt: null,
       ...(q
         ? {
-            translations: {
-              some: { title: { contains: q, mode: "insensitive" as const } },
-            },
+            OR: [
+              { translations: { some: { OR: [{ title: { contains: q, mode: "insensitive" as const } }, { description: { contains: q, mode: "insensitive" as const } }] } } },
+              { slug: { contains: q, mode: "insensitive" as const } },
+              { id: { in: metadataMatches.map(item => item.id) } },
+            ],
           }
         : {}),
     };

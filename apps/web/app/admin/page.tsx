@@ -1900,7 +1900,8 @@ function RulesPanel({
   const [groupFilter, setGroupFilter] = useState("");
   const [spaceFilter, setSpaceFilter] = useState("");
   const [page, setPage] = useState(1);
-  const filtered = rules.filter((rule) => (!groupFilter || rule.group.id === groupFilter) && (!spaceFilter || rule.space.id === spaceFilter));
+  const [filterSpaceId, filterCategoryId] = spaceFilter.split(":");
+  const filtered = rules.filter((rule) => (!groupFilter || rule.group.id === groupFilter) && (!filterSpaceId || rule.space.id === filterSpaceId) && (!filterCategoryId || rule.categoryId === filterCategoryId));
   const pageCount = Math.max(1, Math.ceil(filtered.length / 20));
   const currentPage = Math.min(page, pageCount);
   useEffect(() => { setPage(1); }, [rules, groupFilter, spaceFilter]);
@@ -1927,7 +1928,10 @@ function RulesPanel({
           </select></label>
           <label>{t("Espace")}<select value={spaceFilter} onChange={(event) => setSpaceFilter(event.target.value)}>
             <option value="">{t("Tous les espaces", "All spaces")}</option>
-            {spaces.map((space) => <option key={space.id} value={space.id}>{locale === "fr" ? space.nameFr : space.nameEn}</option>)}
+            {spaces.map((space) => <optgroup key={space.id} label={locale === "fr" ? space.nameFr : space.nameEn}>
+              <option value={space.id}>{locale === "fr" ? space.nameFr : space.nameEn} — {t("Tout l’espace (héritage)", "Entire space (inheritance)")}</option>
+              {flattenCategories(space.categories || []).map(({ item, depth }) => <option key={item.id} value={`${space.id}:${item.id}`}>{"— ".repeat(depth + 1)}{locale === "fr" ? item.nameFr : item.nameEn}</option>)}
+            </optgroup>)}
           </select></label>
           <span role="status">{filtered.length} / {rules.length} {t("règles", "rules")}</span>
         </div>
@@ -2420,6 +2424,13 @@ function SpacesPanel({
     nameEn: "",
   });
   const [editedCategoryId, setEditedCategoryId] = useState("");
+  const [collapsedBranches, setCollapsedBranches] = useState<Set<string>>(() => new Set());
+  const categoryParents = useMemo(() => new Map(spaces.flatMap(space => (space.categories || []).map(item => [item.id, item.parentId] as const))), [spaces]);
+  const toggleBranch = (id: string) => setCollapsedBranches(current => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   const [creationMode, setCreationMode] = useState<"space" | "category" | null>(
     null,
   );
@@ -2732,7 +2743,7 @@ function SpacesPanel({
                 <Icon name="folder" />
               </span>
               <div className="space-management-title">
-                <h2>{locale === "fr" ? space.nameFr : space.nameEn}</h2>
+                <h2><button type="button" className="space-branch-toggle" aria-expanded={!collapsedBranches.has(space.id)} aria-controls={`space-children-${space.id}`} onClick={() => toggleBranch(space.id)}><span aria-hidden="true">{collapsedBranches.has(space.id) ? "▸" : "▾"}</span> {locale === "fr" ? space.nameFr : space.nameEn}</button></h2>
                 <code>{space.slug}</code>
               </div>
               <div className="space-management-counts">
@@ -2837,7 +2848,7 @@ function SpacesPanel({
                 </button>
               </div>
             </header>
-            <div className="space-category-list">
+            <div className="space-category-list" id={`space-children-${space.id}`} hidden={collapsedBranches.has(space.id)}>
               {!space.categories?.length && (
                 <EmptyState
                   compact
@@ -2845,15 +2856,24 @@ function SpacesPanel({
                   en="No category in this space."
                 />
               )}
-              {flattenCategories(space.categories || []).map(
+              {flattenCategories(space.categories || []).filter(({ item }) => {
+                const visited = new Set<string>();
+                let parent = item.parentId;
+                while (parent && !visited.has(parent)) {
+                  if (collapsedBranches.has(parent)) return false;
+                  visited.add(parent);
+                  parent = categoryParents.get(parent);
+                }
+                return true;
+              }).map(
                 ({ item, depth }) => (
                   <div
                     className={`space-category-row category-depth-${Math.min(depth, 4)}`}
                     key={item.id}
                   >
-                    <span className="space-category-icon">
+                    {(space.categories || []).some(category => category.parentId === item.id) ? <button type="button" className="space-category-icon space-branch-toggle" aria-label={`${t("Catégorie", "Category")} : ${locale === "fr" ? item.nameFr : item.nameEn}`} aria-expanded={!collapsedBranches.has(item.id)} onClick={() => toggleBranch(item.id)}>{collapsedBranches.has(item.id) ? "▸" : "▾"}</button> : <span className="space-category-icon">
                       <Icon name="folder" />
-                    </span>
+                    </span>}
                     <span className="space-category-name">
                       <strong>
                         {locale === "fr" ? item.nameFr : item.nameEn}

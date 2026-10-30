@@ -1,4 +1,6 @@
 export const slovakMessages: Readonly<Record<string, string>> = {
+  "Add a reference, owner or keywords. These fields are searchable, including in your favorites, without changing the file version.": "Pridajte referenciu, vlastníka alebo kľúčové slová. Tieto polia možno vyhľadávať aj medzi obľúbenými bez zmeny verzie súboru.",
+  "Keywords": "Kľúčové slová",
   "Custom fields": "Vlastné polia",
   "Field name": "Názov poľa",
   "Entire space (inheritance)": "Celý priestor (dedenie)",
