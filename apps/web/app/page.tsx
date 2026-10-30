@@ -3124,7 +3124,7 @@ export function Portal({
                   <dt>{translate(locale, "Langue", "Language")}</dt>
                   <dd>{openedLocale?.toUpperCase() || "—"}</dd>
                 </div>
-                {Object.entries(opened.metadata || {}).filter(([, value]) => value.trim()).map(([field, value]) => <div className="document-reader-custom-field" key={field}><dt>{metadataLabel(field, (fr, en) => translate(locale, fr, en))}</dt><dd>{metadataDisplayValue(field, value, (fr, en) => translate(locale, fr, en))}</dd></div>)}
+                {Object.entries(opened.metadata || {}).filter(([, value]) => value.trim()).map(([field, value]) => <div className="document-reader-custom-field" key={field}><dt>{metadataLabel(field, (fr, en) => translate(locale, fr, en))}</dt><dd>{field === "ged.keywords" ? [...new Set(value.split(/[,;\n]/).map(keyword => keyword.trim()).filter(Boolean))].map((keyword, index) => <span key={keyword}>{index > 0 && " · "}<a href={`/explorer?q=${encodeURIComponent(keyword)}`}>{keyword}</a></span>) : metadataDisplayValue(field, value, (fr, en) => translate(locale, fr, en), locale)}</dd></div>)}
               </dl>
             </ReaderInformation>
             {openedVersion?.changeDetails &&

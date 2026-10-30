@@ -425,6 +425,30 @@ describe("DocumentsController ACL scoping", () => {
     expect(upsertTranslation).not.toHaveBeenCalled();
   });
 
+  it("audits added, modified and removed metadata fields without logging their values", async () => {
+    findFirst.mockResolvedValue({ id: "doc-1", spaceId: general.id, categoryId: "old-category", updatedAt: new Date("2026-01-01"), metadata: { Reference: "old confidential value", Retired: "private" }, translations: [{ title: "Guide", description: null }] });
+    can.mockResolvedValue(true);
+    categoryFindFirst.mockResolvedValue({ id: "new-category" });
+    await controller.updateMetadata(request, "doc-1", { locale: "en", title: "Guide", categoryId: "new-category", metadata: { Reference: "new confidential value", Owner: "private owner" } });
+    expect(auditRecord).toHaveBeenCalledWith(request, "document.metadata.update", "document:doc-1", "success", expect.objectContaining({
+      previousCategoryId: "old-category", categoryId: "new-category",
+      metadataFields: { added: ["Owner"], modified: ["Reference"], removed: ["Retired"] },
+    }));
+    expect(JSON.stringify(auditRecord.mock.calls)).not.toContain("confidential value");
+    expect(JSON.stringify(auditRecord.mock.calls)).not.toContain("private owner");
+    expect(updateVersion).not.toHaveBeenCalled();
+  });
+
+  it("audits clearing metadata and ignores changes to object key order", async () => {
+    const document = { id: "doc-1", spaceId: general.id, categoryId: null, updatedAt: new Date("2026-01-01"), metadata: { Reference: "R", Owner: "O" }, translations: [{ title: "Guide", description: null }] };
+    findFirst.mockResolvedValue(document);
+    can.mockResolvedValue(true);
+    await controller.updateMetadata(request, "doc-1", { locale: "en", title: "Guide", metadata: { Owner: "O", Reference: "R" } });
+    expect(auditRecord.mock.calls[0][4]).not.toHaveProperty("metadataFields");
+    await controller.updateMetadata(request, "doc-1", { locale: "en", title: "Guide", metadata: {} });
+    expect(auditRecord.mock.calls[1][4]).toHaveProperty("metadataFields", { added: [], modified: [], removed: ["Reference", "Owner"] });
+  });
+
   it("rejects a stale metadata save before changing translations or language", async () => {
     findFirst.mockResolvedValue({ id: "doc-1", spaceId: general.id, categoryId: null, updatedAt: new Date("2026-01-02"), translations: [] });
     can.mockResolvedValue(true);

@@ -900,7 +900,7 @@ export class DocumentsController {
   ) {
     const document = await this.prisma.document.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true, spaceId: true, categoryId: true, updatedAt: true, translations: { where: { locale: body.locale }, select: { title: true, description: true } } },
+      select: { id: true, spaceId: true, categoryId: true, updatedAt: true, metadata: true, translations: { where: { locale: body.locale }, select: { title: true, description: true } } },
     });
     if (
       !document ||
@@ -929,7 +929,14 @@ export class DocumentsController {
     const title = body.title.trim();
     const description = body.description?.trim() || null;
     const existing = document.translations[0];
-    const metadataChanged = !existing || existing.title !== title || existing.description !== description;
+    const previousMetadata = (document.metadata || {}) as Record<string, unknown>;
+    const fieldChanges = body.metadata === undefined ? { added: [], modified: [], removed: [] } : {
+      added: Object.keys(body.metadata).filter(key => !Object.hasOwn(previousMetadata, key)),
+      modified: Object.keys(body.metadata).filter(key => Object.hasOwn(previousMetadata, key) && previousMetadata[key] !== body.metadata![key]),
+      removed: Object.keys(previousMetadata).filter(key => !Object.hasOwn(body.metadata!, key)),
+    };
+    const customFieldsChanged = Object.values(fieldChanges).some(keys => keys.length > 0);
+    const metadataChanged = !existing || existing.title !== title || existing.description !== description || customFieldsChanged || Boolean(version && version.locale !== body.locale);
     const categoryChanged = body.categoryId !== undefined && body.categoryId !== document.categoryId;
     const translation = await this.prisma.$transaction(async (tx) => {
       const changed = await tx.document.updateMany({
@@ -950,6 +957,8 @@ export class DocumentsController {
         versionId: version?.id,
         previousLocale: version?.locale,
         categoryId: body.categoryId,
+        ...(categoryChanged ? { previousCategoryId: document.categoryId } : {}),
+        ...(customFieldsChanged ? { metadataFields: fieldChanges } : {}),
       },
     );
     return translation;

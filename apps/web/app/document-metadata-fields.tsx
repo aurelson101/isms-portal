@@ -21,7 +21,12 @@ export function metadataLabel(key: string, t: (fr: string, en: string) => string
   const field = standardFields.find(field => field.key === key);
   return field ? t(field.fr, field.en) : key;
 }
-export function metadataDisplayValue(key: string, value: string, t: (fr: string, en: string) => string) {
+export function metadataDisplayValue(key: string, value: string, t: (fr: string, en: string) => string, locale = "en") {
+  if (key === "ged.reviewDate" && /^(?!0000)\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const date = new Date(`${value}T00:00:00Z`);
+    if (Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value)
+      return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" }).format(date);
+  }
   const type = key === "ged.documentType" ? documentTypes.find(type => type[0] === value) : undefined;
   return type ? t(type[1], type[2]) : value;
 }
