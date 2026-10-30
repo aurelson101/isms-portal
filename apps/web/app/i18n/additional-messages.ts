@@ -1,4 +1,7 @@
 const messages: ReadonlyArray<readonly [string, string, string]> = [
+  ["Valeur du champ", "Field value", "Valor del campo"],
+  ["Cliquez sur Ajouter pour valider le champ, ou effacez les saisies avant d’enregistrer.", "Click Add to confirm the field, or clear the inputs before saving.", "Pulse Añadir para confirmar el campo o borre los datos antes de guardar."],
+  ["Le modèle s’applique dès sa sélection. Cliquez sur Enregistrer pour conserver les modifications. Les champs vides ne s’affichent pas dans la fiche de lecture.", "The template is applied when selected. Click Save to keep your changes. Empty fields are hidden in the reading view.", "La plantilla se aplica al seleccionarla. Pulse Guardar para conservar los cambios. Los campos vacíos se ocultan en la vista de lectura."],
   ["Politique", "Policy", "Política"],
   ["Procédure", "Procedure", "Procedimiento"],
   ["Guide", "Guide", "Guía"],

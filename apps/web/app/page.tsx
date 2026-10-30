@@ -1,5 +1,6 @@
 "use client";
 import { fetchWithTimeout as fetch } from "./http-client";
+import { responseMessage } from "./request-errors";
 import { translationFields } from "./moderator/document-model";
 import { CustomMetadataFields, metadataLabel, metadataDisplayValue } from "./document-metadata-fields";
 import { uploadAttempt, type UploadAttempt } from "./upload-attempt";
@@ -3583,7 +3584,7 @@ export function Portal({
                 const languageChanged = editing.versions.find((version) => version.id === editVersionId)?.locale !== editLocale;
                 const response = metadataChanged || categoryChanged || languageChanged ? await fetch(`/api/documents/${editing.id}/metadata`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expectedUpdatedAt: editing.updatedAt, locale: editLocale, versionId: editVersionId, title: values.title, description: values.description, categoryId, ...(JSON.stringify(editMetadata) !== JSON.stringify(editing.metadata || {}) ? { metadata: editMetadata } : {}) }) }) : null;
                 if (response && !response.ok) {
-                  setActionError(t.error);
+                  setActionError(await responseMessage(response, t.error));
                   return;
                 }
                 setEditing(null);

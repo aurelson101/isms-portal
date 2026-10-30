@@ -1,4 +1,7 @@
 export const slovakMessages: Readonly<Record<string, string>> = {
+  "Field value": "Hodnota poľa",
+  "Click Add to confirm the field, or clear the inputs before saving.": "Kliknite na Pridať na potvrdenie poľa alebo pred uložením vymažte zadané údaje.",
+  "The template is applied when selected. Click Save to keep your changes. Empty fields are hidden in the reading view.": "Šablóna sa použije pri výbere. Zmeny zachováte kliknutím na Uložiť. Prázdne polia sa v zobrazení na čítanie nezobrazujú.",
   "Policy": "Politika",
   "Procedure": "Postup",
   "Guide": "Príručka",

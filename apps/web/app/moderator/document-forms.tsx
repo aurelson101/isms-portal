@@ -19,7 +19,7 @@ export function MetadataForm({ document, categories, value, onChange, onSave, ..
   const updateMetadata = (next: MetadataValues) => { actions.onDirty(); onChange(next); };
   return <section className="admin-card" id="moderator-metadata-form">
     <h2>{t("Éditer les métadonnées", "Edit metadata")}</h2>
-    <form onSubmit={(event) => { event.preventDefault(); void onSave(); }} aria-busy={actions.busy}>
+    <form onInput={actions.onDirty} onSubmit={(event) => { event.preventDefault(); void onSave(); }} aria-busy={actions.busy}>
       <fieldset className="admin-form upload-form moderator-fields" disabled={actions.busy}>
         <DocumentMetadataFields value={value} onChange={updateMetadata} t={t}
           onLocaleChange={(locale) => updateMetadata({ ...value, locale, ...translationFields(document, locale) })}>

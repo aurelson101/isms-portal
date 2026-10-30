@@ -45,6 +45,7 @@ export function DocumentsPanel({
   const [editedMetadata, setEditedMetadata] = useState<Record<string, string>>({});
   const [savingMetadata, setSavingMetadata] = useState(false);
   const metadataInFlight = useRef(false);
+  const [metadataSaved, setMetadataSaved] = useState(false);
   const uploadInFlight = useRef(false);
   const uploadRetry = useRef<UploadAttempt | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -319,11 +320,13 @@ export function DocumentsPanel({
           {versionUploadDocument && <button type="button" disabled={uploading} onClick={() => { setVersionUploadDocument(null); setSpaceId(""); setSensitive(false); setWatermarkPosition("CENTER"); }}>{t("Annuler la modification")}</button>}
         </div>
       </form>
+      {metadataSaved && <p role="status">{t("Métadonnées enregistrées.", "Metadata saved.")}</p>}
       {editingMetadataDocument && (
         <form id="document-metadata-form" className="admin-form upload-form" onSubmit={async (event) => {
           event.preventDefault();
           if (metadataInFlight.current) return;
           metadataInFlight.current = true;
+          setMetadataSaved(false);
           setSavingMetadata(true);
           try {
             await api(`/api/documents/${editingMetadataDocument.id}/metadata`, {
@@ -331,7 +334,9 @@ export function DocumentsPanel({
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ expectedUpdatedAt: editingMetadataDocument.updatedAt, locale: editedLocale, versionId: latestVersion(editingMetadataDocument)?.id, title: editedTitle.trim(), description: editedDescription.trim(), categoryId: editedCategoryId || null, ...(JSON.stringify(editedMetadata) !== JSON.stringify(editingMetadataDocument.metadata || {}) ? { metadata: editedMetadata } : {}) }),
             });
+            await loadDocuments();
             setEditingMetadataDocument(null);
+            setMetadataSaved(true);
             await onChanged();
           } catch (error) {
             onError(error instanceof Error ? error.message : String(error));
@@ -469,6 +474,7 @@ export function DocumentsPanel({
                       type="button"
                       className="document-action"
                       onClick={() => {
+                        setMetadataSaved(false);
                         setEditingMetadataDocument(document);
                         setEditedMetadata(document.metadata || {});
                         setEditedCategoryId(document.category?.id || "");
