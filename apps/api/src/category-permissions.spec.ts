@@ -43,6 +43,15 @@ describe("custom document metadata validation", () => {
   it("accepts bounded named text fields and clearing all fields", async () => {
     expect(await validate(dto({ Reference: "POL-001", "Document owner": "Quality", Référence: "Guide" }))).toEqual([]);
     expect(await validate(dto({}))).toEqual([]);
+    expect(await validate(dto({ "ged.documentType": "policy", "ged.reviewDate": "2028-02-29", "ged.owner": "Quality" }))).toEqual([]);
+    expect(await validate(dto({ "ged.reviewDate": "" }))).toEqual([]);
+  });
+  it.each(["2027-02-29", "2028-02-30", "2028-13-01", "0000-01-01", "2028-02-29T12:00:00Z", "29/02/2028"])("rejects invalid GED review date %s", async date => {
+    expect((await validate(dto({ "ged.reviewDate": date }))).length).toBeGreaterThan(0);
+  });
+  it("rejects unsupported GED document types while preserving arbitrary legacy fields", async () => {
+    expect((await validate(dto({ "ged.documentType": "unknown" }))).length).toBeGreaterThan(0);
+    expect(await validate(dto({ "Document type": "Custom type", "Review date": "Next quarter" }))).toEqual([]);
   });
   it.each([null, [], "text", { constructor: "unsafe" }, { Field: 7 }, { Field: "x".repeat(1001) }, Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`Field ${i}`, "value"]))])("rejects unsupported or excessive metadata", async metadata => {
     expect((await validate(dto(metadata))).length).toBeGreaterThan(0);

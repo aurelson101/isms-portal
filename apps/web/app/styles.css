@@ -2464,6 +2464,10 @@ h1 {
 .custom-metadata-fields > p { grid-column: 1 / -1; margin: 0; color: #516582; }
 .custom-metadata-fields .button-row { align-items: end; }
 .custom-metadata-fields .button-row label { flex: 1; min-width: 0; }
+.metadata-template-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; grid-column: 1 / -1; }
+.metadata-template-tools label { flex: 1 1 200px; min-width: 0; }
+.metadata-template-tools output { flex-basis: 100%; color: #516582; font-size: .875rem; }
+.metadata-template-tools button { min-height: 44px; }
 #document-metadata-form { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
 #document-metadata-form > h2,
 #document-metadata-form > p,

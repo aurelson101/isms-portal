@@ -1,7 +1,7 @@
 "use client";
 import { fetchWithTimeout as fetch } from "./http-client";
 import { translationFields } from "./moderator/document-model";
-import { CustomMetadataFields } from "./document-metadata-fields";
+import { CustomMetadataFields, metadataLabel, metadataDisplayValue } from "./document-metadata-fields";
 import { uploadAttempt, type UploadAttempt } from "./upload-attempt";
 import { normalizePdfPage, parsePdfProgress, type PdfZoom } from "./pdf-progress";
 import { copyDocumentLink, documentShareUrl } from "./document-share";
@@ -3124,7 +3124,7 @@ export function Portal({
                   <dt>{translate(locale, "Langue", "Language")}</dt>
                   <dd>{openedLocale?.toUpperCase() || "—"}</dd>
                 </div>
-                {Object.entries(opened.metadata || {}).map(([field, value]) => <div className="document-reader-custom-field" key={field}><dt>{field}</dt><dd>{value}</dd></div>)}
+                {Object.entries(opened.metadata || {}).filter(([, value]) => value.trim()).map(([field, value]) => <div className="document-reader-custom-field" key={field}><dt>{metadataLabel(field, (fr, en) => translate(locale, fr, en))}</dt><dd>{metadataDisplayValue(field, value, (fr, en) => translate(locale, fr, en))}</dd></div>)}
               </dl>
             </ReaderInformation>
             {openedVersion?.changeDetails &&

@@ -6,24 +6,59 @@ import { LanguageSelect } from "./language-controls";
 
 export type MetadataValues = { locale: DocumentLocale; title: string; description: string; categoryId: string; metadata?: Record<string, string> };
 
+const documentTypes = [
+  ["policy", "Politique", "Policy"], ["procedure", "Procédure", "Procedure"],
+  ["guide", "Guide", "Guide"], ["evidence", "Preuve", "Evidence"], ["record", "Enregistrement", "Record"],
+] as const;
+const standardFields = [
+  { key: "ged.reference", fr: "Référence", en: "Reference", type: "text", aliases: ["Referencia"] },
+  { key: "ged.documentType", fr: "Type de document", en: "Document type", type: "select", aliases: ["Tipo de documento", "Typ dokumentu"] },
+  { key: "ged.owner", fr: "Responsable", en: "Owner", type: "text", aliases: ["Vlastník"] },
+  { key: "ged.keywords", fr: "Mots-clés", en: "Keywords", type: "text", aliases: ["Palabras clave", "Kľúčové slová"] },
+  { key: "ged.reviewDate", fr: "Date de revue", en: "Review date", type: "date", aliases: ["Fecha de revisión", "Dátum revízie"] },
+] as const;
+export function metadataLabel(key: string, t: (fr: string, en: string) => string) {
+  const field = standardFields.find(field => field.key === key);
+  return field ? t(field.fr, field.en) : key;
+}
+export function metadataDisplayValue(key: string, value: string, t: (fr: string, en: string) => string) {
+  const type = key === "ged.documentType" ? documentTypes.find(type => type[0] === value) : undefined;
+  return type ? t(type[1], type[2]) : value;
+}
+
 export function CustomMetadataFields({ value, onChange, t, disabled = false }: {
   value: Record<string, string>; onChange: (value: Record<string, string>) => void;
   t: (fr: string, en: string) => string; disabled?: boolean;
 }) {
   const [name, setName] = useState("");
   const suggestionsId = useId();
+  const [template, setTemplate] = useState("");
+  const entries = Object.entries(value);
+  const normalized = (name: string) => name.trim().normalize("NFKC").toLocaleLowerCase();
+  const missing = standardFields.filter(field => !entries.some(([key]) => [field.key, field.fr, field.en, ...field.aliases, t(field.fr, field.en)].some(alias => normalized(alias) === normalized(key))));
   const key = name.trim();
   const canAdd = Object.keys(value).length < 20 && /^[\p{L}\p{N}][\p{L}\p{N} _.-]{0,63}$/u.test(key)
-    && !["__proto__", "constructor", "prototype"].includes(key) && !Object.hasOwn(value, key);
+    && !["__proto__", "constructor", "prototype"].includes(key) && !entries.some(([field]) => normalized(field) === normalized(key));
+  const addField = () => { if (canAdd) { onChange({ ...value, [key]: "" }); setName(""); } };
   return <fieldset className="admin-form wide custom-metadata-fields" disabled={disabled}>
     <legend>{t("Champs personnalisés", "Custom fields")}</legend>
     <p>{t("Ajoutez une référence, un responsable ou des mots-clés. Ces champs sont recherchables, y compris dans vos favoris, sans modifier la version du fichier.", "Add a reference, owner or keywords. These fields are searchable, including in your favorites, without changing the file version.")}</p>
-    {Object.entries(value).map(([field, content]) => <div className="button-row" key={field}>
-      <label>{field}<input maxLength={1000} value={content} onChange={event => onChange({ ...value, [field]: event.target.value })} /></label>
-      <button type="button" aria-label={`${t("Supprimer", "Delete")} ${field}`} onClick={() => onChange(Object.fromEntries(Object.entries(value).filter(([item]) => item !== field)))}>{t("Supprimer", "Delete")}</button>
-    </div>)}
-    <div className="button-row"><label>{t("Nom du champ", "Field name")}<input value={name} list={suggestionsId} maxLength={64} onChange={event => setName(event.target.value)} /></label>
-      <button type="button" disabled={!canAdd} onClick={() => { onChange({ ...value, [key]: "" }); setName(""); }}>{t("Ajouter", "Add")}</button></div>
+    <div className="metadata-template-tools"><label>{t("Modèle de fiche", "Metadata template")}<select value={template} onChange={event => setTemplate(event.target.value)}><option value="">{t("Choisir…", "Select…")}</option>{documentTypes.map(([key, fr, en]) => <option key={key} value={key}>{t(fr, en)}</option>)}</select></label>
+      <button type="button" disabled={!template || !missing.length || entries.length + missing.length > 20} onClick={() => onChange({ ...value, ...Object.fromEntries(missing.map(field => [field.key, field.key === "ged.documentType" ? template : ""])) })}>{t("Compléter la fiche", "Complete metadata")}</button>
+      <output aria-live="polite">{entries.filter(([, content]) => content.trim()).length} / {entries.length} {t("champs renseignés", "fields completed")} · {entries.length}/20</output>
+    </div>
+    <p>{t("Le modèle ajoute uniquement les champs manquants. La date de revue est descriptive ; planifiez les rappels dans Gouvernance.", "The template only adds missing fields. The review date is descriptive; schedule reminders in Governance.")}</p>
+    {entries.map(([field, content]) => {
+      const definition = standardFields.find(item => item.key === field);
+      const label = metadataLabel(field, t);
+      return <div className="button-row" key={field}>
+        <label>{label}{definition?.type === "select" ? <select value={content} onChange={event => onChange({ ...value, [field]: event.target.value })}><option value="">—</option>{documentTypes.map(([key, fr, en]) => <option key={key} value={key}>{t(fr, en)}</option>)}</select>
+          : <input type={definition?.type === "date" ? "date" : "text"} min={definition?.type === "date" ? "0001-01-01" : undefined} max={definition?.type === "date" ? "9999-12-31" : undefined} maxLength={1000} value={content} onChange={event => onChange({ ...value, [field]: event.target.value })} />}</label>
+        <button type="button" aria-label={`${t("Supprimer", "Delete")} ${label}`} onClick={() => onChange(Object.fromEntries(entries.filter(([item]) => item !== field)))}>{t("Supprimer", "Delete")}</button>
+      </div>;
+    })}
+    <div className="button-row"><label>{t("Nom du champ", "Field name")}<input value={name} list={suggestionsId} maxLength={64} onChange={event => setName(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); addField(); } }} /></label>
+      <button type="button" disabled={!canAdd} onClick={addField}>{t("Ajouter", "Add")}</button></div>
     <datalist id={suggestionsId}>{[t("Référence", "Reference"), t("Responsable", "Owner"), t("Mots-clés", "Keywords")].map(label => <option key={label} value={label} />)}</datalist>
   </fieldset>;
 }
