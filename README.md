@@ -37,6 +37,19 @@ fait foi.
   Validation Graph en lecture seule, certificat et refus en cas d'indisponibilite.
   Voir [configuration et activation progressive](docs/sso.md).
 
+### Métadonnées GED et gestion documentaire (30 octobre 2026)
+
+- **[Métadonnées documentaires](#métadonnées-documentaires)** : modèles de fiche,
+  champs personnalisés, recherche et édition sans nouvelle version du fichier.
+- **[ACL par catégorie](#acl-des-catégories-et-sous-catégories)** : héritage avec
+  exceptions, choix des sous-catégories dans les règles d'accès et filtres associés.
+- **Lecture plus compacte** : informations documentaires en grille responsive,
+  textes longs adaptés et mots-clés cliquables, sans cases vides ni doublons de casse.
+- **Administration et modération** : branches documentaires repliables, statut
+  stylisé, confirmation de sauvegarde et protection contre l'abandon des champs modifiés.
+- **Aide FR/EN/ES/SK** : rubrique **Métadonnées GED** dans `/admin#help`, avec
+  exemples, limites, étapes d'enregistrement et explication des dates de revue.
+
 ### Lecteur Microsoft Information Protection optionnel (19 octobre 2026)
 
 - Intégration pilote du SDK MIP pour les fichiers DOCX/XLSX chiffrés par Microsoft Purview, sans OneDrive ni SharePoint. L'original reste chiffré dans le stockage ISMS ; les fichiers ordinaires suivent le parcours existant.
@@ -77,7 +90,7 @@ fait foi.
 
 ### Administration et aide technique — 10 octobre 2026
 
-- **Aide intégrée** dans `/admin#help` : 26 rubriques regroupées par domaine,
+- **Aide intégrée** dans `/admin#help` : rubriques regroupées par domaine,
   recherche, navigation précédent/suivant et langue français/anglais/espagnol/slovaque pilotée par
   les boutons de l'en-tête, sans commandes de langue en doublon dans l'aide.
   Une seule rubrique est affichée à la fois ; sur mobile, un sélecteur remplace
@@ -95,9 +108,10 @@ fait foi.
   formulaire local se vide correctement après un ajout réussi. Les commandes
   de langue de l'en-tête restent accessibles sur mobile.
 - **Portée des permissions clarifiée** : une règle de l'éditeur des droits
-  associe un groupe à un espace. Une sous-catégorie ne constitue pas, à elle
-  seule, une restriction d'accès ; utilisez un espace distinct pour une
-  audience différente et vérifiez avec un utilisateur standard.
+  associe un groupe à un espace, une catégorie ou une sous-catégorie.
+  Les catégories héritent des droits du parent jusqu'à une règle explicite
+  remplaçant cet héritage pour la branche. Vérifiez le résultat avec un
+  utilisateur standard ; créer une catégorie seule n'ajoute aucune restriction.
 - **Reconnexion administrateur corrigée** : après expiration de session,
   « Se reconnecter » relance le SSO, y compris lorsque l'API ne fournit pas
   d'URL de connexion. Pour une session AD/locale, le bouton ouvre la connexion
@@ -486,6 +500,58 @@ Les permissions `read`, `preview` et `download` sont distinctes. L’API renvoie
 les capacités autorisées et l’interface masque le téléchargement lorsqu’il
 n’est pas accordé. Les fichiers sont conservés dans le volume Docker
 `document-storage`, monté dans `/data/documents`.
+
+### Métadonnées documentaires
+
+Les administrateurs utilisent **Documents → Éditer les métadonnées** ; les
+modérateurs utilisent **Documents gérés → Éditer**. Le portail propose aussi
+**Éditer** aux comptes disposant du droit de modification. Le titre, la description,
+la langue, la catégorie et les champs personnalisés se modifient sans déposer de
+nouveau fichier ni créer un numéro de version.
+
+Les modèles **Politique**, **Procédure**, **Guide**, **Preuve** et **Enregistrement**
+s'appliquent dès leur sélection. Ils ajoutent les champs manquants sans écraser
+les valeurs existantes :
+
+| Champ | Exemple |
+| --- | --- |
+| Référence | `POL-001` |
+| Type de document | Politique |
+| Responsable | Qualité |
+| Mots-clés | `sécurité, SSO` |
+| Date de revue | `2028-02-29` |
+
+Pour un champ libre, saisir **Nom du champ** et **Valeur du champ**, puis cliquer
+sur **Ajouter**. Cliquer ensuite sur **Enregistrer** pour conserver la fiche.
+Un champ encore en attente bloque cet enregistrement : l'ajouter ou effacer ses
+deux saisies. La limite est de **20 champs au total**, modèles compris,
+**64 caractères par nom** et **1 000 caractères par valeur**.
+
+Rouvrir **Éditer** pour vérifier les valeurs sauvegardées. Le panneau
+**Informations documentaires** affiche les champs renseignés et masque les champs
+vides. La recherche inclut les noms et valeurs des métadonnées, y compris dans les
+favoris, selon les ACL. Les mots-clés se séparent par une virgule, un point-virgule
+ou un retour à la ligne ; cliquer sur un mot-clé lance une recherche associée.
+
+La date de revue doit être valide mais **ne planifie pas de rappel** : utiliser
+Gouvernance pour planifier les revues. Le responsable et le type de document ne
+changent pas les droits d'accès. L'audit identifie les champs personnalisés ajoutés,
+modifiés et supprimés sans recopier leurs valeurs. Une modification concurrente
+est refusée pour éviter d'écraser une autre mise à jour.
+
+### ACL des catégories et sous-catégories
+
+Dans **Règles d'accès**, choisir le groupe et l'espace, puis la catégorie ou
+sous-catégorie concernée. Sans règle spécifique, les droits sont hérités du parent.
+Une règle explicite remplace cet héritage pour cette branche, jusqu'à une nouvelle
+exception. Une catégorie ne constitue pas une restriction à elle seule.
+
+Ces droits sont évalués côté API pour les listes, la recherche, la prévisualisation,
+le téléchargement et les destinataires des notifications documentaires.
+Les droits de gestion propres aux administrateurs et modérateurs sont conservés.
+Pour une mise à jour depuis une version antérieure, appliquer la migration
+`20261030090000_document_metadata_category_acl` avec la procédure de migration du
+projet avant de démarrer l'API et le worker mis à jour.
 
 ### Stockage documentaire optionnel
 
