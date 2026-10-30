@@ -21,6 +21,15 @@ export function metadataLabel(key: string, t: (fr: string, en: string) => string
   const field = standardFields.find(field => field.key === key);
   return field ? t(field.fr, field.en) : key;
 }
+export function metadataKeywords(value: string) {
+  const keywords = new Map<string, string>();
+  for (const part of value.split(/[,;\n]/)) {
+    const keyword = part.trim();
+    const key = keyword.normalize("NFKC").toLowerCase();
+    if (keyword && !keywords.has(key)) keywords.set(key, keyword);
+  }
+  return [...keywords.values()];
+}
 export function metadataDisplayValue(key: string, value: string, t: (fr: string, en: string) => string, locale = "en") {
   if (key === "ged.reviewDate" && /^(?!0000)\d{4}-\d{2}-\d{2}$/.test(value)) {
     const date = new Date(`${value}T00:00:00Z`);

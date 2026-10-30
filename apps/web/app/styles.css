@@ -1125,7 +1125,7 @@ h1 {
 }
 .document-reader-meta {
   display: grid;
-  grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(80px, 0.5fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 0.55rem;
   margin: 0 0 0.9rem;
 }
@@ -1142,6 +1142,7 @@ h1 {
 }
 .document-reader-information .document-reader-meta {
   margin: 0;
+  padding: 8px;
   border: 0;
   border-top: 1px solid #d7e1ee;
   border-radius: 0;
@@ -1221,13 +1222,17 @@ h1 {
 }
 .pdf-page-controls output { min-width: 4ch; white-space: nowrap; }
 .document-reader-meta > div {
+  grid-column: span 2;
   min-width: 0;
-  padding: 0.65rem 0.75rem;
+  padding: 0.45rem 0.65rem;
   border: 1px solid #d6e2f0;
   border-radius: 0.65rem;
   background: #f7faff;
 }
+.document-reader-meta > div:first-child { grid-column: span 6; }
+.document-reader-meta > div:first-child dd { white-space: normal; overflow-wrap: anywhere; }
 .document-reader-meta dt {
+  overflow-wrap: anywhere;
   color: #65758d;
   font-size: 0.7rem;
   font-weight: 750;
@@ -1235,8 +1240,11 @@ h1 {
   text-transform: uppercase;
 }
 .document-reader-meta .document-reader-custom-field {
-  grid-column: 1 / -1;
+  grid-column: span 4;
 }
+.document-metadata-keywords { display: flex; flex-wrap: wrap; gap: 4px; }
+.document-metadata-keywords a { padding: 2px 8px; border-radius: 12px; background: #e9f2ff; color: #075dbd; text-decoration: none; max-width: 100%; overflow-wrap: anywhere; }
+.document-metadata-keywords a:hover { text-decoration: underline; }
 .document-reader-meta .document-reader-custom-field dd {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -4571,8 +4579,9 @@ svg {
   }
 
   .document-reader-meta {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
+  .document-reader-meta .document-reader-custom-field { grid-column: span 3; }
 
   .document-reader-meta > div:first-child {
     grid-column: 1 / -1;

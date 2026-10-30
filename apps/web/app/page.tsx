@@ -2,7 +2,7 @@
 import { fetchWithTimeout as fetch } from "./http-client";
 import { responseMessage } from "./request-errors";
 import { translationFields } from "./moderator/document-model";
-import { CustomMetadataFields, metadataLabel, metadataDisplayValue } from "./document-metadata-fields";
+import { CustomMetadataFields, metadataLabel, metadataDisplayValue, metadataKeywords } from "./document-metadata-fields";
 import { uploadAttempt, type UploadAttempt } from "./upload-attempt";
 import { normalizePdfPage, parsePdfProgress, type PdfZoom } from "./pdf-progress";
 import { copyDocumentLink, documentShareUrl } from "./document-share";
@@ -3125,7 +3125,7 @@ export function Portal({
                   <dt>{translate(locale, "Langue", "Language")}</dt>
                   <dd>{openedLocale?.toUpperCase() || "—"}</dd>
                 </div>
-                {Object.entries(opened.metadata || {}).filter(([, value]) => value.trim()).map(([field, value]) => <div className="document-reader-custom-field" key={field}><dt>{metadataLabel(field, (fr, en) => translate(locale, fr, en))}</dt><dd>{field === "ged.keywords" ? [...new Set(value.split(/[,;\n]/).map(keyword => keyword.trim()).filter(Boolean))].map((keyword, index) => <span key={keyword}>{index > 0 && " · "}<a href={`/explorer?q=${encodeURIComponent(keyword)}`}>{keyword}</a></span>) : metadataDisplayValue(field, value, (fr, en) => translate(locale, fr, en), locale)}</dd></div>)}
+                {Object.entries(opened.metadata || {}).filter(([field, value]) => field === "ged.keywords" ? metadataKeywords(value).length > 0 : value.trim()).map(([field, value]) => <div className="document-reader-custom-field" key={field}><dt>{metadataLabel(field, (fr, en) => translate(locale, fr, en))}</dt><dd className={field === "ged.keywords" ? "document-metadata-keywords" : undefined}>{field === "ged.keywords" ? metadataKeywords(value).map(keyword => <a key={keyword} href={`/explorer?q=${encodeURIComponent(keyword)}`}>{keyword}</a>) : metadataDisplayValue(field, value, (fr, en) => translate(locale, fr, en), locale)}</dd></div>)}
               </dl>
             </ReaderInformation>
             {openedVersion?.changeDetails &&
