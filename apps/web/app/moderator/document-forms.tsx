@@ -16,12 +16,13 @@ export function MetadataForm({ document, categories, value, onChange, onSave, ..
 }) {
   const t = (fr: string, en: string) => translate(actions.locale, fr, en);
   const options = useMemo(() => categoryOptions(categories, actions.locale), [categories, actions.locale]);
+  const updateMetadata = (next: MetadataValues) => { actions.onDirty(); onChange(next); };
   return <section className="admin-card" id="moderator-metadata-form">
     <h2>{t("Éditer les métadonnées", "Edit metadata")}</h2>
-    <form onChange={actions.onDirty} onSubmit={(event) => { event.preventDefault(); void onSave(); }} aria-busy={actions.busy}>
+    <form onSubmit={(event) => { event.preventDefault(); void onSave(); }} aria-busy={actions.busy}>
       <fieldset className="admin-form upload-form moderator-fields" disabled={actions.busy}>
-        <DocumentMetadataFields value={value} onChange={onChange} t={t}
-          onLocaleChange={(locale) => onChange({ ...value, locale, ...translationFields(document, locale) })}>
+        <DocumentMetadataFields value={value} onChange={updateMetadata} t={t}
+          onLocaleChange={(locale) => updateMetadata({ ...value, locale, ...translationFields(document, locale) })}>
           {document.category && !options.some((option) => option.id === document.category!.id) && <option value={document.category.id}>{actions.locale === "fr" ? document.category.nameFr : document.category.nameEn}</option>}
           {options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
         </DocumentMetadataFields>

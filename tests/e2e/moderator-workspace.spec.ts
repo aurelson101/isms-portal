@@ -1,5 +1,29 @@
 import { expect, test } from "./test";
 
+test("moderator warns before discarding a metadata field deletion", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+  const space = { id: "it", nameFr: "IT", nameEn: "IT", permissions: { edit: true } };
+  const document = { id: "doc", status: "DRAFT", space, category: null, metadata: { Reference: "POL-001" }, translations: [{ locale: "en", title: "Policy" }], versions: [] };
+  await page.route("**/api/**", route => {
+    const path = new URL(route.request().url()).pathname;
+    return route.fulfill({ json: path === "/api/me" ? { isModerator: true, spaces: [space] }
+      : path.endsWith("/categories") ? [] : { items: [document], page: 1, totalPages: 1 } });
+  });
+  await page.goto("/moderator");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const form = page.locator("#moderator-metadata-form");
+  await form.getByRole("button", { name: "Delete Reference", exact: true }).click();
+  let warnings = 0;
+  page.once("dialog", async dialog => { warnings++; await dialog.dismiss(); });
+  await form.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(form).toBeVisible();
+  expect(warnings).toBe(1);
+  await expect(form.getByRole("textbox", { name: "Reference", exact: true })).toHaveCount(0);
+  page.once("dialog", dialog => dialog.accept());
+  await form.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(form).toHaveCount(0);
+});
+
 test("moderator version forms discard the previous document file and summary", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
   const space = { id: "it", nameFr: "IT", nameEn: "IT", permissions: { edit: true } };
