@@ -1,5 +1,5 @@
 const { PrismaClient } = require("@prisma/client");
-const { createHash } = require("crypto");
+const { createHash, randomUUID } = require("crypto");
 const { mkdir, writeFile } = require("fs/promises");
 const { dirname, resolve, sep } = require("path");
 
@@ -7,6 +7,14 @@ const prisma = new PrismaClient();
 const storageRoot = resolve(
   process.env.DOCUMENT_STORAGE_PATH || "/data/documents",
 );
+
+async function rootAccessRuleWhere(client, groupId, spaceId) {
+  const existing = await client.accessRule.findFirst({
+    where: { groupId, spaceId, categoryId: null },
+    select: { id: true },
+  });
+  return { id: existing?.id || randomUUID() };
+}
 
 async function store(objectKey, content) {
   const target = resolve(storageRoot, objectKey);
@@ -131,9 +139,7 @@ async function main() {
     });
     spaceIds[slug] = space.id;
     await prisma.accessRule.upsert({
-      where: {
-        groupId_spaceId: { groupId: groupIds[groupName], spaceId: space.id },
-      },
+      where: await rootAccessRuleWhere(prisma, groupIds[groupName], space.id),
       update: {
         showMenu: true,
         read: true,
@@ -153,12 +159,11 @@ async function main() {
     });
     for (const administratorGroup of ["ISMS-ADMINS", "ISMS-LOCAL-ADMINS"]) {
       await prisma.accessRule.upsert({
-        where: {
-          groupId_spaceId: {
-            groupId: groupIds[administratorGroup],
-            spaceId: space.id,
-          },
-        },
+        where: await rootAccessRuleWhere(
+          prisma,
+          groupIds[administratorGroup],
+          space.id,
+        ),
         update: {
           showMenu: true,
           read: true,
@@ -279,10 +284,13 @@ async function main() {
   }
 }
 
-main()
-  .then(() => prisma.$disconnect())
-  .catch(async (error) => {
-    console.error(error);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+module.exports = { rootAccessRuleWhere };
+
+if (require.main === module)
+  main()
+    .then(() => prisma.$disconnect())
+    .catch(async (error) => {
+      console.error(error);
+      await prisma.$disconnect();
+      process.exit(1);
+    });
