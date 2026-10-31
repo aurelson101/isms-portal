@@ -53,7 +53,8 @@
     "workspaces": {
       ".": {
         "entry": [
-          "scripts/performance-test.mjs"
+          "scripts/performance-test.mjs",
+          "tests/readme-screenshots.config.ts"
         ]
       },
       "apps/api": {

@@ -255,6 +255,7 @@ for (const width of [320, 768, 1440, 1920, 2560, 3440, 3840, 5120]) {
         : path.endsWith("/categories") ? [] : {} });
     });
     await page.goto("/moderator");
+    await page.locator(".management-view-toggle button").nth(1).click();
     const toolbar = page.locator(".moderator-management-header");
     await expect(toolbar.locator(".admin-language")).toHaveCount(1);
     await expect(toolbar.getByRole("searchbox")).toHaveCount(1);

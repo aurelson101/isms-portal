@@ -8,10 +8,10 @@ L'application est à la fois une GED et un outil de pilotage ISMS. Elle couvre l
 
 ## Utilisateurs et rôles
 
-| Rôle | Responsabilités principales |
-| --- | --- |
-| Utilisateur | Recherche, consultation, prévisualisation, téléchargement autorisé, favoris, demandes d'accès et signalements. |
-| Modérateur | Dépôt, modification, publication, nouvelle version, archivage, suppression et traitement des revues selon ses ACL. |
+| Rôle           | Responsabilités principales                                                                                                 |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Utilisateur    | Recherche, consultation, prévisualisation, téléchargement autorisé, favoris, demandes d'accès et signalements.              |
+| Modérateur     | Dépôt, modification, publication, nouvelle version, archivage, suppression et traitement des revues selon ses ACL.          |
 | Administrateur | Gestion des espaces, catégories, ACL, comptes, modérateurs, annuaire, certificats, alertes, stockage, audit et gouvernance. |
 
 Les droits sont contrôlés par l'API, avec un refus par défaut. Un modérateur peut être restreint par espace ou catégorie. Un administrateur peut accorder un droit à un utilisateur ou à un groupe Active Directory, de manière permanente ou temporaire.
@@ -23,6 +23,13 @@ Les formats acceptés sont PDF, Word DOCX et Excel XLSX. Au dépôt, l'auteur re
 Un document suit un cycle de vie : brouillon, revue, publié, archivé ou supprimé. Une nouvelle version conserve l'historique, les dates et le résumé des changements. La conservation physique est maîtrisée afin de ne pas encombrer le stockage. L'administration affiche vingt documents par page avec navigation.
 
 Les capacités read, preview et download sont distinctes. Un utilisateur peut donc lire ou prévisualiser un document sans pouvoir le télécharger. Les documents sont rangés dans des espaces, catégories et sous-catégories, par exemple Documents généraux, IT, RH ou zones métier spécifiques.
+
+Les administrateurs et modérateurs disposent des présentations Liste et Fenêtres
+pour gérer les documents, avec vingt éléments par page et navigation Précédent /
+Suivant. Les menus de métadonnées permettent une modification sans nouvelle version,
+la recherche ciblée, les lots avec aperçu et l'historique des changements. Les champs
+métier restent facultatifs. Le suivi des revues et les rappels configurables restent
+distincts des alertes techniques. Voir [Gestion documentaire](document-management.md).
 
 ## ACL, identités et authentification
 
@@ -118,4 +125,3 @@ Ne jamais utiliser docker compose down -v en exploitation, car cette commande su
 ```powershell
 pandoc .\application-description.md -o .\description-complete-isms-portal.docx
 ```
-

@@ -1,5 +1,13 @@
 import type { Locale } from "./i18n/locale";
 const text = {
+  display: [
+    "Affichage des documents",
+    "Document view",
+    "Vista de documentos",
+    "Zobrazenie dokumentov",
+  ],
+  list: ["Liste", "List", "Lista", "Zoznam"],
+  grid: ["Fenêtres", "Windows", "Ventanas", "Okná"],
   advanced: [
     "Recherche GED",
     "GED search",

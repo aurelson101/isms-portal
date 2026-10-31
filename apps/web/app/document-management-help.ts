@@ -29,4 +29,13 @@ const paragraphs = {
     "Sledovanie dokumentov: počty zahŕňajú upraviteľné dokumenty. Odporúčané polia sú voliteľné. Správcovia môžu povoliť pripomienky, nastaviť lehoty ročných kontrol a opakovanie pripomienok publikácie (0 = raz). Použijú sa existujúce kanály; ged.reviewDate nevytvára kontrolu.",
   ],
 };
-export const documentManagementHelp = (locale: Locale) => paragraphs[locale];
+const viewHelp = {
+  fr: "Documents et Métadonnées : choisissez Liste ou Fenêtres. Les deux vues affichent 20 documents par page avec Précédent/Suivant ; les filtres sont conservés et le choix de présentation est mémorisé dans le navigateur pour l'administration et la modération.",
+  en: "Documents and Metadata: choose List or Windows. Both views show 20 documents per page with Previous/Next, preserve filters and remember the presentation in the browser for administration and moderation.",
+  es: "Documentos y Metadatos: elija Lista o Ventanas. Ambas vistas muestran 20 documentos por página con Anterior/Siguiente, conservan los filtros y recuerdan la presentación en el navegador para administración y moderación.",
+  sk: "Dokumenty a Metadáta: vyberte Zoznam alebo Okná. Oba pohľady zobrazujú 20 dokumentov na stránku s tlačidlami Späť/Ďalej, zachovávajú filtre a pamätajú si zobrazenie v prehliadači pre správu aj moderovanie.",
+};
+export const documentManagementHelp = (locale: Locale) => [
+  viewHelp[locale],
+  ...paragraphs[locale],
+];

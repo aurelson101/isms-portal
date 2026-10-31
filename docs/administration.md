@@ -11,7 +11,7 @@ changer son mot de passe, activer un MFA TOTP, ajouter un compte local ou
 rechercher un utilisateur AD puis lui attribuer l’administration. Le compte
 principal ne peut pas être supprimé.
 
-Les dix sections sont actives :
+Les sections comprennent notamment :
 
 - tableau de bord alimenté par PostgreSQL ;
 - groupes AD et espaces associés ;
@@ -31,3 +31,21 @@ Les seuls formats documentaires acceptés sont PDF, DOCX et XLSX. Les
 utilisateurs consultent les PDF dans le navigateur et les documents Word/Excel
 dans un aperçu local en lecture seule. Le téléchargement n’est affiché que si
 la règle d’accès accorde explicitement la permission `download`.
+
+## Documents et métadonnées
+
+Administrateurs et modérateurs disposent des vues **Liste** et **Fenêtres**,
+avec **20 documents par page**, **Précédent** et **Suivant**. Le choix de
+présentation est mémorisé dans le navigateur et les filtres restent appliqués
+pendant la pagination. Les capacités effectives de chaque document restent
+contrôlées par l'API.
+
+Les menus `/admin#metadata` et `/moderator#moderator-metadata` proposent des
+métadonnées métier facultatives, recherche ciblée, modification par lot avec
+aperçu, historique des modifications et suivi documentaire. Les réglages de
+rappels sont réservés aux administrateurs. La modification de métadonnées ne
+crée pas de nouvelle version du fichier.
+
+La procédure complète, les limites et les exemples JSON sont décrits dans
+[Gestion documentaire](document-management.md). Des
+[captures anonymisées](screenshots/README.md) illustrent les deux présentations.

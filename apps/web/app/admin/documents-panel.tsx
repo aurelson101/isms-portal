@@ -8,6 +8,7 @@ import { Icon } from "../icons";
 import { StorageSelect } from "../storage-select";
 import { BatchImport } from "../batch-import";
 import { DocumentMetadataFields } from "../document-metadata-fields";
+import { ManagementViewToggle, useManagementView } from "../management-view";
 import { DocumentBulkEditor, DocumentHistory, DocumentQuality, DocumentSearchForm } from "../document-management";
 import { readMetadataFilters, type MetadataFilters } from "../document-management-copy";
 import { uploadAttempt, type UploadAttempt } from "../upload-attempt";
@@ -39,6 +40,7 @@ export function DocumentsPanel({
   onError: (message: string) => void;
 }) {
   const [spaceId, setSpaceId] = useState("");
+  const [managementView, changeManagementView] = useManagementView();
   const [metadataSearch, setMetadataSearch] = useState<MetadataFilters>({});
   const [versionUploadDocument, setVersionUploadDocument] =
     useState<AdminDocument | null>(null);
@@ -179,6 +181,7 @@ export function DocumentsPanel({
           <option value="status">{t("État")}</option>
         </select></label>
         <span role="status">{documentsLoading ? t("Chargement…") : `${documentTotal} ${t("documents", "documents")}`}</span>
+        <ManagementViewToggle locale={locale} view={managementView} onChange={changeManagementView} />
       </div>
       <div hidden={metadataOnly}>
       <BatchImport locale={locale} disabled={refreshing || uploading} onComplete={async () => { await loadDocuments(); await onChanged(); }} />
@@ -374,8 +377,8 @@ export function DocumentsPanel({
       )}
       <DocumentBulkEditor key={pageDocuments.map(document => document.id + document.updatedAt).join(",")} documents={pageDocuments} locale={locale} admin onComplete={async () => { await loadDocuments(); await onChanged(); }} />
       {editingMetadataDocument && <DocumentHistory key={editingMetadataDocument.id} id={editingMetadataDocument.id} locale={locale} />}
-      <div className="admin-table-wrap">
-        <table className="admin-actions-table" aria-busy={documentsLoading}>
+      <div className={`admin-table-wrap management-documents management-documents--${managementView}`}>
+        <table className="admin-actions-table" role="table" aria-busy={documentsLoading}>
           <thead>
             <tr>
               <th>{t("Titre")}</th>
@@ -400,7 +403,7 @@ export function DocumentsPanel({
               </tr>
             )}
             {pageDocuments.map((document) => (
-              <tr key={document.id}>
+              <tr key={document.id} role="row">
                 <td data-label={t("Titre")}>
                   {document.translations.map((item) => item.title).join(" / ")}
                   <details className="document-lifecycle">

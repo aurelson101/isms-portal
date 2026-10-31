@@ -49,6 +49,11 @@ fait foi.
 
 ### Métadonnées GED et gestion documentaire (30 octobre 2026)
 
+**Documents admin et modérateur : Liste ou Fenêtres, 20 documents par page avec
+Précédent/Suivant.** Le choix d'affichage est mémorisé dans le navigateur ; les
+filtres restent actifs pendant la pagination. Voir la procédure et les exemples
+dans [Gestion documentaire](docs/document-management.md).
+
 Nouveautés du 31 octobre : recherche GED par référence, responsable, type, mots-clés
 et plage de dates de revue, combinable aux langues, catégories et favoris. Les recherches
 enregistrées conservent ces critères. Les recherches textuelles sur un champ précis
@@ -174,28 +179,41 @@ distincts de l'authentification SSO.
 
 ## Captures d'écran
 
-Captures réelles du navigateur issues des tests Playwright, avec des données de
-démonstration anonymisées. Elles n'affichent aucun contenu de production.
+Captures réelles du navigateur renouvelées le **31 octobre 2026**, avec des données
+de démonstration anonymisées. Aucun contenu de production n'est affiché.
+[Scénarios et régénération](docs/screenshots/README.md).
 
 **Accueil documentaire**
 
-![Accueil du portail documentaire](tests/e2e/visual.spec.ts-snapshots/portal-desktop-linux.png)
+![Accueil du portail documentaire](docs/screenshots/portal-desktop.png)
 
 **Explorateur documentaire**
 
-![Explorateur et liste des documents](tests/e2e/visual.spec.ts-snapshots/explorer-desktop-linux.png)
+![Explorateur et liste des documents](docs/screenshots/explorer-desktop.png)
 
 **Vue mobile**
 
-<img src="tests/e2e/visual.spec.ts-snapshots/portal-mobile-linux.png" alt="Accueil du portail sur mobile" width="280">
+<img src="docs/screenshots/portal-mobile.png" alt="Accueil du portail sur mobile" width="280">
 
 **Espace personnel**
 
-![Espace personnel et documents récents](tests/e2e/visual.spec.ts-snapshots/workspace-desktop-linux.png)
+![Espace personnel et documents récents](docs/screenshots/workspace-desktop.png)
 
-**Gestion des documents**
+**Administration des métadonnées — Liste et Fenêtres, 20 documents par page**
 
-![Administration des documents](tests/e2e/visual.spec.ts-snapshots/admin-documents-desktop-linux.png)
+![Administration en liste](docs/screenshots/admin-metadata-list.png)
+
+![Administration en fenêtres](docs/screenshots/admin-metadata-windows.png)
+
+**Espace modérateur — mêmes présentations et pagination**
+
+![Documents du modérateur en liste](docs/screenshots/moderator-documents-list.png)
+
+![Documents du modérateur en fenêtres](docs/screenshots/moderator-documents-windows.png)
+
+**Édition des métadonnées facultatives**
+
+![Éditeur de métadonnées](docs/screenshots/metadata-editor.png)
 
 ## Architecture
 

@@ -6,6 +6,10 @@ control, document storage, or notification delivery.
 
 Optional S3 and SMB/CIFS targets: [Document storage](document-storage.md).
 
+Document list/windows views, pagination, optional metadata, bulk changes,
+history, duplicate detection and reminders: [Document management](document-management.md).
+Current anonymized browser captures: [Screenshots](screenshots/README.md).
+
 ## System at a glance
 
 ISMS Portal is a Docker Compose application:
@@ -50,23 +54,23 @@ document volume as a single backup and restore unit.
 
 ## Documentation map
 
-| Subject | Reference |
-| --- | --- |
-| Installation and host prerequisites | [installation.md](installation.md), [docker.md](docker.md) |
-| Architecture and service boundaries | [architecture.md](architecture.md) |
-| Complete ISMS Portal application description | [application-description.md](application-description.md) |
-| Azure architecture and risk analysis | [risk-analysis-azure.md](risk-analysis-azure.md) |
-| Reusable architecture risk-analysis template | [templates/architecture-risk-analysis-template.md](templates/architecture-risk-analysis-template.md) |
-| Active Directory and LDAPS | [active-directory.md](active-directory.md), [ldaps-certificates.md](ldaps-certificates.md) |
-| Entra ID / SSO | [sso.md](sso.md) |
-| Access model and ACLs | [permissions.md](permissions.md) |
-| Administrator operations | [administration.md](administration.md) |
-| Security controls and incident response | [security.md](security.md), [troubleshooting.md](troubleshooting.md) |
-| Backup, restore, and functional restore test | [backup-restore.md](backup-restore.md) |
-| API routes | [routes.md](routes.md) |
-| Developer modules, functions, workers, and workflow reference | [developer-reference.md](developer-reference.md) |
-| Release versioning | [VERSIONING.md](VERSIONING.md) |
-| User-facing behavior | [user-guide-en.md](user-guide-en.md), [user-guide-fr.md](user-guide-fr.md) |
+| Subject                                                       | Reference                                                                                            |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Installation and host prerequisites                           | [installation.md](installation.md), [docker.md](docker.md)                                           |
+| Architecture and service boundaries                           | [architecture.md](architecture.md)                                                                   |
+| Complete ISMS Portal application description                  | [application-description.md](application-description.md)                                             |
+| Azure architecture and risk analysis                          | [risk-analysis-azure.md](risk-analysis-azure.md)                                                     |
+| Reusable architecture risk-analysis template                  | [templates/architecture-risk-analysis-template.md](templates/architecture-risk-analysis-template.md) |
+| Active Directory and LDAPS                                    | [active-directory.md](active-directory.md), [ldaps-certificates.md](ldaps-certificates.md)           |
+| Entra ID / SSO                                                | [sso.md](sso.md)                                                                                     |
+| Access model and ACLs                                         | [permissions.md](permissions.md)                                                                     |
+| Administrator operations                                      | [administration.md](administration.md)                                                               |
+| Security controls and incident response                       | [security.md](security.md), [troubleshooting.md](troubleshooting.md)                                 |
+| Backup, restore, and functional restore test                  | [backup-restore.md](backup-restore.md)                                                               |
+| API routes                                                    | [routes.md](routes.md)                                                                               |
+| Developer modules, functions, workers, and workflow reference | [developer-reference.md](developer-reference.md)                                                     |
+| Release versioning                                            | [VERSIONING.md](VERSIONING.md)                                                                       |
+| User-facing behavior                                          | [user-guide-en.md](user-guide-en.md), [user-guide-fr.md](user-guide-fr.md)                           |
 
 ## Change and deployment procedure
 

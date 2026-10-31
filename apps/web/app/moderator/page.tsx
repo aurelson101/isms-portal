@@ -14,6 +14,7 @@ import { useBranding } from "../branding";
 import { responseMessage } from "../request-errors";
 
 import { MetadataForm, VersionForm } from "./document-forms";
+import { ManagementViewToggle, useManagementView } from "../management-view";
 import { DocumentBulkEditor, DocumentHistory, DocumentQuality, DocumentSearchForm } from "../document-management";
 import { metadataFilterKeys, readMetadataFilters, type MetadataFilters } from "../document-management-copy";
 import { BatchImport } from "../batch-import";
@@ -26,6 +27,7 @@ const messageOf = (response: Response) => responseMessage(response, "Request fai
 export default function ModeratorPage() {
   const branding = useBranding();
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const [managementView, changeManagementView] = useManagementView();
   const [activeSection, setActiveSection] = useState("documents");
   const metadataOnly = activeSection === "metadata";
   const documentView = activeSection === "documents" || metadataOnly;
@@ -342,11 +344,12 @@ export default function ModeratorPage() {
     <section id={metadataOnly ? "moderator-metadata" : "moderator-documents"} tabIndex={-1} className="moderator-section">
       <div className="moderator-toolbar"><h2>{metadataOnly ? t("Métadonnées GED", "GED metadata") : t("Documents gérés", "Managed documents")}{currentSpace && ` : ${locale === "fr" ? currentSpace.nameFr : currentSpace.nameEn || currentSpace.nameFr}`}</h2></div>
       <div className="moderator-search">
+        <ManagementViewToggle locale={locale} view={managementView} onChange={changeManagementView} />
         <label className="moderator-status-filter">{t("État", "Status")}<select value={selectedStatus} disabled={busy || Boolean(editing || metadataEditing)} onChange={event => { statusFilter.current = event.target.value; setSelectedStatus(event.target.value); loadPage(1); }}><option value="">{t("Tous les documents", "All documents")}</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <button type="submit" form="moderator-document-search" disabled={busy || Boolean(editing || metadataEditing)}><Icon name="search" />{t("Rechercher", "Search")}</button>
         {(hasActiveSearch || selectedStatus) && <button type="button" disabled={busy || Boolean(editing || metadataEditing)} onClick={() => { setSearch(""); searchQuery.current = ""; setHasActiveSearch(false); statusFilter.current = ""; setSelectedStatus(""); loadPage(1); }}>{t("Réinitialiser", "Reset")}</button>}
       </div>
-      <div className="moderator-document-grid" aria-busy={loading}>
+      <div className="moderator-document-grid" data-management-view={managementView} aria-busy={loading}>
         {loading && <p role="status">{t("Chargement…", "Loading…")}</p>}
         {!loading && !documents.length && <p>{t("Aucun document géré sur cette page.", "No managed document on this page.")}</p>}
         {!loading && rows.map(({ document, latest, title, permissions }) => {

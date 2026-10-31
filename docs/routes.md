@@ -44,3 +44,25 @@ Le filtre de catégorie du portail utilise `categoryId` avec `space`. Les ancien
 liens avec `category=<slug>` restent acceptés seulement lorsqu'ils désignent une
 catégorie unique parmi les espaces accessibles ; un slug ambigu est refusé afin
 de ne jamais mélanger deux espaces.
+
+## Gestion documentaire commune aux administrateurs et modérateurs
+
+| Méthode | Route                               | Fonction et contrôle                                                                  |
+| ------- | ----------------------------------- | ------------------------------------------------------------------------------------- |
+| PUT     | `/api/documents/:id/metadata`       | Métadonnées facultatives et champs usuels ; droit `edit`, contrôle de concurrence     |
+| GET     | `/api/documents/:id/categories`     | Catégories cibles autorisées à l'éditeur                                              |
+| POST    | `/api/documents/bulk/preview`       | Aperçu de 1 à 50 documents, ACL source et destination                                 |
+| POST    | `/api/documents/bulk/apply`         | Application transactionnelle avec les dates exactes de l'aperçu                       |
+| GET     | `/api/documents/:id/history?page=1` | Auteur, date, action et noms de champs ; réservé aux éditeurs, 20 événements par page |
+| GET     | `/api/documents/quality/summary`    | Compteurs limités aux documents modifiables                                           |
+| GET/PUT | `/api/documents/quality/reminders`  | Lecture/configuration des rappels, administrateurs uniquement                         |
+
+`GET /api/documents` et `GET /api/admin/documents` acceptent `reference`, `owner`,
+`documentType`, `keywords`, `reviewFrom` et `reviewTo`. Les interfaces demandent
+`limit=20` et utilisent `page` pour Précédent/Suivant ; Liste/Fenêtres ne crée pas
+de route supplémentaire. Les recherches enregistrées conservent ces critères.
+
+Un dépôt initial identique peut répondre `409 DOCUMENT_DUPLICATE`, avec uniquement
+la référence d'un document que le déposant peut modifier. Un conflit d'édition
+demande de refaire l'aperçu ou de rouvrir la fiche. Voir les
+[exemples et limites](document-management.md).
