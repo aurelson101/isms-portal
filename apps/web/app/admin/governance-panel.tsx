@@ -6,7 +6,17 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Icon } from "../icons";
 
 import type { Locale } from "../i18n/locale";
-const governanceSectionKeys = ["reviews", "access", "controls", "retention", "identity", "incidents", "views", "risks", "dashboard"] as const;
+const governanceSectionKeys = [
+  "reviews",
+  "access",
+  "controls",
+  "retention",
+  "identity",
+  "incidents",
+  "views",
+  "risks",
+  "dashboard",
+] as const;
 type DocumentItem = {
   id: string;
   translations: Array<{ locale: string; title: string }>;
@@ -164,20 +174,72 @@ const statusLabels: Record<string, [string, string]> = {
 const statusLabel = (locale: Locale, value: string) =>
   localizedPair(locale, statusLabels[value]) || value;
 
-const governancePageItems = (current: number, total: number): Array<number | "ellipsis"> => {
+const governancePageItems = (
+  current: number,
+  total: number,
+): Array<number | "ellipsis"> => {
   if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
   const pages = new Set([1, total, current - 1, current, current + 1]);
-  return [...pages].filter((item) => item >= 1 && item <= total).sort((left, right) => left - right)
-    .flatMap((item, index, values) => index && item - values[index - 1] > 1 ? ["ellipsis" as const, item] : [item]);
+  return [...pages]
+    .filter((item) => item >= 1 && item <= total)
+    .sort((left, right) => left - right)
+    .flatMap((item, index, values) =>
+      index && item - values[index - 1] > 1
+        ? ["ellipsis" as const, item]
+        : [item],
+    );
 };
 
-function GovernancePagination({ locale, page, total, onChange }: { locale: Locale; page: number; total: number; onChange: (page: number) => void }) {
+function GovernancePagination({
+  locale,
+  page,
+  total,
+  onChange,
+}: {
+  locale: Locale;
+  page: number;
+  total: number;
+  onChange: (page: number) => void;
+}) {
   if (total <= 1) return null;
-  return <nav className="governance-pagination" aria-label={translate(locale, "Pages de résultats", "Result pages")}>
-    <button type="button" disabled={page === 1} onClick={() => onChange(page - 1)}>{translate(locale, "Précédent", "Previous")}</button>
-    {governancePageItems(page, total).map((item, index) => item === "ellipsis" ? <span key={`ellipsis-${index}`} aria-hidden="true">…</span> : <button key={item} type="button" className={item === page ? "active" : ""} aria-current={item === page ? "page" : undefined} onClick={() => onChange(item)}>{item}</button>)}
-    <button type="button" disabled={page === total} onClick={() => onChange(page + 1)}>{translate(locale, "Suivant", "Next")}</button>
-  </nav>;
+  return (
+    <nav
+      className="governance-pagination"
+      aria-label={translate(locale, "Pages de résultats", "Result pages")}
+    >
+      <button
+        type="button"
+        disabled={page === 1}
+        onClick={() => onChange(page - 1)}
+      >
+        {translate(locale, "Précédent", "Previous")}
+      </button>
+      {governancePageItems(page, total).map((item, index) =>
+        item === "ellipsis" ? (
+          <span key={`ellipsis-${index}`} aria-hidden="true">
+            …
+          </span>
+        ) : (
+          <button
+            key={item}
+            type="button"
+            className={item === page ? "active" : ""}
+            aria-current={item === page ? "page" : undefined}
+            onClick={() => onChange(item)}
+          >
+            {item}
+          </button>
+        ),
+      )}
+      <button
+        type="button"
+        disabled={page === total}
+        onClick={() => onChange(page + 1)}
+      >
+        {translate(locale, "Suivant", "Next")}
+      </button>
+    </nav>
+  );
 }
 
 const sectionsForErrors = (locale: Locale) =>
@@ -287,7 +349,8 @@ export function GovernancePanel({
     });
     if (failed.length)
       onError(
-        (translate(locale, "Impossible d’actualiser : ", "Could not refresh: ")) + failed.join(", "),
+        translate(locale, "Impossible d’actualiser : ", "Could not refresh: ") +
+          failed.join(", "),
       );
     setInitialLoading(false);
     setRefreshing(false);
@@ -353,7 +416,12 @@ export function GovernancePanel({
 
   useEffect(() => {
     const requested = window.location.hash.replace("#governance-", "");
-    if (governanceSectionKeys.includes(requested as (typeof governanceSectionKeys)[number])) setSection(requested);
+    if (
+      governanceSectionKeys.includes(
+        requested as (typeof governanceSectionKeys)[number],
+      )
+    )
+      setSection(requested);
   }, []);
 
   return (
@@ -385,131 +453,134 @@ export function GovernancePanel({
         >
           {sections.map(([key, fr, en, count]) => (
             <button
-            type="button"
-            role="tab"
-            id={`governance-tab-${key}`}
-            data-section={key}
-            aria-controls={`governance-panel-${key}`}
-            aria-selected={section === key}
-            tabIndex={section === key ? 0 : -1}
-            className={section === key ? "active" : ""}
-            onClick={() => activateSection(key)}
-            onKeyDown={(event) => {
-              const tabs = Array.from(
-                event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
-                  '[role="tab"]',
-                ) || [],
-              );
-              const current = tabs.indexOf(event.currentTarget);
-              const target =
-                event.key === "Home"
-                  ? tabs[0]
-                  : event.key === "End"
-                    ? tabs.at(-1)
-                    : event.key === "ArrowRight"
-                      ? tabs[(current + 1) % tabs.length]
-                      : event.key === "ArrowLeft"
-                        ? tabs[(current - 1 + tabs.length) % tabs.length]
-                        : null;
-              if (!target) return;
-              event.preventDefault();
-              activateSection((target.dataset.section || "reviews") as (typeof governanceSectionKeys)[number]);
-              target.focus();
-            }}
-            key={key}
+              type="button"
+              role="tab"
+              id={`governance-tab-${key}`}
+              data-section={key}
+              aria-controls={`governance-panel-${key}`}
+              aria-selected={section === key}
+              tabIndex={section === key ? 0 : -1}
+              className={section === key ? "active" : ""}
+              onClick={() => activateSection(key)}
+              onKeyDown={(event) => {
+                const tabs = Array.from(
+                  event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+                    '[role="tab"]',
+                  ) || [],
+                );
+                const current = tabs.indexOf(event.currentTarget);
+                const target =
+                  event.key === "Home"
+                    ? tabs[0]
+                    : event.key === "End"
+                      ? tabs.at(-1)
+                      : event.key === "ArrowRight"
+                        ? tabs[(current + 1) % tabs.length]
+                        : event.key === "ArrowLeft"
+                          ? tabs[(current - 1 + tabs.length) % tabs.length]
+                          : null;
+                if (!target) return;
+                event.preventDefault();
+                activateSection(
+                  (target.dataset.section ||
+                    "reviews") as (typeof governanceSectionKeys)[number],
+                );
+                target.focus();
+              }}
+              key={key}
             >
               {translate(locale, fr, en)} <span>{count}</span>
             </button>
           ))}
         </nav>
         {initialLoading ? (
-        <div
-          className="admin-skeleton"
-          aria-label={t("Actualisation", "Refreshing")}
-        />
+          <div
+            className="admin-skeleton"
+            aria-label={t("Actualisation", "Refreshing")}
+          />
         ) : (
-        <div
-          role="tabpanel"
-          id={`governance-panel-${section}`}
-          aria-labelledby={`governance-tab-${section}`}
-          tabIndex={0}
-        >
-          {section === "reviews" && (
-            <ReviewsSection
-              locale={locale}
-              documents={documents}
-              reviews={reviews}
-              submit={submit}
-            />
-          )}
-          {section === "access" && (
-            <AccessSection
-              locale={locale}
-              rules={certifications.length ? certifications : rules}
-              submit={submit}
-            />
-          )}
-          {section === "controls" && (
-            <ControlsSection
-              locale={locale}
-              documents={documents}
-              controls={controls}
-              submit={submit}
-            />
-          )}
-          {section === "retention" && (
-            <RetentionSection
-              locale={locale}
-              documents={documents}
-              policies={retentions}
-              submit={submit}
-            />
-          )}
-          {section === "identity" && (
-            <IdentitySection
-              locale={locale}
-              data={identityHealth}
-              onRefresh={refresh}
-            />
-          )}
-          {section === "incidents" && (
-            <IncidentsSection
-              locale={locale}
-              incidents={incidents}
-              selected={selectedIncidentIds}
-              setSelected={setSelectedIncidentIds}
-              submit={submit}
-            />
-          )}
-          {section === "views" && (
-            <ViewsSection
-              locale={locale}
-              savedViews={savedViews}
-              incidents={incidents}
-              selectedIds={selectedIncidentIds}
-              preview={bulkPreview}
-              setPreview={setBulkPreview}
-              refresh={refresh}
-              onError={onError}
-              onNotice={onNotice}
-            />
-          )}
-          {section === "risks" && (
-            <RiskExceptionsSection
-              locale={locale}
-              items={riskExceptions}
-              submit={submit}
-            />
-          )}
-          {section === "dashboard" && (
-            <KpiSection
-              locale={locale}
-              kpi={kpi}
-              approvals={sensitiveApprovals}
-              submit={submit}
-            />
-          )}
-        </div>
+          <div
+            role="tabpanel"
+            id={`governance-panel-${section}`}
+            aria-labelledby={`governance-tab-${section}`}
+            tabIndex={0}
+          >
+            {section === "reviews" && (
+              <ReviewsSection
+                locale={locale}
+                documents={documents}
+                reviews={reviews}
+                submit={submit}
+              />
+            )}
+            {section === "access" && (
+              <AccessSection
+                locale={locale}
+                rules={certifications.length ? certifications : rules}
+                submit={submit}
+              />
+            )}
+            {section === "controls" && (
+              <ControlsSection
+                locale={locale}
+                documents={documents}
+                controls={controls}
+                submit={submit}
+              />
+            )}
+            {section === "retention" && (
+              <RetentionSection
+                locale={locale}
+                documents={documents}
+                policies={retentions}
+                submit={submit}
+              />
+            )}
+            {section === "identity" && (
+              <IdentitySection
+                locale={locale}
+                data={identityHealth}
+                onRefresh={refresh}
+              />
+            )}
+            {section === "incidents" && (
+              <IncidentsSection
+                locale={locale}
+                incidents={incidents}
+                selected={selectedIncidentIds}
+                setSelected={setSelectedIncidentIds}
+                submit={submit}
+              />
+            )}
+            {section === "views" && (
+              <ViewsSection
+                locale={locale}
+                savedViews={savedViews}
+                incidents={incidents}
+                selectedIds={selectedIncidentIds}
+                preview={bulkPreview}
+                setPreview={setBulkPreview}
+                refresh={refresh}
+                onError={onError}
+                onNotice={onNotice}
+              />
+            )}
+            {section === "risks" && (
+              <RiskExceptionsSection
+                locale={locale}
+                items={riskExceptions}
+                submit={submit}
+              />
+            )}
+            {section === "dashboard" && (
+              <KpiSection
+                locale={locale}
+                kpi={kpi}
+                approvals={sensitiveApprovals}
+                submit={submit}
+              />
+            )}
+          </div>
         )}
       </div>
     </section>
@@ -843,7 +914,9 @@ function ReviewsSection({
     evidence: File | null;
   } | null>(null);
   const [reviewPage, setReviewPage] = useState(1);
-  const [reviewFilter, setReviewFilter] = useState<"overdue" | "active" | "closed" | "all">("active");
+  const [reviewFilter, setReviewFilter] = useState<
+    "overdue" | "active" | "closed" | "all"
+  >("active");
   const closedStatuses = ["APPROVED", "REJECTED", "CANCELLED"];
   const [now, setNow] = useState(0);
   useEffect(() => {
@@ -857,12 +930,23 @@ function ReviewsSection({
     if (reviewFilter === "closed") return closed;
     if (reviewFilter === "all") return true;
     if (closed) return false;
-    return reviewFilter === "overdue" ? new Date(review.dueAt).getTime() < now : new Date(review.dueAt).getTime() >= now;
+    return reviewFilter === "overdue"
+      ? new Date(review.dueAt).getTime() < now
+      : new Date(review.dueAt).getTime() >= now;
   });
   const reviewCounts = {
-    overdue: reviews.filter((review) => !closedStatuses.includes(review.status) && new Date(review.dueAt).getTime() < now).length,
-    active: reviews.filter((review) => !closedStatuses.includes(review.status) && new Date(review.dueAt).getTime() >= now).length,
-    closed: reviews.filter((review) => closedStatuses.includes(review.status)).length,
+    overdue: reviews.filter(
+      (review) =>
+        !closedStatuses.includes(review.status) &&
+        new Date(review.dueAt).getTime() < now,
+    ).length,
+    active: reviews.filter(
+      (review) =>
+        !closedStatuses.includes(review.status) &&
+        new Date(review.dueAt).getTime() >= now,
+    ).length,
+    closed: reviews.filter((review) => closedStatuses.includes(review.status))
+      .length,
     all: reviews.length,
   };
   const create = async (event: FormEvent) => {
@@ -944,106 +1028,164 @@ function ReviewsSection({
       </form>
       <div className="governance-list">
         <h2>{t("File de gestion des revues", "Review management queue")}</h2>
-        <div className="review-queue-filters" role="group" aria-label={t("Filtrer les revues", "Filter reviews")}>
+        <div
+          className="review-queue-filters"
+          role="group"
+          aria-label={t("Filtrer les revues", "Filter reviews")}
+        >
           {(["overdue", "active", "closed", "all"] as const).map((filter) => (
-            <button key={filter} type="button" className={reviewFilter === filter ? "active" : ""} onClick={() => { setReviewFilter(filter); setReviewPage(1); }}>
-              {filter === "overdue" ? t("En retard", "Overdue") : filter === "active" ? t("En cours", "In progress") : filter === "closed" ? t("Terminées", "Completed") : t("Toutes", "All")} <span>{reviewCounts[filter]}</span>
+            <button
+              key={filter}
+              type="button"
+              className={reviewFilter === filter ? "active" : ""}
+              onClick={() => {
+                setReviewFilter(filter);
+                setReviewPage(1);
+              }}
+            >
+              {filter === "overdue"
+                ? t("En retard", "Overdue")
+                : filter === "active"
+                  ? t("En cours", "In progress")
+                  : filter === "closed"
+                    ? t("Terminées", "Completed")
+                    : t("Toutes", "All")}{" "}
+              <span>{reviewCounts[filter]}</span>
             </button>
           ))}
         </div>
-        {filteredReviews.slice((reviewPage - 1) * 15, reviewPage * 15).map((review) => (
-          <article className="governance-card" key={review.id}>
-            <strong>{titleFor(review.document, locale)}</strong>
-            <span className={`status ${review.status.toLowerCase()}`}>
-              {statusLabel(locale, review.status)}
-            </span>
-            {review.automaticAnnual && (
-              <small>
-                {t("Revue annuelle automatique : une seule décision de modérateur ou administrateur est requise.", "Automatic annual review: one moderator or administrator decision is required.")}
-              </small>
-            )}
-            {review.automaticPublication && (
-              <small>{t("Revue automatique après publication : décision attendue sous 30 jours. Un refus archive le document.", "Automatic publication review: a decision is due within 30 days. Rejection archives the document.")}</small>
-            )}
-            {!review.automaticAnnual && !review.automaticPublication && <p>{review.owner} → {review.reviewer} → {review.approver}</p>}
-            <small>{new Date(review.dueAt).toLocaleString(locale)}</small>
-            {!["APPROVED", "REJECTED", "CANCELLED"].includes(review.status) && (
-              <div className="actions">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setDecision({
-                      id: review.id,
-                      status: "APPROVED",
-                      comment: "",
-                      evidence: null,
-                    })
-                  }
-                >
-                  {t("Approuver", "Approve")}
-                </button>
-                <button
-                  className="danger"
-                  type="button"
-                  onClick={() =>
-                    setDecision({
-                      id: review.id,
-                      status: "REJECTED",
-                      comment: "",
-                      evidence: null,
-                    })
-                  }
-                >
-                  {t("Refuser", "Reject")}
-                </button>
-              </div>
-            )}
-            {["APPROVED", "REJECTED", "CANCELLED"].includes(review.status) && (
-              <div className="governance-decision-proof">
-                <strong>{t("Preuve de décision", "Decision evidence")}</strong>
-                <p>{review.decisionComment}</p>
+        {filteredReviews
+          .slice((reviewPage - 1) * 15, reviewPage * 15)
+          .map((review) => (
+            <article className="governance-card" key={review.id}>
+              <strong>{titleFor(review.document, locale)}</strong>
+              <span className={`status ${review.status.toLowerCase()}`}>
+                {statusLabel(locale, review.status)}
+              </span>
+              {review.automaticAnnual && (
                 <small>
-                  {review.decidedBy || "—"}
-                  {review.decidedAt
-                    ? ` · ${new Date(review.decidedAt).toLocaleString(locale)}`
-                    : ""}
+                  {t(
+                    "Revue annuelle automatique : une seule décision de modérateur ou administrateur est requise.",
+                    "Automatic annual review: one moderator or administrator decision is required.",
+                  )}
                 </small>
-                {review.evidenceOriginalName && <a href={`/api/admin/governance/reviews/${review.id}/evidence`} target="_blank" rel="noreferrer">{t("Ouvrir la preuve jointe", "Open attached evidence")}</a>}
-                {review.status === "APPROVED" && !review.automaticAnnual && !review.automaticPublication && (
+              )}
+              {review.automaticPublication && (
+                <small>
+                  {t(
+                    "Revue automatique après publication : décision attendue sous 30 jours. Un refus archive le document.",
+                    "Automatic publication review: a decision is due within 30 days. Rejection archives the document.",
+                  )}
+                </small>
+              )}
+              {!review.automaticAnnual && !review.automaticPublication && (
+                <p>
+                  {review.owner} → {review.reviewer} → {review.approver}
+                </p>
+              )}
+              <small>{new Date(review.dueAt).toLocaleString(locale)}</small>
+              {!["APPROVED", "REJECTED", "CANCELLED"].includes(
+                review.status,
+              ) && (
+                <div className="actions">
                   <button
                     type="button"
-                    className="primary schedule-next-review"
-                    onClick={() => {
-                      const next = new Date();
-                      next.setFullYear(next.getFullYear() + 1);
-                      setDraft({
-                        documentId: review.document.id,
-                        owner: review.owner,
-                        reviewer: review.reviewer,
-                        approver: review.approver,
-                        dueAt: next.toISOString().slice(0, 16),
-                      });
-                      document
-                        .getElementById("governance-review-form")
-                        ?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        });
-                    }}
+                    onClick={() =>
+                      setDecision({
+                        id: review.id,
+                        status: "APPROVED",
+                        comment: "",
+                        evidence: null,
+                      })
+                    }
                   >
-                    <Icon name="audit" />{" "}
-                    {t(
-                      "Planifier la prochaine revue dans un an",
-                      "Schedule the next review in one year",
-                    )}
+                    {t("Approuver", "Approve")}
                   </button>
-                )}
-              </div>
-            )}
-          </article>
-        ))}
-        {!filteredReviews.length && <p className="empty-state">{t("Aucune revue dans cette vue.", "No reviews in this view.")}</p>}
-        <GovernancePagination locale={locale} page={reviewPage} total={Math.ceil(filteredReviews.length / 15)} onChange={setReviewPage} />
+                  <button
+                    className="danger"
+                    type="button"
+                    onClick={() =>
+                      setDecision({
+                        id: review.id,
+                        status: "REJECTED",
+                        comment: "",
+                        evidence: null,
+                      })
+                    }
+                  >
+                    {t("Refuser", "Reject")}
+                  </button>
+                </div>
+              )}
+              {["APPROVED", "REJECTED", "CANCELLED"].includes(
+                review.status,
+              ) && (
+                <div className="governance-decision-proof">
+                  <strong>
+                    {t("Preuve de décision", "Decision evidence")}
+                  </strong>
+                  <p>{review.decisionComment}</p>
+                  <small>
+                    {review.decidedBy || "—"}
+                    {review.decidedAt
+                      ? ` · ${new Date(review.decidedAt).toLocaleString(locale)}`
+                      : ""}
+                  </small>
+                  {review.evidenceOriginalName && (
+                    <a
+                      href={`/api/admin/governance/reviews/${review.id}/evidence`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {t("Ouvrir la preuve jointe", "Open attached evidence")}
+                    </a>
+                  )}
+                  {review.status === "APPROVED" &&
+                    !review.automaticAnnual &&
+                    !review.automaticPublication && (
+                      <button
+                        type="button"
+                        className="primary schedule-next-review"
+                        onClick={() => {
+                          const next = new Date();
+                          next.setFullYear(next.getFullYear() + 1);
+                          setDraft({
+                            documentId: review.document.id,
+                            owner: review.owner,
+                            reviewer: review.reviewer,
+                            approver: review.approver,
+                            dueAt: next.toISOString().slice(0, 16),
+                          });
+                          document
+                            .getElementById("governance-review-form")
+                            ?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            });
+                        }}
+                      >
+                        <Icon name="audit" />{" "}
+                        {t(
+                          "Planifier la prochaine revue dans un an",
+                          "Schedule the next review in one year",
+                        )}
+                      </button>
+                    )}
+                </div>
+              )}
+            </article>
+          ))}
+        {!filteredReviews.length && (
+          <p className="empty-state">
+            {t("Aucune revue dans cette vue.", "No reviews in this view.")}
+          </p>
+        )}
+        <GovernancePagination
+          locale={locale}
+          page={reviewPage}
+          total={Math.ceil(filteredReviews.length / 15)}
+          onChange={setReviewPage}
+        />
       </div>
       {decision && (
         <div className="confirmation-backdrop" role="presentation">
@@ -1062,7 +1204,10 @@ function ReviewsSection({
                 if (decision.evidence) {
                   const data = new FormData();
                   data.append("evidence", decision.evidence);
-                  const response = await fetch(`/api/admin/governance/reviews/${decision.id}/evidence`, { method: "POST", body: data });
+                  const response = await fetch(
+                    `/api/admin/governance/reviews/${decision.id}/evidence`,
+                    { method: "POST", body: data },
+                  );
                   if (!response.ok) throw new Error("Evidence upload failed");
                 }
                 setDecision(null);
@@ -1095,8 +1240,19 @@ function ReviewsSection({
             </label>
             <label>
               {t("Preuve jointe facultative", "Optional supporting evidence")}
-              <input type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" onChange={(event) => setDecision({ ...decision, evidence: event.target.files?.[0] || null })} />
-              <small>{t("PNG ou JPEG, 2 Mo maximum.", "PNG or JPEG, 2 MB maximum.")}</small>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,.png,.jpg,.jpeg"
+                onChange={(event) =>
+                  setDecision({
+                    ...decision,
+                    evidence: event.target.files?.[0] || null,
+                  })
+                }
+              />
+              <small>
+                {t("PNG ou JPEG, 2 Mo maximum.", "PNG or JPEG, 2 MB maximum.")}
+              </small>
             </label>
             <div className="confirmation-actions">
               <button type="button" onClick={() => setDecision(null)}>
@@ -1163,14 +1319,22 @@ function ReviewActorPicker({
           setUsers(matches);
           if (!matches.length)
             setDirectoryMessage(
-              translate(locale, "Aucun utilisateur AD trouvé.", "No AD user found."),
+              translate(
+                locale,
+                "Aucun utilisateur AD trouvé.",
+                "No AD user found.",
+              ),
             );
         })
         .catch((error) => {
           if ((error as Error).name !== "AbortError") {
             setUsers([]);
             setDirectoryMessage(
-              translate(locale, "Annuaire indisponible. Utilisez la saisie manuelle.", "Directory unavailable. Use manual entry."),
+              translate(
+                locale,
+                "Annuaire indisponible. Utilisez la saisie manuelle.",
+                "Directory unavailable. Use manual entry.",
+              ),
             );
           }
         })
@@ -1381,7 +1545,12 @@ function AccessSection({
           </div>
         </article>
       ))}
-      <GovernancePagination locale={locale} page={accessPage} total={Math.ceil(rules.length / 15)} onChange={setAccessPage} />
+      <GovernancePagination
+        locale={locale}
+        page={accessPage}
+        total={Math.ceil(rules.length / 15)}
+        onChange={setAccessPage}
+      />
     </div>
   );
 }
@@ -1512,20 +1681,27 @@ function ControlsSection({
         <h2>
           {t("Déclaration d’applicabilité", "Statement of applicability")}
         </h2>
-        {controls.slice((controlPage - 1) * 15, controlPage * 15).map((control) => (
-          <article className="governance-card" key={control.id}>
-            <strong>
-              {control.framework} {control.reference}
-            </strong>
-            <p>{control.title}</p>
-            <span className="status">
-              {statusLabel(locale, control.applicability)} ·{" "}
-              {statusLabel(locale, control.implementationStatus)}
-            </span>
-            <small>{control.owner}</small>
-          </article>
-        ))}
-        <GovernancePagination locale={locale} page={controlPage} total={Math.ceil(controls.length / 15)} onChange={setControlPage} />
+        {controls
+          .slice((controlPage - 1) * 15, controlPage * 15)
+          .map((control) => (
+            <article className="governance-card" key={control.id}>
+              <strong>
+                {control.framework} {control.reference}
+              </strong>
+              <p>{control.title}</p>
+              <span className="status">
+                {statusLabel(locale, control.applicability)} ·{" "}
+                {statusLabel(locale, control.implementationStatus)}
+              </span>
+              <small>{control.owner}</small>
+            </article>
+          ))}
+        <GovernancePagination
+          locale={locale}
+          page={controlPage}
+          total={Math.ceil(controls.length / 15)}
+          onChange={setControlPage}
+        />
       </div>
     </div>
   );
@@ -1622,83 +1798,93 @@ function RetentionSection({
         <button className="primary">{t("Enregistrer", "Save")}</button>
       </form>
       <div className="governance-list">
-        {policies.slice((retentionPage - 1) * 15, retentionPage * 15).map((policy) => (
-          <article className="governance-card" key={policy.id}>
-            <strong>{titleFor(policy.document, locale)}</strong>
-            <span
-              className={`status ${policy.legalHold ? "rejected" : "approved"}`}
-            >
-              {policy.legalHold
-                ? t("Gel actif", "Legal hold")
-                : statusLabel(locale, policy.destructionStatus)}
-            </span>
-            <p>{policy.reason}</p>
-            <small>
-              {policy.retentionUntil
-                ? new Date(policy.retentionUntil).toLocaleDateString(locale)
-                : t("Sans échéance", "No deadline")}
-            </small>
-            {!policy.legalHold && (
-              <div className="actions">
-                {policy.destructionStatus !== "REQUESTED" ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void submit(
-                        `/api/admin/governance/retention/${policy.id}/destruction`,
-                        {
-                          action: "REQUEST",
-                          reason: t(
-                            "Demande de destruction après rétention",
-                            "Destruction request after retention",
-                          ),
-                        },
-                        "PUT",
-                      )
-                    }
-                  >
-                    {t("Demander la destruction", "Request destruction")}
-                  </button>
-                ) : (
-                  <>
+        {policies
+          .slice((retentionPage - 1) * 15, retentionPage * 15)
+          .map((policy) => (
+            <article className="governance-card" key={policy.id}>
+              <strong>{titleFor(policy.document, locale)}</strong>
+              <span
+                className={`status ${policy.legalHold ? "rejected" : "approved"}`}
+              >
+                {policy.legalHold
+                  ? t("Gel actif", "Legal hold")
+                  : statusLabel(locale, policy.destructionStatus)}
+              </span>
+              <p>{policy.reason}</p>
+              <small>
+                {policy.retentionUntil
+                  ? new Date(policy.retentionUntil).toLocaleDateString(locale)
+                  : t("Sans échéance", "No deadline")}
+              </small>
+              {!policy.legalHold && (
+                <div className="actions">
+                  {policy.destructionStatus !== "REQUESTED" ? (
                     <button
                       type="button"
                       onClick={() =>
                         void submit(
                           `/api/admin/governance/retention/${policy.id}/destruction`,
                           {
-                            action: "APPROVE",
-                            reason: t("Seconde approbation", "Second approval"),
+                            action: "REQUEST",
+                            reason: t(
+                              "Demande de destruction après rétention",
+                              "Destruction request after retention",
+                            ),
                           },
                           "PUT",
                         )
                       }
                     >
-                      {t("Approuver", "Approve")}
+                      {t("Demander la destruction", "Request destruction")}
                     </button>
-                    <button
-                      className="danger"
-                      type="button"
-                      onClick={() =>
-                        void submit(
-                          `/api/admin/governance/retention/${policy.id}/destruction`,
-                          {
-                            action: "REJECT",
-                            reason: t("Demande refusée", "Request rejected"),
-                          },
-                          "PUT",
-                        )
-                      }
-                    >
-                      {t("Refuser", "Reject")}
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </article>
-        ))}
-        <GovernancePagination locale={locale} page={retentionPage} total={Math.ceil(policies.length / 15)} onChange={setRetentionPage} />
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void submit(
+                            `/api/admin/governance/retention/${policy.id}/destruction`,
+                            {
+                              action: "APPROVE",
+                              reason: t(
+                                "Seconde approbation",
+                                "Second approval",
+                              ),
+                            },
+                            "PUT",
+                          )
+                        }
+                      >
+                        {t("Approuver", "Approve")}
+                      </button>
+                      <button
+                        className="danger"
+                        type="button"
+                        onClick={() =>
+                          void submit(
+                            `/api/admin/governance/retention/${policy.id}/destruction`,
+                            {
+                              action: "REJECT",
+                              reason: t("Demande refusée", "Request rejected"),
+                            },
+                            "PUT",
+                          )
+                        }
+                      >
+                        {t("Refuser", "Reject")}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </article>
+          ))}
+        <GovernancePagination
+          locale={locale}
+          page={retentionPage}
+          total={Math.ceil(policies.length / 15)}
+          onChange={setRetentionPage}
+        />
       </div>
     </div>
   );
@@ -2011,93 +2197,100 @@ function IncidentsSection({
         </div>
       </form>
       <div className="governance-list">
-        {incidents.slice((incidentPage - 1) * 15, incidentPage * 15).map((incident) => (
-          <article className="governance-card" key={incident.id}>
-            <label className="bulk-select">
-              <input
-                type="checkbox"
-                checked={selected.includes(incident.id)}
-                onChange={(e) =>
-                  setSelected(
-                    e.target.checked
-                      ? [...selected, incident.id]
-                      : selected.filter((id) => id !== incident.id),
+        {incidents
+          .slice((incidentPage - 1) * 15, incidentPage * 15)
+          .map((incident) => (
+            <article className="governance-card" key={incident.id}>
+              <label className="bulk-select">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(incident.id)}
+                  onChange={(e) =>
+                    setSelected(
+                      e.target.checked
+                        ? [...selected, incident.id]
+                        : selected.filter((id) => id !== incident.id),
+                    )
+                  }
+                />
+                {t("Sélectionner", "Select")}
+              </label>
+              <strong>
+                {incident.reference} · {incident.title}
+              </strong>
+              <span className={`status ${incident.severity.toLowerCase()}`}>
+                {statusLabel(locale, incident.severity)} ·{" "}
+                {statusLabel(locale, incident.status)}
+              </span>
+              <p>
+                {incident.owner} ·{" "}
+                {new Date(incident.occurredAt).toLocaleString(locale)}
+              </p>
+              {incident.rootCause && (
+                <p>
+                  <strong>{t("Cause racine", "Root cause")}:</strong>{" "}
+                  {incident.rootCause}
+                </p>
+              )}
+              {incident.lessonsLearned && (
+                <p>
+                  <strong>{t("Leçons apprises", "Lessons learned")}:</strong>{" "}
+                  {incident.lessonsLearned}
+                </p>
+              )}
+              {incident.correctiveActions.map((action) => (
+                <small key={action.id}>
+                  CAPA: {action.description} — {action.owner} —{" "}
+                  {statusLabel(locale, action.status)}
+                </small>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingId(incident.id);
+                  setDraft({
+                    reference: incident.reference,
+                    title: incident.title,
+                    severity: incident.severity,
+                    status: incident.status,
+                    owner: incident.owner,
+                    occurredAt: new Date(incident.occurredAt)
+                      .toISOString()
+                      .slice(0, 16),
+                    rootCause: incident.rootCause || "",
+                    lessonsLearned: incident.lessonsLearned || "",
+                  });
+                }}
+              >
+                {t("Traiter", "Process")}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void submit(
+                    `/api/admin/governance/incidents/${incident.id}/actions`,
+                    {
+                      description: t(
+                        "Analyser et corriger la cause racine",
+                        "Analyze and correct root cause",
+                      ),
+                      owner: incident.owner,
+                      dueAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+                      status: "OPEN",
+                    },
                   )
                 }
-              />
-              {t("Sélectionner", "Select")}
-            </label>
-            <strong>
-              {incident.reference} · {incident.title}
-            </strong>
-            <span className={`status ${incident.severity.toLowerCase()}`}>
-              {statusLabel(locale, incident.severity)} ·{" "}
-              {statusLabel(locale, incident.status)}
-            </span>
-            <p>
-              {incident.owner} ·{" "}
-              {new Date(incident.occurredAt).toLocaleString(locale)}
-            </p>
-            {incident.rootCause && (
-              <p>
-                <strong>{t("Cause racine", "Root cause")}:</strong>{" "}
-                {incident.rootCause}
-              </p>
-            )}
-            {incident.lessonsLearned && (
-              <p>
-                <strong>{t("Leçons apprises", "Lessons learned")}:</strong>{" "}
-                {incident.lessonsLearned}
-              </p>
-            )}
-            {incident.correctiveActions.map((action) => (
-              <small key={action.id}>
-                CAPA: {action.description} — {action.owner} —{" "}
-                {statusLabel(locale, action.status)}
-              </small>
-            ))}
-            <button
-              type="button"
-              onClick={() => {
-                setEditingId(incident.id);
-                setDraft({
-                  reference: incident.reference,
-                  title: incident.title,
-                  severity: incident.severity,
-                  status: incident.status,
-                  owner: incident.owner,
-                  occurredAt: new Date(incident.occurredAt)
-                    .toISOString()
-                    .slice(0, 16),
-                  rootCause: incident.rootCause || "",
-                  lessonsLearned: incident.lessonsLearned || "",
-                });
-              }}
-            >
-              {t("Traiter", "Process")}
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                void submit(
-                  `/api/admin/governance/incidents/${incident.id}/actions`,
-                  {
-                    description: t(
-                      "Analyser et corriger la cause racine",
-                      "Analyze and correct root cause",
-                    ),
-                    owner: incident.owner,
-                    dueAt: new Date(Date.now() + 30 * 86400000).toISOString(),
-                    status: "OPEN",
-                  },
-                )
-              }
-            >
-              {t("Ajouter une CAPA à 30 jours", "Add 30-day CAPA")}
-            </button>
-          </article>
-        ))}
-        <GovernancePagination locale={locale} page={incidentPage} total={Math.ceil(incidents.length / 15)} onChange={setIncidentPage} />
+              >
+                {t("Ajouter une CAPA à 30 jours", "Add 30-day CAPA")}
+              </button>
+            </article>
+          ))}
+        <GovernancePagination
+          locale={locale}
+          page={incidentPage}
+          total={Math.ceil(incidents.length / 15)}
+          onChange={setIncidentPage}
+        />
       </div>
     </div>
   );

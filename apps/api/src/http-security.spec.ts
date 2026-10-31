@@ -53,30 +53,57 @@ describe("HTTP browser security", () => {
   });
 
   it.each([
-    "null", "https://portal.example/", "https://portal.example/path",
-    "https://user:password@portal.example", "https://portal.example?query=1",
-    "https://portal.example#fragment", "ftp://portal.example",
+    "null",
+    "https://portal.example/",
+    "https://portal.example/path",
+    "https://user:password@portal.example",
+    "https://portal.example?query=1",
+    "https://portal.example#fragment",
+    "ftp://portal.example",
   ])("rejects a non-canonical browser origin: %s", (origin) => {
     const target = response();
     const next = vi.fn();
-    sameOriginMutationGuard(request({ host: "portal.example", origin }), target.value, next);
+    sameOriginMutationGuard(
+      request({ host: "portal.example", origin }),
+      target.value,
+      next,
+    );
     expect(target.status).toHaveBeenCalledWith(403);
     expect(next).not.toHaveBeenCalled();
   });
 
-  it.each(["http://portal.example", "https://portal.example:8443", "https://evil.example"])("rejects an origin outside the configured HTTPS endpoint: %s", (origin) => {
-    vi.stubEnv("PUBLIC_URL", "https://portal.example");
-    const target = response();
-    const next = vi.fn();
-    sameOriginMutationGuard(request({ host: new URL(origin).host, origin, "sec-fetch-site": "same-site" }), target.value, next);
-    expect(target.status).toHaveBeenCalledWith(403);
-    expect(next).not.toHaveBeenCalled();
-  });
+  it.each([
+    "http://portal.example",
+    "https://portal.example:8443",
+    "https://evil.example",
+  ])(
+    "rejects an origin outside the configured HTTPS endpoint: %s",
+    (origin) => {
+      vi.stubEnv("PUBLIC_URL", "https://portal.example");
+      const target = response();
+      const next = vi.fn();
+      sameOriginMutationGuard(
+        request({
+          host: new URL(origin).host,
+          origin,
+          "sec-fetch-site": "same-site",
+        }),
+        target.value,
+        next,
+      );
+      expect(target.status).toHaveBeenCalledWith(403);
+      expect(next).not.toHaveBeenCalled();
+    },
+  );
 
   it("accepts the public HTTPS origin behind the internal HTTP proxy", () => {
     vi.stubEnv("PUBLIC_URL", "https://portal.example/");
     const next = vi.fn();
-    sameOriginMutationGuard(request({ host: "portal.example", origin: "https://portal.example" }), response().value, next);
+    sameOriginMutationGuard(
+      request({ host: "portal.example", origin: "https://portal.example" }),
+      response().value,
+      next,
+    );
     expect(next).toHaveBeenCalledOnce();
   });
 
@@ -84,7 +111,11 @@ describe("HTTP browser security", () => {
     vi.stubEnv("PUBLIC_URL", "invalid");
     const target = response();
     const next = vi.fn();
-    sameOriginMutationGuard(request({ host: "portal.example", origin: "https://portal.example" }), target.value, next);
+    sameOriginMutationGuard(
+      request({ host: "portal.example", origin: "https://portal.example" }),
+      target.value,
+      next,
+    );
     expect(target.status).toHaveBeenCalledWith(403);
     expect(next).not.toHaveBeenCalled();
   });

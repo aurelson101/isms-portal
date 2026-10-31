@@ -3,8 +3,17 @@ import { isIP } from "node:net";
 import { connect as connectTcp, type Socket } from "node:net";
 import { resolve4, resolve6 } from "node:dns/promises";
 import { connect as connectTls, type TLSSocket } from "node:tls";
-import { createHash, createSign, randomUUID, X509Certificate } from "node:crypto";
-import { notificationHtml, portalLink, type EmailTemplate } from "./notification-email";
+import {
+  createHash,
+  createSign,
+  randomUUID,
+  X509Certificate,
+} from "node:crypto";
+import {
+  notificationHtml,
+  portalLink,
+  type EmailTemplate,
+} from "./notification-email";
 import { CryptoService } from "./crypto.service";
 import { PrismaService } from "./prisma.service";
 import { healthIncidents, type HealthSnapshot } from "./health-alerts";
@@ -47,7 +56,12 @@ type StoredChannels = {
 
 const SETTING_KEY = "observability.alert-channels";
 const MASK = "********";
-const base64Url = (value: Buffer | string) => Buffer.from(value).toString("base64").replace(/=/gu, "").replace(/\+/gu, "-").replace(/\//gu, "_");
+const base64Url = (value: Buffer | string) =>
+  Buffer.from(value)
+    .toString("base64")
+    .replace(/=/gu, "")
+    .replace(/\+/gu, "-")
+    .replace(/\//gu, "_");
 export const isAllowedTeamsWebhookHost = (hostname: string) =>
   /(^|\.)webhook\.office\.com$|(^|\.)logic\.azure\.com$|(^|\.)environment\.api\.powerplatform\.com$/u.test(
     hostname,
@@ -100,7 +114,13 @@ export class AlertDeliveryService {
       genericWebhookUrl: value.genericWebhookUrlEncrypted ? MASK : "",
       genericWebhookSecret: value.genericWebhookSecretEncrypted ? MASK : "",
       configured: {
-        graph: Boolean(value.graphTenantId && value.graphClientId && value.graphSender && value.graphCertificatePemEncrypted && value.graphPrivateKeyPemEncrypted),
+        graph: Boolean(
+          value.graphTenantId &&
+            value.graphClientId &&
+            value.graphSender &&
+            value.graphCertificatePemEncrypted &&
+            value.graphPrivateKeyPemEncrypted,
+        ),
         email: Boolean(
           value.smtpHost && value.smtpFrom && value.smtpRecipients?.length,
         ),
@@ -135,8 +155,14 @@ export class AlertDeliveryService {
       graphTenantId: String(input.graphTenantId || "").trim(),
       graphClientId: String(input.graphClientId || "").trim(),
       graphSender: String(input.graphSender || "").trim(),
-      graphCertificatePemEncrypted: secret("graphCertificatePem", previous.graphCertificatePemEncrypted),
-      graphPrivateKeyPemEncrypted: secret("graphPrivateKeyPem", previous.graphPrivateKeyPemEncrypted),
+      graphCertificatePemEncrypted: secret(
+        "graphCertificatePem",
+        previous.graphCertificatePemEncrypted,
+      ),
+      graphPrivateKeyPemEncrypted: secret(
+        "graphPrivateKeyPem",
+        previous.graphPrivateKeyPemEncrypted,
+      ),
       smtpHost: String(input.smtpHost || "").trim(),
       smtpPort: port,
       smtpSecure: Boolean(input.smtpSecure),
@@ -179,25 +205,106 @@ export class AlertDeliveryService {
 
   private graphThumbprint(config: StoredChannels) {
     if (!config.graphCertificatePemEncrypted) return "";
-    try { return new X509Certificate(this.decrypt(config.graphCertificatePemEncrypted)).fingerprint.replace(/:/gu, "").toUpperCase(); } catch { return ""; }
+    try {
+      return new X509Certificate(
+        this.decrypt(config.graphCertificatePemEncrypted),
+      ).fingerprint
+        .replace(/:/gu, "")
+        .toUpperCase();
+    } catch {
+      return "";
+    }
   }
 
-  private async graph(config: StoredChannels, subject: string, text: string, recipients: string[], html?: string) {
-    if (!config.graphTenantId || !config.graphClientId || !config.graphSender || !config.graphCertificatePemEncrypted || !config.graphPrivateKeyPemEncrypted) throw new BadRequestException("Microsoft Graph is incomplete");
-    if (!recipients.length) throw new BadRequestException("No Graph recipients configured");
-    const certificate = new X509Certificate(this.decrypt(config.graphCertificatePemEncrypted));
+  private async graph(
+    config: StoredChannels,
+    subject: string,
+    text: string,
+    recipients: string[],
+    html?: string,
+  ) {
+    if (
+      !config.graphTenantId ||
+      !config.graphClientId ||
+      !config.graphSender ||
+      !config.graphCertificatePemEncrypted ||
+      !config.graphPrivateKeyPemEncrypted
+    )
+      throw new BadRequestException("Microsoft Graph is incomplete");
+    if (!recipients.length)
+      throw new BadRequestException("No Graph recipients configured");
+    const certificate = new X509Certificate(
+      this.decrypt(config.graphCertificatePemEncrypted),
+    );
     const authority = `https://login.microsoftonline.com/${config.graphTenantId}/oauth2/v2.0/token`;
     const now = Math.floor(Date.now() / 1000);
-    const header = base64Url(JSON.stringify({ alg: "RS256", typ: "JWT", x5t: base64Url(createHash("sha1").update(certificate.raw).digest()) }));
-    const payload = base64Url(JSON.stringify({ aud: authority, iss: config.graphClientId, sub: config.graphClientId, jti: randomUUID(), nbf: now - 30, exp: now + 300 }));
-    const signer = createSign("RSA-SHA256"); signer.update(`${header}.${payload}`); signer.end();
+    const header = base64Url(
+      JSON.stringify({
+        alg: "RS256",
+        typ: "JWT",
+        x5t: base64Url(createHash("sha1").update(certificate.raw).digest()),
+      }),
+    );
+    const payload = base64Url(
+      JSON.stringify({
+        aud: authority,
+        iss: config.graphClientId,
+        sub: config.graphClientId,
+        jti: randomUUID(),
+        nbf: now - 30,
+        exp: now + 300,
+      }),
+    );
+    const signer = createSign("RSA-SHA256");
+    signer.update(`${header}.${payload}`);
+    signer.end();
     const assertion = `${header}.${payload}.${base64Url(signer.sign(this.decrypt(config.graphPrivateKeyPemEncrypted)))}`;
-    const tokenResponse = await fetch(authority, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: config.graphClientId, scope: "https://graph.microsoft.com/.default", grant_type: "client_credentials", client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer", client_assertion: assertion }), signal: AbortSignal.timeout(15000) });
-    if (!tokenResponse.ok) throw new Error(`Graph token request returned HTTP ${tokenResponse.status}`);
+    const tokenResponse = await fetch(authority, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: config.graphClientId,
+        scope: "https://graph.microsoft.com/.default",
+        grant_type: "client_credentials",
+        client_assertion_type:
+          "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+        client_assertion: assertion,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!tokenResponse.ok)
+      throw new Error(
+        `Graph token request returned HTTP ${tokenResponse.status}`,
+      );
     const token = (await tokenResponse.json()) as { access_token?: string };
-    if (!token.access_token) throw new Error("Graph token response is incomplete");
-    const response = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(config.graphSender)}/sendMail`, { method: "POST", headers: { Authorization: `Bearer ${token.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { subject, body: { contentType: "HTML", content: html || notificationHtml(subject, text) }, toRecipients: recipients.map((address) => ({ emailAddress: { address } })) }, saveToSentItems: true }), signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw new Error(`Graph sendMail returned HTTP ${response.status}`);
+    if (!token.access_token)
+      throw new Error("Graph token response is incomplete");
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(config.graphSender)}/sendMail`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: {
+            subject,
+            body: {
+              contentType: "HTML",
+              content: html || notificationHtml(subject, text),
+            },
+            toRecipients: recipients.map((address) => ({
+              emailAddress: { address },
+            })),
+          },
+          saveToSentItems: true,
+        }),
+        signal: AbortSignal.timeout(15000),
+      },
+    );
+    if (!response.ok)
+      throw new Error(`Graph sendMail returned HTTP ${response.status}`);
   }
 
   private async safeWebhook(raw: string, channel: AlertChannel) {
@@ -295,7 +402,10 @@ export class AlertDeliveryService {
     for (const recipient of config.smtpRecipients)
       await command(`RCPT TO:<${recipient}>`, 250);
     await command("DATA", 354);
-    const safeText = Buffer.from(notificationHtml(subject, text)).toString("base64").match(/.{1,76}/gu)!.join("\r\n");
+    const safeText = Buffer.from(notificationHtml(subject, text))
+      .toString("base64")
+      .match(/.{1,76}/gu)!
+      .join("\r\n");
     const encodedSubject = `=?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`;
     socket.write(
       `From: ${config.smtpFrom}\r\nTo: ${config.smtpRecipients.join(", ")}\r\nSubject: ${encodedSubject}\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${safeText}\r\n.\r\n`,
@@ -307,7 +417,10 @@ export class AlertDeliveryService {
 
   async send(channel: AlertChannel, subject: string, text: string) {
     const config = await this.stored();
-    if (channel === "graph") throw new BadRequestException("Graph requires explicitly resolved recipients");
+    if (channel === "graph")
+      throw new BadRequestException(
+        "Graph requires explicitly resolved recipients",
+      );
     if (channel === "email") return this.email(config, subject, text);
     const encrypted =
       channel === "teams"
@@ -367,17 +480,47 @@ export class AlertDeliveryService {
   }
 
   async sendGraphTest(recipient: string) {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(recipient)) throw new BadRequestException("Invalid test recipient");
-    return this.graph(await this.stored(), "Test Microsoft Graph - ISMS Portal", "Microsoft Graph has accepted this test message from ISMS Portal.", [recipient]);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(recipient))
+      throw new BadRequestException("Invalid test recipient");
+    return this.graph(
+      await this.stored(),
+      "Test Microsoft Graph - ISMS Portal",
+      "Microsoft Graph has accepted this test message from ISMS Portal.",
+      [recipient],
+    );
   }
 
-  async sendPreferredTo(recipients: string[], subject: string, text: string, link = portalLink(), template: EmailTemplate = "service"): Promise<PreferredDelivery> {
-    const validRecipients = [...new Set(recipients.map((item) => item.trim().toLowerCase()).filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(item)))];
-    if (!validRecipients.length) throw new BadRequestException("No eligible mail recipients");
+  async sendPreferredTo(
+    recipients: string[],
+    subject: string,
+    text: string,
+    link = portalLink(),
+    template: EmailTemplate = "service",
+  ): Promise<PreferredDelivery> {
+    const validRecipients = [
+      ...new Set(
+        recipients
+          .map((item) => item.trim().toLowerCase())
+          .filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(item)),
+      ),
+    ];
+    if (!validRecipients.length)
+      throw new BadRequestException("No eligible mail recipients");
     const config = await this.stored();
-    if (!config.graphTenantId || !config.graphClientId || !config.graphCertificatePemEncrypted || !config.graphPrivateKeyPemEncrypted)
+    if (
+      !config.graphTenantId ||
+      !config.graphClientId ||
+      !config.graphCertificatePemEncrypted ||
+      !config.graphPrivateKeyPemEncrypted
+    )
       throw new BadRequestException("Microsoft Graph is not configured");
-    await this.graph(config, subject, text, validRecipients, notificationHtml(subject, text, link, template));
+    await this.graph(
+      config,
+      subject,
+      text,
+      validRecipients,
+      notificationHtml(subject, text, link, template),
+    );
     return { delivered: true, channel: "graph", attempted: ["graph"] };
   }
 
@@ -440,35 +583,98 @@ export class AlertDeliveryService {
     return policy.enabled && policy[preference] === true;
   }
 
-  async evaluateHealth(collect: () => Promise<HealthSnapshot>, graphRecipients: () => Promise<string[]>) {
-    const setting = await this.prisma.applicationSetting.findUnique({ where: { key: "observability.alert-policy" } });
-    const policy = setting?.value as { enabled?: boolean; channel?: AlertPolicyChannel } | undefined;
-    if (!policy?.enabled || !policy.channel || !["graph", "email", "teams", "teams-graph", "slack", "webhook"].includes(policy.channel)) return;
+  async evaluateHealth(
+    collect: () => Promise<HealthSnapshot>,
+    graphRecipients: () => Promise<string[]>,
+  ) {
+    const setting = await this.prisma.applicationSetting.findUnique({
+      where: { key: "observability.alert-policy" },
+    });
+    const policy = setting?.value as
+      | { enabled?: boolean; channel?: AlertPolicyChannel }
+      | undefined;
+    if (
+      !policy?.enabled ||
+      !policy.channel ||
+      !["graph", "email", "teams", "teams-graph", "slack", "webhook"].includes(
+        policy.channel,
+      )
+    )
+      return;
     const incidents = healthIncidents(await collect());
     const key = "observability.health-alert-state";
-    const previous = await this.prisma.applicationSetting.findUnique({ where: { key } });
-    const state = previous?.value as { signature?: string; at?: string; channel?: string } | undefined;
+    const previous = await this.prisma.applicationSetting.findUnique({
+      where: { key },
+    });
+    const state = previous?.value as
+      | { signature?: string; at?: string; channel?: string }
+      | undefined;
     const signature = incidents.join("\n");
     if (!signature && !state?.signature) return;
     const last = Date.parse(state?.at || "");
-    if (signature === state?.signature && policy.channel === state.channel && Number.isFinite(last) && Date.now() - last < 15 * 60000) return;
-    const subject = signature ? "[ISMS Portal] Infrastructure alert" : "[ISMS Portal] Infrastructure recovered";
-    const message = signature || "The previously reported services and document storage capacity are healthy again.";
-    await this.sendPolicyAlert(policy.channel, subject, message, graphRecipients);
-    const value = { signature, at: new Date().toISOString(), channel: policy.channel! };
-    await this.prisma.applicationSetting.upsert({ where: { key }, update: { value }, create: { key, value } });
+    if (
+      signature === state?.signature &&
+      policy.channel === state.channel &&
+      Number.isFinite(last) &&
+      Date.now() - last < 15 * 60000
+    )
+      return;
+    const subject = signature
+      ? "[ISMS Portal] Infrastructure alert"
+      : "[ISMS Portal] Infrastructure recovered";
+    const message =
+      signature ||
+      "The previously reported services and document storage capacity are healthy again.";
+    await this.sendPolicyAlert(
+      policy.channel,
+      subject,
+      message,
+      graphRecipients,
+    );
+    const value = {
+      signature,
+      at: new Date().toISOString(),
+      channel: policy.channel!,
+    };
+    await this.prisma.applicationSetting.upsert({
+      where: { key },
+      update: { value },
+      create: { key, value },
+    });
   }
 
-  private async sendPolicyAlert(channel: AlertPolicyChannel, subject: string, message: string, graphRecipients?: () => Promise<string[]>) {
+  private async sendPolicyAlert(
+    channel: AlertPolicyChannel,
+    subject: string,
+    message: string,
+    graphRecipients?: () => Promise<string[]>,
+  ) {
     if (channel === "teams-graph") {
-      try { await this.send("teams", subject, message); return; }
-      catch { await this.sendPreferredTo(await graphRecipients?.() || [], subject, message); return; }
+      try {
+        await this.send("teams", subject, message);
+        return;
+      } catch {
+        await this.sendPreferredTo(
+          (await graphRecipients?.()) || [],
+          subject,
+          message,
+        );
+        return;
+      }
     }
-    if (channel === "graph") await this.sendPreferredTo(await graphRecipients?.() || [], subject, message);
+    if (channel === "graph")
+      await this.sendPreferredTo(
+        (await graphRecipients?.()) || [],
+        subject,
+        message,
+      );
     else await this.send(channel, subject, message);
   }
 
-  async evaluate(result: "success" | "failure" | "denied", graphRecipients?: () => Promise<string[]>) {
+  async evaluate(
+    result: "success" | "failure" | "denied",
+    graphRecipients?: () => Promise<string[]>,
+  ) {
     if (result === "success") return;
     const setting = await this.prisma.applicationSetting.findUnique({
       where: { key: "observability.alert-policy" },
@@ -481,7 +687,14 @@ export class AlertDeliveryService {
           deniedPerMinute?: string;
         }
       | undefined;
-    if (!policy?.enabled || !policy.channel || !["graph", "email", "teams", "teams-graph", "slack", "webhook"].includes(policy.channel)) return;
+    if (
+      !policy?.enabled ||
+      !policy.channel ||
+      !["graph", "email", "teams", "teams-graph", "slack", "webhook"].includes(
+        policy.channel,
+      )
+    )
+      return;
     const since = new Date(Date.now() - 60000);
     const [total, denied, failed] = await Promise.all([
       this.prisma.auditEvent.count({ where: { occurredAt: { gte: since } } }),
@@ -506,7 +719,12 @@ export class AlertDeliveryService {
     if (Number.isFinite(last) && Date.now() - last < 15 * 60000) return;
     const subject = "[ISMS Portal] Service alert";
     const message = `${failed} failed requests and ${denied} access denials recorded during the last minute.`;
-    await this.sendPolicyAlert(policy.channel, subject, message, graphRecipients);
+    await this.sendPolicyAlert(
+      policy.channel,
+      subject,
+      message,
+      graphRecipients,
+    );
     const value = { at: new Date().toISOString(), channel: policy.channel };
     await this.prisma.applicationSetting.upsert({
       where: { key: "observability.alert-last-sent" },

@@ -134,13 +134,18 @@ export function LanguageSelect({
   );
 }
 
-export function ProfileLanguage({ locale, defaultLocale, onChange }: {
+export function ProfileLanguage({
+  locale,
+  defaultLocale,
+  onChange,
+}: {
   locale: Locale;
   defaultLocale?: Locale | null;
   onChange: (locale: Locale) => void;
 }) {
   const { enabled } = useLanguageSettings();
-  const preferred = defaultLocale && enabled.includes(defaultLocale) ? defaultLocale : locale;
+  const preferred =
+    defaultLocale && enabled.includes(defaultLocale) ? defaultLocale : locale;
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<"saved" | "failed" | null>(null);
   const pending = useRef(false);
@@ -165,8 +170,25 @@ export function ProfileLanguage({ locale, defaultLocale, onChange }: {
       setBusy(false);
     }
   };
-  return <div className="admin-form profile-language" aria-busy={busy}>
-    <label>{languageUi[locale].profile}<LanguageSelect value={preferred} syncValue={false} disabled={busy} onValueChange={next => void save(next)} /></label>
-    {result && <small role={result === "failed" ? "alert" : "status"} className={result === "failed" ? "error-state" : "notice"}>{languageUi[locale][result]}</small>}
-  </div>;
+  return (
+    <div className="admin-form profile-language" aria-busy={busy}>
+      <label>
+        {languageUi[locale].profile}
+        <LanguageSelect
+          value={preferred}
+          syncValue={false}
+          disabled={busy}
+          onValueChange={(next) => void save(next)}
+        />
+      </label>
+      {result && (
+        <small
+          role={result === "failed" ? "alert" : "status"}
+          className={result === "failed" ? "error-state" : "notice"}
+        >
+          {languageUi[locale][result]}
+        </small>
+      )}
+    </div>
+  );
 }

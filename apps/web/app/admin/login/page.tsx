@@ -2,9 +2,25 @@
 
 import { withLocales } from "../../i18n/translate";
 
-import { FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
-import { adminDestination, configuredSsoDestination } from "../../auth-navigation";
-import { authConfig, loginFailure, loginRequest, LoginMethods, LoginToolbar, PasswordField } from "../../login-shared";
+import {
+  FormEvent,
+  type KeyboardEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  adminDestination,
+  configuredSsoDestination,
+} from "../../auth-navigation";
+import {
+  authConfig,
+  loginFailure,
+  loginRequest,
+  LoginMethods,
+  LoginToolbar,
+  PasswordField,
+} from "../../login-shared";
 import { useInterfaceLocale } from "../../i18n/use-locale";
 
 type LoginMode = "local" | "directory";
@@ -51,11 +67,23 @@ export default function AdminLoginPage() {
   const [directoryAvailable, setDirectoryAvailable] = useState(false);
   const [ssoUrl, setSsoUrl] = useState<string | null>(null);
   const t = copy[locale];
-  const selectMode = (value: LoginMode) => { setMode(value); setNeedsMfa(false); setError(""); };
+  const selectMode = (value: LoginMode) => {
+    setMode(value);
+    setNeedsMfa(false);
+    setError("");
+  };
   const navigateTabs = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (busy || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    if (busy || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))
+      return;
     event.preventDefault();
-    const next = event.key === "Home" ? "local" : event.key === "End" ? "directory" : mode === "local" ? "directory" : "local";
+    const next =
+      event.key === "Home"
+        ? "local"
+        : event.key === "End"
+          ? "directory"
+          : mode === "local"
+            ? "directory"
+            : "local";
     selectMode(next);
     document.getElementById(`admin-${next}-tab`)?.focus();
   };
@@ -69,9 +97,13 @@ export default function AdminLoginPage() {
       .then((config) => {
         if (controller.signal.aborted) return;
         setDirectoryAvailable(Boolean(config.directoryLoginEnabled));
-        setSsoUrl(configuredSsoDestination(config, parameters.get("return"), "admin"));
+        setSsoUrl(
+          configuredSsoDestination(config, parameters.get("return"), "admin"),
+        );
       })
-      .catch(() => { if (!controller.signal.aborted) setDirectoryAvailable(false); });
+      .catch(() => {
+        if (!controller.signal.aborted) setDirectoryAvailable(false);
+      });
     return () => controller.abort();
   }, []);
 
@@ -85,7 +117,9 @@ export default function AdminLoginPage() {
     values.username = String(values.username || "").trim();
     const response = await loginRequest(
       mode === "local" ? "/api/auth/login" : "/api/auth/directory-login",
-      mode === "local" ? values : { login: values.username, password: values.password },
+      mode === "local"
+        ? values
+        : { login: values.username, password: values.password },
     );
     submitting.current = false;
     setBusy(false);
@@ -94,7 +128,11 @@ export default function AdminLoginPage() {
       setError(loginFailure(response, locale, t.invalid));
       return;
     }
-    window.location.replace(adminDestination(new URLSearchParams(window.location.search).get("return")));
+    window.location.replace(
+      adminDestination(
+        new URLSearchParams(window.location.search).get("return"),
+      ),
+    );
   };
 
   return (
@@ -104,76 +142,92 @@ export default function AdminLoginPage() {
         <h1>{t.title}</h1>
         {!ssoUrl && <p>{t.subtitle}</p>}
         {loggedOut && <p className="login-success">{t.loggedOut}</p>}
-        <LoginMethods locale={locale} ssoUrl={ssoUrl} showCredentials={localLogin}>
-        <div className="login-tabs" role="tablist" aria-label={t.title} onKeyDown={navigateTabs}>
-          <button
-            type="button"
-            role="tab"
-            id="admin-local-tab"
-            aria-controls="admin-login-panel"
-            tabIndex={mode === "local" ? 0 : -1}
-            disabled={busy}
-            aria-selected={mode === "local"}
-            onClick={() => selectMode("local")}
+        <LoginMethods
+          locale={locale}
+          ssoUrl={ssoUrl}
+          showCredentials={localLogin}
+        >
+          <div
+            className="login-tabs"
+            role="tablist"
+            aria-label={t.title}
+            onKeyDown={navigateTabs}
           >
-            {t.localMode}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id="admin-directory-tab"
-            aria-controls="admin-login-panel"
-            tabIndex={mode === "directory" ? 0 : -1}
-            disabled={busy}
-            aria-selected={mode === "directory"}
-            onClick={() => selectMode("directory")}
-          >
-            {t.directoryMode}
-          </button>
-        </div>
-        {mode === "directory" && !directoryAvailable && (
-          <p className="login-warning">{t.directoryUnavailable}</p>
-        )}
-        <form onSubmit={submit} className="login-form" aria-busy={busy} id="admin-login-panel" role="tabpanel" aria-labelledby={`admin-${mode}-tab`}>
-          <fieldset className="login-fields" disabled={busy}>
-          <label>
-            {t.identifier}
-            <input
-              name="username"
-              required
-              autoComplete="username"
-              autoCapitalize="none"
-              spellCheck={false}
-              maxLength={160}
-            />
-          </label>
-          <PasswordField locale={locale} label={t.password} />
-          {mode === "local" && needsMfa && (
-            <label>
-              {t.mfa}
-              <input
-                name="mfaCode"
-                autoFocus
-                inputMode="numeric"
-                pattern="[0-9]{6}"
-                maxLength={6}
-                autoComplete="one-time-code"
-              />
-            </label>
+            <button
+              type="button"
+              role="tab"
+              id="admin-local-tab"
+              aria-controls="admin-login-panel"
+              tabIndex={mode === "local" ? 0 : -1}
+              disabled={busy}
+              aria-selected={mode === "local"}
+              onClick={() => selectMode("local")}
+            >
+              {t.localMode}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id="admin-directory-tab"
+              aria-controls="admin-login-panel"
+              tabIndex={mode === "directory" ? 0 : -1}
+              disabled={busy}
+              aria-selected={mode === "directory"}
+              onClick={() => selectMode("directory")}
+            >
+              {t.directoryMode}
+            </button>
+          </div>
+          {mode === "directory" && !directoryAvailable && (
+            <p className="login-warning">{t.directoryUnavailable}</p>
           )}
-          {error && (
-            <p className="error-message" role="alert">
-              {error}
-            </p>
-          )}
-          <button
-            className="primary"
-            disabled={busy || (mode === "directory" && !directoryAvailable)}
+          <form
+            onSubmit={submit}
+            className="login-form"
+            aria-busy={busy}
+            id="admin-login-panel"
+            role="tabpanel"
+            aria-labelledby={`admin-${mode}-tab`}
           >
-            {busy ? t.busy : t.submit}
-          </button>
-          </fieldset>
-        </form>
+            <fieldset className="login-fields" disabled={busy}>
+              <label>
+                {t.identifier}
+                <input
+                  name="username"
+                  required
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  maxLength={160}
+                />
+              </label>
+              <PasswordField locale={locale} label={t.password} />
+              {mode === "local" && needsMfa && (
+                <label>
+                  {t.mfa}
+                  <input
+                    name="mfaCode"
+                    autoFocus
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    autoComplete="one-time-code"
+                  />
+                </label>
+              )}
+              {error && (
+                <p className="error-message" role="alert">
+                  {error}
+                </p>
+              )}
+              <button
+                className="primary"
+                disabled={busy || (mode === "directory" && !directoryAvailable)}
+              >
+                {busy ? t.busy : t.submit}
+              </button>
+            </fieldset>
+          </form>
         </LoginMethods>
       </section>
     </main>

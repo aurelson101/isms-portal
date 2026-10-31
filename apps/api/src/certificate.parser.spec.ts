@@ -11,7 +11,11 @@ const fixture = (name: string) =>
 
 describe("parseCaCertificates", () => {
   beforeEach(() => {
-    vi.mocked(execFileSync).mockReset().mockReturnValue(new X509Certificate(fixture("test-ca.der.cer")).toString());
+    vi.mocked(execFileSync)
+      .mockReset()
+      .mockReturnValue(
+        new X509Certificate(fixture("test-ca.der.cer")).toString(),
+      );
   });
   it.each(["test-ca.der.cer", "test-adcs-chain.cer"])(
     "imports the ADCS-compatible fixture %s",
@@ -27,7 +31,9 @@ describe("parseCaCertificates", () => {
   );
 
   it("refuses content that is not a supported certificate container", () => {
-    vi.mocked(execFileSync).mockImplementationOnce(() => { throw new Error("Invalid container"); });
+    vi.mocked(execFileSync).mockImplementationOnce(() => {
+      throw new Error("Invalid container");
+    });
     expect(() =>
       parseCaCertificates({
         contentBase64: Buffer.from("not a certificate").toString("base64"),
@@ -38,18 +44,39 @@ describe("parseCaCertificates", () => {
   it("imports a PEM-encoded PKCS7 chain", () => {
     const data = fixture("test-adcs-chain.cer");
     const text = data.toString("utf8");
-    const pem = text.includes("-----BEGIN") ? text : `-----BEGIN PKCS7-----\n${data.toString("base64").match(/.{1,64}/g)!.join("\n")}\n-----END PKCS7-----`;
+    const pem = text.includes("-----BEGIN")
+      ? text
+      : `-----BEGIN PKCS7-----\n${data
+          .toString("base64")
+          .match(/.{1,64}/g)!
+          .join("\n")}\n-----END PKCS7-----`;
     expect(parseCaCertificates({ pem })[0].ca).toBe(true);
   });
 
   it("rejects private keys and oversized containers before parsing", () => {
-    expect(() => parseCaCertificates({ pem: "-----BEGIN PRIVATE KEY-----\ninvalid" })).toThrow("Private keys are forbidden");
-    expect(() => parseCaCertificates({ contentBase64: Buffer.alloc(49 * 1024).toString("base64") })).toThrow("48 KiB");
+    expect(() =>
+      parseCaCertificates({ pem: "-----BEGIN PRIVATE KEY-----\ninvalid" }),
+    ).toThrow("Private keys are forbidden");
+    expect(() =>
+      parseCaCertificates({
+        contentBase64: Buffer.alloc(49 * 1024).toString("base64"),
+      }),
+    ).toThrow("48 KiB");
     expect(execFileSync).not.toHaveBeenCalled();
   });
 
   it("bounds the parser subprocess and does not invoke a shell", () => {
-    parseCaCertificates({ contentBase64: fixture("test-adcs-chain.cer").toString("base64") });
-    expect(execFileSync).toHaveBeenCalledWith("openssl", expect.arrayContaining(["pkcs7", "-print_certs"]), expect.objectContaining({ timeout: 3000, maxBuffer: 48 * 1024 * 4, stdio: ["pipe", "pipe", "pipe"] }));
+    parseCaCertificates({
+      contentBase64: fixture("test-adcs-chain.cer").toString("base64"),
+    });
+    expect(execFileSync).toHaveBeenCalledWith(
+      "openssl",
+      expect.arrayContaining(["pkcs7", "-print_certs"]),
+      expect.objectContaining({
+        timeout: 3000,
+        maxBuffer: 48 * 1024 * 4,
+        stdio: ["pipe", "pipe", "pipe"],
+      }),
+    );
   });
 });

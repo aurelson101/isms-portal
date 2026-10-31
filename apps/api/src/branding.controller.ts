@@ -68,7 +68,13 @@ export class BrandingController {
     return {
       title: value?.title || DEFAULT_BRANDING.title,
       logoDataUrl: value?.logoDataUrl || null,
-      languages: readLanguageSettings((await this.prisma.applicationSetting.findUnique({ where: { key: "portal.languages" } }))?.value),
+      languages: readLanguageSettings(
+        (
+          await this.prisma.applicationSetting.findUnique({
+            where: { key: "portal.languages" },
+          })
+        )?.value,
+      ),
     };
   }
 

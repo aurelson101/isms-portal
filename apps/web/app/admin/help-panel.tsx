@@ -8,484 +8,1953 @@ import { Icon } from "../icons";
 import type { Locale } from "../i18n/locale";
 import { documentManagementHelp } from "../document-management-help";
 
-type HelpTarget = "dashboard" | "documents" | "groups" | "rules" | "spaces" | "governance" | "requests" | "directory" | "sso" | "certificates" | "storage" | "integrations" | "alert-channels" | "alert-policy" | "health" | "observability" | "audit" | "settings" | "languages" | "profile" | "administrators" | "moderators" | "trash" | "incidents" | "advanced-settings";
+type HelpTarget =
+  | "dashboard"
+  | "documents"
+  | "groups"
+  | "rules"
+  | "spaces"
+  | "governance"
+  | "requests"
+  | "directory"
+  | "sso"
+  | "certificates"
+  | "storage"
+  | "integrations"
+  | "alert-channels"
+  | "alert-policy"
+  | "health"
+  | "observability"
+  | "audit"
+  | "settings"
+  | "languages"
+  | "profile"
+  | "administrators"
+  | "moderators"
+  | "trash"
+  | "incidents"
+  | "advanced-settings";
 type Text = [string, string];
-const languageHelp: Record<"title" | "profile" | "admin" | "upload" | "fallback" | "check", Text> = {
-  title: ["Langues et préférences personnelles", "Languages and personal preferences"],
-  profile: ["Depuis votre profil, ouvrez Préférences d’affichage, choisissez la langue par défaut de votre interface et attendez la confirmation. Ce choix est enregistré dans votre compte et s'applique aux espaces utilisateur, modérateur et administrateur, y compris sur un autre appareil.", "From your profile, open Display preferences, choose your default interface language and wait for confirmation. The choice is saved in your account and applies to the user, moderator and administrator workspaces, including on another device."],
-  admin: ["Dans Administration > Langues, cochez les langues disponibles parmi FR, EN, ES et SK, puis sélectionnez une langue par défaut du portail et enregistrez. Au moins une langue doit rester active ; la langue par défaut doit être active. Rechargez les autres onglets après une modification.", "In Administration > Languages, enable the available languages among FR, EN, ES and SK, select the portal default language and save. At least one language must remain enabled; the default language must be enabled. Reload other tabs after a change."],
-  upload: ["Lors d'un dépôt, d'un import par lot ou d'une nouvelle version, choisissez la langue réelle du fichier parmi les langues actives. La langue du fichier est indépendante de celle de l'interface ; ce choix ne traduit pas le contenu. Les documents existants restent lisibles si leur langue est désactivée.", "For an upload, batch import or new version, choose the actual file language from the enabled languages. File language is independent of interface language; this choice does not translate content. Existing documents remain readable if their language is disabled."],
-  fallback: ["Une préférence personnelle active est prioritaire. Si elle est désactivée, le portail utilise une langue active du navigateur, puis la langue par défaut du portail. Désactiver une langue masque les choix correspondants dans l'interface et les nouveaux dépôts ; cela ne supprime aucun document.", "An enabled personal preference takes priority. If it is disabled, the portal uses an enabled browser language, then the portal default language. Disabling a language hides the corresponding interface and new-upload choices; it does not delete any document."],
-  check: ["Vérifiez la langue après reconnexion, les choix proposés au dépôt et l'accès aux anciens documents. Si l'enregistrement échoue, réessayez et attendez la confirmation avant de quitter les préférences.", "Check the language after signing in again, the upload choices and access to existing documents. If saving fails, retry and wait for confirmation before leaving preferences."],
+const languageHelp: Record<
+  "title" | "profile" | "admin" | "upload" | "fallback" | "check",
+  Text
+> = {
+  title: [
+    "Langues et préférences personnelles",
+    "Languages and personal preferences",
+  ],
+  profile: [
+    "Depuis votre profil, ouvrez Préférences d’affichage, choisissez la langue par défaut de votre interface et attendez la confirmation. Ce choix est enregistré dans votre compte et s'applique aux espaces utilisateur, modérateur et administrateur, y compris sur un autre appareil.",
+    "From your profile, open Display preferences, choose your default interface language and wait for confirmation. The choice is saved in your account and applies to the user, moderator and administrator workspaces, including on another device.",
+  ],
+  admin: [
+    "Dans Administration > Langues, cochez les langues disponibles parmi FR, EN, ES et SK, puis sélectionnez une langue par défaut du portail et enregistrez. Au moins une langue doit rester active ; la langue par défaut doit être active. Rechargez les autres onglets après une modification.",
+    "In Administration > Languages, enable the available languages among FR, EN, ES and SK, select the portal default language and save. At least one language must remain enabled; the default language must be enabled. Reload other tabs after a change.",
+  ],
+  upload: [
+    "Lors d'un dépôt, d'un import par lot ou d'une nouvelle version, choisissez la langue réelle du fichier parmi les langues actives. La langue du fichier est indépendante de celle de l'interface ; ce choix ne traduit pas le contenu. Les documents existants restent lisibles si leur langue est désactivée.",
+    "For an upload, batch import or new version, choose the actual file language from the enabled languages. File language is independent of interface language; this choice does not translate content. Existing documents remain readable if their language is disabled.",
+  ],
+  fallback: [
+    "Une préférence personnelle active est prioritaire. Si elle est désactivée, le portail utilise une langue active du navigateur, puis la langue par défaut du portail. Désactiver une langue masque les choix correspondants dans l'interface et les nouveaux dépôts ; cela ne supprime aucun document.",
+    "An enabled personal preference takes priority. If it is disabled, the portal uses an enabled browser language, then the portal default language. Disabling a language hides the corresponding interface and new-upload choices; it does not delete any document.",
+  ],
+  check: [
+    "Vérifiez la langue après reconnexion, les choix proposés au dépôt et l'accès aux anciens documents. Si l'enregistrement échoue, réessayez et attendez la confirmation avant de quitter les préférences.",
+    "Check the language after signing in again, the upload choices and access to existing documents. If saving fails, retry and wait for confirmation before leaving preferences.",
+  ],
 };
 const topics: Array<{ target: HelpTarget; title: Text; paragraphs: Text[] }> = [
-  { target: "languages", title: languageHelp.title, paragraphs: [languageHelp.profile, languageHelp.admin, languageHelp.upload, languageHelp.fallback] },
-  { target: "dashboard", title: ["Fonctionnement et rôles", "Overview and roles"], paragraphs: [
-    ["ISMS Portal centralise les documents et leur gouvernance. Les utilisateurs consultent les contenus autorisés ; les modérateurs gèrent les documents selon leurs droits effectifs ; les administrateurs configurent le portail, les accès et l'exploitation.", "ISMS Portal centralizes documents and their governance. Users view authorized content; moderators manage documents according to their effective permissions; administrators configure the portal, access and operations."],
-    ["Le tableau de bord rassemble les indicateurs et les éléments à traiter. Les changements sensibles doivent rester traçables. Les droits sont contrôlés par l'API : masquer un bouton ne constitue pas une autorisation.", "The dashboard summarizes indicators and items requiring action. Sensitive changes must remain traceable. Permissions are enforced by the API: hiding a button is not an authorization control."],
-  ] },
-  { target: "spaces", title: ["Espaces et catégories", "Spaces and categories"], paragraphs: [
-    ["Créez les espaces documentaires, puis leurs catégories et sous-catégories. Les libellés français et anglais décrivent le classement ; ils ne changent pas la langue du fichier. Définissez une structure stable avant un import important.", "Create document spaces, then categories and subcategories. French and English labels describe classification; they do not change file language. Define a stable structure before a large import."],
-    ["Attribuez les droits aux groupes et vérifiez le résultat avec un compte utilisateur représentatif. Un document déplacé dans une autre catégorie doit être contrôlé dans le portail et dans les règles d'accès.", "Assign permissions to groups and verify the result with a representative user account. After moving a document to another category, check it in the portal and in access rules."],
-  ] },
-  { target: "directory", title: ["Annuaire LDAP / LDAPS", "LDAP / LDAPS directory"], paragraphs: [
-    ["Configurez une connexion annuaire avec son serveur, son périmètre de recherche et un compte de service dédié. Utilisez les tests disponibles avant de synchroniser. Le compte doit disposer uniquement des droits nécessaires à la lecture de l'annuaire.", "Configure a directory connection with its server, search scope and dedicated service account. Use the available tests before synchronization. The account should only have the permissions required to read the directory."],
-    ["Pour LDAPS, vérifiez le nom du serveur, le certificat et la chaîne de confiance. Consultez les erreurs de synchronisation si les groupes ou leurs membres ne remontent pas. Ne désactivez pas la validation TLS pour masquer une erreur de certificat.", "For LDAPS, verify the server name, certificate and trust chain. Review synchronization errors if groups or members are missing. Do not disable TLS validation to hide a certificate error."],
-  ] },
-  { target: "certificates", title: ["Certificats CA", "CA certificates"], paragraphs: [
-    ["Ce menu gère les autorités de certification utilisées pour les connexions annuaire. Importez la chaîne de confiance appropriée et vérifiez les dates de validité avant de tester LDAPS.", "This menu manages certificate authorities used for directory connections. Import the appropriate trust chain and check validity dates before testing LDAPS."],
-    ["Un certificat CA d'annuaire n'est pas un certificat client SSO. Gérez le renouvellement de chaque certificat dans sa configuration respective et conservez les clés privées hors du dépôt de code.", "A directory CA certificate is not an SSO client certificate. Manage each certificate renewal in its own configuration and keep private keys outside the source repository."],
-  ] },
-  { target: "groups", title: ["Groupes Active Directory", "Active Directory groups"], paragraphs: [
-    ["Recherchez un groupe dans l'annuaire et sélectionnez le résultat pour l'importer, ou renseignez sa référence DN. Seuls les groupes ajoutés au portail sont suivis. Contrôlez la source, le nombre de membres, l'état et la dernière synchronisation.", "Search the directory and select a group to import it, or enter its DN reference. Only groups added to the portal are tracked. Check the source, member count, state and latest synchronization."],
-    ["La recherche couvre le nom, le DN et la description ; le filtre distingue les groupes actifs et inactifs. La suppression d'un groupe peut retirer les règles associées : lisez la confirmation et vérifiez les espaces impactés avant de continuer.", "Search covers name, DN and description; the filter distinguishes active and inactive groups. Deleting a group can remove associated rules: read the confirmation and check affected spaces before proceeding."],
-  ] },
-  { target: "rules", title: ["Règles d'accès", "Access rules"], paragraphs: [
-    ["Une règle associe un groupe à un espace et à des capacités distinctes : lecture, prévisualisation, téléchargement ou opérations de gestion. Utilisez les filtres groupe et espace pour contrôler la matrice, puis le bouton du groupe pour ouvrir l'éditeur.", "A rule associates a group with a space and distinct capabilities: reading, previewing, downloading or management operations. Filter by group and space to inspect the matrix, then use the group button to open the editor."],
-    ["Accordez uniquement les capacités nécessaires et vérifiez les éventuelles restrictions par catégorie. Lecture et téléchargement sont indépendants. Les accès temporaires, anomalies et instantanés se suivent dans les outils de gouvernance des accès.", "Grant only necessary capabilities and check any category restrictions. Reading and downloading are independent. Temporary access, anomalies and snapshots are tracked in access governance tools."],
-  ] },
-  { target: "documents", title: ["PDF, Excel et fichiers protégés","PDF, Excel and protected files"], paragraphs: [
-    ["PDF : utilisez la navigation par page et le zoom. La progression est mémorisée par version dans ce navigateur si le stockage local est disponible ; elle n'est pas synchronisée entre appareils.","PDF: use page navigation and zoom. Reading progress is saved per version in this browser when local storage is available; it is not synchronized between devices."],
-    ["Excel : choisissez une feuille, recherchez dans celle-ci et ajustez les filtres des colonnes. Restaurer les filtres du fichier rétablit les critères enregistrés ; Effacer les filtres les retire. Inclure les lignes suivantes sans valeur est facultatif. Le filtrage est en lecture seule et ne modifie jamais le fichier déposé.","Excel: select a worksheet, search it and adjust column filters. Restore file filters returns to saved criteria; Clear filters removes them. Include following rows with blank values is optional. Filtering is read-only and never changes the uploaded file."],
-    ["L'aperçu Excel affiche 100 lignes par page, dans la limite de 5 000 lignes et 128 colonnes par feuille. Un avertissement de troncature signifie que l'aperçu est incomplet. Les lignes et feuilles masquées ne constituent pas un contrôle d'accès ; le téléchargement reste soumis aux droits ISMS.","Excel preview shows 100 rows per page, with a limit of 5,000 rows and 128 columns per worksheet. A truncation warning means the preview is incomplete. Hidden rows and sheets are not an access-control mechanism; download remains subject to ISMS permissions."],
-    ["Purview est facultatif et désactivé par défaut. Le lecteur MIP exige le SSO Microsoft, la configuration du certificat et l'autorisation d'application Content.DelegatedReader d'Azure Rights Management Service avec consentement administrateur, et non une permission Microsoft Graph. Les droits ISMS et les droits VIEW et EXTRACT de l'utilisateur sont requis ; le SSO seul ne suffit pas. N'ajoutez pas Content.SuperUser.","Purview is optional and disabled by default. The MIP reader requires Microsoft SSO, certificate configuration and Azure Rights Management Service application permission Content.DelegatedReader with administrator consent, not a Microsoft Graph permission. ISMS permissions and the user's VIEW and EXTRACT rights are required; SSO alone is insufficient. Do not add Content.SuperUser."],
-  ] },
-  { target: "documents", title: ["Dépôt et gestion documentaire", "Uploading and managing documents"], paragraphs: [
-    ["Sélectionnez l'espace, la catégorie, la langue réelle du fichier, son titre et sa description. Ajoutez le fichier PDF, DOCX ou XLSX et le résumé des changements. Le dépôt passe par une analyse antivirus ; vérifiez le résultat avant la publication.", "Select the space, category, actual file language, title and description. Add the PDF, DOCX or XLSX file and change summary. Uploads undergo antivirus scanning; check the result before publication."],
-    ["La liste est paginée par vingt documents. La recherche porte sur les titres, descriptions et métadonnées, sur l'ensemble des pages autorisées. Le tri permet de comparer les dernières modifications, les publications ou les états. La chronologie affiche les principales dates et versions.", "The list uses twenty documents per page. Search covers titles, descriptions and metadata across all authorized pages. Sorting lets you compare latest updates, publication dates or states. The timeline shows key dates and versions."],
-  ] },
-  { target: "documents", title: ["Métadonnées, langues et versions", "Metadata, languages and versions"], paragraphs: [
-    ["Éditer les métadonnées permet de corriger le titre, la description, la langue ou la catégorie sans déposer un nouveau fichier. Vérifiez la langue choisie et le classement après l'enregistrement.", "Edit metadata to correct the title, description, language or category without uploading a new file. Check the chosen language and classification after saving."],
-    ["Nouvelle version sert à remplacer le contenu documentaire : sélectionnez le document existant, déposez le nouveau fichier et décrivez les changements. Ne créez pas un nouveau document pour une simple mise à jour du même contenu.", "New version replaces document content: select the existing document, upload the new file and describe the changes. Do not create a separate document for a straightforward update of the same content."],
-  ] },
-  { target: "documents", title: ["Métadonnées GED", "GED metadata"], paragraphs: [
-    ["Administrateur : Documents > Éditer les métadonnées. Modérateur : Documents gérés > Éditer. Le portail propose aussi Éditer si vous avez le droit de modification. Aucun nouveau fichier ni numéro de version n'est créé.", "Administrator: Documents > Edit metadata. Moderator: Managed documents > Edit. The portal also offers Edit when you have edit permission. No new file or version number is created."],
-    ["Choisissez un modèle : politique, procédure, guide, preuve ou enregistrement. Il s'applique immédiatement et ajoute seulement les champs manquants, sans écraser les valeurs existantes. Exemple : référence POL-001, responsable Qualité, mots-clés sécurité, SSO et date de revue.", "Choose a template: policy, procedure, guide, evidence or record. It applies immediately and only adds missing fields, preserving existing values. Example: reference POL-001, owner Quality, keywords security, SSO and a review date."],
-    ["Pour un champ personnalisé, saisissez son nom et sa valeur puis cliquez sur Ajouter. La limite est de 20 champs au total, 64 caractères par nom et 1 000 par valeur. Un champ encore en attente bloque l'enregistrement : ajoutez-le ou effacez les deux saisies.", "For a custom field, enter its name and value, then click Add. The limit is 20 fields in total, 64 characters per name and 1,000 per value. A pending field blocks saving: add it or clear both inputs."],
-    ["Cliquez ensuite sur Enregistrer. Rouvrez Éditer pour contrôler les valeurs conservées. Les champs vides sont masqués dans Informations documentaires ; dépliez ce panneau pour consulter les valeurs renseignées. En cas de conflit, conservez vos saisies et rouvrez le document pour comparer.", "Then click Save. Reopen Edit to check the stored values. Empty fields are hidden in Document information; expand that panel to read completed fields. If a conflict occurs, keep your entered values and reopen the document to compare."],
-    ["La recherche prend en compte les noms et valeurs des métadonnées, y compris dans les favoris, selon vos ACL. Dans la fiche de lecture, cliquez sur un mot-clé pour rechercher les documents associés. Les mots-clés se séparent par une virgule, un point-virgule ou un retour à la ligne.", "Search includes metadata names and values, including in favorites, subject to your ACLs. In the reading view, click a keyword to find related documents. Separate keywords with a comma, semicolon or line break."],
-    ["La date de revue doit être une date valide ; elle ne planifie pas de rappel. Configurez les revues dans Gouvernance. Le responsable et le type de document ne modifient pas les ACL. L'audit indique les champs ajoutés, modifiés et supprimés, sans recopier leurs valeurs.", "The review date must be valid; it does not schedule a reminder. Configure reviews in Governance. Owner and document type do not change ACLs. The audit identifies added, modified and removed fields without copying their values."],
-  ] },
-  { target: "documents", title: ["Imports en lot et notifications", "Batch imports and notifications"], paragraphs: [
-    ["L'import en lot permet de traiter plusieurs fichiers. Vérifiez le classement, la langue et les métadonnées préparées pour le lot, puis contrôlez les réussites et les échecs. Commencez par un petit lot représentatif avant un import volumineux.", "Batch import processes multiple files. Check classification, language and metadata prepared for the batch, then review successes and failures. Start with a small representative batch before a large import."],
-    ["La case Ne pas envoyer d'alerte e-mail pour ce dépôt ou sa publication évite les annonces de publication pour le document concerné. Contrôlez ce choix avant l'import ; il ne doit pas être confondu avec les alertes de sécurité ou les notifications de revue.", "Do not send email notifications for this upload or publication suppresses publication announcements for the relevant document. Check this choice before importing; do not confuse it with security alerts or review notifications."],
-  ] },
-  { target: "trash", title: ["Archivage, suppression et restauration", "Archiving, deletion and restoration"], paragraphs: [
-    ["Archivez un contenu qui ne doit plus être diffusé. Une suppression est une opération différente : lisez la confirmation et vérifiez le document ciblé. Consultez la corbeille pour les éléments restaurables et contrôlez leurs droits après restauration.", "Archive content that should no longer be distributed. Deletion is a different operation: read the confirmation and verify the selected document. Use the trash for recoverable items and check their permissions after restoration."],
-    ["Les données documentaires et les fichiers doivent être sauvegardés ensemble. La corbeille ne remplace pas une sauvegarde ni un test de restauration.", "Document data and files must be backed up together. The trash does not replace backups or restoration testing."],
-  ] },
-  { target: "governance", title: ["Revues et gouvernance ISMS", "Reviews and ISMS governance"], paragraphs: [
-    ["La file de revues distingue les éléments en retard, en cours et terminés. Vérifiez les participants, l'échéance et le document concerné. Les modérateurs et administrateurs autorisés enregistrent une décision avec une justification conservée dans la trace de revue.", "The review queue distinguishes overdue, in-progress and completed items. Check participants, due date and the relevant document. Authorized moderators and administrators record a decision with a justification retained in the review record."],
-    ["Consultez la preuve de décision, les pièces justificatives éventuelles et la prochaine échéance avant de clôturer le suivi. Les autres vues regroupent notamment contrôles et SoA, rétention, exceptions, santé des identités, incidents, CAPA et indicateurs.", "Review the decision evidence, any supporting attachments and the next due date before closing follow-up. Other views cover controls and SoA, retention, exceptions, identity health, incidents, CAPA and indicators."],
-  ] },
-  { target: "requests", title: ["Demandes et signalements", "Requests and reports"], paragraphs: [
-    ["Les utilisateurs peuvent demander des droits supplémentaires et signaler un problème documentaire. Contrôlez le demandeur, la ressource, le motif et la portée avant d'accepter ou de refuser ; une demande n'accorde pas elle-même un accès.", "Users can request additional permissions and report document issues. Check the requester, resource, reason and scope before accepting or rejecting; a request does not grant access by itself."],
-    ["Gardez les commentaires internes distincts de la réponse destinée au demandeur. Les rapports d'incidents annuels disposent d'un menu séparé et d'une audience à vérifier.", "Keep internal comments separate from the response intended for the requester. Annual incident reports have their own menu and an audience that must be checked."],
-  ] },
-  { target: "sso", title: ["Connexion Microsoft SSO", "Microsoft SSO sign-in"], paragraphs: [
-    ["Créez l'application dans Entra et configurez ses identifiants sur le serveur. Ce menu affiche l'état du SSO et propose des diagnostics ; il ne sauvegarde pas les identifiants. Le proxy SSO actuel utilise un secret client et ne prend pas en charge l'authentification par certificat client.", "Create the application in Entra and configure its credentials on the server. This menu displays SSO status and provides diagnostics; it does not save credentials. The current SSO proxy uses a client secret and does not support client certificate authentication."],
-    ["Utilisez les diagnostics et tests du proxy, puis vérifiez la connexion avec un utilisateur pilote et ses documents. Conservez une méthode de connexion de secours. L'authentification Microsoft ne remplace pas les règles d'accès documentaires.", "Use proxy diagnostics and tests, then verify sign-in with a pilot user and their documents. Retain a fallback sign-in method. Microsoft authentication does not replace document access rules."],
-  ] },
-  { target: "administrators", title: ["Comptes administrateurs", "Administrator accounts"], paragraphs: [
-    ["Profil administrateur gère les paramètres personnels et les fonctions de sécurité proposées. Comptes administrateurs gère les comptes, associations de groupes et sessions actives. Vérifiez un accès de secours avant de retirer le dernier administrateur.", "Administrator profile manages personal settings and available security features. Administrator accounts manages accounts, group associations and active sessions. Verify fallback access before removing the last administrator."],
-    ["Le menu Modérateurs définit les gestionnaires documentaires et leur périmètre. Leur espace dédié est accessible à /moderator. Testez leurs droits avec un vrai compte modérateur : une session administrateur ne valide pas leurs restrictions.", "The Moderators menu defines document managers and their scope. Their dedicated workspace is available at /moderator. Test permissions with a real moderator account: an administrator session does not validate moderator restrictions."],
-  ] },
-  { target: "alert-channels", title: ["E-mails et canaux d'alerte", "Email and alert channels"], paragraphs: [
-    ["Les notifications documentaires, les revues et les alertes d'exploitation correspondent à des événements différents. Configurez chaque canal dans son écran : serveur SMTP ou intégration Microsoft Graph selon la configuration disponible, puis Teams, Slack ou webhook si nécessaire.", "Document notifications, reviews and operational alerts correspond to different events. Configure each channel in its own screen: SMTP server or Microsoft Graph integration according to available configuration, then Teams, Slack or webhook as needed."],
-    ["Un test d'envoi peut transmettre un vrai message. Utilisez une destination de test autorisée et consultez l'historique de livraison. Une acceptation par le fournisseur ne prouve pas la réception : vérifiez également la boîte destinataire et les filtres de messagerie.", "A send test may transmit a real message. Use an authorized test destination and review delivery history. Provider acceptance does not prove receipt: also check the recipient mailbox and mail filtering."],
-  ] },
-  { target: "alert-policy", title: ["Seuils d'alerte", "Alert thresholds"], paragraphs: [
-    ["Seuils d'alerte règle l'activation des alertes externes, les seuils et le canal. Intégrations regroupe les connexions de supervision, notamment Zabbix et Wazuh selon les options disponibles. Vérifiez la destination, les identifiants et la connectivité avant activation.", "Alert thresholds configures external alert activation, thresholds and channel. Integrations groups monitoring connections, including Zabbix and Wazuh according to available options. Check destination, credentials and connectivity before activation."],
-    ["Gardez les métriques et les secrets protégés. Commencez avec des seuils adaptés à l'activité observée et contrôlez les événements reçus pour éviter les alertes répétitives sans action utile.", "Keep metrics and secrets protected. Start with thresholds appropriate to observed activity and check received events to avoid repetitive alerts that do not lead to useful action."],
-  ] },
-  { target: "storage", title: ["Stockage et architecture", "Storage and architecture"], paragraphs: [
-    ["Le frontend web communique avec une API qui applique les règles métier. PostgreSQL conserve les données et l'audit ; Redis transporte les tâches asynchrones ; un worker traite les jobs ; ClamAV analyse les fichiers. Le proxy expose le portail en HTTPS.", "The web frontend communicates with an API that enforces business rules. PostgreSQL stores data and audit records; Redis transports asynchronous tasks; a worker processes jobs; ClamAV scans files. The proxy exposes the portal over HTTPS."],
-    ["Le menu Stockage configure les cibles documentaires proposées. Testez leur disponibilité avant utilisation. Une sauvegarde complète contient PostgreSQL et les fichiers ; testez la restauration dans un environnement isolé et ne supprimez pas les volumes de production lors d'une mise à jour.", "The Storage menu configures available document storage targets. Test availability before use. A complete backup includes PostgreSQL and files; test restoration in an isolated environment and do not delete production volumes during an update."],
-  ] },
-  { target: "observability", title: ["Observabilité", "Observability"], paragraphs: [
-    ["Santé des services indique la disponibilité des dépendances. Observabilité rassemble les signaux d'exploitation, la file de travail et les livraisons e-mail. Journal d'audit permet de rechercher les opérations et leurs traces. Ces écrans ont des objectifs distincts.", "Service health shows dependency availability. Observability gathers operational signals, work queues and email deliveries. Audit log provides operation searches and their records. These screens have different purposes."],
-    ["Pour diagnostiquer un problème, notez l'heure, l'action et le document, puis consultez l'audit, les jobs et la santé. Un indicateur vert ne garantit pas qu'un parcours utilisateur complet fonctionne : vérifiez aussi l'opération concernée.", "To diagnose a problem, record the time, action and document, then review audit records, jobs and health. A green indicator does not guarantee a complete user journey works: also verify the relevant operation."],
-  ] },
-  { target: "settings", title: ["Identité visuelle", "Branding"], paragraphs: [
-    ["Identité visuelle configure les informations et le logo du portail. La langue FR / EN de l'interface reste indépendante de la langue des documents. Vérifiez le rendu desktop, tablette et mobile après une modification graphique.", "Branding configures portal information and logo. The FR / EN interface language remains independent from document language. Check desktop, tablet and mobile rendering after a visual change."],
-    ["Paramètres avancés concerne la configuration technique proposée par l'application. Ne modifiez pas une clé ou une valeur sans connaître son usage ; utilisez de préférence le menu dédié lorsqu'il existe et gardez les secrets hors des captures, exports et dépôts publics.", "Advanced settings concerns technical configuration offered by the application. Do not change a key or value without understanding its purpose; prefer a dedicated menu when available and keep secrets out of screenshots, exports and public repositories."],
-  ] },
-  { target: "profile", title: ["Profil administrateur", "Administrator profile"], paragraphs: [
-    ["Cet espace contient les paramètres de votre profil et les options de sécurité disponibles pour votre compte.", "This area contains your profile settings and the security options available for your account."],
-    ["Un compte connecté par SSO n'est pas nécessairement géré comme un compte local. Utilisez uniquement les actions proposées pour votre mode de connexion.", "An SSO account is not necessarily managed like a local account. Only use actions offered for your sign-in method."],
-  ] },
-  { target: "moderators", title: ["Modérateurs", "Moderators"], paragraphs: [
-    ["Définissez les gestionnaires documentaires et leur périmètre. Ils disposent d'un espace dédié à la gestion documentaire plutôt que de l'ensemble des paramètres administratifs.", "Define document managers and their scope. They have a dedicated document management workspace rather than access to all administrative settings."],
-    ["Vérifiez séparément les droits de modification, publication et archivage pour les espaces concernés.", "Check editing, publishing and archiving permissions separately for the relevant spaces."],
-    ["Dans /moderator, Documents gérés, Import de documents et Mes droits documentaires sont des vues séparées. Les sous-menus affichent uniquement les espaces que vous pouvez gérer ; choisir un espace filtre les documents côté serveur.", "At /moderator, Managed documents, Document import and My document permissions are separate views. Space submenus show only areas you can manage; choosing a space filters documents on the server."],
-    ["Le portail et l'espace modérateur affichent au maximum vingt documents par page. Précédent et Suivant conservent l'espace et la recherche. Changer d'espace ou revenir à Documents gérés ramène en page 1.", "The portal and moderator workspace show at most twenty documents per page. Previous and Next retain the space and search. Changing space or returning to Managed documents starts at page 1."],
-    ["Utilisez Éditer pour les métadonnées sans créer de version, et Nouvelle version pour remplacer le fichier. Changer de vue conserve les formulaires ouverts et les fichiers sélectionnés ; changer d'espace peut demander l'abandon des modifications non enregistrées. Les fiches s'adaptent aux écrans mobiles, QHD et 4K.", "Use Edit for metadata without creating a version, and New version to replace the file. Switching views preserves open forms and selected files; changing space may ask you to discard unsaved edits. Cards adapt to mobile, QHD and 4K screens."],
-  ] },
-  { target: "integrations", title: ["Intégrations de supervision", "Monitoring integrations"], paragraphs: [
-    ["Ce menu regroupe les intégrations de supervision disponibles. Chaque intégration doit être configurée et testée avec son service destinataire.", "This menu groups available monitoring integrations. Configure and test each integration with its receiving service."],
-    ["Les métriques, événements de sécurité et notifications n'ont pas la même fonction. Choisissez le flux adapté à Zabbix, Wazuh ou à votre outil de supervision.", "Metrics, security events and notifications serve different purposes. Choose the appropriate flow for Zabbix, Wazuh or your monitoring tool."],
-  ] },
-  { target: "health", title: ["Santé des services", "Service health"], paragraphs: [
-    ["Consultez ici la disponibilité des dépendances techniques et les informations de stockage proposées.", "Check technical dependency availability and the storage information provided here."],
-    ["Une panne de PostgreSQL, Redis, du stockage ou de l'antivirus peut empêcher certaines opérations, même lorsque le portail s'affiche.", "A PostgreSQL, Redis, storage or antivirus failure may prevent some operations even when the portal loads."],
-  ] },
-  { target: "audit", title: ["Journal d'audit", "Audit log"], paragraphs: [
-    ["Le journal conserve les traces des opérations. Utilisez-le pour retrouver une action, son contexte et son résultat.", "The log retains operation records. Use it to find an action, its context and its result."],
-    ["Les exports d'audit peuvent contenir des informations sensibles. Limitez leur diffusion et appliquez la politique de conservation de votre organisation.", "Audit exports may contain sensitive information. Restrict distribution and apply your organization's retention policy."],
-  ] },
-  { target: "incidents", title: ["Rapports d'incidents", "Incident reports"], paragraphs: [
-    ["Ce menu gère les rapports d'incidents annuels et leur audience. Il est distinct du suivi des incidents et actions correctives de la gouvernance ISMS.", "This menu manages annual incident reports and their audience. It is separate from incident and corrective action tracking in ISMS governance."],
-    ["Vérifiez le contenu et les groupes destinataires avant de diffuser un rapport.", "Check content and recipient groups before distributing a report."],
-  ] },
-  { target: "advanced-settings", title: ["Paramètres avancés", "Advanced settings"], paragraphs: [
-    ["Cette configuration technique est réservée aux paramètres dont vous connaissez l'usage. Préférez un menu dédié lorsqu'il existe.", "This technical configuration is for settings whose purpose you understand. Prefer a dedicated menu when available."],
-    ["Conservez la valeur précédente avant une modification. N'insérez jamais de secret dans une capture d'écran ou un export partagé.", "Retain the previous value before making a change. Never include secrets in screenshots or shared exports."],
-  ] },
+  {
+    target: "languages",
+    title: languageHelp.title,
+    paragraphs: [
+      languageHelp.profile,
+      languageHelp.admin,
+      languageHelp.upload,
+      languageHelp.fallback,
+    ],
+  },
+  {
+    target: "dashboard",
+    title: ["Fonctionnement et rôles", "Overview and roles"],
+    paragraphs: [
+      [
+        "ISMS Portal centralise les documents et leur gouvernance. Les utilisateurs consultent les contenus autorisés ; les modérateurs gèrent les documents selon leurs droits effectifs ; les administrateurs configurent le portail, les accès et l'exploitation.",
+        "ISMS Portal centralizes documents and their governance. Users view authorized content; moderators manage documents according to their effective permissions; administrators configure the portal, access and operations.",
+      ],
+      [
+        "Le tableau de bord rassemble les indicateurs et les éléments à traiter. Les changements sensibles doivent rester traçables. Les droits sont contrôlés par l'API : masquer un bouton ne constitue pas une autorisation.",
+        "The dashboard summarizes indicators and items requiring action. Sensitive changes must remain traceable. Permissions are enforced by the API: hiding a button is not an authorization control.",
+      ],
+    ],
+  },
+  {
+    target: "spaces",
+    title: ["Espaces et catégories", "Spaces and categories"],
+    paragraphs: [
+      [
+        "Créez les espaces documentaires, puis leurs catégories et sous-catégories. Les libellés français et anglais décrivent le classement ; ils ne changent pas la langue du fichier. Définissez une structure stable avant un import important.",
+        "Create document spaces, then categories and subcategories. French and English labels describe classification; they do not change file language. Define a stable structure before a large import.",
+      ],
+      [
+        "Attribuez les droits aux groupes et vérifiez le résultat avec un compte utilisateur représentatif. Un document déplacé dans une autre catégorie doit être contrôlé dans le portail et dans les règles d'accès.",
+        "Assign permissions to groups and verify the result with a representative user account. After moving a document to another category, check it in the portal and in access rules.",
+      ],
+    ],
+  },
+  {
+    target: "directory",
+    title: ["Annuaire LDAP / LDAPS", "LDAP / LDAPS directory"],
+    paragraphs: [
+      [
+        "Configurez une connexion annuaire avec son serveur, son périmètre de recherche et un compte de service dédié. Utilisez les tests disponibles avant de synchroniser. Le compte doit disposer uniquement des droits nécessaires à la lecture de l'annuaire.",
+        "Configure a directory connection with its server, search scope and dedicated service account. Use the available tests before synchronization. The account should only have the permissions required to read the directory.",
+      ],
+      [
+        "Pour LDAPS, vérifiez le nom du serveur, le certificat et la chaîne de confiance. Consultez les erreurs de synchronisation si les groupes ou leurs membres ne remontent pas. Ne désactivez pas la validation TLS pour masquer une erreur de certificat.",
+        "For LDAPS, verify the server name, certificate and trust chain. Review synchronization errors if groups or members are missing. Do not disable TLS validation to hide a certificate error.",
+      ],
+    ],
+  },
+  {
+    target: "certificates",
+    title: ["Certificats CA", "CA certificates"],
+    paragraphs: [
+      [
+        "Ce menu gère les autorités de certification utilisées pour les connexions annuaire. Importez la chaîne de confiance appropriée et vérifiez les dates de validité avant de tester LDAPS.",
+        "This menu manages certificate authorities used for directory connections. Import the appropriate trust chain and check validity dates before testing LDAPS.",
+      ],
+      [
+        "Un certificat CA d'annuaire n'est pas un certificat client SSO. Gérez le renouvellement de chaque certificat dans sa configuration respective et conservez les clés privées hors du dépôt de code.",
+        "A directory CA certificate is not an SSO client certificate. Manage each certificate renewal in its own configuration and keep private keys outside the source repository.",
+      ],
+    ],
+  },
+  {
+    target: "groups",
+    title: ["Groupes Active Directory", "Active Directory groups"],
+    paragraphs: [
+      [
+        "Recherchez un groupe dans l'annuaire et sélectionnez le résultat pour l'importer, ou renseignez sa référence DN. Seuls les groupes ajoutés au portail sont suivis. Contrôlez la source, le nombre de membres, l'état et la dernière synchronisation.",
+        "Search the directory and select a group to import it, or enter its DN reference. Only groups added to the portal are tracked. Check the source, member count, state and latest synchronization.",
+      ],
+      [
+        "La recherche couvre le nom, le DN et la description ; le filtre distingue les groupes actifs et inactifs. La suppression d'un groupe peut retirer les règles associées : lisez la confirmation et vérifiez les espaces impactés avant de continuer.",
+        "Search covers name, DN and description; the filter distinguishes active and inactive groups. Deleting a group can remove associated rules: read the confirmation and check affected spaces before proceeding.",
+      ],
+    ],
+  },
+  {
+    target: "rules",
+    title: ["Règles d'accès", "Access rules"],
+    paragraphs: [
+      [
+        "Une règle associe un groupe à un espace et à des capacités distinctes : lecture, prévisualisation, téléchargement ou opérations de gestion. Utilisez les filtres groupe et espace pour contrôler la matrice, puis le bouton du groupe pour ouvrir l'éditeur.",
+        "A rule associates a group with a space and distinct capabilities: reading, previewing, downloading or management operations. Filter by group and space to inspect the matrix, then use the group button to open the editor.",
+      ],
+      [
+        "Accordez uniquement les capacités nécessaires et vérifiez les éventuelles restrictions par catégorie. Lecture et téléchargement sont indépendants. Les accès temporaires, anomalies et instantanés se suivent dans les outils de gouvernance des accès.",
+        "Grant only necessary capabilities and check any category restrictions. Reading and downloading are independent. Temporary access, anomalies and snapshots are tracked in access governance tools.",
+      ],
+    ],
+  },
+  {
+    target: "documents",
+    title: [
+      "PDF, Excel et fichiers protégés",
+      "PDF, Excel and protected files",
+    ],
+    paragraphs: [
+      [
+        "PDF : utilisez la navigation par page et le zoom. La progression est mémorisée par version dans ce navigateur si le stockage local est disponible ; elle n'est pas synchronisée entre appareils.",
+        "PDF: use page navigation and zoom. Reading progress is saved per version in this browser when local storage is available; it is not synchronized between devices.",
+      ],
+      [
+        "Excel : choisissez une feuille, recherchez dans celle-ci et ajustez les filtres des colonnes. Restaurer les filtres du fichier rétablit les critères enregistrés ; Effacer les filtres les retire. Inclure les lignes suivantes sans valeur est facultatif. Le filtrage est en lecture seule et ne modifie jamais le fichier déposé.",
+        "Excel: select a worksheet, search it and adjust column filters. Restore file filters returns to saved criteria; Clear filters removes them. Include following rows with blank values is optional. Filtering is read-only and never changes the uploaded file.",
+      ],
+      [
+        "L'aperçu Excel affiche 100 lignes par page, dans la limite de 5 000 lignes et 128 colonnes par feuille. Un avertissement de troncature signifie que l'aperçu est incomplet. Les lignes et feuilles masquées ne constituent pas un contrôle d'accès ; le téléchargement reste soumis aux droits ISMS.",
+        "Excel preview shows 100 rows per page, with a limit of 5,000 rows and 128 columns per worksheet. A truncation warning means the preview is incomplete. Hidden rows and sheets are not an access-control mechanism; download remains subject to ISMS permissions.",
+      ],
+      [
+        "Purview est facultatif et désactivé par défaut. Le lecteur MIP exige le SSO Microsoft, la configuration du certificat et l'autorisation d'application Content.DelegatedReader d'Azure Rights Management Service avec consentement administrateur, et non une permission Microsoft Graph. Les droits ISMS et les droits VIEW et EXTRACT de l'utilisateur sont requis ; le SSO seul ne suffit pas. N'ajoutez pas Content.SuperUser.",
+        "Purview is optional and disabled by default. The MIP reader requires Microsoft SSO, certificate configuration and Azure Rights Management Service application permission Content.DelegatedReader with administrator consent, not a Microsoft Graph permission. ISMS permissions and the user's VIEW and EXTRACT rights are required; SSO alone is insufficient. Do not add Content.SuperUser.",
+      ],
+    ],
+  },
+  {
+    target: "documents",
+    title: [
+      "Dépôt et gestion documentaire",
+      "Uploading and managing documents",
+    ],
+    paragraphs: [
+      [
+        "Sélectionnez l'espace, la catégorie, la langue réelle du fichier, son titre et sa description. Ajoutez le fichier PDF, DOCX ou XLSX et le résumé des changements. Le dépôt passe par une analyse antivirus ; vérifiez le résultat avant la publication.",
+        "Select the space, category, actual file language, title and description. Add the PDF, DOCX or XLSX file and change summary. Uploads undergo antivirus scanning; check the result before publication.",
+      ],
+      [
+        "La liste est paginée par vingt documents. La recherche porte sur les titres, descriptions et métadonnées, sur l'ensemble des pages autorisées. Le tri permet de comparer les dernières modifications, les publications ou les états. La chronologie affiche les principales dates et versions.",
+        "The list uses twenty documents per page. Search covers titles, descriptions and metadata across all authorized pages. Sorting lets you compare latest updates, publication dates or states. The timeline shows key dates and versions.",
+      ],
+    ],
+  },
+  {
+    target: "documents",
+    title: [
+      "Métadonnées, langues et versions",
+      "Metadata, languages and versions",
+    ],
+    paragraphs: [
+      [
+        "Éditer les métadonnées permet de corriger le titre, la description, la langue ou la catégorie sans déposer un nouveau fichier. Vérifiez la langue choisie et le classement après l'enregistrement.",
+        "Edit metadata to correct the title, description, language or category without uploading a new file. Check the chosen language and classification after saving.",
+      ],
+      [
+        "Nouvelle version sert à remplacer le contenu documentaire : sélectionnez le document existant, déposez le nouveau fichier et décrivez les changements. Ne créez pas un nouveau document pour une simple mise à jour du même contenu.",
+        "New version replaces document content: select the existing document, upload the new file and describe the changes. Do not create a separate document for a straightforward update of the same content.",
+      ],
+    ],
+  },
+  {
+    target: "documents",
+    title: ["Métadonnées GED", "GED metadata"],
+    paragraphs: [
+      [
+        "Administrateur : Documents > Éditer les métadonnées. Modérateur : Documents gérés > Éditer. Le portail propose aussi Éditer si vous avez le droit de modification. Aucun nouveau fichier ni numéro de version n'est créé.",
+        "Administrator: Documents > Edit metadata. Moderator: Managed documents > Edit. The portal also offers Edit when you have edit permission. No new file or version number is created.",
+      ],
+      [
+        "Choisissez un modèle : politique, procédure, guide, preuve ou enregistrement. Il s'applique immédiatement et ajoute seulement les champs manquants, sans écraser les valeurs existantes. Exemple : référence POL-001, responsable Qualité, mots-clés sécurité, SSO et date de revue.",
+        "Choose a template: policy, procedure, guide, evidence or record. It applies immediately and only adds missing fields, preserving existing values. Example: reference POL-001, owner Quality, keywords security, SSO and a review date.",
+      ],
+      [
+        "Pour un champ personnalisé, saisissez son nom et sa valeur puis cliquez sur Ajouter. La limite est de 20 champs au total, 64 caractères par nom et 1 000 par valeur. Un champ encore en attente bloque l'enregistrement : ajoutez-le ou effacez les deux saisies.",
+        "For a custom field, enter its name and value, then click Add. The limit is 20 fields in total, 64 characters per name and 1,000 per value. A pending field blocks saving: add it or clear both inputs.",
+      ],
+      [
+        "Cliquez ensuite sur Enregistrer. Rouvrez Éditer pour contrôler les valeurs conservées. Les champs vides sont masqués dans Informations documentaires ; dépliez ce panneau pour consulter les valeurs renseignées. En cas de conflit, conservez vos saisies et rouvrez le document pour comparer.",
+        "Then click Save. Reopen Edit to check the stored values. Empty fields are hidden in Document information; expand that panel to read completed fields. If a conflict occurs, keep your entered values and reopen the document to compare.",
+      ],
+      [
+        "La recherche prend en compte les noms et valeurs des métadonnées, y compris dans les favoris, selon vos ACL. Dans la fiche de lecture, cliquez sur un mot-clé pour rechercher les documents associés. Les mots-clés se séparent par une virgule, un point-virgule ou un retour à la ligne.",
+        "Search includes metadata names and values, including in favorites, subject to your ACLs. In the reading view, click a keyword to find related documents. Separate keywords with a comma, semicolon or line break.",
+      ],
+      [
+        "La date de revue doit être une date valide ; elle ne planifie pas de rappel. Configurez les revues dans Gouvernance. Le responsable et le type de document ne modifient pas les ACL. L'audit indique les champs ajoutés, modifiés et supprimés, sans recopier leurs valeurs.",
+        "The review date must be valid; it does not schedule a reminder. Configure reviews in Governance. Owner and document type do not change ACLs. The audit identifies added, modified and removed fields without copying their values.",
+      ],
+    ],
+  },
+  {
+    target: "documents",
+    title: [
+      "Imports en lot et notifications",
+      "Batch imports and notifications",
+    ],
+    paragraphs: [
+      [
+        "L'import en lot permet de traiter plusieurs fichiers. Vérifiez le classement, la langue et les métadonnées préparées pour le lot, puis contrôlez les réussites et les échecs. Commencez par un petit lot représentatif avant un import volumineux.",
+        "Batch import processes multiple files. Check classification, language and metadata prepared for the batch, then review successes and failures. Start with a small representative batch before a large import.",
+      ],
+      [
+        "La case Ne pas envoyer d'alerte e-mail pour ce dépôt ou sa publication évite les annonces de publication pour le document concerné. Contrôlez ce choix avant l'import ; il ne doit pas être confondu avec les alertes de sécurité ou les notifications de revue.",
+        "Do not send email notifications for this upload or publication suppresses publication announcements for the relevant document. Check this choice before importing; do not confuse it with security alerts or review notifications.",
+      ],
+    ],
+  },
+  {
+    target: "trash",
+    title: [
+      "Archivage, suppression et restauration",
+      "Archiving, deletion and restoration",
+    ],
+    paragraphs: [
+      [
+        "Archivez un contenu qui ne doit plus être diffusé. Une suppression est une opération différente : lisez la confirmation et vérifiez le document ciblé. Consultez la corbeille pour les éléments restaurables et contrôlez leurs droits après restauration.",
+        "Archive content that should no longer be distributed. Deletion is a different operation: read the confirmation and verify the selected document. Use the trash for recoverable items and check their permissions after restoration.",
+      ],
+      [
+        "Les données documentaires et les fichiers doivent être sauvegardés ensemble. La corbeille ne remplace pas une sauvegarde ni un test de restauration.",
+        "Document data and files must be backed up together. The trash does not replace backups or restoration testing.",
+      ],
+    ],
+  },
+  {
+    target: "governance",
+    title: ["Revues et gouvernance ISMS", "Reviews and ISMS governance"],
+    paragraphs: [
+      [
+        "La file de revues distingue les éléments en retard, en cours et terminés. Vérifiez les participants, l'échéance et le document concerné. Les modérateurs et administrateurs autorisés enregistrent une décision avec une justification conservée dans la trace de revue.",
+        "The review queue distinguishes overdue, in-progress and completed items. Check participants, due date and the relevant document. Authorized moderators and administrators record a decision with a justification retained in the review record.",
+      ],
+      [
+        "Consultez la preuve de décision, les pièces justificatives éventuelles et la prochaine échéance avant de clôturer le suivi. Les autres vues regroupent notamment contrôles et SoA, rétention, exceptions, santé des identités, incidents, CAPA et indicateurs.",
+        "Review the decision evidence, any supporting attachments and the next due date before closing follow-up. Other views cover controls and SoA, retention, exceptions, identity health, incidents, CAPA and indicators.",
+      ],
+    ],
+  },
+  {
+    target: "requests",
+    title: ["Demandes et signalements", "Requests and reports"],
+    paragraphs: [
+      [
+        "Les utilisateurs peuvent demander des droits supplémentaires et signaler un problème documentaire. Contrôlez le demandeur, la ressource, le motif et la portée avant d'accepter ou de refuser ; une demande n'accorde pas elle-même un accès.",
+        "Users can request additional permissions and report document issues. Check the requester, resource, reason and scope before accepting or rejecting; a request does not grant access by itself.",
+      ],
+      [
+        "Gardez les commentaires internes distincts de la réponse destinée au demandeur. Les rapports d'incidents annuels disposent d'un menu séparé et d'une audience à vérifier.",
+        "Keep internal comments separate from the response intended for the requester. Annual incident reports have their own menu and an audience that must be checked.",
+      ],
+    ],
+  },
+  {
+    target: "sso",
+    title: ["Connexion Microsoft SSO", "Microsoft SSO sign-in"],
+    paragraphs: [
+      [
+        "Créez l'application dans Entra et configurez ses identifiants sur le serveur. Ce menu affiche l'état du SSO et propose des diagnostics ; il ne sauvegarde pas les identifiants. Le proxy SSO actuel utilise un secret client et ne prend pas en charge l'authentification par certificat client.",
+        "Create the application in Entra and configure its credentials on the server. This menu displays SSO status and provides diagnostics; it does not save credentials. The current SSO proxy uses a client secret and does not support client certificate authentication.",
+      ],
+      [
+        "Utilisez les diagnostics et tests du proxy, puis vérifiez la connexion avec un utilisateur pilote et ses documents. Conservez une méthode de connexion de secours. L'authentification Microsoft ne remplace pas les règles d'accès documentaires.",
+        "Use proxy diagnostics and tests, then verify sign-in with a pilot user and their documents. Retain a fallback sign-in method. Microsoft authentication does not replace document access rules.",
+      ],
+    ],
+  },
+  {
+    target: "administrators",
+    title: ["Comptes administrateurs", "Administrator accounts"],
+    paragraphs: [
+      [
+        "Profil administrateur gère les paramètres personnels et les fonctions de sécurité proposées. Comptes administrateurs gère les comptes, associations de groupes et sessions actives. Vérifiez un accès de secours avant de retirer le dernier administrateur.",
+        "Administrator profile manages personal settings and available security features. Administrator accounts manages accounts, group associations and active sessions. Verify fallback access before removing the last administrator.",
+      ],
+      [
+        "Le menu Modérateurs définit les gestionnaires documentaires et leur périmètre. Leur espace dédié est accessible à /moderator. Testez leurs droits avec un vrai compte modérateur : une session administrateur ne valide pas leurs restrictions.",
+        "The Moderators menu defines document managers and their scope. Their dedicated workspace is available at /moderator. Test permissions with a real moderator account: an administrator session does not validate moderator restrictions.",
+      ],
+    ],
+  },
+  {
+    target: "alert-channels",
+    title: ["E-mails et canaux d'alerte", "Email and alert channels"],
+    paragraphs: [
+      [
+        "Les notifications documentaires, les revues et les alertes d'exploitation correspondent à des événements différents. Configurez chaque canal dans son écran : serveur SMTP ou intégration Microsoft Graph selon la configuration disponible, puis Teams, Slack ou webhook si nécessaire.",
+        "Document notifications, reviews and operational alerts correspond to different events. Configure each channel in its own screen: SMTP server or Microsoft Graph integration according to available configuration, then Teams, Slack or webhook as needed.",
+      ],
+      [
+        "Un test d'envoi peut transmettre un vrai message. Utilisez une destination de test autorisée et consultez l'historique de livraison. Une acceptation par le fournisseur ne prouve pas la réception : vérifiez également la boîte destinataire et les filtres de messagerie.",
+        "A send test may transmit a real message. Use an authorized test destination and review delivery history. Provider acceptance does not prove receipt: also check the recipient mailbox and mail filtering.",
+      ],
+    ],
+  },
+  {
+    target: "alert-policy",
+    title: ["Seuils d'alerte", "Alert thresholds"],
+    paragraphs: [
+      [
+        "Seuils d'alerte règle l'activation des alertes externes, les seuils et le canal. Intégrations regroupe les connexions de supervision, notamment Zabbix et Wazuh selon les options disponibles. Vérifiez la destination, les identifiants et la connectivité avant activation.",
+        "Alert thresholds configures external alert activation, thresholds and channel. Integrations groups monitoring connections, including Zabbix and Wazuh according to available options. Check destination, credentials and connectivity before activation.",
+      ],
+      [
+        "Gardez les métriques et les secrets protégés. Commencez avec des seuils adaptés à l'activité observée et contrôlez les événements reçus pour éviter les alertes répétitives sans action utile.",
+        "Keep metrics and secrets protected. Start with thresholds appropriate to observed activity and check received events to avoid repetitive alerts that do not lead to useful action.",
+      ],
+    ],
+  },
+  {
+    target: "storage",
+    title: ["Stockage et architecture", "Storage and architecture"],
+    paragraphs: [
+      [
+        "Le frontend web communique avec une API qui applique les règles métier. PostgreSQL conserve les données et l'audit ; Redis transporte les tâches asynchrones ; un worker traite les jobs ; ClamAV analyse les fichiers. Le proxy expose le portail en HTTPS.",
+        "The web frontend communicates with an API that enforces business rules. PostgreSQL stores data and audit records; Redis transports asynchronous tasks; a worker processes jobs; ClamAV scans files. The proxy exposes the portal over HTTPS.",
+      ],
+      [
+        "Le menu Stockage configure les cibles documentaires proposées. Testez leur disponibilité avant utilisation. Une sauvegarde complète contient PostgreSQL et les fichiers ; testez la restauration dans un environnement isolé et ne supprimez pas les volumes de production lors d'une mise à jour.",
+        "The Storage menu configures available document storage targets. Test availability before use. A complete backup includes PostgreSQL and files; test restoration in an isolated environment and do not delete production volumes during an update.",
+      ],
+    ],
+  },
+  {
+    target: "observability",
+    title: ["Observabilité", "Observability"],
+    paragraphs: [
+      [
+        "Santé des services indique la disponibilité des dépendances. Observabilité rassemble les signaux d'exploitation, la file de travail et les livraisons e-mail. Journal d'audit permet de rechercher les opérations et leurs traces. Ces écrans ont des objectifs distincts.",
+        "Service health shows dependency availability. Observability gathers operational signals, work queues and email deliveries. Audit log provides operation searches and their records. These screens have different purposes.",
+      ],
+      [
+        "Pour diagnostiquer un problème, notez l'heure, l'action et le document, puis consultez l'audit, les jobs et la santé. Un indicateur vert ne garantit pas qu'un parcours utilisateur complet fonctionne : vérifiez aussi l'opération concernée.",
+        "To diagnose a problem, record the time, action and document, then review audit records, jobs and health. A green indicator does not guarantee a complete user journey works: also verify the relevant operation.",
+      ],
+    ],
+  },
+  {
+    target: "settings",
+    title: ["Identité visuelle", "Branding"],
+    paragraphs: [
+      [
+        "Identité visuelle configure les informations et le logo du portail. La langue FR / EN de l'interface reste indépendante de la langue des documents. Vérifiez le rendu desktop, tablette et mobile après une modification graphique.",
+        "Branding configures portal information and logo. The FR / EN interface language remains independent from document language. Check desktop, tablet and mobile rendering after a visual change.",
+      ],
+      [
+        "Paramètres avancés concerne la configuration technique proposée par l'application. Ne modifiez pas une clé ou une valeur sans connaître son usage ; utilisez de préférence le menu dédié lorsqu'il existe et gardez les secrets hors des captures, exports et dépôts publics.",
+        "Advanced settings concerns technical configuration offered by the application. Do not change a key or value without understanding its purpose; prefer a dedicated menu when available and keep secrets out of screenshots, exports and public repositories.",
+      ],
+    ],
+  },
+  {
+    target: "profile",
+    title: ["Profil administrateur", "Administrator profile"],
+    paragraphs: [
+      [
+        "Cet espace contient les paramètres de votre profil et les options de sécurité disponibles pour votre compte.",
+        "This area contains your profile settings and the security options available for your account.",
+      ],
+      [
+        "Un compte connecté par SSO n'est pas nécessairement géré comme un compte local. Utilisez uniquement les actions proposées pour votre mode de connexion.",
+        "An SSO account is not necessarily managed like a local account. Only use actions offered for your sign-in method.",
+      ],
+    ],
+  },
+  {
+    target: "moderators",
+    title: ["Modérateurs", "Moderators"],
+    paragraphs: [
+      [
+        "Définissez les gestionnaires documentaires et leur périmètre. Ils disposent d'un espace dédié à la gestion documentaire plutôt que de l'ensemble des paramètres administratifs.",
+        "Define document managers and their scope. They have a dedicated document management workspace rather than access to all administrative settings.",
+      ],
+      [
+        "Vérifiez séparément les droits de modification, publication et archivage pour les espaces concernés.",
+        "Check editing, publishing and archiving permissions separately for the relevant spaces.",
+      ],
+      [
+        "Dans /moderator, Documents gérés, Import de documents et Mes droits documentaires sont des vues séparées. Les sous-menus affichent uniquement les espaces que vous pouvez gérer ; choisir un espace filtre les documents côté serveur.",
+        "At /moderator, Managed documents, Document import and My document permissions are separate views. Space submenus show only areas you can manage; choosing a space filters documents on the server.",
+      ],
+      [
+        "Le portail et l'espace modérateur affichent au maximum vingt documents par page. Précédent et Suivant conservent l'espace et la recherche. Changer d'espace ou revenir à Documents gérés ramène en page 1.",
+        "The portal and moderator workspace show at most twenty documents per page. Previous and Next retain the space and search. Changing space or returning to Managed documents starts at page 1.",
+      ],
+      [
+        "Utilisez Éditer pour les métadonnées sans créer de version, et Nouvelle version pour remplacer le fichier. Changer de vue conserve les formulaires ouverts et les fichiers sélectionnés ; changer d'espace peut demander l'abandon des modifications non enregistrées. Les fiches s'adaptent aux écrans mobiles, QHD et 4K.",
+        "Use Edit for metadata without creating a version, and New version to replace the file. Switching views preserves open forms and selected files; changing space may ask you to discard unsaved edits. Cards adapt to mobile, QHD and 4K screens.",
+      ],
+    ],
+  },
+  {
+    target: "integrations",
+    title: ["Intégrations de supervision", "Monitoring integrations"],
+    paragraphs: [
+      [
+        "Ce menu regroupe les intégrations de supervision disponibles. Chaque intégration doit être configurée et testée avec son service destinataire.",
+        "This menu groups available monitoring integrations. Configure and test each integration with its receiving service.",
+      ],
+      [
+        "Les métriques, événements de sécurité et notifications n'ont pas la même fonction. Choisissez le flux adapté à Zabbix, Wazuh ou à votre outil de supervision.",
+        "Metrics, security events and notifications serve different purposes. Choose the appropriate flow for Zabbix, Wazuh or your monitoring tool.",
+      ],
+    ],
+  },
+  {
+    target: "health",
+    title: ["Santé des services", "Service health"],
+    paragraphs: [
+      [
+        "Consultez ici la disponibilité des dépendances techniques et les informations de stockage proposées.",
+        "Check technical dependency availability and the storage information provided here.",
+      ],
+      [
+        "Une panne de PostgreSQL, Redis, du stockage ou de l'antivirus peut empêcher certaines opérations, même lorsque le portail s'affiche.",
+        "A PostgreSQL, Redis, storage or antivirus failure may prevent some operations even when the portal loads.",
+      ],
+    ],
+  },
+  {
+    target: "audit",
+    title: ["Journal d'audit", "Audit log"],
+    paragraphs: [
+      [
+        "Le journal conserve les traces des opérations. Utilisez-le pour retrouver une action, son contexte et son résultat.",
+        "The log retains operation records. Use it to find an action, its context and its result.",
+      ],
+      [
+        "Les exports d'audit peuvent contenir des informations sensibles. Limitez leur diffusion et appliquez la politique de conservation de votre organisation.",
+        "Audit exports may contain sensitive information. Restrict distribution and apply your organization's retention policy.",
+      ],
+    ],
+  },
+  {
+    target: "incidents",
+    title: ["Rapports d'incidents", "Incident reports"],
+    paragraphs: [
+      [
+        "Ce menu gère les rapports d'incidents annuels et leur audience. Il est distinct du suivi des incidents et actions correctives de la gouvernance ISMS.",
+        "This menu manages annual incident reports and their audience. It is separate from incident and corrective action tracking in ISMS governance.",
+      ],
+      [
+        "Vérifiez le contenu et les groupes destinataires avant de diffuser un rapport.",
+        "Check content and recipient groups before distributing a report.",
+      ],
+    ],
+  },
+  {
+    target: "advanced-settings",
+    title: ["Paramètres avancés", "Advanced settings"],
+    paragraphs: [
+      [
+        "Cette configuration technique est réservée aux paramètres dont vous connaissez l'usage. Préférez un menu dédié lorsqu'il existe.",
+        "This technical configuration is for settings whose purpose you understand. Prefer a dedicated menu when available.",
+      ],
+      [
+        "Conservez la valeur précédente avant une modification. N'insérez jamais de secret dans une capture d'écran ou un export partagé.",
+        "Retain the previous value before making a change. Never include secrets in screenshots or shared exports.",
+      ],
+    ],
+  },
 ];
 
 const configuration: Record<HelpTarget, { steps: Text[]; check: Text }> = {
-  languages: { steps: [languageHelp.admin, languageHelp.profile, languageHelp.upload], check: languageHelp.check },
-  dashboard: { steps: [["Actualisez les indicateurs.", "Refresh the indicators."], ["Ouvrez les éléments à traiter dans leur menu.", "Open items requiring action in their menu."], ["Vérifiez la disparition de l'alerte après traitement.", "Check that the alert clears after resolution."]], check: ["Comparez les compteurs avec les listes concernées.", "Compare counters with the relevant lists."] },
-  spaces: { steps: [["Créez l'espace avec ses noms FR et EN.", "Create the space with its FR and EN names."], ["Ajoutez les catégories et leur hiérarchie.", "Add categories and their hierarchy."], ["Associez les groupes et droits dans Règles d'accès.", "Associate groups and permissions in Access rules."]], check: ["Vérifiez le classement et l'accès avec un compte utilisateur.", "Check classification and access with a user account."] },
-  directory: { steps: [["Renseignez serveur, port, base de recherche et compte de service.", "Enter server, port, search base and service account."], ["Configurez TLS et la chaîne CA pour LDAPS.", "Configure TLS and the CA chain for LDAPS."], ["Testez la connexion, puis lancez la synchronisation.", "Test the connection, then run synchronization."]], check: ["En cas d'échec : DNS, connectivité, certificat, DN et droits du compte de service.", "If unsuccessful: check DNS, connectivity, certificate, DN and service account permissions."] },
-  certificates: { steps: [["Identifiez l'autorité émettrice du certificat annuaire.", "Identify the issuer of the directory certificate."], ["Importez les certificats CA nécessaires.", "Import the required CA certificates."], ["Retestez la connexion LDAPS.", "Retest the LDAPS connection."]], check: ["Contrôlez l'expiration et la chaîne complète, sans désactiver TLS.", "Check expiration and the complete chain without disabling TLS."] },
-  groups: { steps: [["Recherchez le groupe ou saisissez son DN exact.", "Search for the group or enter its exact DN."], ["Sélectionnez le résultat et ajoutez le groupe.", "Select the result and add the group."], ["Synchronisez puis associez les règles d'accès.", "Synchronize, then associate access rules."]], check: ["Si aucun membre ne remonte, vérifiez le périmètre LDAP et la dernière synchronisation.", "If no members appear, check the LDAP scope and latest synchronization."] },
-  rules: { steps: [["Sélectionnez le groupe et l'espace dans une nouvelle règle.", "Select the group and space in a new rule."], ["Cochez uniquement les capacités nécessaires ; vérifiez les restrictions de catégorie.", "Select only necessary capabilities; check category restrictions."], ["Enregistrez et testez avec un compte du groupe.", "Save and test with an account belonging to the group."]], check: ["Testez lecture, aperçu et téléchargement séparément. Un compte admin ne valide pas les restrictions.", "Test reading, preview and download separately. An admin account does not validate restrictions."] },
-  documents: { steps: [["Choisissez dépôt initial, métadonnées ou nouvelle version selon l'opération.", "Choose initial upload, metadata or new version according to the operation."], ["Renseignez langue, espace, catégorie, titre et description ; pour un nouveau fichier, ajoutez le résumé des changements.", "Enter language, space, category, title and description; for a new file, add the change summary."], ["Contrôlez le choix des notifications, l'analyse et l'état avant publication.", "Check notification choice, scanning and state before publication."]], check: ["Ouvrez le document et contrôlez langue, version, classement et droits. Pour un lot, vérifiez chaque échec.", "Open the document and check language, version, classification and permissions. For a batch, review every failure."] },
-  trash: { steps: [["Identifiez le document et confirmez l'action souhaitée.", "Identify the document and confirm the intended action."], ["Utilisez la restauration si elle est proposée dans la corbeille.", "Use restoration if offered in the trash."], ["Contrôlez les métadonnées et les accès après restauration.", "Check metadata and access after restoration."]], check: ["La corbeille ne remplace pas les sauvegardes. Ne confondez pas archivage et suppression.", "The trash does not replace backups. Do not confuse archiving with deletion."] },
-  governance: { steps: [["Sélectionnez la vue : revues, contrôles, rétention, exceptions ou incidents.", "Select the view: reviews, controls, retention, exceptions or incidents."], ["Vérifiez document, participants et échéance ; affectez le suivi approprié.", "Check the document, participants and due date; assign appropriate follow-up."], ["Enregistrez la décision motivée et les preuves autorisées, puis contrôlez la prochaine échéance.", "Record the justified decision and permitted evidence, then check the next due date."]], check: ["L'approbation exige les droits de gestion ; vérifiez l'auteur et la date de décision dans la trace.", "Approval requires management permissions; check the decision author and date in the record."] },
-  requests: { steps: [["Ouvrez la demande et vérifiez identité, document et motif.", "Open the request and check identity, document and reason."], ["Définissez les droits et leur durée avant d'accepter, ou justifiez le refus.", "Define permissions and duration before accepting, or justify rejection."], ["Contrôlez la réponse au demandeur et les accès effectifs.", "Check the requester response and effective access."]], check: ["Gardez les notes internes séparées du message destiné au demandeur.", "Keep internal notes separate from the message intended for the requester."] },
-  sso: { steps: [["Dans Entra, configurez l'application et la redirection attendue par le portail.", "In Entra, configure the application and the redirect expected by the portal."], ["Configurez tenant, client et secret client côté serveur, puis déployez la configuration du proxy SSO.", "Configure tenant, client and client secret server-side, then deploy the SSO proxy configuration."], ["Testez le proxy puis le parcours de connexion avec un utilisateur pilote.", "Test the proxy and then the sign-in journey with a pilot user."]], check: ["Vérifiez affectation, validité des identifiants, redirection et accès documentaire ; conservez la connexion de secours.", "Check assignment, credential validity, redirect and document access; retain fallback sign-in."] },
-  profile: { steps: [["Vérifiez le compte et la méthode de connexion affichés.", "Check the displayed account and sign-in method."], ["Modifiez uniquement les options de profil proposées.", "Change only the profile options offered."], ["Si le MFA est proposé, terminez son activation et conservez les moyens de récupération.", "If MFA is offered, complete activation and retain recovery methods."]], check: ["Ne réinitialisez pas un mot de passe local pour résoudre un problème de SSO.", "Do not reset a local password to resolve an SSO issue."] },
-  administrators: { steps: [["Sélectionnez le compte ou le groupe de gestion souhaité.", "Select the desired management account or group."], ["Attribuez le rôle prévu et vérifiez les sessions actives.", "Assign the intended role and check active sessions."], ["Testez l'accès avant de retirer un ancien administrateur.", "Test access before removing a previous administrator."]], check: ["Gardez un accès de secours fonctionnel et ne retirez pas le dernier administrateur.", "Retain functioning fallback access and do not remove the last administrator."] },
-  moderators: { steps: [["Choisissez le compte ou groupe modérateur.", "Choose the moderator account or group."], ["Attribuez les espaces et capacités documentaires nécessaires.", "Assign the required spaces and document capabilities."], ["Testez /moderator avec un compte modérateur représentatif.", "Test /moderator with a representative moderator account."]], check: ["Vérifiez modification, publication et archivage sans utiliser une session admin comme preuve.", "Check editing, publishing and archiving without using an admin session as evidence."] },
-  incidents: { steps: [["Créez ou ouvrez le rapport pour la période concernée.", "Create or open the report for the relevant period."], ["Renseignez le contenu et sélectionnez les groupes de l'audience.", "Enter content and select audience groups."], ["Enregistrez puis vérifiez la visibilité pour cette audience.", "Save, then verify visibility for that audience."]], check: ["Évitez de diffuser des informations d'incident à des groupes non concernés.", "Avoid distributing incident information to unrelated groups."] },
-  "alert-channels": { steps: [["Choisissez le canal et renseignez sa destination et les paramètres proposés.", "Choose the channel and enter its destination and available settings."], ["Enregistrez puis testez avec une destination autorisée.", "Save, then test with an authorized destination."], ["Contrôlez l'historique de livraison et la réception réelle.", "Check delivery history and actual receipt."]], check: ["En cas d'absence d'e-mail : destinataires, file de jobs, erreurs du fournisseur et filtrage de messagerie.", "If email is missing: check recipients, job queue, provider errors and mail filtering."] },
-  "alert-policy": { steps: [["Activez les alertes externes si elles sont nécessaires.", "Enable external alerts if needed."], ["Définissez les seuils d'échec et de refus, puis le canal configuré.", "Define failure and denial thresholds, then choose a configured channel."], ["Enregistrez et surveillez les premiers événements.", "Save and monitor the first events."]], check: ["Ajustez les seuils à l'activité réelle pour éviter une saturation des destinataires.", "Adjust thresholds to real activity to avoid overwhelming recipients."] },
-  integrations: { steps: [["Sélectionnez l'intégration et le flux attendu : métriques ou événements.", "Select the integration and expected flow: metrics or events."], ["Renseignez l'adresse et les identifiants proposés ; vérifiez l'accès réseau.", "Enter the address and available credentials; check network access."], ["Testez, puis vérifiez les données dans l'outil destinataire.", "Test, then verify data in the receiving tool."]], check: ["Un test de connectivité ne prouve pas l'ingestion : contrôlez Zabbix, Wazuh ou le service destinataire.", "A connectivity test does not prove ingestion: check Zabbix, Wazuh or the receiving service."] },
-  storage: { steps: [["Choisissez le type de cible et renseignez ses paramètres.", "Choose the target type and enter its settings."], ["Testez disponibilité et droits avant d'utiliser la cible.", "Test availability and permissions before using the target."], ["Vérifiez un dépôt et une lecture, puis la sauvegarde des fichiers et de PostgreSQL.", "Verify an upload and read, then backups of files and PostgreSQL."]], check: ["Contrôlez l'espace libre et testez la restauration hors production.", "Check free space and test restoration outside production."] },
-  health: { steps: [["Actualisez l'état des services.", "Refresh service status."], ["Identifiez la dépendance en échec et consultez ses journaux techniques.", "Identify the failing dependency and review its technical logs."], ["Retestez l'opération utilisateur après rétablissement.", "Retest the user operation after recovery."]], check: ["N'effacez pas de volumes ou de données pour résoudre un indicateur rouge.", "Do not delete volumes or data to resolve a red indicator."] },
-  observability: { steps: [["Actualisez les signaux, la file de travail et l'historique des e-mails.", "Refresh signals, the work queue and email history."], ["Recherchez l'événement autour de l'heure du problème.", "Find the event around the time of the issue."], ["Traitez la cause et vérifiez les jobs ou livraisons concernés.", "Resolve the cause and check the relevant jobs or deliveries."]], check: ["Un e-mail accepté par le fournisseur n'est pas une preuve de réception.", "An email accepted by the provider is not proof of receipt."] },
-  audit: { steps: [["Identifiez la période, l'utilisateur et la ressource à examiner.", "Identify the period, user and resource to examine."], ["Appliquez les filtres disponibles et vérifiez action, résultat et date.", "Apply available filters and check action, result and date."], ["Exportez uniquement si nécessaire et protégez le fichier.", "Export only when necessary and protect the file."]], check: ["Conservez les traces conformément à votre politique interne.", "Retain records according to your internal policy."] },
-  settings: { steps: [["Renseignez les informations et le logo proposés.", "Enter the available information and logo."], ["Enregistrez et vérifiez les deux langues.", "Save and check both languages."], ["Contrôlez les écrans de connexion, portail et administration sur mobile.", "Check sign-in, portal and administration screens on mobile."]], check: ["Le logo et les libellés ne changent pas la langue des fichiers documentaires.", "Logo and labels do not change document file language."] },
-  "advanced-settings": { steps: [["Identifiez précisément la clé et son effet attendu.", "Identify the exact key and its expected effect."], ["Conservez la valeur précédente ; validez la valeur et le format proposés.", "Retain the previous value; validate the offered value and format."], ["Enregistrez puis vérifiez le comportement ; restaurez la valeur précédente en cas de régression.", "Save, then verify behavior; restore the previous value if a regression occurs."]], check: ["Utilisez le menu dédié lorsqu'il existe ; ne partagez jamais les secrets.", "Use a dedicated menu when available; never share secrets."] },
+  languages: {
+    steps: [languageHelp.admin, languageHelp.profile, languageHelp.upload],
+    check: languageHelp.check,
+  },
+  dashboard: {
+    steps: [
+      ["Actualisez les indicateurs.", "Refresh the indicators."],
+      [
+        "Ouvrez les éléments à traiter dans leur menu.",
+        "Open items requiring action in their menu.",
+      ],
+      [
+        "Vérifiez la disparition de l'alerte après traitement.",
+        "Check that the alert clears after resolution.",
+      ],
+    ],
+    check: [
+      "Comparez les compteurs avec les listes concernées.",
+      "Compare counters with the relevant lists.",
+    ],
+  },
+  spaces: {
+    steps: [
+      [
+        "Créez l'espace avec ses noms FR et EN.",
+        "Create the space with its FR and EN names.",
+      ],
+      [
+        "Ajoutez les catégories et leur hiérarchie.",
+        "Add categories and their hierarchy.",
+      ],
+      [
+        "Associez les groupes et droits dans Règles d'accès.",
+        "Associate groups and permissions in Access rules.",
+      ],
+    ],
+    check: [
+      "Vérifiez le classement et l'accès avec un compte utilisateur.",
+      "Check classification and access with a user account.",
+    ],
+  },
+  directory: {
+    steps: [
+      [
+        "Renseignez serveur, port, base de recherche et compte de service.",
+        "Enter server, port, search base and service account.",
+      ],
+      [
+        "Configurez TLS et la chaîne CA pour LDAPS.",
+        "Configure TLS and the CA chain for LDAPS.",
+      ],
+      [
+        "Testez la connexion, puis lancez la synchronisation.",
+        "Test the connection, then run synchronization.",
+      ],
+    ],
+    check: [
+      "En cas d'échec : DNS, connectivité, certificat, DN et droits du compte de service.",
+      "If unsuccessful: check DNS, connectivity, certificate, DN and service account permissions.",
+    ],
+  },
+  certificates: {
+    steps: [
+      [
+        "Identifiez l'autorité émettrice du certificat annuaire.",
+        "Identify the issuer of the directory certificate.",
+      ],
+      [
+        "Importez les certificats CA nécessaires.",
+        "Import the required CA certificates.",
+      ],
+      ["Retestez la connexion LDAPS.", "Retest the LDAPS connection."],
+    ],
+    check: [
+      "Contrôlez l'expiration et la chaîne complète, sans désactiver TLS.",
+      "Check expiration and the complete chain without disabling TLS.",
+    ],
+  },
+  groups: {
+    steps: [
+      [
+        "Recherchez le groupe ou saisissez son DN exact.",
+        "Search for the group or enter its exact DN.",
+      ],
+      [
+        "Sélectionnez le résultat et ajoutez le groupe.",
+        "Select the result and add the group.",
+      ],
+      [
+        "Synchronisez puis associez les règles d'accès.",
+        "Synchronize, then associate access rules.",
+      ],
+    ],
+    check: [
+      "Si aucun membre ne remonte, vérifiez le périmètre LDAP et la dernière synchronisation.",
+      "If no members appear, check the LDAP scope and latest synchronization.",
+    ],
+  },
+  rules: {
+    steps: [
+      [
+        "Sélectionnez le groupe et l'espace dans une nouvelle règle.",
+        "Select the group and space in a new rule.",
+      ],
+      [
+        "Cochez uniquement les capacités nécessaires ; vérifiez les restrictions de catégorie.",
+        "Select only necessary capabilities; check category restrictions.",
+      ],
+      [
+        "Enregistrez et testez avec un compte du groupe.",
+        "Save and test with an account belonging to the group.",
+      ],
+    ],
+    check: [
+      "Testez lecture, aperçu et téléchargement séparément. Un compte admin ne valide pas les restrictions.",
+      "Test reading, preview and download separately. An admin account does not validate restrictions.",
+    ],
+  },
+  documents: {
+    steps: [
+      [
+        "Choisissez dépôt initial, métadonnées ou nouvelle version selon l'opération.",
+        "Choose initial upload, metadata or new version according to the operation.",
+      ],
+      [
+        "Renseignez langue, espace, catégorie, titre et description ; pour un nouveau fichier, ajoutez le résumé des changements.",
+        "Enter language, space, category, title and description; for a new file, add the change summary.",
+      ],
+      [
+        "Contrôlez le choix des notifications, l'analyse et l'état avant publication.",
+        "Check notification choice, scanning and state before publication.",
+      ],
+    ],
+    check: [
+      "Ouvrez le document et contrôlez langue, version, classement et droits. Pour un lot, vérifiez chaque échec.",
+      "Open the document and check language, version, classification and permissions. For a batch, review every failure.",
+    ],
+  },
+  trash: {
+    steps: [
+      [
+        "Identifiez le document et confirmez l'action souhaitée.",
+        "Identify the document and confirm the intended action.",
+      ],
+      [
+        "Utilisez la restauration si elle est proposée dans la corbeille.",
+        "Use restoration if offered in the trash.",
+      ],
+      [
+        "Contrôlez les métadonnées et les accès après restauration.",
+        "Check metadata and access after restoration.",
+      ],
+    ],
+    check: [
+      "La corbeille ne remplace pas les sauvegardes. Ne confondez pas archivage et suppression.",
+      "The trash does not replace backups. Do not confuse archiving with deletion.",
+    ],
+  },
+  governance: {
+    steps: [
+      [
+        "Sélectionnez la vue : revues, contrôles, rétention, exceptions ou incidents.",
+        "Select the view: reviews, controls, retention, exceptions or incidents.",
+      ],
+      [
+        "Vérifiez document, participants et échéance ; affectez le suivi approprié.",
+        "Check the document, participants and due date; assign appropriate follow-up.",
+      ],
+      [
+        "Enregistrez la décision motivée et les preuves autorisées, puis contrôlez la prochaine échéance.",
+        "Record the justified decision and permitted evidence, then check the next due date.",
+      ],
+    ],
+    check: [
+      "L'approbation exige les droits de gestion ; vérifiez l'auteur et la date de décision dans la trace.",
+      "Approval requires management permissions; check the decision author and date in the record.",
+    ],
+  },
+  requests: {
+    steps: [
+      [
+        "Ouvrez la demande et vérifiez identité, document et motif.",
+        "Open the request and check identity, document and reason.",
+      ],
+      [
+        "Définissez les droits et leur durée avant d'accepter, ou justifiez le refus.",
+        "Define permissions and duration before accepting, or justify rejection.",
+      ],
+      [
+        "Contrôlez la réponse au demandeur et les accès effectifs.",
+        "Check the requester response and effective access.",
+      ],
+    ],
+    check: [
+      "Gardez les notes internes séparées du message destiné au demandeur.",
+      "Keep internal notes separate from the message intended for the requester.",
+    ],
+  },
+  sso: {
+    steps: [
+      [
+        "Dans Entra, configurez l'application et la redirection attendue par le portail.",
+        "In Entra, configure the application and the redirect expected by the portal.",
+      ],
+      [
+        "Configurez tenant, client et secret client côté serveur, puis déployez la configuration du proxy SSO.",
+        "Configure tenant, client and client secret server-side, then deploy the SSO proxy configuration.",
+      ],
+      [
+        "Testez le proxy puis le parcours de connexion avec un utilisateur pilote.",
+        "Test the proxy and then the sign-in journey with a pilot user.",
+      ],
+    ],
+    check: [
+      "Vérifiez affectation, validité des identifiants, redirection et accès documentaire ; conservez la connexion de secours.",
+      "Check assignment, credential validity, redirect and document access; retain fallback sign-in.",
+    ],
+  },
+  profile: {
+    steps: [
+      [
+        "Vérifiez le compte et la méthode de connexion affichés.",
+        "Check the displayed account and sign-in method.",
+      ],
+      [
+        "Modifiez uniquement les options de profil proposées.",
+        "Change only the profile options offered.",
+      ],
+      [
+        "Si le MFA est proposé, terminez son activation et conservez les moyens de récupération.",
+        "If MFA is offered, complete activation and retain recovery methods.",
+      ],
+    ],
+    check: [
+      "Ne réinitialisez pas un mot de passe local pour résoudre un problème de SSO.",
+      "Do not reset a local password to resolve an SSO issue.",
+    ],
+  },
+  administrators: {
+    steps: [
+      [
+        "Sélectionnez le compte ou le groupe de gestion souhaité.",
+        "Select the desired management account or group.",
+      ],
+      [
+        "Attribuez le rôle prévu et vérifiez les sessions actives.",
+        "Assign the intended role and check active sessions.",
+      ],
+      [
+        "Testez l'accès avant de retirer un ancien administrateur.",
+        "Test access before removing a previous administrator.",
+      ],
+    ],
+    check: [
+      "Gardez un accès de secours fonctionnel et ne retirez pas le dernier administrateur.",
+      "Retain functioning fallback access and do not remove the last administrator.",
+    ],
+  },
+  moderators: {
+    steps: [
+      [
+        "Choisissez le compte ou groupe modérateur.",
+        "Choose the moderator account or group.",
+      ],
+      [
+        "Attribuez les espaces et capacités documentaires nécessaires.",
+        "Assign the required spaces and document capabilities.",
+      ],
+      [
+        "Testez /moderator avec un compte modérateur représentatif.",
+        "Test /moderator with a representative moderator account.",
+      ],
+    ],
+    check: [
+      "Vérifiez modification, publication et archivage sans utiliser une session admin comme preuve.",
+      "Check editing, publishing and archiving without using an admin session as evidence.",
+    ],
+  },
+  incidents: {
+    steps: [
+      [
+        "Créez ou ouvrez le rapport pour la période concernée.",
+        "Create or open the report for the relevant period.",
+      ],
+      [
+        "Renseignez le contenu et sélectionnez les groupes de l'audience.",
+        "Enter content and select audience groups.",
+      ],
+      [
+        "Enregistrez puis vérifiez la visibilité pour cette audience.",
+        "Save, then verify visibility for that audience.",
+      ],
+    ],
+    check: [
+      "Évitez de diffuser des informations d'incident à des groupes non concernés.",
+      "Avoid distributing incident information to unrelated groups.",
+    ],
+  },
+  "alert-channels": {
+    steps: [
+      [
+        "Choisissez le canal et renseignez sa destination et les paramètres proposés.",
+        "Choose the channel and enter its destination and available settings.",
+      ],
+      [
+        "Enregistrez puis testez avec une destination autorisée.",
+        "Save, then test with an authorized destination.",
+      ],
+      [
+        "Contrôlez l'historique de livraison et la réception réelle.",
+        "Check delivery history and actual receipt.",
+      ],
+    ],
+    check: [
+      "En cas d'absence d'e-mail : destinataires, file de jobs, erreurs du fournisseur et filtrage de messagerie.",
+      "If email is missing: check recipients, job queue, provider errors and mail filtering.",
+    ],
+  },
+  "alert-policy": {
+    steps: [
+      [
+        "Activez les alertes externes si elles sont nécessaires.",
+        "Enable external alerts if needed.",
+      ],
+      [
+        "Définissez les seuils d'échec et de refus, puis le canal configuré.",
+        "Define failure and denial thresholds, then choose a configured channel.",
+      ],
+      [
+        "Enregistrez et surveillez les premiers événements.",
+        "Save and monitor the first events.",
+      ],
+    ],
+    check: [
+      "Ajustez les seuils à l'activité réelle pour éviter une saturation des destinataires.",
+      "Adjust thresholds to real activity to avoid overwhelming recipients.",
+    ],
+  },
+  integrations: {
+    steps: [
+      [
+        "Sélectionnez l'intégration et le flux attendu : métriques ou événements.",
+        "Select the integration and expected flow: metrics or events.",
+      ],
+      [
+        "Renseignez l'adresse et les identifiants proposés ; vérifiez l'accès réseau.",
+        "Enter the address and available credentials; check network access.",
+      ],
+      [
+        "Testez, puis vérifiez les données dans l'outil destinataire.",
+        "Test, then verify data in the receiving tool.",
+      ],
+    ],
+    check: [
+      "Un test de connectivité ne prouve pas l'ingestion : contrôlez Zabbix, Wazuh ou le service destinataire.",
+      "A connectivity test does not prove ingestion: check Zabbix, Wazuh or the receiving service.",
+    ],
+  },
+  storage: {
+    steps: [
+      [
+        "Choisissez le type de cible et renseignez ses paramètres.",
+        "Choose the target type and enter its settings.",
+      ],
+      [
+        "Testez disponibilité et droits avant d'utiliser la cible.",
+        "Test availability and permissions before using the target.",
+      ],
+      [
+        "Vérifiez un dépôt et une lecture, puis la sauvegarde des fichiers et de PostgreSQL.",
+        "Verify an upload and read, then backups of files and PostgreSQL.",
+      ],
+    ],
+    check: [
+      "Contrôlez l'espace libre et testez la restauration hors production.",
+      "Check free space and test restoration outside production.",
+    ],
+  },
+  health: {
+    steps: [
+      ["Actualisez l'état des services.", "Refresh service status."],
+      [
+        "Identifiez la dépendance en échec et consultez ses journaux techniques.",
+        "Identify the failing dependency and review its technical logs.",
+      ],
+      [
+        "Retestez l'opération utilisateur après rétablissement.",
+        "Retest the user operation after recovery.",
+      ],
+    ],
+    check: [
+      "N'effacez pas de volumes ou de données pour résoudre un indicateur rouge.",
+      "Do not delete volumes or data to resolve a red indicator.",
+    ],
+  },
+  observability: {
+    steps: [
+      [
+        "Actualisez les signaux, la file de travail et l'historique des e-mails.",
+        "Refresh signals, the work queue and email history.",
+      ],
+      [
+        "Recherchez l'événement autour de l'heure du problème.",
+        "Find the event around the time of the issue.",
+      ],
+      [
+        "Traitez la cause et vérifiez les jobs ou livraisons concernés.",
+        "Resolve the cause and check the relevant jobs or deliveries.",
+      ],
+    ],
+    check: [
+      "Un e-mail accepté par le fournisseur n'est pas une preuve de réception.",
+      "An email accepted by the provider is not proof of receipt.",
+    ],
+  },
+  audit: {
+    steps: [
+      [
+        "Identifiez la période, l'utilisateur et la ressource à examiner.",
+        "Identify the period, user and resource to examine.",
+      ],
+      [
+        "Appliquez les filtres disponibles et vérifiez action, résultat et date.",
+        "Apply available filters and check action, result and date.",
+      ],
+      [
+        "Exportez uniquement si nécessaire et protégez le fichier.",
+        "Export only when necessary and protect the file.",
+      ],
+    ],
+    check: [
+      "Conservez les traces conformément à votre politique interne.",
+      "Retain records according to your internal policy.",
+    ],
+  },
+  settings: {
+    steps: [
+      [
+        "Renseignez les informations et le logo proposés.",
+        "Enter the available information and logo.",
+      ],
+      [
+        "Enregistrez et vérifiez les deux langues.",
+        "Save and check both languages.",
+      ],
+      [
+        "Contrôlez les écrans de connexion, portail et administration sur mobile.",
+        "Check sign-in, portal and administration screens on mobile.",
+      ],
+    ],
+    check: [
+      "Le logo et les libellés ne changent pas la langue des fichiers documentaires.",
+      "Logo and labels do not change document file language.",
+    ],
+  },
+  "advanced-settings": {
+    steps: [
+      [
+        "Identifiez précisément la clé et son effet attendu.",
+        "Identify the exact key and its expected effect.",
+      ],
+      [
+        "Conservez la valeur précédente ; validez la valeur et le format proposés.",
+        "Retain the previous value; validate the offered value and format.",
+      ],
+      [
+        "Enregistrez puis vérifiez le comportement ; restaurez la valeur précédente en cas de régression.",
+        "Save, then verify behavior; restore the previous value if a regression occurs.",
+      ],
+    ],
+    check: [
+      "Utilisez le menu dédié lorsqu'il existe ; ne partagez jamais les secrets.",
+      "Use a dedicated menu when available; never share secrets.",
+    ],
+  },
 };
 
 const topicGroups: Array<{ title: Text; targets: HelpTarget[] }> = [
-  { title: ["Documents et accès", "Documents and access"], targets: ["dashboard", "documents", "spaces", "groups", "rules", "trash", "governance", "requests", "incidents"] },
-  { title: ["Identité et connexion", "Identity and sign-in"], targets: ["directory", "certificates", "sso", "profile", "administrators", "moderators"] },
-  { title: ["Configuration", "Configuration"], targets: ["settings", "advanced-settings", "storage", "integrations", "alert-channels", "alert-policy"] },
-  { title: ["Exploitation", "Operations"], targets: ["health", "observability", "audit"] },
+  {
+    title: ["Documents et accès", "Documents and access"],
+    targets: [
+      "dashboard",
+      "documents",
+      "spaces",
+      "groups",
+      "rules",
+      "trash",
+      "governance",
+      "requests",
+      "incidents",
+    ],
+  },
+  {
+    title: ["Identité et connexion", "Identity and sign-in"],
+    targets: [
+      "directory",
+      "certificates",
+      "sso",
+      "profile",
+      "administrators",
+      "moderators",
+    ],
+  },
+  {
+    title: ["Configuration", "Configuration"],
+    targets: [
+      "settings",
+      "advanced-settings",
+      "storage",
+      "integrations",
+      "alert-channels",
+      "alert-policy",
+    ],
+  },
+  {
+    title: ["Exploitation", "Operations"],
+    targets: ["health", "observability", "audit"],
+  },
 ];
 
-const technicalExamples: Record<HelpTarget, { steps: Text[]; values: string; warning: Text; source?: { label: Text; url: string } }> = {
+const technicalExamples: Record<
+  HelpTarget,
+  {
+    steps: Text[];
+    values: string;
+    warning: Text;
+    source?: { label: Text; url: string };
+  }
+> = {
   languages: {
     steps: [languageHelp.admin, languageHelp.profile],
-    values: 'Admin > Languages: /admin#languages\nSetting: portal.languages\n{"enabled":["fr","en","es","sk"],"defaultLocale":"fr"}\nProfile > Display preferences: /explorer?workspace=preferences\nPriority: enabled personal preference > enabled browser language > portal default',
+    values:
+      'Admin > Languages: /admin#languages\nSetting: portal.languages\n{"enabled":["fr","en","es","sk"],"defaultLocale":"fr"}\nProfile > Display preferences: /explorer?workspace=preferences\nPriority: enabled personal preference > enabled browser language > portal default',
     warning: languageHelp.fallback,
   },
   dashboard: {
     steps: [
-      ["Actualisez le tableau de bord et notez l'heure de mesure. Comparez les documents, demandes et revues avec leurs listes : un compteur décrit un état, pas une preuve de bon fonctionnement.", "Refresh the dashboard and record the measurement time. Compare documents, requests and reviews with their lists: a counter describes a state, not proof of correct operation."],
-      ["Pour une indisponibilité, ouvrez Santé des services. Pour un retard de traitement ou un e-mail absent, ouvrez Observabilité. Pour changer un destinataire ou un seuil, utilisez Canaux d'alerte ou Politique d'alerte.", "For an outage, open Service health. For processing delays or missing email, open Observability. To change a recipient or threshold, use Alert channels or Alert policy."],
-      ["Prenez un document de test non sensible et vérifiez une consultation avec un lecteur standard. Corrélez une anomalie avec son heure, sa ressource et le journal d'audit avant de modifier une configuration.", "Use a non-sensitive test document and check viewing as a standard reader. Correlate an issue with its time, resource and audit log before changing configuration."],
+      [
+        "Actualisez le tableau de bord et notez l'heure de mesure. Comparez les documents, demandes et revues avec leurs listes : un compteur décrit un état, pas une preuve de bon fonctionnement.",
+        "Refresh the dashboard and record the measurement time. Compare documents, requests and reviews with their lists: a counter describes a state, not proof of correct operation.",
+      ],
+      [
+        "Pour une indisponibilité, ouvrez Santé des services. Pour un retard de traitement ou un e-mail absent, ouvrez Observabilité. Pour changer un destinataire ou un seuil, utilisez Canaux d'alerte ou Politique d'alerte.",
+        "For an outage, open Service health. For processing delays or missing email, open Observability. To change a recipient or threshold, use Alert channels or Alert policy.",
+      ],
+      [
+        "Prenez un document de test non sensible et vérifiez une consultation avec un lecteur standard. Corrélez une anomalie avec son heure, sa ressource et le journal d'audit avant de modifier une configuration.",
+        "Use a non-sensitive test document and check viewing as a standard reader. Correlate an issue with its time, resource and audit log before changing configuration.",
+      ],
     ],
-    values: 'Unavailable service -> Service health\nDelayed job or email -> Observability\nChannel or recipient -> Alert channels\nAlert activation -> Alert policy\nUnexpected access -> Access rules + Audit log',
-    warning: ["Les paramètres ne sont pas tous sur cet écran. N'activez pas plusieurs canaux ou plusieurs collecteurs pour corriger un simple compteur en retard ; identifiez d'abord la cause.", "Not all settings belong on this screen. Do not enable multiple channels or collectors to fix a delayed counter; identify the cause first."],
+    values:
+      "Unavailable service -> Service health\nDelayed job or email -> Observability\nChannel or recipient -> Alert channels\nAlert activation -> Alert policy\nUnexpected access -> Access rules + Audit log",
+    warning: [
+      "Les paramètres ne sont pas tous sur cet écran. N'activez pas plusieurs canaux ou plusieurs collecteurs pour corriger un simple compteur en retard ; identifiez d'abord la cause.",
+      "Not all settings belong on this screen. Do not enable multiple channels or collectors to fix a delayed counter; identify the cause first.",
+    ],
   },
   storage: {
     steps: [
-      ["Dans Stockage, cliquez sur Ajouter un stockage et choisissez S3 compatible ou SMB/CIFS. Pour S3, préparez un bucket privé existant, son endpoint HTTPS et des identifiants limités à la lecture, écriture et suppression nécessaires à cette cible.", "In Storage, click Add storage and select S3 compatible or SMB/CIFS. For S3, prepare an existing private bucket, its HTTPS endpoint and credentials limited to the read, write and delete operations required for this target."],
-      ["Renseignez endpoint, région, bucket et préfixe ; choisissez Path-style si votre service S3 l'exige. Entrez la clé d'accès et la clé secrète dans les champs protégés. Un endpoint Azure Blob natif n'est pas automatiquement un endpoint S3 compatible.", "Enter endpoint, region, bucket and prefix; select Path-style if your S3 service requires it. Enter the access key and secret in the protected fields. A native Azure Blob endpoint is not automatically an S3-compatible endpoint."],
-      ["Pour SMB, l'exploitant monte d'abord le partage avec SMB 3.x sur l'hôte et le rend disponible au conteneur sous /data/smb. Dans l'interface, saisissez le nom du montage, par exemple documents ; ce champ n'est pas une URL UNC ni un mot de passe.", "For SMB, an operator first mounts the share using SMB 3.x on the host and makes it available inside the container under /data/smb. In the interface, enter the mount name, for example documents; this field is neither a UNC URL nor a password."],
-      ["Enregistrez puis lancez Tester la connexion : le test effectue une écriture, une lecture et une suppression. N'utilisez la cible qu'après succès. Déposez ensuite un fichier de test sur cette cible et vérifiez l'aperçu et le téléchargement autorisé.", "Save and run Test connection: the test writes, reads and deletes a test object. Use the target only after success. Then upload a test file to that target and check preview and authorized download."],
-      ["À l'édition, le nom et les nouveaux identifiants peuvent être modifiés ; type, bucket et emplacement sont figés. Pour changer d'emplacement, préparez une nouvelle cible et une migration contrôlée. Sauvegardez PostgreSQL et les fichiers ensemble, puis testez une restauration isolée.", "When editing, the name and new credentials can be changed; type, bucket and location are fixed. To change location, prepare a new target and a controlled migration. Back up PostgreSQL and files together, then test an isolated restoration."],
+      [
+        "Dans Stockage, cliquez sur Ajouter un stockage et choisissez S3 compatible ou SMB/CIFS. Pour S3, préparez un bucket privé existant, son endpoint HTTPS et des identifiants limités à la lecture, écriture et suppression nécessaires à cette cible.",
+        "In Storage, click Add storage and select S3 compatible or SMB/CIFS. For S3, prepare an existing private bucket, its HTTPS endpoint and credentials limited to the read, write and delete operations required for this target.",
+      ],
+      [
+        "Renseignez endpoint, région, bucket et préfixe ; choisissez Path-style si votre service S3 l'exige. Entrez la clé d'accès et la clé secrète dans les champs protégés. Un endpoint Azure Blob natif n'est pas automatiquement un endpoint S3 compatible.",
+        "Enter endpoint, region, bucket and prefix; select Path-style if your S3 service requires it. Enter the access key and secret in the protected fields. A native Azure Blob endpoint is not automatically an S3-compatible endpoint.",
+      ],
+      [
+        "Pour SMB, l'exploitant monte d'abord le partage avec SMB 3.x sur l'hôte et le rend disponible au conteneur sous /data/smb. Dans l'interface, saisissez le nom du montage, par exemple documents ; ce champ n'est pas une URL UNC ni un mot de passe.",
+        "For SMB, an operator first mounts the share using SMB 3.x on the host and makes it available inside the container under /data/smb. In the interface, enter the mount name, for example documents; this field is neither a UNC URL nor a password.",
+      ],
+      [
+        "Enregistrez puis lancez Tester la connexion : le test effectue une écriture, une lecture et une suppression. N'utilisez la cible qu'après succès. Déposez ensuite un fichier de test sur cette cible et vérifiez l'aperçu et le téléchargement autorisé.",
+        "Save and run Test connection: the test writes, reads and deletes a test object. Use the target only after success. Then upload a test file to that target and check preview and authorized download.",
+      ],
+      [
+        "À l'édition, le nom et les nouveaux identifiants peuvent être modifiés ; type, bucket et emplacement sont figés. Pour changer d'emplacement, préparez une nouvelle cible et une migration contrôlée. Sauvegardez PostgreSQL et les fichiers ensemble, puis testez une restauration isolée.",
+        "When editing, the name and new credentials can be changed; type, bucket and location are fixed. To change location, prepare a new target and a controlled migration. Back up PostgreSQL and files together, then test an isolated restoration.",
+      ],
     ],
-    values: 'S3 example\ntype = s3\nendpoint = https://s3.example.com\nregion = us-east-1\nbucket = isms-documents\nprefix = isms\nforcePathStyle = true\n\nSMB example\ntype = smb\nmount = documents\ncontainer path = /data/smb/documents',
-    warning: ["Ne rendez pas le bucket public. La sélection d'une nouvelle cible ne déplace pas les fichiers existants. Ne supprimez pas un montage, un bucket ou un volume encore référencé ; conservez aussi les clés nécessaires à la restauration des paramètres chiffrés, hors du dépôt.", "Do not make the bucket public. Selecting a new target does not move existing files. Do not delete a mount, bucket or volume still referenced; also retain keys needed to restore encrypted settings, outside the repository."],
+    values:
+      "S3 example\ntype = s3\nendpoint = https://s3.example.com\nregion = us-east-1\nbucket = isms-documents\nprefix = isms\nforcePathStyle = true\n\nSMB example\ntype = smb\nmount = documents\ncontainer path = /data/smb/documents",
+    warning: [
+      "Ne rendez pas le bucket public. La sélection d'une nouvelle cible ne déplace pas les fichiers existants. Ne supprimez pas un montage, un bucket ou un volume encore référencé ; conservez aussi les clés nécessaires à la restauration des paramètres chiffrés, hors du dépôt.",
+      "Do not make the bucket public. Selecting a new target does not move existing files. Do not delete a mount, bucket or volume still referenced; also retain keys needed to restore encrypted settings, outside the repository.",
+    ],
   },
   "alert-channels": {
     steps: [
-      ["Dans Canaux d'alerte, configurez SMTP séparément du SSO. Pour un relais utilisant STARTTLS, renseignez hôte, port 587, utilisateur, mot de passe, expéditeur et destinataires séparés par des virgules. Pour le port 465, utilisez TLS direct selon les exigences du relais ; ne confondez pas TLS direct et STARTTLS.", "In Alert channels, configure SMTP separately from SSO. For a STARTTLS relay, enter host, port 587, username, password, sender and comma-separated recipients. For port 465, use direct TLS as required by the relay; do not confuse direct TLS with STARTTLS."],
-      ["Utilisez Enregistrer et envoyer un e-mail de test vers une boîte de recette autorisée. Ce bouton envoie réellement un message. Vérifiez le suivi dans Observabilité et la réception, y compris courrier indésirable et quarantaine.", "Use Save and send test email to an authorized test mailbox. This button sends a real message. Check delivery history in Observability and actual receipt, including junk mail and quarantine."],
-      ["Pour Teams, Slack ou le webhook générique, renseignez une URL HTTPS obtenue depuis le service destinataire. Le webhook générique peut utiliser un jeton Bearer. Enregistrez et testez un seul canal à la fois, puis vérifiez le message dans l'outil cible.", "For Teams, Slack or a generic webhook, enter an HTTPS URL obtained from the receiving service. The generic webhook can use a Bearer token. Save and test one channel at a time, then verify the message in the target tool."],
-      ["Pour Microsoft Graph, utilisez une application d'envoi dédiée, distincte du SSO, avec Mail.Send applicatif et consentement administrateur. Configurez les restrictions Exchange sur la boîte expéditrice. Importez le certificat public dans Entra ; sa clé privée correspondante reste dans la configuration protégée ISMS.", "For Microsoft Graph, use a dedicated sending application separate from SSO, with application Mail.Send permission and administrator consent. Configure Exchange restrictions for the sender mailbox. Upload the public certificate to Entra; its matching private key stays in protected ISMS configuration."],
-      ["Les paramètres Graph gérés par l'API sont graphTenantId, graphClientId, graphSender, graphCertificatePem et graphPrivateKeyPem. Si le formulaire ne propose pas ces champs, faites intervenir l'exploitant via l'API administrative des canaux ; ne stockez pas une clé privée dans Paramètres avancés. Conservez les paramètres des autres canaux lors d'une mise à jour.", "The API manages graphTenantId, graphClientId, graphSender, graphCertificatePem and graphPrivateKeyPem. If the form does not expose these fields, have an operator use the administrative channels API; do not store a private key in Advanced settings. Preserve other channel settings when updating."],
+      [
+        "Dans Canaux d'alerte, configurez SMTP séparément du SSO. Pour un relais utilisant STARTTLS, renseignez hôte, port 587, utilisateur, mot de passe, expéditeur et destinataires séparés par des virgules. Pour le port 465, utilisez TLS direct selon les exigences du relais ; ne confondez pas TLS direct et STARTTLS.",
+        "In Alert channels, configure SMTP separately from SSO. For a STARTTLS relay, enter host, port 587, username, password, sender and comma-separated recipients. For port 465, use direct TLS as required by the relay; do not confuse direct TLS with STARTTLS.",
+      ],
+      [
+        "Utilisez Enregistrer et envoyer un e-mail de test vers une boîte de recette autorisée. Ce bouton envoie réellement un message. Vérifiez le suivi dans Observabilité et la réception, y compris courrier indésirable et quarantaine.",
+        "Use Save and send test email to an authorized test mailbox. This button sends a real message. Check delivery history in Observability and actual receipt, including junk mail and quarantine.",
+      ],
+      [
+        "Pour Teams, Slack ou le webhook générique, renseignez une URL HTTPS obtenue depuis le service destinataire. Le webhook générique peut utiliser un jeton Bearer. Enregistrez et testez un seul canal à la fois, puis vérifiez le message dans l'outil cible.",
+        "For Teams, Slack or a generic webhook, enter an HTTPS URL obtained from the receiving service. The generic webhook can use a Bearer token. Save and test one channel at a time, then verify the message in the target tool.",
+      ],
+      [
+        "Pour Microsoft Graph, utilisez une application d'envoi dédiée, distincte du SSO, avec Mail.Send applicatif et consentement administrateur. Configurez les restrictions Exchange sur la boîte expéditrice. Importez le certificat public dans Entra ; sa clé privée correspondante reste dans la configuration protégée ISMS.",
+        "For Microsoft Graph, use a dedicated sending application separate from SSO, with application Mail.Send permission and administrator consent. Configure Exchange restrictions for the sender mailbox. Upload the public certificate to Entra; its matching private key stays in protected ISMS configuration.",
+      ],
+      [
+        "Les paramètres Graph gérés par l'API sont graphTenantId, graphClientId, graphSender, graphCertificatePem et graphPrivateKeyPem. Si le formulaire ne propose pas ces champs, faites intervenir l'exploitant via l'API administrative des canaux ; ne stockez pas une clé privée dans Paramètres avancés. Conservez les paramètres des autres canaux lors d'une mise à jour.",
+        "The API manages graphTenantId, graphClientId, graphSender, graphCertificatePem and graphPrivateKeyPem. If the form does not expose these fields, have an operator use the administrative channels API; do not store a private key in Advanced settings. Preserve other channel settings when updating.",
+      ],
     ],
-    values: 'SMTP / STARTTLS example\nsmtpHost = smtp.example.com\nsmtpPort = 587\nsmtpSecure = false\nsmtpStartTls = true\nsmtpFrom = isms@example.com\nsmtpRecipients = test-recipient@example.com\n\nProtected administrative channel API\nPUT /api/admin/operations/alert-channels\nGraph sender example: graphSender = isms@example.com\nGraph credentials: configure through protected fields only',
-    warning: ["Un HTTP 202 de Graph signifie accepté, pas reçu. Ne relancez pas plusieurs fois un message déjà accepté. Les URLs de webhook, mots de passe et clés privées sont des secrets : jamais dans les captures ou exemples. Un test SMTP réussi ne valide pas Graph, et inversement.", "A Graph HTTP 202 means accepted, not received. Do not repeatedly retry an already accepted message. Webhook URLs, passwords and private keys are secrets: never include them in screenshots or examples. A successful SMTP test does not validate Graph, and vice versa."],
-    source: { label: ["Microsoft Graph : envoi et permissions", "Microsoft Graph: delivery and permissions"], url: "https://learn.microsoft.com/en-us/graph/api/user-sendmail?view=graph-rest-1.0" },
+    values:
+      "SMTP / STARTTLS example\nsmtpHost = smtp.example.com\nsmtpPort = 587\nsmtpSecure = false\nsmtpStartTls = true\nsmtpFrom = isms@example.com\nsmtpRecipients = test-recipient@example.com\n\nProtected administrative channel API\nPUT /api/admin/operations/alert-channels\nGraph sender example: graphSender = isms@example.com\nGraph credentials: configure through protected fields only",
+    warning: [
+      "Un HTTP 202 de Graph signifie accepté, pas reçu. Ne relancez pas plusieurs fois un message déjà accepté. Les URLs de webhook, mots de passe et clés privées sont des secrets : jamais dans les captures ou exemples. Un test SMTP réussi ne valide pas Graph, et inversement.",
+      "A Graph HTTP 202 means accepted, not received. Do not repeatedly retry an already accepted message. Webhook URLs, passwords and private keys are secrets: never include them in screenshots or examples. A successful SMTP test does not validate Graph, and vice versa.",
+    ],
+    source: {
+      label: [
+        "Microsoft Graph : envoi et permissions",
+        "Microsoft Graph: delivery and permissions",
+      ],
+      url: "https://learn.microsoft.com/en-us/graph/api/user-sendmail?view=graph-rest-1.0",
+    },
   },
   "alert-policy": {
     steps: [
-      ["Commencez par configurer et tester le canal dans Canaux d'alerte. Dans Politique d'alerte, choisissez ce canal puis activez et enregistrez la politique. Une activation sans destination opérationnelle ne garantit aucun envoi.", "First configure and test the channel in Alert channels. In Alert policy, select that channel, enable and save the policy. Enabling without a working destination guarantees no delivery."],
-      ["Distinguez les alertes d'exploitation, les notifications de publication et les rappels de revue. La politique de cet écran concerne l'exploitation ; elle ne remplace ni les ACL des lecteurs, ni le choix de notification lors d'un dépôt, ni les participants d'une revue.", "Distinguish operational alerts, publication notifications and review reminders. This screen's policy concerns operations; it does not replace reader ACLs, the upload notification choice or review participants."],
-      ["Vérifiez la destination réelle et suivez un événement de recette dans Observabilité. Si aucun message n'arrive, contrôlez successivement activation, canal, configuration, job et réception fournisseur. Testez les seuils en recette, sans provoquer des erreurs ou une charge en production.", "Check the actual destination and follow a test event in Observability. If no message arrives, check activation, channel, configuration, job and provider delivery in that order. Test thresholds in staging without generating errors or load in production."],
+      [
+        "Commencez par configurer et tester le canal dans Canaux d'alerte. Dans Politique d'alerte, choisissez ce canal puis activez et enregistrez la politique. Une activation sans destination opérationnelle ne garantit aucun envoi.",
+        "First configure and test the channel in Alert channels. In Alert policy, select that channel, enable and save the policy. Enabling without a working destination guarantees no delivery.",
+      ],
+      [
+        "Distinguez les alertes d'exploitation, les notifications de publication et les rappels de revue. La politique de cet écran concerne l'exploitation ; elle ne remplace ni les ACL des lecteurs, ni le choix de notification lors d'un dépôt, ni les participants d'une revue.",
+        "Distinguish operational alerts, publication notifications and review reminders. This screen's policy concerns operations; it does not replace reader ACLs, the upload notification choice or review participants.",
+      ],
+      [
+        "Vérifiez la destination réelle et suivez un événement de recette dans Observabilité. Si aucun message n'arrive, contrôlez successivement activation, canal, configuration, job et réception fournisseur. Testez les seuils en recette, sans provoquer des erreurs ou une charge en production.",
+        "Check the actual destination and follow a test event in Observability. If no message arrives, check activation, channel, configuration, job and provider delivery in that order. Test thresholds in staging without generating errors or load in production.",
+      ],
     ],
-    values: '{\n  "enabled": true,\n  "channel": "email"\n}\n\nAvailable form channels: email, teams, slack, webhook\nDisabled policy: enabled = false',
-    warning: ["Ne considérez pas l'activation de cette politique comme un abonnement de tous les utilisateurs à tous les documents. Les alertes opérationnelles doivent rester destinées aux responsables de suivi ; vérifiez l'audience avant d'activer.", "Do not treat enabling this policy as subscribing every user to every document. Operational alerts should target monitoring owners; check the audience before enabling."],
+    values:
+      '{\n  "enabled": true,\n  "channel": "email"\n}\n\nAvailable form channels: email, teams, slack, webhook\nDisabled policy: enabled = false',
+    warning: [
+      "Ne considérez pas l'activation de cette politique comme un abonnement de tous les utilisateurs à tous les documents. Les alertes opérationnelles doivent rester destinées aux responsables de suivi ; vérifiez l'audience avant d'activer.",
+      "Do not treat enabling this policy as subscribing every user to every document. Operational alerts should target monitoring owners; check the audience before enabling.",
+    ],
   },
   integrations: {
     steps: [
-      ["Dans Intégrations, identifiez le signal à collecter : métriques pour Prometheus/Zabbix, journaux pour Syslog/Wazuh. Choisissez un collecteur responsable par signal et préparez son accès réseau privé avant d'activer le suivi.", "In Integrations, identify the signal to collect: metrics for Prometheus/Zabbix, logs for Syslog/Wazuh. Choose one responsible collector per signal and prepare private network access before enabling monitoring."],
-      ["Téléchargez la configuration générée depuis la carte de l'outil. Utilisez aussi les règles d'alerte Prometheus, la configuration d'agent et les événements de test Wazuh, ou l'exemple Docker TLS Syslog disponibles. Les exemples d'exploitation sont dans deploy/monitoring.", "Download the generated configuration from the tool's entry. Also use the available Prometheus alert rules, Wazuh agent configuration and sample events, or Syslog Docker TLS example. Operational examples live in deploy/monitoring."],
-      ["L'exploitant applique le fichier dans le collecteur cible, adapte noms d'hôte, certificats et chemins, puis recharge ce service selon sa procédure. Les métriques /metrics restent sur le réseau privé de l'API ; ne les exposez pas sur Internet pour faciliter un test.", "An operator applies the file to the target collector, adapts hostnames, certificates and paths, then reloads that service using its procedure. API /metrics stays on the private network; do not expose it to the Internet to simplify testing."],
-      ["Le collecteur Docker autorisé peut rejoindre le réseau d'observabilité indiqué dans l'interface. Vérifiez le test ISMS, puis une métrique horodatée dans Zabbix/Prometheus ou un événement identifié dans Wazuh. Enfin, testez une règle de détection en recette et sa notification.", "An authorized Docker collector can join the observability network identified in the interface. Check the ISMS test, then a timestamped metric in Zabbix/Prometheus or an identified event in Wazuh. Finally test a detection rule and notification in staging."],
+      [
+        "Dans Intégrations, identifiez le signal à collecter : métriques pour Prometheus/Zabbix, journaux pour Syslog/Wazuh. Choisissez un collecteur responsable par signal et préparez son accès réseau privé avant d'activer le suivi.",
+        "In Integrations, identify the signal to collect: metrics for Prometheus/Zabbix, logs for Syslog/Wazuh. Choose one responsible collector per signal and prepare private network access before enabling monitoring.",
+      ],
+      [
+        "Téléchargez la configuration générée depuis la carte de l'outil. Utilisez aussi les règles d'alerte Prometheus, la configuration d'agent et les événements de test Wazuh, ou l'exemple Docker TLS Syslog disponibles. Les exemples d'exploitation sont dans deploy/monitoring.",
+        "Download the generated configuration from the tool's entry. Also use the available Prometheus alert rules, Wazuh agent configuration and sample events, or Syslog Docker TLS example. Operational examples live in deploy/monitoring.",
+      ],
+      [
+        "L'exploitant applique le fichier dans le collecteur cible, adapte noms d'hôte, certificats et chemins, puis recharge ce service selon sa procédure. Les métriques /metrics restent sur le réseau privé de l'API ; ne les exposez pas sur Internet pour faciliter un test.",
+        "An operator applies the file to the target collector, adapts hostnames, certificates and paths, then reloads that service using its procedure. API /metrics stays on the private network; do not expose it to the Internet to simplify testing.",
+      ],
+      [
+        "Le collecteur Docker autorisé peut rejoindre le réseau d'observabilité indiqué dans l'interface. Vérifiez le test ISMS, puis une métrique horodatée dans Zabbix/Prometheus ou un événement identifié dans Wazuh. Enfin, testez une règle de détection en recette et sa notification.",
+        "An authorized Docker collector can join the observability network identified in the interface. Check the ISMS test, then a timestamped metric in Zabbix/Prometheus or an identified event in Wazuh. Finally test a detection rule and notification in staging.",
+      ],
     ],
-    values: 'Source examples: deploy/monitoring\nMetrics: private API /metrics\nPrometheus: generated scrape configuration + alert rules\nZabbix: generated configuration -> collector -> latest data\nWazuh: agent configuration -> sample event -> search/alert\nSyslog: TLS configuration -> receiver -> parsed event',
-    warning: ["La case Enregistrer l'intégration comme activée enregistre un état : elle n'installe pas un agent ni un serveur Zabbix/Wazuh. Un test local réussi ne prouve pas l'ingestion distante. N'ouvrez pas de ports ou de réseaux Docker à des collecteurs non autorisés.", "Mark integration as enabled records a state: it does not install an agent or a Zabbix/Wazuh server. A successful local test does not prove remote ingestion. Do not open ports or Docker networks to unauthorized collectors."],
+    values:
+      "Source examples: deploy/monitoring\nMetrics: private API /metrics\nPrometheus: generated scrape configuration + alert rules\nZabbix: generated configuration -> collector -> latest data\nWazuh: agent configuration -> sample event -> search/alert\nSyslog: TLS configuration -> receiver -> parsed event",
+    warning: [
+      "La case Enregistrer l'intégration comme activée enregistre un état : elle n'installe pas un agent ni un serveur Zabbix/Wazuh. Un test local réussi ne prouve pas l'ingestion distante. N'ouvrez pas de ports ou de réseaux Docker à des collecteurs non autorisés.",
+      "Mark integration as enabled records a state: it does not install an agent or a Zabbix/Wazuh server. A successful local test does not prove remote ingestion. Do not open ports or Docker networks to unauthorized collectors.",
+    ],
   },
   health: {
     steps: [
-      ["Actualisez Santé des services et identifiez la dépendance en erreur : base de données, Redis, antivirus, stockage ou service applicatif. Notez l'heure et le résultat de disponibilité avant toute intervention.", "Refresh Service health and identify the failing dependency: database, Redis, antivirus, storage or application service. Record the time and readiness result before intervening."],
-      ["Un exploitant exécute les commandes de lecture ci-dessous depuis le serveur avec les fichiers Compose réellement utilisés par le déploiement. Vérifiez les états des conteneurs, les erreurs récentes, l'espace libre et les inodes. Ne publiez pas les journaux sans masquer les données sensibles.", "An operator runs the read-only commands below from the server using the actual deployment Compose files. Check container states, recent errors, free space and inodes. Do not publish logs without masking sensitive data."],
-      ["Pour PostgreSQL, contrôlez connexion et disque ; pour Redis, connexion et file de jobs ; pour ClamAV, disponibilité et signatures ; pour le stockage, montage et permissions. Après correction, vérifiez la readiness puis une consultation ou un dépôt de recette.", "For PostgreSQL, check connectivity and disk; for Redis, connectivity and the job queue; for ClamAV, availability and signatures; for storage, mounts and permissions. After recovery, check readiness and then a test viewing or upload operation."],
+      [
+        "Actualisez Santé des services et identifiez la dépendance en erreur : base de données, Redis, antivirus, stockage ou service applicatif. Notez l'heure et le résultat de disponibilité avant toute intervention.",
+        "Refresh Service health and identify the failing dependency: database, Redis, antivirus, storage or application service. Record the time and readiness result before intervening.",
+      ],
+      [
+        "Un exploitant exécute les commandes de lecture ci-dessous depuis le serveur avec les fichiers Compose réellement utilisés par le déploiement. Vérifiez les états des conteneurs, les erreurs récentes, l'espace libre et les inodes. Ne publiez pas les journaux sans masquer les données sensibles.",
+        "An operator runs the read-only commands below from the server using the actual deployment Compose files. Check container states, recent errors, free space and inodes. Do not publish logs without masking sensitive data.",
+      ],
+      [
+        "Pour PostgreSQL, contrôlez connexion et disque ; pour Redis, connexion et file de jobs ; pour ClamAV, disponibilité et signatures ; pour le stockage, montage et permissions. Après correction, vérifiez la readiness puis une consultation ou un dépôt de recette.",
+        "For PostgreSQL, check connectivity and disk; for Redis, connectivity and the job queue; for ClamAV, availability and signatures; for storage, mounts and permissions. After recovery, check readiness and then a test viewing or upload operation.",
+      ],
     ],
-    values: 'curl -fsS https://isms.example.com/api/health/ready\ndocker compose ps\ndocker compose logs --since=15m --tail=100 api worker frontend\ndf -h\ndf -i',
-    warning: ["Ne lancez pas docker compose down -v, une purge Redis ou une suppression de fichiers PostgreSQL pour faire disparaître une alerte. La readiness verte ne teste pas l'intégralité du SSO, des ACL et de la distribution des e-mails.", "Do not run docker compose down -v, purge Redis or delete PostgreSQL files to clear an alert. Green readiness does not test the entire SSO, ACL and email delivery workflow."],
+    values:
+      "curl -fsS https://isms.example.com/api/health/ready\ndocker compose ps\ndocker compose logs --since=15m --tail=100 api worker frontend\ndf -h\ndf -i",
+    warning: [
+      "Ne lancez pas docker compose down -v, une purge Redis ou une suppression de fichiers PostgreSQL pour faire disparaître une alerte. La readiness verte ne teste pas l'intégralité du SSO, des ACL et de la distribution des e-mails.",
+      "Do not run docker compose down -v, purge Redis or delete PostgreSQL files to clear an alert. Green readiness does not test the entire SSO, ACL and email delivery workflow.",
+    ],
   },
   observability: {
     steps: [
-      ["Actualisez les signaux d'exploitation, les éléments à traiter et le suivi des e-mails. Recherchez la ressource et l'heure du problème plutôt que de modifier immédiatement un canal.", "Refresh operational signals, work items and email history. Search the resource and issue time instead of immediately changing a channel."],
-      ["Pour un e-mail absent, interprétez son état : WAITING attend le worker, ACTIVE est en traitement, DELAYED est différé, FAILED a échoué, SKIPPED n'a pas été envoyé et ACCEPTED a été accepté par le fournisseur. Vérifiez aussi le nombre de tentatives et l'erreur.", "For missing email, interpret its status: WAITING awaits the worker, ACTIVE is processing, DELAYED is deferred, FAILED has failed, SKIPPED was not sent and ACCEPTED was accepted by the provider. Also check attempts and error details."],
-      ["Si l'état est SKIPPED, contrôlez le choix de notification du dépôt, l'événement activé, les ACL et les attributs mail des destinataires. Si FAILED, corrigez la cause puis relancez uniquement l'envoi concerné. Si ACCEPTED, vérifiez trace fournisseur, quarantaine et boîte destinataire.", "For SKIPPED, check the upload notification choice, enabled event, recipient ACLs and mail attributes. For FAILED, resolve the cause and retry only the relevant delivery. For ACCEPTED, check provider trace, quarantine and recipient mailbox."],
-      ["Utilisez le test de modèle publication, approbation, revue ou signalement avec un destinataire autorisé. Ce test envoie un vrai e-mail et ne valide pas à lui seul le calcul des destinataires d'un événement réel.", "Use the publication, approval, review or report template test with an authorized recipient. This sends real email and does not by itself validate recipient calculation for an actual event."],
+      [
+        "Actualisez les signaux d'exploitation, les éléments à traiter et le suivi des e-mails. Recherchez la ressource et l'heure du problème plutôt que de modifier immédiatement un canal.",
+        "Refresh operational signals, work items and email history. Search the resource and issue time instead of immediately changing a channel.",
+      ],
+      [
+        "Pour un e-mail absent, interprétez son état : WAITING attend le worker, ACTIVE est en traitement, DELAYED est différé, FAILED a échoué, SKIPPED n'a pas été envoyé et ACCEPTED a été accepté par le fournisseur. Vérifiez aussi le nombre de tentatives et l'erreur.",
+        "For missing email, interpret its status: WAITING awaits the worker, ACTIVE is processing, DELAYED is deferred, FAILED has failed, SKIPPED was not sent and ACCEPTED was accepted by the provider. Also check attempts and error details.",
+      ],
+      [
+        "Si l'état est SKIPPED, contrôlez le choix de notification du dépôt, l'événement activé, les ACL et les attributs mail des destinataires. Si FAILED, corrigez la cause puis relancez uniquement l'envoi concerné. Si ACCEPTED, vérifiez trace fournisseur, quarantaine et boîte destinataire.",
+        "For SKIPPED, check the upload notification choice, enabled event, recipient ACLs and mail attributes. For FAILED, resolve the cause and retry only the relevant delivery. For ACCEPTED, check provider trace, quarantine and recipient mailbox.",
+      ],
+      [
+        "Utilisez le test de modèle publication, approbation, revue ou signalement avec un destinataire autorisé. Ce test envoie un vrai e-mail et ne valide pas à lui seul le calcul des destinataires d'un événement réel.",
+        "Use the publication, approval, review or report template test with an authorized recipient. This sends real email and does not by itself validate recipient calculation for an actual event.",
+      ],
     ],
-    values: 'WAITING -> worker and queue\nACTIVE -> current processing\nDELAYED -> scheduled retry\nFAILED -> error and attempts\nSKIPPED -> notification policy and recipients\nACCEPTED -> provider delivery trace and mailbox',
-    warning: ["Une relance peut créer un doublon si le premier message a été accepté. Le suivi des e-mails n'est pas le journal d'audit complet et ne remplace pas les journaux de livraison Microsoft 365 ou SMTP.", "Retrying can create a duplicate if the first message was accepted. Email history is not the complete audit log and does not replace Microsoft 365 or SMTP delivery logs."],
+    values:
+      "WAITING -> worker and queue\nACTIVE -> current processing\nDELAYED -> scheduled retry\nFAILED -> error and attempts\nSKIPPED -> notification policy and recipients\nACCEPTED -> provider delivery trace and mailbox",
+    warning: [
+      "Une relance peut créer un doublon si le premier message a été accepté. Le suivi des e-mails n'est pas le journal d'audit complet et ne remplace pas les journaux de livraison Microsoft 365 ou SMTP.",
+      "Retrying can create a duplicate if the first message was accepted. Email history is not the complete audit log and does not replace Microsoft 365 or SMTP delivery logs.",
+    ],
   },
   profile: {
     steps: [
-      ["Dans Profil administrateur, vérifiez votre identité et votre mode d'authentification, puis mettez à jour le nom affiché et la photo proposés. Ces réglages ne changent pas les groupes AD ni les droits d'administration.", "In Administrator profile, check your identity and authentication method, then update the available display name and photo. These settings do not change AD groups or administrative privileges."],
-      ["Pour un compte administrateur local, utilisez le formulaire avec mot de passe actuel et nouveau mot de passe. Pour AD/Entra, le changement de mot de passe se fait auprès de l'annuaire ou du fournisseur d'identité, pas en créant un mot de passe local équivalent.", "For a local administrator, use the form with current and new passwords. For AD/Entra, change the password through the directory or identity provider, not by creating an equivalent local password."],
-      ["Sur un compte local, lancez Configurer le MFA, ajoutez la clé TOTP à l'application d'authentification et confirmez un code à six chiffres. Vérifiez une nouvelle connexion avant de fermer votre session. Pour Entra, le MFA est piloté par les politiques du tenant.", "For a local account, run Configure MFA, add the TOTP key to an authenticator and confirm a six-digit code. Check a new sign-in before closing your session. For Entra, MFA is controlled by tenant policies."],
+      [
+        "Dans Profil administrateur, vérifiez votre identité et votre mode d'authentification, puis mettez à jour le nom affiché et la photo proposés. Ces réglages ne changent pas les groupes AD ni les droits d'administration.",
+        "In Administrator profile, check your identity and authentication method, then update the available display name and photo. These settings do not change AD groups or administrative privileges.",
+      ],
+      [
+        "Pour un compte administrateur local, utilisez le formulaire avec mot de passe actuel et nouveau mot de passe. Pour AD/Entra, le changement de mot de passe se fait auprès de l'annuaire ou du fournisseur d'identité, pas en créant un mot de passe local équivalent.",
+        "For a local administrator, use the form with current and new passwords. For AD/Entra, change the password through the directory or identity provider, not by creating an equivalent local password.",
+      ],
+      [
+        "Sur un compte local, lancez Configurer le MFA, ajoutez la clé TOTP à l'application d'authentification et confirmez un code à six chiffres. Vérifiez une nouvelle connexion avant de fermer votre session. Pour Entra, le MFA est piloté par les politiques du tenant.",
+        "For a local account, run Configure MFA, add the TOTP key to an authenticator and confirm a six-digit code. Check a new sign-in before closing your session. For Entra, MFA is controlled by tenant policies.",
+      ],
     ],
-    values: 'Local administrator password fields:\ncurrentPassword = enter privately\nnewPassword = enter privately\n\nLocal MFA confirmation:\ncode = current six-digit TOTP\n\nAD / Entra password and MFA: managed by identity provider',
-    warning: ["La clé TOTP est un secret, pas une valeur à joindre à une capture. Gardez un accès de secours vérifié avant de changer mot de passe ou MFA. En cas de code refusé, contrôlez l'heure de l'appareil et utilisez un code courant.", "The TOTP key is a secret, not a value for a screenshot. Keep verified fallback access before changing password or MFA. If a code is rejected, check device time and use a current code."],
+    values:
+      "Local administrator password fields:\ncurrentPassword = enter privately\nnewPassword = enter privately\n\nLocal MFA confirmation:\ncode = current six-digit TOTP\n\nAD / Entra password and MFA: managed by identity provider",
+    warning: [
+      "La clé TOTP est un secret, pas une valeur à joindre à une capture. Gardez un accès de secours vérifié avant de changer mot de passe ou MFA. En cas de code refusé, contrôlez l'heure de l'appareil et utilisez un code courant.",
+      "The TOTP key is a secret, not a value for a screenshot. Keep verified fallback access before changing password or MFA. If a code is rejected, check device time and use a current code.",
+    ],
   },
   administrators: {
     steps: [
-      ["Dans Comptes administrateurs, choisissez un compte local, un utilisateur AD trouvé dans l'annuaire ou un groupe AD sélectionné dans les résultats. Pour AD, vérifiez l'identité et le mail réel avant l'attribution ; ne saisissez pas simplement un nom ressemblant au compte.", "In Administrator accounts, choose a local account, an AD user found in the directory or an AD group selected from results. For AD, verify identity and actual mail before granting access; do not just enter a similar-looking account name."],
-      ["Renseignez une justification d'au moins trois caractères et, si nécessaire, début et expiration. Une expiration vide signifie un accès permanent. Pour un groupe, vérifiez les membres et l'effet des groupes imbriqués avant de confirmer.", "Enter a justification of at least three characters and, when needed, start and expiry. Empty expiry means permanent access. For a group, check members and nested group effects before confirming."],
-      ["Testez la connexion sur /admin avec le compte concerné, par SSO ou AD selon sa configuration. Contrôlez la trace d'attribution, la validité et les sessions actives. Pour un départ ou un incident, retirez l'attribution puis révoquez les sessions concernées et retestez l'accès.", "Test sign-in at /admin with that account using SSO or AD as configured. Check the grant record, validity and active sessions. For a departure or incident, remove the grant, revoke relevant sessions and retest access."],
+      [
+        "Dans Comptes administrateurs, choisissez un compte local, un utilisateur AD trouvé dans l'annuaire ou un groupe AD sélectionné dans les résultats. Pour AD, vérifiez l'identité et le mail réel avant l'attribution ; ne saisissez pas simplement un nom ressemblant au compte.",
+        "In Administrator accounts, choose a local account, an AD user found in the directory or an AD group selected from results. For AD, verify identity and actual mail before granting access; do not just enter a similar-looking account name.",
+      ],
+      [
+        "Renseignez une justification d'au moins trois caractères et, si nécessaire, début et expiration. Une expiration vide signifie un accès permanent. Pour un groupe, vérifiez les membres et l'effet des groupes imbriqués avant de confirmer.",
+        "Enter a justification of at least three characters and, when needed, start and expiry. Empty expiry means permanent access. For a group, check members and nested group effects before confirming.",
+      ],
+      [
+        "Testez la connexion sur /admin avec le compte concerné, par SSO ou AD selon sa configuration. Contrôlez la trace d'attribution, la validité et les sessions actives. Pour un départ ou un incident, retirez l'attribution puis révoquez les sessions concernées et retestez l'accès.",
+        "Test sign-in at /admin with that account using SSO or AD as configured. Check the grant record, validity and active sessions. For a departure or incident, remove the grant, revoke relevant sessions and retest access.",
+      ],
     ],
-    values: 'User example: operator@example.test\nGroup example: ISMS-Administrators\nGroup DN: CN=ISMS-Administrators,OU=Groups,DC=example,DC=test\njustification = Temporary platform maintenance\nvalidUntil = choose the approved expiry in the form\nEmpty validUntil = permanent access',
-    warning: ["Le rôle administrateur donne accès aux configurations sensibles. Une affectation à l'application Entra ne remplace pas une attribution ISMS. Le compte principal est protégé contre la suppression ; conservez un compte de secours sans élargir un groupe métier entier.", "The administrator role grants access to sensitive configuration. Entra application assignment does not replace an ISMS grant. The primary account is protected from deletion; keep a fallback account without granting an entire business group."],
+    values:
+      "User example: operator@example.test\nGroup example: ISMS-Administrators\nGroup DN: CN=ISMS-Administrators,OU=Groups,DC=example,DC=test\njustification = Temporary platform maintenance\nvalidUntil = choose the approved expiry in the form\nEmpty validUntil = permanent access",
+    warning: [
+      "Le rôle administrateur donne accès aux configurations sensibles. Une affectation à l'application Entra ne remplace pas une attribution ISMS. Le compte principal est protégé contre la suppression ; conservez un compte de secours sans élargir un groupe métier entier.",
+      "The administrator role grants access to sensitive configuration. Entra application assignment does not replace an ISMS grant. The primary account is protected from deletion; keep a fallback account without granting an entire business group.",
+    ],
   },
   moderators: {
     steps: [
-      ["Dans Modérateurs, sélectionnez l'utilisateur ou le groupe AD depuis la recherche, puis renseignez une justification. Contrôlez ses membres avant d'accorder le rôle MODERATOR.", "In Moderators, select the AD user or group from search results and enter a justification. Check membership before granting the MODERATOR role."],
-      ["Définissez Gérer, Publier et Archiver/supprimer selon le besoin. Gérer est le prérequis : l'exemple ci-dessous autorise la gestion documentaire sans publication ni suppression. Vérifiez aussi les espaces accessibles à l'identité.", "Set Manage, Publish and Archive/delete according to need. Manage is the prerequisite: the example below allows document management without publication or deletion. Also check spaces accessible to the identity."],
-      ["Connectez le compte sur /moderator. Testez les actions accordées et le refus des actions non accordées, puis vérifiez qu'il ne peut pas ouvrir les configurations administratives. Un dépôt ou une nouvelle version conserve sa trace d'audit.", "Sign the account in at /moderator. Test granted actions and denial of ungranted actions, then verify it cannot open administrative configuration. Uploads and new versions retain an audit record."],
+      [
+        "Dans Modérateurs, sélectionnez l'utilisateur ou le groupe AD depuis la recherche, puis renseignez une justification. Contrôlez ses membres avant d'accorder le rôle MODERATOR.",
+        "In Moderators, select the AD user or group from search results and enter a justification. Check membership before granting the MODERATOR role.",
+      ],
+      [
+        "Définissez Gérer, Publier et Archiver/supprimer selon le besoin. Gérer est le prérequis : l'exemple ci-dessous autorise la gestion documentaire sans publication ni suppression. Vérifiez aussi les espaces accessibles à l'identité.",
+        "Set Manage, Publish and Archive/delete according to need. Manage is the prerequisite: the example below allows document management without publication or deletion. Also check spaces accessible to the identity.",
+      ],
+      [
+        "Connectez le compte sur /moderator. Testez les actions accordées et le refus des actions non accordées, puis vérifiez qu'il ne peut pas ouvrir les configurations administratives. Un dépôt ou une nouvelle version conserve sa trace d'audit.",
+        "Sign the account in at /moderator. Test granted actions and denial of ungranted actions, then verify it cannot open administrative configuration. Uploads and new versions retain an audit record.",
+      ],
     ],
-    values: 'role = MODERATOR\ncanManageDocuments = true\ncanPublishDocuments = false\ncanDeleteDocuments = false\nUser example = moderator@example.test\nWorkspace = /moderator\nGET /api/documents?page=1&limit=20&managed=true&space=it',
-    warning: ["Ne donnez pas le rôle administrateur pour faire apparaître les boutons documentaires d'un modérateur. Testez avec le vrai compte modérateur, pas avec un administrateur qui conserve des droits plus larges.", "Do not grant administrator privileges to reveal moderator document actions. Test with the actual moderator account, not an administrator retaining broader rights."],
+    values:
+      "role = MODERATOR\ncanManageDocuments = true\ncanPublishDocuments = false\ncanDeleteDocuments = false\nUser example = moderator@example.test\nWorkspace = /moderator\nGET /api/documents?page=1&limit=20&managed=true&space=it",
+    warning: [
+      "Ne donnez pas le rôle administrateur pour faire apparaître les boutons documentaires d'un modérateur. Testez avec le vrai compte modérateur, pas avec un administrateur qui conserve des droits plus larges.",
+      "Do not grant administrator privileges to reveal moderator document actions. Test with the actual moderator account, not an administrator retaining broader rights.",
+    ],
   },
   governance: {
     steps: [
-      ["Revues : après publication, vérifiez la présence du document dans la file. Pour une revue manuelle, choisissez document, propriétaire, relecteur, approbateur et échéance. Les sélections AD doivent correspondre à des identités réelles ; un participant n'obtient pas un rôle de gestion par cette sélection.", "Reviews: after publishing, check that the document appears in the queue. For a manual review, select document, owner, reviewer, approver and due date. AD selections must match real identities; selecting a participant does not grant a management role."],
-      ["Filtrez En retard, En cours ou Terminées. Un administrateur ou modérateur autorisé approuve ou refuse avec un commentaire de décision. Une preuve JPEG/PNG facultative est limitée à 2 Mio. Vérifiez auteur, date, commentaire, état documentaire après refus et prochaine échéance après approbation.", "Filter Overdue, In progress or Completed. An authorized administrator or moderator approves or rejects with a decision comment. Optional JPEG/PNG evidence is limited to 2 MiB. Check author, date, comment, document state after rejection and next due date after approval."],
-      ["Accès lifetime : examinez les règles permanentes et leur justification. Contrôles et SoA : renseignez référentiel, référence, applicabilité, état de mise en œuvre, responsable, justification et document de preuve ; un lien documentaire seul ne prouve pas la mise en œuvre du contrôle.", "Lifetime access: examine permanent rules and their justification. Controls and SoA: enter framework, reference, applicability, implementation status, owner, justification and evidence document; a document link alone does not prove control implementation."],
-      ["Rétention : sélectionnez le document, une date de conservation et le motif. Legal hold protège une conservation réglementaire ou contentieuse ; vérifiez cette contrainte avant toute suppression. Santé identité : examinez les identités et groupes signalés avant de retirer un accès légitime.", "Retention: select document, retention date and reason. Legal hold protects regulatory or litigation retention; check this constraint before deletion. Identity health: examine reported identities and groups before removing legitimate access."],
-      ["Incidents et CAPA : enregistrez référence, gravité, responsable, date, cause racine et enseignements, puis suivez les actions correctives. Dérogations : renseignez responsable, justification, approbateur et expiration ; vérifiez la décision et la validité avant de considérer une exception acceptée.", "Incidents and CAPA: record reference, severity, owner, date, root cause and lessons, then track corrective actions. Exceptions: enter owner, justification, approver and expiry; check the decision and validity before treating an exception as accepted."],
-      ["Vues et lots : préparez une sélection et vérifiez chaque document avant une opération groupée. Pilotage KPI/KRI : confrontez les compteurs aux listes de revues, contrôles, incidents et approbations. Avant une relance, vérifiez participants, attributs mail et suivi des e-mails dans Observabilité.", "Views and bulk: prepare a selection and check each document before a bulk operation. KPI/KRI dashboard: compare counters with review, control, incident and approval lists. Before reminding, check participants, mail attributes and email history in Observability."],
+      [
+        "Revues : après publication, vérifiez la présence du document dans la file. Pour une revue manuelle, choisissez document, propriétaire, relecteur, approbateur et échéance. Les sélections AD doivent correspondre à des identités réelles ; un participant n'obtient pas un rôle de gestion par cette sélection.",
+        "Reviews: after publishing, check that the document appears in the queue. For a manual review, select document, owner, reviewer, approver and due date. AD selections must match real identities; selecting a participant does not grant a management role.",
+      ],
+      [
+        "Filtrez En retard, En cours ou Terminées. Un administrateur ou modérateur autorisé approuve ou refuse avec un commentaire de décision. Une preuve JPEG/PNG facultative est limitée à 2 Mio. Vérifiez auteur, date, commentaire, état documentaire après refus et prochaine échéance après approbation.",
+        "Filter Overdue, In progress or Completed. An authorized administrator or moderator approves or rejects with a decision comment. Optional JPEG/PNG evidence is limited to 2 MiB. Check author, date, comment, document state after rejection and next due date after approval.",
+      ],
+      [
+        "Accès lifetime : examinez les règles permanentes et leur justification. Contrôles et SoA : renseignez référentiel, référence, applicabilité, état de mise en œuvre, responsable, justification et document de preuve ; un lien documentaire seul ne prouve pas la mise en œuvre du contrôle.",
+        "Lifetime access: examine permanent rules and their justification. Controls and SoA: enter framework, reference, applicability, implementation status, owner, justification and evidence document; a document link alone does not prove control implementation.",
+      ],
+      [
+        "Rétention : sélectionnez le document, une date de conservation et le motif. Legal hold protège une conservation réglementaire ou contentieuse ; vérifiez cette contrainte avant toute suppression. Santé identité : examinez les identités et groupes signalés avant de retirer un accès légitime.",
+        "Retention: select document, retention date and reason. Legal hold protects regulatory or litigation retention; check this constraint before deletion. Identity health: examine reported identities and groups before removing legitimate access.",
+      ],
+      [
+        "Incidents et CAPA : enregistrez référence, gravité, responsable, date, cause racine et enseignements, puis suivez les actions correctives. Dérogations : renseignez responsable, justification, approbateur et expiration ; vérifiez la décision et la validité avant de considérer une exception acceptée.",
+        "Incidents and CAPA: record reference, severity, owner, date, root cause and lessons, then track corrective actions. Exceptions: enter owner, justification, approver and expiry; check the decision and validity before treating an exception as accepted.",
+      ],
+      [
+        "Vues et lots : préparez une sélection et vérifiez chaque document avant une opération groupée. Pilotage KPI/KRI : confrontez les compteurs aux listes de revues, contrôles, incidents et approbations. Avant une relance, vérifiez participants, attributs mail et suivi des e-mails dans Observabilité.",
+        "Views and bulk: prepare a selection and check each document before a bulk operation. KPI/KRI dashboard: compare counters with review, control, incident and approval lists. Before reminding, check participants, mail attributes and email history in Observability.",
+      ],
     ],
-    values: 'Manual review example\nowner = owner@example.test\nreviewer = reviewer@example.test\napprover = moderator@example.test\ndueAt = choose the approved due date in the form\n\nControl example\nframework = ISO 27001\nreference = INTERNAL-ACCESS-01\napplicability = APPLICABLE\nimplementationStatus = PLANNED\n\nRetention example\nretentionUntil = choose the approved retention date\nlegalHold = false\nreason = Approved retention schedule',
-    warning: ["Une pièce de preuve peut contenir des données sensibles. Vérifiez sa consultation après dépôt ; un commentaire de décision enregistré ne garantit pas que la pièce jointe a été téléversée avec succès. La planification d'une revue n'est pas une décision, et une rétention n'est pas une sauvegarde.", "Evidence may contain sensitive data. Check it can be viewed after upload; a saved decision comment does not guarantee successful attachment upload. Scheduling a review is not a decision, and retention is not a backup."],
+    values:
+      "Manual review example\nowner = owner@example.test\nreviewer = reviewer@example.test\napprover = moderator@example.test\ndueAt = choose the approved due date in the form\n\nControl example\nframework = ISO 27001\nreference = INTERNAL-ACCESS-01\napplicability = APPLICABLE\nimplementationStatus = PLANNED\n\nRetention example\nretentionUntil = choose the approved retention date\nlegalHold = false\nreason = Approved retention schedule",
+    warning: [
+      "Une pièce de preuve peut contenir des données sensibles. Vérifiez sa consultation après dépôt ; un commentaire de décision enregistré ne garantit pas que la pièce jointe a été téléversée avec succès. La planification d'une revue n'est pas une décision, et une rétention n'est pas une sauvegarde.",
+      "Evidence may contain sensitive data. Check it can be viewed after upload; a saved decision comment does not guarantee successful attachment upload. Scheduling a review is not a decision, and retention is not a backup.",
+    ],
   },
   requests: {
     steps: [
-      ["Dans Demandes utilisateurs, ouvrez la demande et vérifiez demandeur, ressource, justification, état et date. Pour une demande d'accès, comparez le besoin avec le groupe ou l'espace demandé et la durée prévue.", "In User requests, open the request and check requester, resource, justification, status and date. For an access request, compare the need with the requested group or space and intended duration."],
-      ["Avant d'approuver une opération sensible, vérifiez la version et les effets sur publication, droits ou suppression. Enregistrez une décision motivée avec le compte autorisé ; ne contournez pas l'interdiction d'auto-approbation lorsqu'elle s'applique.", "Before approving a sensitive operation, check the version and effects on publication, permissions or deletion. Record a reasoned decision using the authorized account; do not bypass self-approval restrictions where applicable."],
-      ["Pour un signalement, distinguez commentaire interne et réponse au demandeur. Après traitement, vérifiez l'état de la demande, le résultat réellement appliqué, la trace d'audit et la notification. Une réponse envoyée n'est pas à elle seule une modification d'ACL.", "For a report, distinguish internal comments from the requester response. After processing, check request status, the actual applied result, audit record and notification. A sent response alone is not an ACL change."],
+      [
+        "Dans Demandes utilisateurs, ouvrez la demande et vérifiez demandeur, ressource, justification, état et date. Pour une demande d'accès, comparez le besoin avec le groupe ou l'espace demandé et la durée prévue.",
+        "In User requests, open the request and check requester, resource, justification, status and date. For an access request, compare the need with the requested group or space and intended duration.",
+      ],
+      [
+        "Avant d'approuver une opération sensible, vérifiez la version et les effets sur publication, droits ou suppression. Enregistrez une décision motivée avec le compte autorisé ; ne contournez pas l'interdiction d'auto-approbation lorsqu'elle s'applique.",
+        "Before approving a sensitive operation, check the version and effects on publication, permissions or deletion. Record a reasoned decision using the authorized account; do not bypass self-approval restrictions where applicable.",
+      ],
+      [
+        "Pour un signalement, distinguez commentaire interne et réponse au demandeur. Après traitement, vérifiez l'état de la demande, le résultat réellement appliqué, la trace d'audit et la notification. Une réponse envoyée n'est pas à elle seule une modification d'ACL.",
+        "For a report, distinguish internal comments from the requester response. After processing, check request status, the actual applied result, audit record and notification. A sent response alone is not an ACL change.",
+      ],
     ],
-    values: 'Requester = reader@example.test\nResource = Workstation security guide\nReason = Temporary access for an approved project\nCheck = requested scope + duration + effective permissions\nInternal comment != requester response',
-    warning: ["L'accès doit être contrôlé après décision avec le compte concerné. N'ajoutez pas un groupe trop large pour traiter une demande individuelle, et ne recopiez pas des commentaires confidentiels dans un e-mail au demandeur.", "Access must be checked after the decision with the relevant account. Do not add an overly broad group to handle an individual request, and do not copy confidential comments into requester email."],
+    values:
+      "Requester = reader@example.test\nResource = Workstation security guide\nReason = Temporary access for an approved project\nCheck = requested scope + duration + effective permissions\nInternal comment != requester response",
+    warning: [
+      "L'accès doit être contrôlé après décision avec le compte concerné. N'ajoutez pas un groupe trop large pour traiter une demande individuelle, et ne recopiez pas des commentaires confidentiels dans un e-mail au demandeur.",
+      "Access must be checked after the decision with the relevant account. Do not add an overly broad group to handle an individual request, and do not copy confidential comments into requester email.",
+    ],
   },
   trash: {
     steps: [
-      ["Dans Corbeille documentaire, identifiez le document par titre et date de suppression. Avant restauration, vérifiez espace, catégories, droits et politique de conservation attendus.", "In Document trash, identify the document by title and deletion date. Before restoring, check expected space, categories, permissions and retention policy."],
-      ["Utilisez Restaurer, puis contrôlez état, version, aperçu et accès depuis le portail. Vérifiez également la file de revues ; ne supposez pas que la restauration republie automatiquement le document ou recrée toutes ses notifications.", "Use Restore, then check status, version, preview and portal access. Also check the review queue; do not assume restoration automatically republishes the document or recreates all notifications."],
-      ["Pour supprimer définitivement, contrôlez rétention et legal hold, sauvegarde et autorisation, puis confirmez uniquement le document voulu. Vérifiez ensuite disparition des fichiers concernés et maintien de la trace d'audit prévue.", "Before permanent deletion, check retention and legal hold, backup and authorization, then confirm only the intended document. Afterwards check removal of relevant files and retention of the expected audit record."],
+      [
+        "Dans Corbeille documentaire, identifiez le document par titre et date de suppression. Avant restauration, vérifiez espace, catégories, droits et politique de conservation attendus.",
+        "In Document trash, identify the document by title and deletion date. Before restoring, check expected space, categories, permissions and retention policy.",
+      ],
+      [
+        "Utilisez Restaurer, puis contrôlez état, version, aperçu et accès depuis le portail. Vérifiez également la file de revues ; ne supposez pas que la restauration republie automatiquement le document ou recrée toutes ses notifications.",
+        "Use Restore, then check status, version, preview and portal access. Also check the review queue; do not assume restoration automatically republishes the document or recreates all notifications.",
+      ],
+      [
+        "Pour supprimer définitivement, contrôlez rétention et legal hold, sauvegarde et autorisation, puis confirmez uniquement le document voulu. Vérifiez ensuite disparition des fichiers concernés et maintien de la trace d'audit prévue.",
+        "Before permanent deletion, check retention and legal hold, backup and authorization, then confirm only the intended document. Afterwards check removal of relevant files and retention of the expected audit record.",
+      ],
     ],
-    values: 'Restore: POST /api/admin/documents/{id}/trash/restore\nPermanent deletion: DELETE /api/admin/documents/{id}\nThese are protected API references, not commands to run.\nBefore deletion: retention + legal hold + backup + authorization',
-    warning: ["La suppression définitive est irréversible depuis la corbeille. La suppression doit retirer le document du suivi actif des revues sans effacer les traces d'audit exigées ; contrôlez aussi qu'aucun rappel actif ne le cible encore.", "Permanent deletion cannot be reversed from trash. Deletion should remove the document from active review tracking without erasing required audit records; also check that no active reminder still targets it."],
+    values:
+      "Restore: POST /api/admin/documents/{id}/trash/restore\nPermanent deletion: DELETE /api/admin/documents/{id}\nThese are protected API references, not commands to run.\nBefore deletion: retention + legal hold + backup + authorization",
+    warning: [
+      "La suppression définitive est irréversible depuis la corbeille. La suppression doit retirer le document du suivi actif des revues sans effacer les traces d'audit exigées ; contrôlez aussi qu'aucun rappel actif ne le cible encore.",
+      "Permanent deletion cannot be reversed from trash. Deletion should remove the document from active review tracking without erasing required audit records; also check that no active reminder still targets it.",
+    ],
   },
   incidents: {
     steps: [
-      ["Dans Rapports d'incidents, préparez l'année, les titres proposés et le résumé. Enregistrez d'abord en brouillon pour contrôler les informations sans ouvrir la diffusion.", "In Incident reports, prepare the year, available titles and summary. Save as draft first to check information before distribution."],
-      ["Sélectionnez les groupes autorisés dans l'audience. Utilisez un groupe de sécurité dédié si le rapport contient des informations sensibles ; vérifiez que le connecteur AD a bien synchronisé ce groupe et ses membres.", "Select authorized groups in the audience. Use a dedicated security group for sensitive reports; verify the AD connector has synchronized that group and members."],
-      ["Publiez après validation, puis testez la consultation et le téléchargement éventuel avec un membre et un non-membre sans autre autorisation. Pour les causes racines et actions correctives, utilisez aussi Incidents et CAPA dans Gouvernance ISMS.", "Publish after validation, then test viewing and any download using a member and a non-member with no other authorization. For root causes and corrective actions, also use Incidents and CAPA in ISMS governance."],
+      [
+        "Dans Rapports d'incidents, préparez l'année, les titres proposés et le résumé. Enregistrez d'abord en brouillon pour contrôler les informations sans ouvrir la diffusion.",
+        "In Incident reports, prepare the year, available titles and summary. Save as draft first to check information before distribution.",
+      ],
+      [
+        "Sélectionnez les groupes autorisés dans l'audience. Utilisez un groupe de sécurité dédié si le rapport contient des informations sensibles ; vérifiez que le connecteur AD a bien synchronisé ce groupe et ses membres.",
+        "Select authorized groups in the audience. Use a dedicated security group for sensitive reports; verify the AD connector has synchronized that group and members.",
+      ],
+      [
+        "Publiez après validation, puis testez la consultation et le téléchargement éventuel avec un membre et un non-membre sans autre autorisation. Pour les causes racines et actions correctives, utilisez aussi Incidents et CAPA dans Gouvernance ISMS.",
+        "Publish after validation, then test viewing and any download using a member and a non-member with no other authorization. For root causes and corrective actions, also use Incidents and CAPA in ISMS governance.",
+      ],
     ],
-    values: 'year = 2026\nsummary = Approved annual incident summary\naudience = ISMS-Incident-Readers\nInitial status = DRAFT\nPublished status = PUBLISHED\nGovernance incident/CAPA tracking is a separate workflow.',
-    warning: ["Ne confondez pas rapport annuel publié et dossier d'incident en cours. Évitez identifiants, secrets, adresses personnelles et preuves brutes dans un rapport destiné à une audience large.", "Do not confuse a published annual report with an active incident case. Avoid credentials, secrets, personal addresses and raw evidence in reports intended for a broad audience."],
+    values:
+      "year = 2026\nsummary = Approved annual incident summary\naudience = ISMS-Incident-Readers\nInitial status = DRAFT\nPublished status = PUBLISHED\nGovernance incident/CAPA tracking is a separate workflow.",
+    warning: [
+      "Ne confondez pas rapport annuel publié et dossier d'incident en cours. Évitez identifiants, secrets, adresses personnelles et preuves brutes dans un rapport destiné à une audience large.",
+      "Do not confuse a published annual report with an active incident case. Avoid credentials, secrets, personal addresses and raw evidence in reports intended for a broad audience.",
+    ],
   },
   audit: {
     steps: [
-      ["Dans Journal d'audit, partez de l'heure du problème, de l'identité et de la ressource. Appliquez les filtres proposés et examinez action, résultat et date ; relevez l'identifiant de corrélation lorsqu'il est disponible.", "In Audit log, start with issue time, identity and resource. Apply available filters and examine action, result and timestamp; record a correlation identifier when available."],
-      ["Pour une modification de catégorie ou de langue, recherchez le document et l'action de métadonnées. Pour un incident de connexion, rapprochez les refus d'accès des diagnostics SSO/AD et des journaux techniques sans diffuser les jetons de session.", "For a category or language change, search the document and metadata action. For a sign-in incident, correlate access denials with SSO/AD diagnostics and technical logs without distributing session tokens."],
-      ["Si un export est nécessaire, limitez-le à la période et au besoin autorisés. Stockez-le dans un emplacement protégé avec la conservation prévue, et comparez le résultat à l'état réel de la ressource.", "If export is necessary, limit it to the authorized period and purpose. Store it in a protected location with required retention, and compare the result with actual resource state."],
+      [
+        "Dans Journal d'audit, partez de l'heure du problème, de l'identité et de la ressource. Appliquez les filtres proposés et examinez action, résultat et date ; relevez l'identifiant de corrélation lorsqu'il est disponible.",
+        "In Audit log, start with issue time, identity and resource. Apply available filters and examine action, result and timestamp; record a correlation identifier when available.",
+      ],
+      [
+        "Pour une modification de catégorie ou de langue, recherchez le document et l'action de métadonnées. Pour un incident de connexion, rapprochez les refus d'accès des diagnostics SSO/AD et des journaux techniques sans diffuser les jetons de session.",
+        "For a category or language change, search the document and metadata action. For a sign-in incident, correlate access denials with SSO/AD diagnostics and technical logs without distributing session tokens.",
+      ],
+      [
+        "Si un export est nécessaire, limitez-le à la période et au besoin autorisés. Stockez-le dans un emplacement protégé avec la conservation prévue, et comparez le résultat à l'état réel de la ressource.",
+        "If export is necessary, limit it to the authorized period and purpose. Store it in a protected location with required retention, and compare the result with actual resource state.",
+      ],
     ],
-    values: 'Example investigation\nidentity = moderator@example.test\nresource = document identifier\naction = document.metadata.update\nCheck timestamp + result + corresponding document state\nCross-check: SSO/AD diagnostics and technical logs',
-    warning: ["Un journal technique ou un e-mail n'est pas un substitut à une trace métier. Ne modifiez pas directement les lignes d'audit pour corriger un incident ; faites une nouvelle opération autorisée et conservez les traces.", "A technical log or email does not replace a business audit record. Do not directly change audit rows to fix an incident; perform a new authorized operation and retain records."],
+    values:
+      "Example investigation\nidentity = moderator@example.test\nresource = document identifier\naction = document.metadata.update\nCheck timestamp + result + corresponding document state\nCross-check: SSO/AD diagnostics and technical logs",
+    warning: [
+      "Un journal technique ou un e-mail n'est pas un substitut à une trace métier. Ne modifiez pas directement les lignes d'audit pour corriger un incident ; faites une nouvelle opération autorisée et conservez les traces.",
+      "A technical log or email does not replace a business audit record. Do not directly change audit rows to fix an incident; perform a new authorized operation and retain records.",
+    ],
   },
   settings: {
     steps: [
-      ["Dans Identité visuelle du portail, renseignez un titre de 3 à 60 caractères. Choisissez un logo PNG, JPEG ou WebP valide de moins de 20 Mio ; l'interface le redimensionne et l'optimise avant enregistrement.", "In Portal branding, enter a title of 3 to 60 characters. Choose a valid PNG, JPEG or WebP logo under 20 MiB; the interface resizes and optimizes it before saving."],
-      ["Contrôlez l'aperçu, enregistrez puis vérifiez connexion, portail et administration. Testez un écran étroit pour contrôler lisibilité du titre et proportions du logo, sans agrandir les boutons de navigation.", "Check the preview, save and verify sign-in, portal and administration. Test a narrow screen to check title readability and logo proportions without enlarging navigation buttons."],
-      ["Utilisez les boutons FR/EN de l'en-tête pour changer la langue de l'interface, y compris l'aide. La langue du fichier se change séparément dans Modifier le document ; un logo ou un titre ne traduit pas le contenu documentaire.", "Use the header FR/EN buttons to change interface language, including help. Change file language separately in Edit document; a logo or title does not translate document content."],
+      [
+        "Dans Identité visuelle du portail, renseignez un titre de 3 à 60 caractères. Choisissez un logo PNG, JPEG ou WebP valide de moins de 20 Mio ; l'interface le redimensionne et l'optimise avant enregistrement.",
+        "In Portal branding, enter a title of 3 to 60 characters. Choose a valid PNG, JPEG or WebP logo under 20 MiB; the interface resizes and optimizes it before saving.",
+      ],
+      [
+        "Contrôlez l'aperçu, enregistrez puis vérifiez connexion, portail et administration. Testez un écran étroit pour contrôler lisibilité du titre et proportions du logo, sans agrandir les boutons de navigation.",
+        "Check the preview, save and verify sign-in, portal and administration. Test a narrow screen to check title readability and logo proportions without enlarging navigation buttons.",
+      ],
+      [
+        "Utilisez les boutons FR/EN de l'en-tête pour changer la langue de l'interface, y compris l'aide. La langue du fichier se change séparément dans Modifier le document ; un logo ou un titre ne traduit pas le contenu documentaire.",
+        "Use the header FR/EN buttons to change interface language, including help. Change file language separately in Edit document; a logo or title does not translate document content.",
+      ],
     ],
-    values: 'title = ISMS Portal\nAllowed logo formats = PNG, JPEG, WebP\nMaximum source logo size = less than 20 MiB\nInterface language = header FR / EN\nDocument language = document metadata locale',
-    warning: ["N'intégrez pas d'image contenant des données sensibles au logo. Gardez une copie de l'identité visuelle précédente pour revenir en arrière ; cette page ne configure ni DNS, ni HTTPS, ni SSO.", "Do not use an image containing sensitive data as the logo. Keep a copy of previous branding to revert; this page configures neither DNS, HTTPS nor SSO."],
+    values:
+      "title = ISMS Portal\nAllowed logo formats = PNG, JPEG, WebP\nMaximum source logo size = less than 20 MiB\nInterface language = header FR / EN\nDocument language = document metadata locale",
+    warning: [
+      "N'intégrez pas d'image contenant des données sensibles au logo. Gardez une copie de l'identité visuelle précédente pour revenir en arrière ; cette page ne configure ni DNS, ni HTTPS, ni SSO.",
+      "Do not use an image containing sensitive data as the logo. Keep a copy of previous branding to revert; this page configures neither DNS, HTTPS nor SSO.",
+    ],
   },
   "advanced-settings": {
     steps: [
-      ["Avant d'utiliser Paramètres avancés, identifiez une clé applicative réellement prise en charge et son schéma auprès de l'exploitant. Privilégiez le menu dédié : Canaux d'alerte, Politique d'alerte, Intégrations, Stockage ou Annuaire.", "Before using Advanced settings, identify an actually supported application key and its schema with an operator. Prefer the dedicated menu: Alert channels, Alert policy, Integrations, Storage or Directory."],
-      ["Conservez la valeur précédente dans un emplacement protégé. Le champ Valeur JSON exige du JSON strict : guillemets doubles, booléens true/false, pas de commentaire ni de virgule finale. L'exemple ci-dessous montre uniquement la syntaxe, pas une configuration à appliquer à n'importe quelle clé.", "Retain the previous value in a protected location. JSON value requires strict JSON: double quotes, true/false booleans, no comments or trailing commas. The example below shows syntax only, not configuration to apply to any key."],
-      ["Renseignez la clé validée et sa valeur complète, puis enregistrez. Contrôlez le comportement cible et si un rechargement ou redéploiement est requis pour ce paramètre. Une sauvegarde JSON réussie ne prouve pas que l'application utilise cette clé.", "Enter the validated key and its complete value, then save. Check target behavior and whether that setting requires reload or redeployment. Successfully saving JSON does not prove the application uses that key."],
-      ["En cas de régression, restaurez la valeur précédente par le même mécanisme autorisé et vérifiez le résultat. Les variables Docker/.env restent configurées côté serveur : une clé de cet écran ne les remplace pas automatiquement.", "On regression, restore the previous value through the same authorized mechanism and verify the result. Docker/.env variables remain configured server-side: a key on this screen does not automatically replace them."],
+      [
+        "Avant d'utiliser Paramètres avancés, identifiez une clé applicative réellement prise en charge et son schéma auprès de l'exploitant. Privilégiez le menu dédié : Canaux d'alerte, Politique d'alerte, Intégrations, Stockage ou Annuaire.",
+        "Before using Advanced settings, identify an actually supported application key and its schema with an operator. Prefer the dedicated menu: Alert channels, Alert policy, Integrations, Storage or Directory.",
+      ],
+      [
+        "Conservez la valeur précédente dans un emplacement protégé. Le champ Valeur JSON exige du JSON strict : guillemets doubles, booléens true/false, pas de commentaire ni de virgule finale. L'exemple ci-dessous montre uniquement la syntaxe, pas une configuration à appliquer à n'importe quelle clé.",
+        "Retain the previous value in a protected location. JSON value requires strict JSON: double quotes, true/false booleans, no comments or trailing commas. The example below shows syntax only, not configuration to apply to any key.",
+      ],
+      [
+        "Renseignez la clé validée et sa valeur complète, puis enregistrez. Contrôlez le comportement cible et si un rechargement ou redéploiement est requis pour ce paramètre. Une sauvegarde JSON réussie ne prouve pas que l'application utilise cette clé.",
+        "Enter the validated key and its complete value, then save. Check target behavior and whether that setting requires reload or redeployment. Successfully saving JSON does not prove the application uses that key.",
+      ],
+      [
+        "En cas de régression, restaurez la valeur précédente par le même mécanisme autorisé et vérifiez le résultat. Les variables Docker/.env restent configurées côté serveur : une clé de cet écran ne les remplace pas automatiquement.",
+        "On regression, restore the previous value through the same authorized mechanism and verify the result. Docker/.env variables remain configured server-side: a key on this screen does not automatically replace them.",
+      ],
     ],
-    values: 'JSON syntax example only:\n{\n  "enabled": false\n}\n\nUse an existing supported key and its documented schema.\nDo not store passwords, tokens or private keys here.',
-    warning: ["Ne créez pas une clé au nom supposé ni une valeur secrète brute pour contourner un formulaire absent. Les API spécialisées gèrent validation et chiffrement ; l'éditeur JSON générique n'est pas un coffre de secrets.", "Do not create a guessed key or raw secret to bypass a missing form. Specialized APIs handle validation and encryption; the generic JSON editor is not a secrets vault."],
+    values:
+      'JSON syntax example only:\n{\n  "enabled": false\n}\n\nUse an existing supported key and its documented schema.\nDo not store passwords, tokens or private keys here.',
+    warning: [
+      "Ne créez pas une clé au nom supposé ni une valeur secrète brute pour contourner un formulaire absent. Les API spécialisées gèrent validation et chiffrement ; l'éditeur JSON générique n'est pas un coffre de secrets.",
+      "Do not create a guessed key or raw secret to bypass a missing form. Specialized APIs handle validation and encryption; the generic JSON editor is not a secrets vault.",
+    ],
   },
   spaces: {
     steps: [
-      ["Dans Espaces documentaires, cliquez sur Nouvel espace. Saisissez les noms français et anglais ci-dessous, puis enregistrez. L'espace alimente le menu documentaire du portail : aucune nouvelle route de code n'est nécessaire.", "In Document spaces, click New space. Enter the French and English names below, then save. The space populates the portal document menu: no new code route is needed."],
-      ["Cliquez sur Nouvelle catégorie, sélectionnez Informatique, saisissez Procédures / Procedures et laissez la catégorie parente vide pour créer une catégorie racine.", "Click New category, select Information technology, enter Procédures / Procedures and leave the parent category empty to create a root category."],
-      ["Créez ensuite Postes de travail / Workstations. Sélectionnez le même espace et Procédures comme catégorie parente : c'est la sous-catégorie. Déposez un document dans cette catégorie depuis Documents.", "Next create Postes de travail / Workstations. Select the same space and Procedures as the parent category: this is the subcategory. Upload a document into this category from Documents."],
-      ["Dans Groupes Active Directory, vérifiez le groupe ISMS-IT-Readers synchronisé. Dans Règles d'accès, associez ce groupe à l'espace Informatique puis testez avec un membre standard du groupe.", "In Active Directory groups, verify the synchronized ISMS-IT-Readers group. In Access rules, associate that group with the Information technology space, then test with a standard group member."],
+      [
+        "Dans Espaces documentaires, cliquez sur Nouvel espace. Saisissez les noms français et anglais ci-dessous, puis enregistrez. L'espace alimente le menu documentaire du portail : aucune nouvelle route de code n'est nécessaire.",
+        "In Document spaces, click New space. Enter the French and English names below, then save. The space populates the portal document menu: no new code route is needed.",
+      ],
+      [
+        "Cliquez sur Nouvelle catégorie, sélectionnez Informatique, saisissez Procédures / Procedures et laissez la catégorie parente vide pour créer une catégorie racine.",
+        "Click New category, select Information technology, enter Procédures / Procedures and leave the parent category empty to create a root category.",
+      ],
+      [
+        "Créez ensuite Postes de travail / Workstations. Sélectionnez le même espace et Procédures comme catégorie parente : c'est la sous-catégorie. Déposez un document dans cette catégorie depuis Documents.",
+        "Next create Postes de travail / Workstations. Select the same space and Procedures as the parent category: this is the subcategory. Upload a document into this category from Documents.",
+      ],
+      [
+        "Dans Groupes Active Directory, vérifiez le groupe ISMS-IT-Readers synchronisé. Dans Règles d'accès, associez ce groupe à l'espace Informatique puis testez avec un membre standard du groupe.",
+        "In Active Directory groups, verify the synchronized ISMS-IT-Readers group. In Access rules, associate that group with the Information technology space, then test with a standard group member.",
+      ],
     ],
-    values: 'Espace / Space\nnameFr = Informatique\nnameEn = Information technology\n\nCatégorie racine / Root category\nnameFr = Procédures\nnameEn = Procedures\nparent = (none)\n\nSous-catégorie / Subcategory\nnameFr = Postes de travail\nnameEn = Workstations\nparent = Procedures\nspace = Information technology',
-    warning: ["La règle de cet éditeur porte sur l'espace, pas sur une sous-catégorie isolée. Ne considérez pas le rangement comme une restriction de sécurité : créez un espace distinct si l'audience doit être différente.", "A rule in this editor applies to the space, not to an isolated subcategory. Do not treat document organization as a security restriction: create a separate space if its audience must differ."],
+    values:
+      "Espace / Space\nnameFr = Informatique\nnameEn = Information technology\n\nCatégorie racine / Root category\nnameFr = Procédures\nnameEn = Procedures\nparent = (none)\n\nSous-catégorie / Subcategory\nnameFr = Postes de travail\nnameEn = Workstations\nparent = Procedures\nspace = Information technology",
+    warning: [
+      "La règle de cet éditeur porte sur l'espace, pas sur une sous-catégorie isolée. Ne considérez pas le rangement comme une restriction de sécurité : créez un espace distinct si l'audience doit être différente.",
+      "A rule in this editor applies to the space, not to an isolated subcategory. Do not treat document organization as a security restriction: create a separate space if its audience must differ.",
+    ],
   },
   groups: {
     steps: [
-      ["Dans Active Directory, créez un groupe de sécurité ISMS-IT-Readers dans l'OU Groups et ajoutez un compte de test standard. Cette opération se fait dans l'annuaire, pas en créant un menu ISMS.", "In Active Directory, create an ISMS-IT-Readers security group in the Groups OU and add a standard test account. This operation takes place in the directory, not by creating an ISMS menu."],
-      ["Dans Synchronisation LDAP, configurez la base des groupes pour inclure cette OU, activez le connecteur puis lancez la synchronisation. Si le groupe manque, vérifiez le filtre, la base de recherche et les droits de lecture du compte de bind.", "In LDAP synchronization, configure the group base to include this OU, enable the connector and run synchronization. If the group is missing, check the filter, search base and bind account read permissions."],
-      ["Dans Groupes Active Directory, recherchez le groupe et contrôlez son DN, son état actif et la date de synchronisation. Utilisez ensuite son entrée dans une règle d'accès.", "In Active Directory groups, search for the group and check its DN, active state and synchronization date. Then use its entry in an access rule."],
-      ["Si l'appartenance passe par un groupe imbriqué, activez la résolution des groupes imbriqués dans le connecteur et testez le résultat. Reconnectez le compte de test pour vérifier ses droits effectifs.", "If membership comes through a nested group, enable nested group resolution in the connector and test the result. Sign the test account in again to verify effective permissions."],
+      [
+        "Dans Active Directory, créez un groupe de sécurité ISMS-IT-Readers dans l'OU Groups et ajoutez un compte de test standard. Cette opération se fait dans l'annuaire, pas en créant un menu ISMS.",
+        "In Active Directory, create an ISMS-IT-Readers security group in the Groups OU and add a standard test account. This operation takes place in the directory, not by creating an ISMS menu.",
+      ],
+      [
+        "Dans Synchronisation LDAP, configurez la base des groupes pour inclure cette OU, activez le connecteur puis lancez la synchronisation. Si le groupe manque, vérifiez le filtre, la base de recherche et les droits de lecture du compte de bind.",
+        "In LDAP synchronization, configure the group base to include this OU, enable the connector and run synchronization. If the group is missing, check the filter, search base and bind account read permissions.",
+      ],
+      [
+        "Dans Groupes Active Directory, recherchez le groupe et contrôlez son DN, son état actif et la date de synchronisation. Utilisez ensuite son entrée dans une règle d'accès.",
+        "In Active Directory groups, search for the group and check its DN, active state and synchronization date. Then use its entry in an access rule.",
+      ],
+      [
+        "Si l'appartenance passe par un groupe imbriqué, activez la résolution des groupes imbriqués dans le connecteur et testez le résultat. Reconnectez le compte de test pour vérifier ses droits effectifs.",
+        "If membership comes through a nested group, enable nested group resolution in the connector and test the result. Sign the test account in again to verify effective permissions.",
+      ],
     ],
-    values: 'Group = ISMS-IT-Readers\nDN = CN=ISMS-IT-Readers,OU=Groups,DC=example,DC=test\ngroupBaseDn = OU=Groups,DC=example,DC=test\ngroupFilter = (objectClass=group)\ngroupAttribute = cn',
-    warning: ["Un groupe présent dans ISMS n'accorde aucun droit sans règle associée. Supprimer son entrée locale ne supprime pas le groupe AD ; il peut revenir à la synchronisation suivante.", "A group present in ISMS grants no rights without an associated rule. Deleting its local entry does not delete the AD group; it may return at the next synchronization."],
+    values:
+      "Group = ISMS-IT-Readers\nDN = CN=ISMS-IT-Readers,OU=Groups,DC=example,DC=test\ngroupBaseDn = OU=Groups,DC=example,DC=test\ngroupFilter = (objectClass=group)\ngroupAttribute = cn",
+    warning: [
+      "Un groupe présent dans ISMS n'accorde aucun droit sans règle associée. Supprimer son entrée locale ne supprime pas le groupe AD ; il peut revenir à la synchronisation suivante.",
+      "A group present in ISMS grants no rights without an associated rule. Deleting its local entry does not delete the AD group; it may return at the next synchronization.",
+    ],
   },
   rules: {
     steps: [
-      ["Dans Règles d'accès, cliquez sur Ajouter une règle et sélectionnez le groupe ISMS-IT-Readers et l'espace Informatique.", "In Access rules, click Add rule and select the ISMS-IT-Readers group and Information technology space."],
-      ["Pour un accès de consultation, cochez Afficher le menu, Lire, Rechercher et Prévisualiser. Laissez Télécharger et les droits de gestion décochés. Ajoutez une justification et enregistrez.", "For viewing access, select Show menu, Read, Search and Preview. Leave Download and management permissions unchecked. Add a justification and save."],
-      ["Dans Simuler les droits effectifs, saisissez l'identité du compte de test ou le groupe attendu et lancez Simuler. Vérifiez les permissions de l'espace concerné.", "In Simulate effective permissions, enter the test account identity or expected group and run Simulate. Check permissions on the relevant space."],
-      ["Connectez un utilisateur standard membre du groupe : le menu et l'aperçu doivent être accessibles, le téléchargement et l'édition refusés. Vérifiez aussi un compte non membre sans autre règle accordant cet accès.", "Sign in as a standard group member: the menu and preview should be accessible, while download and editing are denied. Also check a non-member account with no other rule granting this access."],
+      [
+        "Dans Règles d'accès, cliquez sur Ajouter une règle et sélectionnez le groupe ISMS-IT-Readers et l'espace Informatique.",
+        "In Access rules, click Add rule and select the ISMS-IT-Readers group and Information technology space.",
+      ],
+      [
+        "Pour un accès de consultation, cochez Afficher le menu, Lire, Rechercher et Prévisualiser. Laissez Télécharger et les droits de gestion décochés. Ajoutez une justification et enregistrez.",
+        "For viewing access, select Show menu, Read, Search and Preview. Leave Download and management permissions unchecked. Add a justification and save.",
+      ],
+      [
+        "Dans Simuler les droits effectifs, saisissez l'identité du compte de test ou le groupe attendu et lancez Simuler. Vérifiez les permissions de l'espace concerné.",
+        "In Simulate effective permissions, enter the test account identity or expected group and run Simulate. Check permissions on the relevant space.",
+      ],
+      [
+        "Connectez un utilisateur standard membre du groupe : le menu et l'aperçu doivent être accessibles, le téléchargement et l'édition refusés. Vérifiez aussi un compte non membre sans autre règle accordant cet accès.",
+        "Sign in as a standard group member: the menu and preview should be accessible, while download and editing are denied. Also check a non-member account with no other rule granting this access.",
+      ],
     ],
-    values: 'group = ISMS-IT-Readers\nspace = Information technology\nshowMenu = true\nread = true\nsearch = true\npreview = true\ndownload = false\nupload = false\nedit = false\npublish = false\narchive = false',
-    warning: ["Des droits peuvent provenir de plusieurs groupes. Un administrateur conserve ses droits : son compte n'est pas un bon test d'une restriction utilisateur. La simulation ne remplace pas un test de connexion réel.", "Permissions can come from several groups. An administrator retains privileges: that account is not a valid test of a user restriction. Simulation does not replace an actual sign-in test."],
+    values:
+      "group = ISMS-IT-Readers\nspace = Information technology\nshowMenu = true\nread = true\nsearch = true\npreview = true\ndownload = false\nupload = false\nedit = false\npublish = false\narchive = false",
+    warning: [
+      "Des droits peuvent provenir de plusieurs groupes. Un administrateur conserve ses droits : son compte n'est pas un bon test d'une restriction utilisateur. La simulation ne remplace pas un test de connexion réel.",
+      "Permissions can come from several groups. An administrator retains privileges: that account is not a valid test of a user restriction. Simulation does not replace an actual sign-in test.",
+    ],
   },
   certificates: {
     steps: [
-      ["Depuis la console des certificats Windows, exportez le certificat public de la CA racine et de la CA émettrice nécessaires à la chaîne LDAPS, sans clé privée. Le certificat du contrôleur de domaine doit porter son FQDN et l'usage Server Authentication.", "From the Windows certificate console, export the public root and issuing CA certificates needed for the LDAPS chain, without private keys. The domain controller certificate must contain its FQDN and Server Authentication usage."],
-      ["Dans Certificats CA, donnez un nom explicite à la CA puis importez le fichier public. Les formats proposés sont PEM, CRT, CER, P7B et P7C ; le portail accepte au maximum deux certificats. Contrôlez l'émetteur, l'expiration et l'empreinte avec votre source de confiance.", "In CA certificates, give the CA a clear name and import its public file. Supported extensions are PEM, CRT, CER, P7B and P7C; the portal accepts at most two certificates. Verify issuer, expiry and fingerprint against your trusted source."],
-      ["Utilisez Tester dans ce menu. Ensuite, sélectionnez cette CA dans le connecteur LDAPS et testez la connexion à l'annuaire : l'import seul n'active pas LDAPS sur le contrôleur.", "Use Test in this menu. Next select this CA in the LDAPS connector and test directory connectivity: importing alone does not enable LDAPS on the domain controller."],
-      ["Pour un fichier PEM et un hôte Linux disposant d'OpenSSL, les commandes ci-dessous vérifient les métadonnées puis la chaîne et le nom DNS. Le second test doit terminer avec un code de vérification TLS nul ; il ne teste pas le bind LDAP.", "For a PEM file on a Linux host with OpenSSL installed, the commands below check metadata, then the chain and DNS name. The second test should return a zero TLS verification code; it does not test LDAP bind."],
+      [
+        "Depuis la console des certificats Windows, exportez le certificat public de la CA racine et de la CA émettrice nécessaires à la chaîne LDAPS, sans clé privée. Le certificat du contrôleur de domaine doit porter son FQDN et l'usage Server Authentication.",
+        "From the Windows certificate console, export the public root and issuing CA certificates needed for the LDAPS chain, without private keys. The domain controller certificate must contain its FQDN and Server Authentication usage.",
+      ],
+      [
+        "Dans Certificats CA, donnez un nom explicite à la CA puis importez le fichier public. Les formats proposés sont PEM, CRT, CER, P7B et P7C ; le portail accepte au maximum deux certificats. Contrôlez l'émetteur, l'expiration et l'empreinte avec votre source de confiance.",
+        "In CA certificates, give the CA a clear name and import its public file. Supported extensions are PEM, CRT, CER, P7B and P7C; the portal accepts at most two certificates. Verify issuer, expiry and fingerprint against your trusted source.",
+      ],
+      [
+        "Utilisez Tester dans ce menu. Ensuite, sélectionnez cette CA dans le connecteur LDAPS et testez la connexion à l'annuaire : l'import seul n'active pas LDAPS sur le contrôleur.",
+        "Use Test in this menu. Next select this CA in the LDAPS connector and test directory connectivity: importing alone does not enable LDAPS on the domain controller.",
+      ],
+      [
+        "Pour un fichier PEM et un hôte Linux disposant d'OpenSSL, les commandes ci-dessous vérifient les métadonnées puis la chaîne et le nom DNS. Le second test doit terminer avec un code de vérification TLS nul ; il ne teste pas le bind LDAP.",
+        "For a PEM file on a Linux host with OpenSSL installed, the commands below check metadata, then the chain and DNS name. The second test should return a zero TLS verification code; it does not test LDAP bind.",
+      ],
     ],
-    values: 'openssl x509 -in issuing-ca.pem -noout -subject -issuer -dates -fingerprint -sha256\n\nopenssl s_client -connect dc01.example.test:636 \\\n  -servername dc01.example.test \\\n  -CAfile /secure/path/ca-chain.pem \\\n  -verify_return_error -verify_hostname dc01.example.test </dev/null',
-    warning: ["N'importez ni PFX contenant une clé privée, ni secret. Le certificat CA LDAPS, le certificat HTTPS et les identifiants SSO sont trois usages distincts. Ne désactivez jamais la validation TLS pour contourner une erreur de chaîne ou de nom.", "Do not import a PFX containing a private key or a secret. The LDAPS CA certificate, HTTPS certificate and SSO credentials serve three distinct purposes. Never disable TLS validation to bypass a chain or name error."],
-    source: { label: ["Microsoft : prérequis LDAPS", "Microsoft: LDAPS requirements"], url: "https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/enable-ldap-over-ssl-3rd-certification-authority" },
+    values:
+      "openssl x509 -in issuing-ca.pem -noout -subject -issuer -dates -fingerprint -sha256\n\nopenssl s_client -connect dc01.example.test:636 \\\n  -servername dc01.example.test \\\n  -CAfile /secure/path/ca-chain.pem \\\n  -verify_return_error -verify_hostname dc01.example.test </dev/null",
+    warning: [
+      "N'importez ni PFX contenant une clé privée, ni secret. Le certificat CA LDAPS, le certificat HTTPS et les identifiants SSO sont trois usages distincts. Ne désactivez jamais la validation TLS pour contourner une erreur de chaîne ou de nom.",
+      "Do not import a PFX containing a private key or a secret. The LDAPS CA certificate, HTTPS certificate and SSO credentials serve three distinct purposes. Never disable TLS validation to bypass a chain or name error.",
+    ],
+    source: {
+      label: ["Microsoft : prérequis LDAPS", "Microsoft: LDAPS requirements"],
+      url: "https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/enable-ldap-over-ssl-3rd-certification-authority",
+    },
   },
   directory: {
     steps: [
-      ["Préparez un compte de service dédié disposant uniquement des lectures nécessaires sur les utilisateurs et groupes. Vérifiez depuis le réseau du serveur ISMS la résolution DNS et l'accès TCP/636 au contrôleur, puis importez la CA dans Certificats CA.", "Prepare a dedicated service account with only the required read access to users and groups. From the ISMS server network, verify DNS resolution and TCP/636 access to the controller, then import its CA in CA certificates."],
-      ["Dans Synchronisation LDAP, créez le connecteur avec les champs d'exemple ci-dessous. Les bases OU doivent réellement exister dans votre annuaire. Saisissez le mot de passe de bind dans le champ protégé, jamais dans un exemple ou une capture.", "In LDAP synchronization, create the connector using the example fields below. The OU bases must actually exist in your directory. Enter the bind password in the protected field, never in an example or screenshot."],
-      ["Sélectionnez la CA importée, utilisez LDAPS et le port 636. Vérifiez les attributs : sAMAccountName pour le login, mail pour le nom utilisateur et l'e-mail, cn pour les groupes. L'attribut mail doit être renseigné si vous conservez ces valeurs.", "Select the imported CA, use LDAPS and port 636. Check attributes: sAMAccountName for login, mail for username and email, cn for groups. The mail attribute must be populated if you retain these values."],
-      ["Enregistrez, testez le connecteur puis lancez la synchronisation. Contrôlez la date du dernier succès et la présence du groupe attendu. Faites enfin une connexion AD avec le compte de test et vérifiez ses documents et règles.", "Save, test the connector and run synchronization. Check the last successful sync date and the expected group's presence. Finally sign in through AD using the test account and verify its documents and rules."],
+      [
+        "Préparez un compte de service dédié disposant uniquement des lectures nécessaires sur les utilisateurs et groupes. Vérifiez depuis le réseau du serveur ISMS la résolution DNS et l'accès TCP/636 au contrôleur, puis importez la CA dans Certificats CA.",
+        "Prepare a dedicated service account with only the required read access to users and groups. From the ISMS server network, verify DNS resolution and TCP/636 access to the controller, then import its CA in CA certificates.",
+      ],
+      [
+        "Dans Synchronisation LDAP, créez le connecteur avec les champs d'exemple ci-dessous. Les bases OU doivent réellement exister dans votre annuaire. Saisissez le mot de passe de bind dans le champ protégé, jamais dans un exemple ou une capture.",
+        "In LDAP synchronization, create the connector using the example fields below. The OU bases must actually exist in your directory. Enter the bind password in the protected field, never in an example or screenshot.",
+      ],
+      [
+        "Sélectionnez la CA importée, utilisez LDAPS et le port 636. Vérifiez les attributs : sAMAccountName pour le login, mail pour le nom utilisateur et l'e-mail, cn pour les groupes. L'attribut mail doit être renseigné si vous conservez ces valeurs.",
+        "Select the imported CA, use LDAPS and port 636. Check attributes: sAMAccountName for login, mail for username and email, cn for groups. The mail attribute must be populated if you retain these values.",
+      ],
+      [
+        "Enregistrez, testez le connecteur puis lancez la synchronisation. Contrôlez la date du dernier succès et la présence du groupe attendu. Faites enfin une connexion AD avec le compte de test et vérifiez ses documents et règles.",
+        "Save, test the connector and run synchronization. Check the last successful sync date and the expected group's presence. Finally sign in through AD using the test account and verify its documents and rules.",
+      ],
     ],
-    values: 'domain = example.test\nprimaryHost = dc01.example.test\nprotocol = LDAPS\nport = 636\nbaseDn = DC=example,DC=test\nuserBaseDn = OU=Users,DC=example,DC=test\ngroupBaseDn = OU=Groups,DC=example,DC=test\nbindDn = CN=svc-isms-read,OU=ServiceAccounts,DC=example,DC=test\nuserFilter = (&(objectCategory=person)(objectClass=user))\ngroupFilter = (objectClass=group)\nloginAttribute = sAMAccountName\nusernameAttribute = mail\nemailAttribute = mail\ngroupAttribute = cn\nsyncIntervalMinutes = 60\ntimeoutMs = 5000\nretries = 2\nenabled = true',
-    warning: ["Échec TLS : contrôlez CA, chaîne, expiration et FQDN. Échec de bind : contrôlez DN, mot de passe et état du compte. Zéro résultat : contrôlez bases, filtres et droits de lecture. Un test TLS réussi ne prouve pas que la synchronisation ni les ACL fonctionnent.", "TLS failure: check CA, chain, expiry and FQDN. Bind failure: check DN, password and account status. Zero results: check bases, filters and read permissions. A successful TLS test does not prove synchronization or ACLs work."],
+    values:
+      "domain = example.test\nprimaryHost = dc01.example.test\nprotocol = LDAPS\nport = 636\nbaseDn = DC=example,DC=test\nuserBaseDn = OU=Users,DC=example,DC=test\ngroupBaseDn = OU=Groups,DC=example,DC=test\nbindDn = CN=svc-isms-read,OU=ServiceAccounts,DC=example,DC=test\nuserFilter = (&(objectCategory=person)(objectClass=user))\ngroupFilter = (objectClass=group)\nloginAttribute = sAMAccountName\nusernameAttribute = mail\nemailAttribute = mail\ngroupAttribute = cn\nsyncIntervalMinutes = 60\ntimeoutMs = 5000\nretries = 2\nenabled = true",
+    warning: [
+      "Échec TLS : contrôlez CA, chaîne, expiration et FQDN. Échec de bind : contrôlez DN, mot de passe et état du compte. Zéro résultat : contrôlez bases, filtres et droits de lecture. Un test TLS réussi ne prouve pas que la synchronisation ni les ACL fonctionnent.",
+      "TLS failure: check CA, chain, expiry and FQDN. Bind failure: check DN, password and account status. Zero results: check bases, filters and read permissions. A successful TLS test does not prove synchronization or ACLs work.",
+    ],
   },
   sso: {
     steps: [
-      ["Dans le centre d'administration Entra, ouvrez Inscriptions d'applications > Nouvelle inscription. Créez ISMS Portal SSO pour les comptes de votre organisation uniquement. Notez l'ID d'application (client) et l'ID d'annuaire (tenant).", "In the Entra admin center, open App registrations > New registration. Create ISMS Portal SSO for accounts in your organization only. Record the Application (client) ID and Directory (tenant) ID."],
-      ["Dans Authentification, ajoutez une plateforme Web et l'URI HTTPS exacte du portail suivie de /oauth2/callback. Utilisez cette même URI pour le portail, /admin et /moderator ; ne créez pas /admin/oauth2/callback. Le flux actuel utilise le code d'autorisation avec PKCE, pas le flux implicite.", "In Authentication, add a Web platform and the portal's exact HTTPS URI followed by /oauth2/callback. Use this same URI for the portal, /admin and /moderator; do not create /admin/oauth2/callback. The current flow uses authorization code with PKCE, not implicit flow."],
-      ["Dans Certificats et secrets, créez un secret client et relevez sa valeur une seule fois, pas son ID. Un exploitant renseigne les variables ci-dessous dans le .env privé du serveur, configure les secrets cookie/Redis du proxy et déploie la configuration incluant docker-compose.sso.yml. Ne collez pas ces secrets dans Git ou dans l'aide.", "In Certificates & secrets, create a client secret and capture its value once, not its ID. An operator sets the variables below in the server's private .env, configures the proxy cookie/Redis secrets and deploys the configuration including docker-compose.sso.yml. Do not paste these secrets into Git or help content."],
-      ["Pour ce SSO, les scopes demandés sont openid profile email. N'ajoutez pas Mail.Send ou Directory.Read.All pour simplement connecter un utilisateur. Respectez la politique de consentement du tenant. Microsoft Graph pour l'envoi d'e-mails est une intégration distincte.", "This SSO requests openid profile email scopes. Do not add Mail.Send or Directory.Read.All just to sign a user in. Follow the tenant's consent policy. Microsoft Graph email delivery is a separate integration."],
-      ["Dans Applications d'entreprise, exigez une affectation et affectez d'abord un utilisateur pilote. Dans ISMS > Connexion SSO, lancez les diagnostics Entra et proxy. Testez ensuite les liens /oauth2/start?rd=/, /oauth2/start?rd=/admin et /oauth2/start?rd=/moderator avec une identité autorisée pour chaque rôle.", "In Enterprise applications, require assignment and assign a pilot user first. In ISMS > SSO sign-in, run Entra and proxy diagnostics. Then test /oauth2/start?rd=/, /oauth2/start?rd=/admin and /oauth2/start?rd=/moderator using an identity authorized for each role."],
-      ["Vérifiez la session, les groupes AD résolus et les documents accessibles avant d'élargir les affectations. Les droits administrateur et modérateur sont configurés séparément dans ISMS : une affectation Entra ne les accorde pas. Gardez la connexion AD et un compte de secours opérationnels.", "Verify the session, resolved AD groups and accessible documents before expanding assignments. Administrator and moderator privileges are configured separately in ISMS: Entra assignment does not grant them. Keep AD sign-in and a fallback account operational."],
+      [
+        "Dans le centre d'administration Entra, ouvrez Inscriptions d'applications > Nouvelle inscription. Créez ISMS Portal SSO pour les comptes de votre organisation uniquement. Notez l'ID d'application (client) et l'ID d'annuaire (tenant).",
+        "In the Entra admin center, open App registrations > New registration. Create ISMS Portal SSO for accounts in your organization only. Record the Application (client) ID and Directory (tenant) ID.",
+      ],
+      [
+        "Dans Authentification, ajoutez une plateforme Web et l'URI HTTPS exacte du portail suivie de /oauth2/callback. Utilisez cette même URI pour le portail, /admin et /moderator ; ne créez pas /admin/oauth2/callback. Le flux actuel utilise le code d'autorisation avec PKCE, pas le flux implicite.",
+        "In Authentication, add a Web platform and the portal's exact HTTPS URI followed by /oauth2/callback. Use this same URI for the portal, /admin and /moderator; do not create /admin/oauth2/callback. The current flow uses authorization code with PKCE, not implicit flow.",
+      ],
+      [
+        "Dans Certificats et secrets, créez un secret client et relevez sa valeur une seule fois, pas son ID. Un exploitant renseigne les variables ci-dessous dans le .env privé du serveur, configure les secrets cookie/Redis du proxy et déploie la configuration incluant docker-compose.sso.yml. Ne collez pas ces secrets dans Git ou dans l'aide.",
+        "In Certificates & secrets, create a client secret and capture its value once, not its ID. An operator sets the variables below in the server's private .env, configures the proxy cookie/Redis secrets and deploys the configuration including docker-compose.sso.yml. Do not paste these secrets into Git or help content.",
+      ],
+      [
+        "Pour ce SSO, les scopes demandés sont openid profile email. N'ajoutez pas Mail.Send ou Directory.Read.All pour simplement connecter un utilisateur. Respectez la politique de consentement du tenant. Microsoft Graph pour l'envoi d'e-mails est une intégration distincte.",
+        "This SSO requests openid profile email scopes. Do not add Mail.Send or Directory.Read.All just to sign a user in. Follow the tenant's consent policy. Microsoft Graph email delivery is a separate integration.",
+      ],
+      [
+        "Dans Applications d'entreprise, exigez une affectation et affectez d'abord un utilisateur pilote. Dans ISMS > Connexion SSO, lancez les diagnostics Entra et proxy. Testez ensuite les liens /oauth2/start?rd=/, /oauth2/start?rd=/admin et /oauth2/start?rd=/moderator avec une identité autorisée pour chaque rôle.",
+        "In Enterprise applications, require assignment and assign a pilot user first. In ISMS > SSO sign-in, run Entra and proxy diagnostics. Then test /oauth2/start?rd=/, /oauth2/start?rd=/admin and /oauth2/start?rd=/moderator using an identity authorized for each role.",
+      ],
+      [
+        "Vérifiez la session, les groupes AD résolus et les documents accessibles avant d'élargir les affectations. Les droits administrateur et modérateur sont configurés séparément dans ISMS : une affectation Entra ne les accorde pas. Gardez la connexion AD et un compte de secours opérationnels.",
+        "Verify the session, resolved AD groups and accessible documents before expanding assignments. Administrator and moderator privileges are configured separately in ISMS: Entra assignment does not grant them. Keep AD sign-in and a fallback account operational.",
+      ],
     ],
-    values: '# Example only: replace all placeholders on the server\nENTRA_TENANT_ID=YOUR_TENANT_UUID\nENTRA_CLIENT_ID=YOUR_APPLICATION_UUID\nENTRA_CLIENT_SECRET=SET_SECRET_VALUE_ON_SERVER_ONLY\nOAUTH2_PROXY_REDIRECT_URL=https://isms.example.com/oauth2/callback\nOAUTH2_PROXY_COOKIE_SECRET=SET_VALID_COOKIE_KEY_ON_SERVER_ONLY\nOAUTH2_PROXY_REDIS_PASSWORD=USE_CONFIGURED_REDIS_PASSWORD',
-    warning: ["Le proxy SSO actuel ne prend pas en charge un certificat client : le téléverser dans Entra ne remplace pas le secret. Les certificats Microsoft Graph ou CA LDAPS ne configurent pas ce SSO. En cas de boucle de connexion, contrôlez URI, affectation, expiration du secret, cookies HTTPS et droits ISMS avant de désactiver une protection.", "The current SSO proxy does not support a client certificate: uploading one in Entra does not replace the secret. Microsoft Graph or LDAPS CA certificates do not configure this SSO. For sign-in loops, check URI, assignment, secret expiry, HTTPS cookies and ISMS privileges before disabling any protection."],
-    source: { label: ["Microsoft : inscription d'une application Entra", "Microsoft: registering an Entra application"], url: "https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app" },
+    values:
+      "# Example only: replace all placeholders on the server\nENTRA_TENANT_ID=YOUR_TENANT_UUID\nENTRA_CLIENT_ID=YOUR_APPLICATION_UUID\nENTRA_CLIENT_SECRET=SET_SECRET_VALUE_ON_SERVER_ONLY\nOAUTH2_PROXY_REDIRECT_URL=https://isms.example.com/oauth2/callback\nOAUTH2_PROXY_COOKIE_SECRET=SET_VALID_COOKIE_KEY_ON_SERVER_ONLY\nOAUTH2_PROXY_REDIS_PASSWORD=USE_CONFIGURED_REDIS_PASSWORD",
+    warning: [
+      "Le proxy SSO actuel ne prend pas en charge un certificat client : le téléverser dans Entra ne remplace pas le secret. Les certificats Microsoft Graph ou CA LDAPS ne configurent pas ce SSO. En cas de boucle de connexion, contrôlez URI, affectation, expiration du secret, cookies HTTPS et droits ISMS avant de désactiver une protection.",
+      "The current SSO proxy does not support a client certificate: uploading one in Entra does not replace the secret. Microsoft Graph or LDAPS CA certificates do not configure this SSO. For sign-in loops, check URI, assignment, secret expiry, HTTPS cookies and ISMS privileges before disabling any protection.",
+    ],
+    source: {
+      label: [
+        "Microsoft : inscription d'une application Entra",
+        "Microsoft: registering an Entra application",
+      ],
+      url: "https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app",
+    },
   },
   documents: {
     steps: [
-      ["Dans Documents, sélectionnez l'espace Informatique et sa sous-catégorie Postes de travail, puis indiquez la langue du fichier, le titre et la description. Déposez le fichier et attendez le résultat de l'analyse antivirus avant publication.", "In Documents, select Information technology and its Workstations subcategory, then enter file language, title and description. Upload the file and wait for the antivirus scan result before publishing."],
-      ["Pour un import initial silencieux, cochez Ne pas envoyer de notifications par e-mail pour ce dépôt ou cette publication. Laissez décoché si une notification documentaire est souhaitée ; les destinataires dépendent aussi de leurs droits et de la configuration d'envoi.", "For a silent initial import, select Do not send email notifications for this upload or publication. Leave it unchecked when a document notification is wanted; recipients also depend on their permissions and delivery configuration."],
-      ["Pour corriger uniquement langue, titre, description ou catégorie, utilisez Modifier et enregistrez les métadonnées sans joindre un nouveau fichier. Pour remplacer le contenu, utilisez Nouvelle version, joignez le fichier et décrivez les changements.", "To correct only language, title, description or category, use Edit and save metadata without attaching a new file. To replace content, use New version, attach the file and describe changes."],
-      ["Après publication, contrôlez le document depuis le portail avec un lecteur standard puis la file de revues dans Gouvernance ISMS. La notification de publication et les alertes de revue sont deux événements distincts.", "After publishing, check the document from the portal as a standard reader, then check the review queue in ISMS governance. Publication notifications and review alerts are two distinct events."],
+      [
+        "Dans Documents, sélectionnez l'espace Informatique et sa sous-catégorie Postes de travail, puis indiquez la langue du fichier, le titre et la description. Déposez le fichier et attendez le résultat de l'analyse antivirus avant publication.",
+        "In Documents, select Information technology and its Workstations subcategory, then enter file language, title and description. Upload the file and wait for the antivirus scan result before publishing.",
+      ],
+      [
+        "Pour un import initial silencieux, cochez Ne pas envoyer de notifications par e-mail pour ce dépôt ou cette publication. Laissez décoché si une notification documentaire est souhaitée ; les destinataires dépendent aussi de leurs droits et de la configuration d'envoi.",
+        "For a silent initial import, select Do not send email notifications for this upload or publication. Leave it unchecked when a document notification is wanted; recipients also depend on their permissions and delivery configuration.",
+      ],
+      [
+        "Pour corriger uniquement langue, titre, description ou catégorie, utilisez Modifier et enregistrez les métadonnées sans joindre un nouveau fichier. Pour remplacer le contenu, utilisez Nouvelle version, joignez le fichier et décrivez les changements.",
+        "To correct only language, title, description or category, use Edit and save metadata without attaching a new file. To replace content, use New version, attach the file and describe changes.",
+      ],
+      [
+        "Après publication, contrôlez le document depuis le portail avec un lecteur standard puis la file de revues dans Gouvernance ISMS. La notification de publication et les alertes de revue sont deux événements distincts.",
+        "After publishing, check the document from the portal as a standard reader, then check the review queue in ISMS governance. Publication notifications and review alerts are two distinct events.",
+      ],
     ],
-    values: 'space = Information technology\ncategory = Workstations\nlocale = EN\ntitle = Workstation security guide\ndescription = Security requirements for managed laptops\nchangeSummary = Updated remote access procedure',
-    warning: ["Les exemples sont des valeurs à adapter, pas des commandes API à exécuter. Ne publiez pas de secrets dans les descriptions ou pièces justificatives. Une acceptation SMTP ou Graph ne prouve pas la réception du message : contrôlez les erreurs d'envoi et la boîte destinataire.", "Examples are values to adapt, not API commands to execute. Do not publish secrets in descriptions or supporting evidence. SMTP or Graph acceptance does not prove message receipt: check delivery errors and the recipient mailbox."],
+    values:
+      "space = Information technology\ncategory = Workstations\nlocale = EN\ntitle = Workstation security guide\ndescription = Security requirements for managed laptops\nchangeSummary = Updated remote access procedure",
+    warning: [
+      "Les exemples sont des valeurs à adapter, pas des commandes API à exécuter. Ne publiez pas de secrets dans les descriptions ou pièces justificatives. Une acceptation SMTP ou Graph ne prouve pas la réception du message : contrôlez les erreurs d'envoi et la boîte destinataire.",
+      "Examples are values to adapt, not API commands to execute. Do not publish secrets in descriptions or supporting evidence. SMTP or Graph acceptance does not prove message receipt: check delivery errors and the recipient mailbox.",
+    ],
   },
 };
 
-export function HelpPanel({ locale, onNavigate }: { locale: Locale; onNavigate: (target: HelpTarget) => void }) {
+export function HelpPanel({
+  locale,
+  onNavigate,
+}: {
+  locale: Locale;
+  onNavigate: (target: HelpTarget) => void;
+}) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const indexed = useMemo(() => topics.map((topic, index) => {
-    const example = technicalExamples[topic.target];
-    return { ...topic, index, searchText: normalizeHelpText([localizedPair(locale, topic.title), ...topic.paragraphs.map((text) => localizedPair(locale, text)), ...configuration[topic.target].steps.map((text) => localizedPair(locale, text)), localizedPair(locale, configuration[topic.target].check), ...(example?.steps.map((text) => localizedPair(locale, text)) || []), example?.values || "", localizedPair(locale, example?.warning) || ""].join(" ")) };
-  }), [locale]);
-  const visible = useMemo(() => filterHelpTopics(indexed, query), [indexed, query]);
-  const selected = visible.find((topic) => topic.index === selectedIndex) || visible[0];
+  const indexed = useMemo(
+    () =>
+      topics.map((topic, index) => {
+        const example = technicalExamples[topic.target];
+        return {
+          ...topic,
+          index,
+          searchText: normalizeHelpText(
+            [
+              localizedPair(locale, topic.title),
+              ...topic.paragraphs.map((text) => localizedPair(locale, text)),
+              ...configuration[topic.target].steps.map((text) =>
+                localizedPair(locale, text),
+              ),
+              localizedPair(locale, configuration[topic.target].check),
+              ...(example?.steps.map((text) => localizedPair(locale, text)) ||
+                []),
+              example?.values || "",
+              localizedPair(locale, example?.warning) || "",
+            ].join(" "),
+          ),
+        };
+      }),
+    [locale],
+  );
+  const visible = useMemo(
+    () => filterHelpTopics(indexed, query),
+    [indexed, query],
+  );
+  const selected =
+    visible.find((topic) => topic.index === selectedIndex) || visible[0];
   const example = selected ? technicalExamples[selected.target] : undefined;
-  const position = visible.findIndex((topic) => topic.index === selected?.index);
+  const position = visible.findIndex(
+    (topic) => topic.index === selected?.index,
+  );
   const selectTopic = (index: number) => {
     setSelectedIndex(index);
     window.requestAnimationFrame(() => {
       document.getElementById("help-topic-content")?.scrollTo(0, 0);
-      if (window.matchMedia("(max-width: 900px)").matches) document.getElementById("help-topic-picker-label")?.scrollIntoView({ block: "start" });
+      if (window.matchMedia("(max-width: 900px)").matches)
+        document
+          .getElementById("help-topic-picker-label")
+          ?.scrollIntoView({ block: "start" });
     });
   };
-  return <section className="admin-help">
-    <div className="admin-help-heading"><h1>{translate(locale, "Aide ISMS Portal", "ISMS Portal help")}</h1></div>
-    <div className="admin-management-tools"><label>{translate(locale, "Rechercher dans l’aide", "Search help")}<input type="search" maxLength={200} value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-      {query && <button type="button" onClick={() => setQuery("")}>{translate(locale, "Réinitialiser", "Reset")}</button>}
-    </div>
-    <div className="admin-help-workspace">
-      <nav className="admin-help-topics" aria-label={translate(locale, "Rubriques de l’aide", "Help topics")}>
-        {topicGroups.map((group) => <div key={group.title[0]}>
-          {visible.some((topic) => group.targets.includes(topic.target)) && <h2>{localizedPair(locale, group.title)}</h2>}
-          {visible.filter((topic) => group.targets.includes(topic.target)).map((topic) => <button type="button" key={topic.index} aria-current={selected?.index === topic.index ? "page" : undefined} aria-controls="help-topic-content" onClick={() => selectTopic(topic.index)}>{localizedPair(locale, topic.title)}</button>)}
-        </div>)}
-      </nav>
-      <div className="admin-help-content">
-        <label className="admin-help-topic-picker"><span id="help-topic-picker-label">{translate(locale, "Rubrique", "Topic")}</span>
-          <select aria-labelledby="help-topic-picker-label" value={selected?.index ?? ""} disabled={!visible.length} onChange={(event) => selectTopic(Number(event.target.value))}>
-            {!visible.length && <option value="">{translate(locale, "Aucun résultat", "No results")}</option>}
-            {topicGroups.map((group) => visible.some((topic) => group.targets.includes(topic.target)) && <optgroup key={group.title[0]} label={localizedPair(locale, group.title)}>{visible.filter((topic) => group.targets.includes(topic.target)).map((topic) => <option key={topic.index} value={topic.index}>{localizedPair(locale, topic.title)}</option>)}</optgroup>)}
-          </select>
-        </label>
-        {!selected && <p role="status">{translate(locale, "Aucune rubrique ne correspond à cette recherche.", "No topics match this search.")}</p>}
-        {selected && <article id="help-topic-content" aria-labelledby="help-topic-title">
-          <h2 id="help-topic-title">{localizedPair(locale, selected.title)}</h2>
-          {selected.paragraphs.map((text, index) => <p key={index}>{localizedPair(locale, text)}</p>)}
-          {selected.target === "documents" && documentManagementHelp(locale).map((text, index) => <p key={`ged-${index}`}>{text}</p>)}
-          <h3>{translate(locale, "Configuration et utilisation", "Configuration and use")}</h3>
-          <ol className="admin-help-overview-steps">{configuration[selected.target].steps.map((text, index) => <li key={index}>{localizedPair(locale, text)}</li>)}</ol>
-          <div className="admin-help-check"><h3>{translate(locale, "Points à vérifier", "What to check")}</h3><p>{localizedPair(locale, configuration[selected.target].check)}</p></div>
-          {example && <details className="admin-help-technical" key={selected.target} open>
-            <summary>{translate(locale, "Atelier technique : configuration pas à pas", "Technical workshop: step-by-step configuration")}</summary>
-            <p>{translate(locale, "Les domaines example.test et example.com, les noms et les chemins ci-dessous sont fictifs. Adaptez-les à votre environnement ; ces exemples ne changent aucune configuration.", "The example.test and example.com domains, names and paths below are illustrative. Adapt them to your environment; these examples do not change any configuration.")}</p>
-            <ol>{example.steps.map((text, index) => <li key={index}>{localizedPair(locale, text)}</li>)}</ol>
-            <h3>{translate(locale, "Valeurs et commandes d'exemple", "Example values and commands")}</h3>
-            <pre tabIndex={0} aria-label={translate(locale, "Exemple technique", "Technical example")}><code>{example.values}</code></pre>
-            <p className="admin-help-technical-warning"><strong>{translate(locale, "Attention : ", "Important: ")}</strong>{localizedPair(locale, example.warning)}</p>
-            {example.source && <a href={example.source.url} target="_blank" rel="noopener noreferrer">{localizedPair(locale, example.source.label)}{translate(locale, " (nouvel onglet)", " (new tab)")}</a>}
-          </details>}
-          <button type="button" onClick={() => onNavigate(selected.target)}><Icon name="documents" />{translate(locale, "Ouvrir le menu", "Open menu")}</button>
-          <nav className="admin-help-pagination" aria-label={translate(locale, "Navigation des rubriques", "Topic navigation")}>
-            <button type="button" disabled={position <= 0} onClick={() => selectTopic(visible[position - 1].index)}>{translate(locale, "Précédent", "Previous")}</button>
-            <span aria-live="polite">{position + 1} / {visible.length}</span>
-            <button type="button" disabled={position >= visible.length - 1} onClick={() => selectTopic(visible[position + 1].index)}>{translate(locale, "Suivant", "Next")}</button>
-          </nav>
-        </article>}
+  return (
+    <section className="admin-help">
+      <div className="admin-help-heading">
+        <h1>{translate(locale, "Aide ISMS Portal", "ISMS Portal help")}</h1>
       </div>
-    </div>
-  </section>;
+      <div className="admin-management-tools">
+        <label>
+          {translate(locale, "Rechercher dans l’aide", "Search help")}
+          <input
+            type="search"
+            maxLength={200}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        {query && (
+          <button type="button" onClick={() => setQuery("")}>
+            {translate(locale, "Réinitialiser", "Reset")}
+          </button>
+        )}
+      </div>
+      <div className="admin-help-workspace">
+        <nav
+          className="admin-help-topics"
+          aria-label={translate(locale, "Rubriques de l’aide", "Help topics")}
+        >
+          {topicGroups.map((group) => (
+            <div key={group.title[0]}>
+              {visible.some((topic) =>
+                group.targets.includes(topic.target),
+              ) && <h2>{localizedPair(locale, group.title)}</h2>}
+              {visible
+                .filter((topic) => group.targets.includes(topic.target))
+                .map((topic) => (
+                  <button
+                    type="button"
+                    key={topic.index}
+                    aria-current={
+                      selected?.index === topic.index ? "page" : undefined
+                    }
+                    aria-controls="help-topic-content"
+                    onClick={() => selectTopic(topic.index)}
+                  >
+                    {localizedPair(locale, topic.title)}
+                  </button>
+                ))}
+            </div>
+          ))}
+        </nav>
+        <div className="admin-help-content">
+          <label className="admin-help-topic-picker">
+            <span id="help-topic-picker-label">
+              {translate(locale, "Rubrique", "Topic")}
+            </span>
+            <select
+              aria-labelledby="help-topic-picker-label"
+              value={selected?.index ?? ""}
+              disabled={!visible.length}
+              onChange={(event) => selectTopic(Number(event.target.value))}
+            >
+              {!visible.length && (
+                <option value="">
+                  {translate(locale, "Aucun résultat", "No results")}
+                </option>
+              )}
+              {topicGroups.map(
+                (group) =>
+                  visible.some((topic) =>
+                    group.targets.includes(topic.target),
+                  ) && (
+                    <optgroup
+                      key={group.title[0]}
+                      label={localizedPair(locale, group.title)}
+                    >
+                      {visible
+                        .filter((topic) => group.targets.includes(topic.target))
+                        .map((topic) => (
+                          <option key={topic.index} value={topic.index}>
+                            {localizedPair(locale, topic.title)}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ),
+              )}
+            </select>
+          </label>
+          {!selected && (
+            <p role="status">
+              {translate(
+                locale,
+                "Aucune rubrique ne correspond à cette recherche.",
+                "No topics match this search.",
+              )}
+            </p>
+          )}
+          {selected && (
+            <article id="help-topic-content" aria-labelledby="help-topic-title">
+              <h2 id="help-topic-title">
+                {localizedPair(locale, selected.title)}
+              </h2>
+              {selected.paragraphs.map((text, index) => (
+                <p key={index}>{localizedPair(locale, text)}</p>
+              ))}
+              {selected.target === "documents" &&
+                documentManagementHelp(locale).map((text, index) => (
+                  <p key={`ged-${index}`}>{text}</p>
+                ))}
+              <h3>
+                {translate(
+                  locale,
+                  "Configuration et utilisation",
+                  "Configuration and use",
+                )}
+              </h3>
+              <ol className="admin-help-overview-steps">
+                {configuration[selected.target].steps.map((text, index) => (
+                  <li key={index}>{localizedPair(locale, text)}</li>
+                ))}
+              </ol>
+              <div className="admin-help-check">
+                <h3>
+                  {translate(locale, "Points à vérifier", "What to check")}
+                </h3>
+                <p>
+                  {localizedPair(locale, configuration[selected.target].check)}
+                </p>
+              </div>
+              {example && (
+                <details
+                  className="admin-help-technical"
+                  key={selected.target}
+                  open
+                >
+                  <summary>
+                    {translate(
+                      locale,
+                      "Atelier technique : configuration pas à pas",
+                      "Technical workshop: step-by-step configuration",
+                    )}
+                  </summary>
+                  <p>
+                    {translate(
+                      locale,
+                      "Les domaines example.test et example.com, les noms et les chemins ci-dessous sont fictifs. Adaptez-les à votre environnement ; ces exemples ne changent aucune configuration.",
+                      "The example.test and example.com domains, names and paths below are illustrative. Adapt them to your environment; these examples do not change any configuration.",
+                    )}
+                  </p>
+                  <ol>
+                    {example.steps.map((text, index) => (
+                      <li key={index}>{localizedPair(locale, text)}</li>
+                    ))}
+                  </ol>
+                  <h3>
+                    {translate(
+                      locale,
+                      "Valeurs et commandes d'exemple",
+                      "Example values and commands",
+                    )}
+                  </h3>
+                  <pre
+                    tabIndex={0}
+                    aria-label={translate(
+                      locale,
+                      "Exemple technique",
+                      "Technical example",
+                    )}
+                  >
+                    <code>{example.values}</code>
+                  </pre>
+                  <p className="admin-help-technical-warning">
+                    <strong>
+                      {translate(locale, "Attention : ", "Important: ")}
+                    </strong>
+                    {localizedPair(locale, example.warning)}
+                  </p>
+                  {example.source && (
+                    <a
+                      href={example.source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {localizedPair(locale, example.source.label)}
+                      {translate(locale, " (nouvel onglet)", " (new tab)")}
+                    </a>
+                  )}
+                </details>
+              )}
+              <button type="button" onClick={() => onNavigate(selected.target)}>
+                <Icon name="documents" />
+                {translate(locale, "Ouvrir le menu", "Open menu")}
+              </button>
+              <nav
+                className="admin-help-pagination"
+                aria-label={translate(
+                  locale,
+                  "Navigation des rubriques",
+                  "Topic navigation",
+                )}
+              >
+                <button
+                  type="button"
+                  disabled={position <= 0}
+                  onClick={() => selectTopic(visible[position - 1].index)}
+                >
+                  {translate(locale, "Précédent", "Previous")}
+                </button>
+                <span aria-live="polite">
+                  {position + 1} / {visible.length}
+                </span>
+                <button
+                  type="button"
+                  disabled={position >= visible.length - 1}
+                  onClick={() => selectTopic(visible[position + 1].index)}
+                >
+                  {translate(locale, "Suivant", "Next")}
+                </button>
+              </nav>
+            </article>
+          )}
+        </div>
+      </div>
+    </section>
+  );
 }

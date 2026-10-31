@@ -13,7 +13,10 @@ const ADMIN_KEY = "admin";
 const APPROVER_KEY = "approver";
 export const AdminOnly = () => SetMetadata(ADMIN_KEY, true);
 export const ApproverOnly = () =>
-  applyDecorators(SetMetadata(ADMIN_KEY, false), SetMetadata(APPROVER_KEY, true));
+  applyDecorators(
+    SetMetadata(ADMIN_KEY, false),
+    SetMetadata(APPROVER_KEY, true),
+  );
 export const isAdminIdentity = (groups: string[]) =>
   groups.includes("ISMS-LOCAL-ADMINS");
 export const isModeratorIdentity = (groups: string[]) =>
@@ -21,8 +24,10 @@ export const isModeratorIdentity = (groups: string[]) =>
 export const moderatorCan = (groups: string[], permission: string) => {
   if (isAdminIdentity(groups)) return true;
   if (!isModeratorIdentity(groups)) return false;
-  if (permission === "publish") return groups.includes("ISMS-MODERATOR-PUBLISH");
-  if (permission === "archive") return groups.includes("ISMS-MODERATOR-ARCHIVE");
+  if (permission === "publish")
+    return groups.includes("ISMS-MODERATOR-PUBLISH");
+  if (permission === "archive")
+    return groups.includes("ISMS-MODERATOR-ARCHIVE");
   return true;
 };
 

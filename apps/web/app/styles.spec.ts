@@ -3,16 +3,43 @@ import { fileURLToPath } from "node:url";
 import postcss from "postcss";
 import { expect, it } from "vitest";
 
-it.each(["styles.css", "batch-import.css", "document-layout.css", "approvals/approvals.css", "admin/storage.css"])("has no identical CSS rules in the same conditional scope in %s", filename => {
-  const root = postcss.parse(readFileSync(fileURLToPath(new URL(filename, import.meta.url)), "utf8"));
-  const seen = new Set<string>(), duplicates: string[] = [];
-  root.walkRules(rule => {
-    const scope: string[] = []; let parent = rule.parent;
-    while (parent && parent.type !== "root") {
-      scope.unshift(parent.type === "atrule" ? `@${parent.name} ${parent.params}` : "nested"); parent = parent.parent;
-    }
-    const key = JSON.stringify([scope, rule.selector, rule.nodes.map(node => node.type === "decl" ? [node.prop, node.value, node.important] : node.toString())]);
-    if (seen.has(key)) duplicates.push(rule.selector); seen.add(key);
-  });
-  expect(duplicates).toEqual([]);
-});
+it.each([
+  "styles.css",
+  "batch-import.css",
+  "document-layout.css",
+  "approvals/approvals.css",
+  "admin/storage.css",
+])(
+  "has no identical CSS rules in the same conditional scope in %s",
+  (filename) => {
+    const root = postcss.parse(
+      readFileSync(fileURLToPath(new URL(filename, import.meta.url)), "utf8"),
+    );
+    const seen = new Set<string>(),
+      duplicates: string[] = [];
+    root.walkRules((rule) => {
+      const scope: string[] = [];
+      let parent = rule.parent;
+      while (parent && parent.type !== "root") {
+        scope.unshift(
+          parent.type === "atrule"
+            ? `@${parent.name} ${parent.params}`
+            : "nested",
+        );
+        parent = parent.parent;
+      }
+      const key = JSON.stringify([
+        scope,
+        rule.selector,
+        rule.nodes.map((node) =>
+          node.type === "decl"
+            ? [node.prop, node.value, node.important]
+            : node.toString(),
+        ),
+      ]);
+      if (seen.has(key)) duplicates.push(rule.selector);
+      seen.add(key);
+    });
+    expect(duplicates).toEqual([]);
+  },
+);

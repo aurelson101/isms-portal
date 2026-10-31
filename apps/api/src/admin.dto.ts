@@ -172,15 +172,40 @@ export class DocumentStatusDto {
 
 export class DocumentMetadataDto {
   @ValidateIf((_object, value) => value !== undefined)
-  @ValidateBy({ name: "documentMetadata", validator: {
-    validate: value => value !== null && typeof value === "object" && !Array.isArray(value)
-      && Object.keys(value).length <= 20 && Object.entries(value).every(([key, item]) =>
-        /^[\p{L}\p{N}][\p{L}\p{N} _.-]{0,63}$/u.test(key) && !["__proto__", "constructor", "prototype"].includes(key)
-          && typeof item === "string" && item.length <= 1000
-          && (key !== "ged.documentType" || ["", "policy", "procedure", "guide", "evidence", "record"].includes(item))
-          && (key !== "ged.reviewDate" || item === "" || (/^(?!0000)\d{4}-\d{2}-\d{2}$/.test(item) && Number.isFinite(Date.parse(`${item}T00:00:00Z`)) && new Date(`${item}T00:00:00Z`).toISOString().slice(0, 10) === item))),
-    defaultMessage: () => "Metadata must contain at most 20 named text fields (64 characters per name, 1000 per value), a supported GED document type and valid YYYY-MM-DD review dates",
-  } })
+  @ValidateBy({
+    name: "documentMetadata",
+    validator: {
+      validate: (value) =>
+        value !== null &&
+        typeof value === "object" &&
+        !Array.isArray(value) &&
+        Object.keys(value).length <= 20 &&
+        Object.entries(value).every(
+          ([key, item]) =>
+            /^[\p{L}\p{N}][\p{L}\p{N} _.-]{0,63}$/u.test(key) &&
+            !["__proto__", "constructor", "prototype"].includes(key) &&
+            typeof item === "string" &&
+            item.length <= 1000 &&
+            (key !== "ged.documentType" ||
+              [
+                "",
+                "policy",
+                "procedure",
+                "guide",
+                "evidence",
+                "record",
+              ].includes(item)) &&
+            (key !== "ged.reviewDate" ||
+              item === "" ||
+              (/^(?!0000)\d{4}-\d{2}-\d{2}$/.test(item) &&
+                Number.isFinite(Date.parse(`${item}T00:00:00Z`)) &&
+                new Date(`${item}T00:00:00Z`).toISOString().slice(0, 10) ===
+                  item)),
+        ),
+      defaultMessage: () =>
+        "Metadata must contain at most 20 named text fields (64 characters per name, 1000 per value), a supported GED document type and valid YYYY-MM-DD review dates",
+    },
+  })
   metadata?: Record<string, string>;
   @IsOptional()
   @IsDateString()

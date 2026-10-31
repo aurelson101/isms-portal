@@ -5,13 +5,35 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { constants } from "fs";
-import { access, mkdir, open, rename, rm, stat, statfs, lstat, realpath, readFile } from "fs/promises";
+import {
+  access,
+  mkdir,
+  open,
+  rename,
+  rm,
+  stat,
+  statfs,
+  lstat,
+  realpath,
+  readFile,
+} from "fs/promises";
 import { createReadStream } from "fs";
 import { dirname, resolve, sep } from "path";
 import { randomUUID } from "crypto";
 import type { Readable } from "stream";
-import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { StorageTargetsService, storagePath, storageTargetId, type StorageTarget } from "./storage-targets.service";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
+import {
+  StorageTargetsService,
+  storagePath,
+  storageTargetId,
+  type StorageTarget,
+} from "./storage-targets.service";
 
 @Injectable()
 export class StorageService implements OnModuleInit {
@@ -45,19 +67,25 @@ export class StorageService implements OnModuleInit {
     storagePath(key);
     if (!targetId || targetId === "primary") return key;
     const target = await this.targets.get(targetId);
-    if (!target.enabled || target.testStatus !== "success") throw new BadRequestException("Storage target is not available for uploads");
+    if (!target.enabled || target.testStatus !== "success")
+      throw new BadRequestException(
+        "Storage target is not available for uploads",
+      );
     return `targets/${target.id}/${key}`;
   }
 
   derivedKey(sourceKey: string, key: string) {
     storagePath(key);
-    const targetId = sourceKey.startsWith("targets/") ? storageTargetId(sourceKey.split("/")[1]) : null;
+    const targetId = sourceKey.startsWith("targets/")
+      ? storageTargetId(sourceKey.split("/")[1])
+      : null;
     return targetId ? `targets/${targetId}/${key}` : key;
   }
 
   private async destination(objectKey: string) {
     storagePath(objectKey);
-    if (!objectKey.startsWith("targets/")) return { key: objectKey, target: null };
+    if (!objectKey.startsWith("targets/"))
+      return { key: objectKey, target: null };
     const [, id, ...parts] = objectKey.split("/");
     const target = await this.targets.get(id);
     return { target, key: storagePath(parts.join("/")) };
@@ -65,23 +93,37 @@ export class StorageService implements OnModuleInit {
 
   private s3(target: StorageTarget) {
     return new S3Client({
-      endpoint: target.endpoint, region: target.region,
+      endpoint: target.endpoint,
+      region: target.region,
       forcePathStyle: target.forcePathStyle,
-      credentials: this.targets.credentials(target), maxAttempts: 2,
+      credentials: this.targets.credentials(target),
+      maxAttempts: 2,
       requestHandler: { connectionTimeout: 5000, requestTimeout: 30000 },
     });
   }
 
   private s3Location(target: StorageTarget, key: string) {
-    return { Bucket: target.bucket!, Key: target.prefix ? `${target.prefix}/${key}` : key };
+    return {
+      Bucket: target.bucket!,
+      Key: target.prefix ? `${target.prefix}/${key}` : key,
+    };
   }
 
   private async assertSmb3(root: string) {
-    const unescapeMountPath = (value: string) => value.replace(/\\040/g, " ").replace(/\\011/g, "\t").replace(/\\134/g, "\\");
-    const mounts = (await readFile("/proc/mounts", "utf8")).split("\n").map((line) => line.split(" "));
+    const unescapeMountPath = (value: string) =>
+      value
+        .replace(/\\040/g, " ")
+        .replace(/\\011/g, "\t")
+        .replace(/\\134/g, "\\");
+    const mounts = (await readFile("/proc/mounts", "utf8"))
+      .split("\n")
+      .map((line) => line.split(" "));
     const mount = mounts
       .filter((parts) => parts[2] === "cifs")
-      .map((parts) => ({ path: unescapeMountPath(parts[1] || ""), options: parts[3] || "" }))
+      .map((parts) => ({
+        path: unescapeMountPath(parts[1] || ""),
+        options: parts[3] || "",
+      }))
       .filter((item) => root === item.path || root.startsWith(`${item.path}/`))
       .sort((left, right) => right.path.length - left.path.length)[0];
     if (!mount || !/(?:^|,)vers=3(?:\.\d+)?(?:,|$)/.test(mount.options))
@@ -94,7 +136,10 @@ export class StorageService implements OnModuleInit {
       const base = resolve(process.env.DOCUMENT_SMB_ROOT || "/data/smb");
       root = this.pathFor(target.mount!, base);
       // Refuse a missing share instead of silently writing onto the Docker disk.
-      if ((await realpath(root)) !== root || (Number((await statfs(root)).type) >>> 0) !== 0xff534d42)
+      if (
+        (await realpath(root)) !== root ||
+        Number((await statfs(root)).type) >>> 0 !== 0xff534d42
+      )
         throw new ServiceUnavailableException("SMB/CIFS share is not mounted");
       await this.assertSmb3(root);
     }
@@ -102,11 +147,14 @@ export class StorageService implements OnModuleInit {
     let current = root;
     for (const part of key.split("/")) {
       current = resolve(current, part);
-      const info = await lstat(current).catch((error: NodeJS.ErrnoException) => {
-        if (error.code === "ENOENT") return null;
-        throw error;
-      });
-      if (info?.isSymbolicLink()) throw new BadRequestException("Storage symlinks are not allowed");
+      const info = await lstat(current).catch(
+        (error: NodeJS.ErrnoException) => {
+          if (error.code === "ENOENT") return null;
+          throw error;
+        },
+      );
+      if (info?.isSymbolicLink())
+        throw new BadRequestException("Storage symlinks are not allowed");
     }
     return path;
   }
@@ -129,12 +177,19 @@ export class StorageService implements OnModuleInit {
     if (destination.target?.type === "s3") {
       const client = this.s3(destination.target);
       try {
-        await client.send(new PutObjectCommand({
-          ...this.s3Location(destination.target, destination.key), Body: content,
-          ContentType: metadata["Content-Type"] || "application/octet-stream",
-          Metadata: metadata["X-Amz-Meta-Sha256"] ? { sha256: metadata["X-Amz-Meta-Sha256"] } : undefined,
-        }));
-      } finally { client.destroy(); }
+        await client.send(
+          new PutObjectCommand({
+            ...this.s3Location(destination.target, destination.key),
+            Body: content,
+            ContentType: metadata["Content-Type"] || "application/octet-stream",
+            Metadata: metadata["X-Amz-Meta-Sha256"]
+              ? { sha256: metadata["X-Amz-Meta-Sha256"] }
+              : undefined,
+          }),
+        );
+      } finally {
+        client.destroy();
+      }
       return;
     }
     const target = await this.localPath(destination.key, destination.target);
@@ -158,12 +213,20 @@ export class StorageService implements OnModuleInit {
     if (destination.target?.type === "s3") {
       const client = this.s3(destination.target);
       try {
-        const response = await client.send(new GetObjectCommand(this.s3Location(destination.target, destination.key)));
+        const response = await client.send(
+          new GetObjectCommand(
+            this.s3Location(destination.target, destination.key),
+          ),
+        );
         const stream = response.Body as Readable | undefined;
-        if (!stream) throw new ServiceUnavailableException("Empty storage response");
+        if (!stream)
+          throw new ServiceUnavailableException("Empty storage response");
         stream.once("close", () => client.destroy());
         return stream;
-      } catch (error) { client.destroy(); throw error; }
+      } catch (error) {
+        client.destroy();
+        throw error;
+      }
     }
     const target = await this.localPath(destination.key, destination.target);
     await access(target, constants.R_OK);
@@ -183,9 +246,15 @@ export class StorageService implements OnModuleInit {
     if (destination.target?.type === "s3") {
       const client = this.s3(destination.target);
       try {
-        const info = await client.send(new HeadObjectCommand(this.s3Location(destination.target, destination.key)));
+        const info = await client.send(
+          new HeadObjectCommand(
+            this.s3Location(destination.target, destination.key),
+          ),
+        );
         return { size: info.ContentLength || 0 };
-      } finally { client.destroy(); }
+      } finally {
+        client.destroy();
+      }
     }
     return stat(await this.localPath(destination.key, destination.target));
   }
@@ -202,11 +271,20 @@ export class StorageService implements OnModuleInit {
     const destination = await this.destination(objectKey);
     if (destination.target?.type === "s3") {
       const client = this.s3(destination.target);
-      try { await client.send(new DeleteObjectCommand(this.s3Location(destination.target, destination.key))); }
-      finally { client.destroy(); }
+      try {
+        await client.send(
+          new DeleteObjectCommand(
+            this.s3Location(destination.target, destination.key),
+          ),
+        );
+      } finally {
+        client.destroy();
+      }
       return;
     }
-    await rm(await this.localPath(destination.key, destination.target), { force: true });
+    await rm(await this.localPath(destination.key, destination.target), {
+      force: true,
+    });
   }
 
   async testTarget(id: string) {
@@ -216,7 +294,8 @@ export class StorageService implements OnModuleInit {
     let success = false;
     try {
       await this.putObject(key, content, {});
-      if (!(await this.getBuffer(key)).equals(content)) throw new Error("Storage verification failed");
+      if (!(await this.getBuffer(key)).equals(content))
+        throw new Error("Storage verification failed");
       await this.removeObject(key);
       success = true;
     } catch {

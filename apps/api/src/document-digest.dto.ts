@@ -1,4 +1,10 @@
-import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsUUID } from "class-validator";
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsUUID,
+} from "class-validator";
 
 export class DocumentPublicationDigestDto {
   @IsArray()

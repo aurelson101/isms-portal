@@ -2,16 +2,35 @@
 import { fetchWithTimeout as fetch } from "./http-client";
 import { responseMessage } from "./request-errors";
 import { translationFields } from "./moderator/document-model";
-import { CustomMetadataFields, metadataLabel, metadataDisplayValue, metadataKeywords } from "./document-metadata-fields";
+import {
+  CustomMetadataFields,
+  metadataLabel,
+  metadataDisplayValue,
+  metadataKeywords,
+} from "./document-metadata-fields";
 import { uploadAttempt, type UploadAttempt } from "./upload-attempt";
-import { normalizePdfPage, parsePdfProgress, type PdfZoom } from "./pdf-progress";
+import {
+  normalizePdfPage,
+  parsePdfProgress,
+  type PdfZoom,
+} from "./pdf-progress";
 import { copyDocumentLink, documentShareUrl } from "./document-share";
 import { DocumentSearchForm } from "./document-management";
-import { readMetadataFilters, type MetadataFilters } from "./document-management-copy";
+import {
+  readMetadataFilters,
+  type MetadataFilters,
+} from "./document-management-copy";
 
 import { localizedPair, translate } from "./i18n/translate";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   getCachedPortalIdentity,
@@ -24,31 +43,71 @@ import { Icon } from "./icons";
 import { portalCatalog as copy } from "./i18n/catalogs";
 import type { Locale, DocumentLocale } from "./i18n/locale";
 import { interfaceLocales, isLocale } from "./i18n/locale";
-import { LanguageButtons, LanguageSelect, ProfileLanguage, useLanguageSettings, languageUi } from "./language-controls";
+import {
+  LanguageButtons,
+  LanguageSelect,
+  ProfileLanguage,
+  useLanguageSettings,
+  languageUi,
+} from "./language-controls";
 import { useInterfaceLocale } from "./i18n/use-locale";
 import { useBranding } from "./branding";
 import { StorageSelect } from "./storage-select";
 import dynamic from "next/dynamic";
 
-const ExcelReader = dynamic(() => import("./excel-reader").then((module) => module.ExcelReader), { ssr: false });
-const PdfPreview = dynamic(() => import("./pdf-preview").then((module) => module.PdfPreview), { ssr: false });
+const ExcelReader = dynamic(
+  () => import("./excel-reader").then((module) => module.ExcelReader),
+  { ssr: false },
+);
+const PdfPreview = dynamic(
+  () => import("./pdf-preview").then((module) => module.PdfPreview),
+  { ssr: false },
+);
 
 const preferenceCopy = {
-  fr: { view: "Vue par défaut", saved: "Préférences enregistrées.", failed: "Échec de l’enregistrement. Réessayez.", reset: "Rétablir les préférences par défaut" },
-  en: { view: "Default view", saved: "Preferences saved.", failed: "Unable to save preferences. Try again.", reset: "Restore default preferences" },
-  es: { view: "Vista predeterminada", saved: "Preferencias guardadas.", failed: "No se pudieron guardar las preferencias. Inténtelo de nuevo.", reset: "Restaurar preferencias predeterminadas" },
-  sk: { view: "Predvolené zobrazenie", saved: "Predvoľby boli uložené.", failed: "Predvoľby sa nepodarilo uložiť. Skúste to znova.", reset: "Obnoviť predvolené nastavenia" },
+  fr: {
+    view: "Vue par défaut",
+    saved: "Préférences enregistrées.",
+    failed: "Échec de l’enregistrement. Réessayez.",
+    reset: "Rétablir les préférences par défaut",
+  },
+  en: {
+    view: "Default view",
+    saved: "Preferences saved.",
+    failed: "Unable to save preferences. Try again.",
+    reset: "Restore default preferences",
+  },
+  es: {
+    view: "Vista predeterminada",
+    saved: "Preferencias guardadas.",
+    failed: "No se pudieron guardar las preferencias. Inténtelo de nuevo.",
+    reset: "Restaurar preferencias predeterminadas",
+  },
+  sk: {
+    view: "Predvolené zobrazenie",
+    saved: "Predvoľby boli uložené.",
+    failed: "Predvoľby sa nepodarilo uložiť. Skúste to znova.",
+    reset: "Obnoviť predvolené nastavenia",
+  },
 };
 
-function ReaderInformation({ summary, children }: { summary: string; children: ReactNode }) {
-  const [expanded, setExpanded] = useState(() =>
-    typeof window === "undefined" || !window.matchMedia("(max-width: 640px)").matches,
+function ReaderInformation({
+  summary,
+  children,
+}: {
+  summary: string;
+  children: ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(
+    () =>
+      typeof window === "undefined" ||
+      !window.matchMedia("(max-width: 640px)").matches,
   );
   return (
     <details
       className="document-reader-information"
       open={expanded}
-      onToggle={event => setExpanded(event.currentTarget.open)}
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
     >
       <summary>{summary}</summary>
       {children}
@@ -118,11 +177,20 @@ const populatedCategories = (space: Space): CategoryTreeItem[] => {
   return result;
 };
 
-const paginationItems = (current: number, total: number): Array<number | "ellipsis"> => {
+const paginationItems = (
+  current: number,
+  total: number,
+): Array<number | "ellipsis"> => {
   if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
   const pages = new Set([1, total, current - 1, current, current + 1]);
-  return [...pages].filter((item) => item >= 1 && item <= total).sort((left, right) => left - right)
-    .flatMap((item, index, values) => index && item - values[index - 1] > 1 ? ["ellipsis" as const, item] : [item]);
+  return [...pages]
+    .filter((item) => item >= 1 && item <= total)
+    .sort((left, right) => left - right)
+    .flatMap((item, index, values) =>
+      index && item - values[index - 1] > 1
+        ? ["ellipsis" as const, item]
+        : [item],
+    );
 };
 type Translation = {
   locale: string;
@@ -310,8 +378,20 @@ function SensitiveWatermark({ position }: { position: WatermarkPosition }) {
   );
 }
 
-function OfficePreview({ url, mimeType, locale }: { url: string; mimeType: string; locale: Locale }) {
-  return mimeType === excelMime ? <ExcelReader url={url} locale={locale} /> : <WordPreview url={url} locale={locale} />;
+function OfficePreview({
+  url,
+  mimeType,
+  locale,
+}: {
+  url: string;
+  mimeType: string;
+  locale: Locale;
+}) {
+  return mimeType === excelMime ? (
+    <ExcelReader url={url} locale={locale} />
+  ) : (
+    <WordPreview url={url} locale={locale} />
+  );
 }
 
 function WordPreview({ url, locale }: { url: string; locale: Locale }) {
@@ -321,26 +401,35 @@ function WordPreview({ url, locale }: { url: string; locale: Locale }) {
   const [truncated, setTruncated] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
-    setState("loading"); setText(""); setTruncated(false);
-    void fetch(url, { signal: controller.signal }).then(async (response) => {
-      if (!response.ok) throw new Error("preview");
-      const arrayBuffer = await response.arrayBuffer();
-      const mammoth = await import("mammoth");
-      const result = await mammoth.extractRawText({ arrayBuffer });
-      if (controller.signal.aborted) return;
-      setTruncated(result.value.length > 200_000);
-      setText(result.value.slice(0, 200_000));
-      setState("ready");
-    }).catch(() => { if (!controller.signal.aborted) setState("error"); });
+    setState("loading");
+    setText("");
+    setTruncated(false);
+    void fetch(url, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("preview");
+        const arrayBuffer = await response.arrayBuffer();
+        const mammoth = await import("mammoth");
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        if (controller.signal.aborted) return;
+        setTruncated(result.value.length > 200_000);
+        setText(result.value.slice(0, 200_000));
+        setState("ready");
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setState("error");
+      });
     return () => controller.abort();
   }, [url]);
-  if (state === "loading") return <p className="loading-state">{t.previewLoading}</p>;
+  if (state === "loading")
+    return <p className="loading-state">{t.previewLoading}</p>;
   if (state === "error") return <p className="error-state">{t.previewError}</p>;
-  return <div className="office-preview" aria-label={t.readonly}>
-    <strong className="readonly-label">{t.readonly}</strong>
-    <pre>{text}</pre>
-    {truncated && <small>{t.truncated}</small>}
-  </div>;
+  return (
+    <div className="office-preview" aria-label={t.readonly}>
+      <strong className="readonly-label">{t.readonly}</strong>
+      <pre>{text}</pre>
+      {truncated && <small>{t.truncated}</small>}
+    </div>
+  );
 }
 
 function PortalContentSkeleton({ label }: { label: string }) {
@@ -415,7 +504,15 @@ function DocumentRows({
     >
       {viewMode === "list" && (
         <div className="document-list-header" aria-hidden="true">
-          <span>{translate(locale, "Type", "Type")}</span><span>{translate(locale, "Titre", "Title")}</span><span>{translate(locale, "Espace", "Section")}</span><span>{translate(locale, "Catégorie", "Category")}</span><span>{translate(locale, "Version", "Version")}</span><span>{translate(locale, "État", "Status")}</span><span>{translate(locale, "Mis à jour", "Updated")}</span><span>{translate(locale, "Langue", "Language")}</span><span>{translate(locale, "Actions", "Actions")}</span>
+          <span>{translate(locale, "Type", "Type")}</span>
+          <span>{translate(locale, "Titre", "Title")}</span>
+          <span>{translate(locale, "Espace", "Section")}</span>
+          <span>{translate(locale, "Catégorie", "Category")}</span>
+          <span>{translate(locale, "Version", "Version")}</span>
+          <span>{translate(locale, "État", "Status")}</span>
+          <span>{translate(locale, "Mis à jour", "Updated")}</span>
+          <span>{translate(locale, "Langue", "Language")}</span>
+          <span>{translate(locale, "Actions", "Actions")}</span>
         </div>
       )}
       {documents.map((document) => {
@@ -439,7 +536,11 @@ function DocumentRows({
             <span className="file">
               {fileLabel(document.versions[0]?.storedFile.mimeType)}
             </span>
-            <button className="document-title" title={documentTitle} onClick={() => onOpen(document)}>
+            <button
+              className="document-title"
+              title={documentTitle}
+              onClick={() => onOpen(document)}
+            >
               {documentTitle}
             </button>
             <span className="document-space">
@@ -478,24 +579,40 @@ function DocumentRows({
                 )}
               </div>
             </details>
-            <span className={`document-status status-${document.status.toLowerCase()}`}>
-              {document.status === "PUBLISHED" ? (translate(locale, "Publié", "Published")) : document.status === "ARCHIVED" ? (translate(locale, "Archivé", "Archived")) : document.status === "QUARANTINED" ? "Review" : "Draft"}
+            <span
+              className={`document-status status-${document.status.toLowerCase()}`}
+            >
+              {document.status === "PUBLISHED"
+                ? translate(locale, "Publié", "Published")
+                : document.status === "ARCHIVED"
+                  ? translate(locale, "Archivé", "Archived")
+                  : document.status === "QUARANTINED"
+                    ? "Review"
+                    : "Draft"}
             </span>
             <span className="document-updated">
-              {selectedVersion?.createdAt ? new Date(selectedVersion.createdAt).toLocaleDateString(locale) : "—"}
+              {selectedVersion?.createdAt
+                ? new Date(selectedVersion.createdAt).toLocaleDateString(locale)
+                : "—"}
             </span>
             <span className="locales">
-              {interfaceLocales.filter(item => document.versions.some(version => version.locale === item)).map((item) => (
-                <button
-                  className={selected === item ? "selected" : ""}
-                  disabled={!available.includes(item)}
-                  title={!available.includes(item) ? t.unavailable : undefined}
-                  onClick={() => onLocale(document.id, item)}
-                  key={item}
-                >
-                  {item.toUpperCase()}
-                </button>
-              ))}
+              {interfaceLocales
+                .filter((item) =>
+                  document.versions.some((version) => version.locale === item),
+                )
+                .map((item) => (
+                  <button
+                    className={selected === item ? "selected" : ""}
+                    disabled={!available.includes(item)}
+                    title={
+                      !available.includes(item) ? t.unavailable : undefined
+                    }
+                    onClick={() => onLocale(document.id, item)}
+                    key={item}
+                  >
+                    {item.toUpperCase()}
+                  </button>
+                ))}
             </span>
             <span className="document-row-actions">
               <button
@@ -567,7 +684,11 @@ function DocumentRows({
                       </button>
                     )}
                   {document.permissions.archive && (
-                    <button type="button" className="danger" onClick={() => onDelete(document)}>
+                    <button
+                      type="button"
+                      className="danger"
+                      onClick={() => onDelete(document)}
+                    >
                       {translate(locale, "Supprimer", "Delete")}
                     </button>
                   )}
@@ -627,7 +748,10 @@ export function Portal({
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportFeedback, setReportFeedback] = useState("");
   const [copiedDocumentId, setCopiedDocumentId] = useState<string | null>(null);
-  const [linkCopyFallback, setLinkCopyFallback] = useState<{ id: string; url: string } | null>(null);
+  const [linkCopyFallback, setLinkCopyFallback] = useState<{
+    id: string;
+    url: string;
+  } | null>(null);
   const [securityReportOpen, setSecurityReportOpen] = useState(false);
   const [securityReportFeedback, setSecurityReportFeedback] = useState("");
   const [editing, setEditing] = useState<PortalDocument | null>(null);
@@ -671,10 +795,15 @@ export function Portal({
   const [highContrast, setHighContrast] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
-  const [preferenceResult, setPreferenceResult] = useState<"saved" | "failed" | null>(null);
+  const [preferenceResult, setPreferenceResult] = useState<
+    "saved" | "failed" | null
+  >(null);
   const preferenceSaveInFlight = useRef(false);
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("workspace") === "preferences") {
+    if (
+      new URLSearchParams(window.location.search).get("workspace") ===
+      "preferences"
+    ) {
       setPersonalSection("preferences");
       setToolsOpen(true);
     }
@@ -694,7 +823,9 @@ export function Portal({
   const [expandedSpaces, setExpandedSpaces] = useState<Set<string>>(
     () => new Set(),
   );
-  const [categoryPages, setCategoryPages] = useState<Record<string, number>>({});
+  const [categoryPages, setCategoryPages] = useState<Record<string, number>>(
+    {},
+  );
   const [spacePage, setSpacePage] = useState(1);
   const [incidentReports, setIncidentReports] = useState<
     PublishedIncidentReport[]
@@ -811,7 +942,8 @@ export function Portal({
       else setLoading(true);
       setLoadError(false);
       const parameters = new URLSearchParams();
-      for (const [key, value] of Object.entries(metadataSearch)) if (value) parameters.set(key, value);
+      for (const [key, value] of Object.entries(metadataSearch))
+        if (value) parameters.set(key, value);
       if (query.trim()) parameters.set("q", query.trim());
       if (category) parameters.set("categoryId", category);
       if (space) parameters.set("space", space);
@@ -1072,7 +1204,10 @@ export function Portal({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ locale: next }),
     }).catch(() => null);
-    if (response?.ok) setIdentity(current => current ? { ...current, locale: next } : current);
+    if (response?.ok)
+      setIdentity((current) =>
+        current ? { ...current, locale: next } : current,
+      );
   };
 
   const selectCategory = (spaceSlug: string, categoryId: string) => {
@@ -1102,12 +1237,24 @@ export function Portal({
       `/explorer?space=${encodeURIComponent(spaceSlug)}&category=${encodeURIComponent(categorySlug)}${documentSort === "popular" ? "&sort=popular" : ""}`,
     );
   };
-  const saveDisplayPreferences = async (changes: Partial<NonNullable<Identity["preferences"]>> & { locale?: Locale }) => {
+  const saveDisplayPreferences = async (
+    changes: Partial<NonNullable<Identity["preferences"]>> & {
+      locale?: Locale;
+    },
+  ) => {
     if (!identity || preferenceSaveInFlight.current) return;
     preferenceSaveInFlight.current = true;
     setSavingPreferences(true);
     setPreferenceResult(null);
-    const next = { locale, viewMode, density, textScale, highContrast, reducedMotion, ...changes };
+    const next = {
+      locale,
+      viewMode,
+      density,
+      textScale,
+      highContrast,
+      reducedMotion,
+      ...changes,
+    };
     try {
       const response = await fetch("/api/user-tools/preferences", {
         method: "PUT",
@@ -1115,14 +1262,20 @@ export function Portal({
         body: JSON.stringify(next),
       });
       if (!response.ok) throw new Error("preferences");
-      setIdentity(current => current ? { ...current, locale: next.locale } : current);
+      setIdentity((current) =>
+        current ? { ...current, locale: next.locale } : current,
+      );
       if (next.locale !== locale) setLocale(next.locale);
       setViewMode(next.viewMode);
       setDensity(next.density);
       setTextScale(next.textScale);
       setHighContrast(next.highContrast);
       setReducedMotion(next.reducedMotion);
-      try { localStorage.setItem("isms-document-view", next.viewMode); } catch { /* Server preferences remain available when browser storage is blocked. */ }
+      try {
+        localStorage.setItem("isms-document-view", next.viewMode);
+      } catch {
+        /* Server preferences remain available when browser storage is blocked. */
+      }
       setPreferenceResult("saved");
     } catch {
       setPreferenceResult("failed");
@@ -1131,7 +1284,9 @@ export function Portal({
       setSavingPreferences(false);
     }
   };
-  const changeViewMode = (next: ViewMode) => { void saveDisplayPreferences({ viewMode: next }); };
+  const changeViewMode = (next: ViewMode) => {
+    void saveDisplayPreferences({ viewMode: next });
+  };
   const saveCurrentSearch = async () => {
     const name = window.prompt(
       translate(locale, "Nom de la recherche", "Search name"),
@@ -1150,7 +1305,11 @@ export function Portal({
   const requestSpaceAccess = async () => {
     if (!selectedSpace) return;
     const justification = window.prompt(
-      translate(locale, "Justification de la demande d’accès", "Access request justification"),
+      translate(
+        locale,
+        "Justification de la demande d’accès",
+        "Access request justification",
+      ),
     );
     if (!justification?.trim()) return;
     const response = await fetch("/api/user-tools/access-requests", {
@@ -1164,7 +1323,11 @@ export function Portal({
     setAccessRefreshMessage(
       response.ok
         ? translate(locale, "Demande envoyée.", "Request sent.")
-        : translate(locale, "La demande n’a pas pu être envoyée.", "The request could not be sent."),
+        : translate(
+            locale,
+            "La demande n’a pas pu être envoyée.",
+            "The request could not be sent.",
+          ),
     );
   };
   const changeDocumentSort = (next: DocumentSort) => {
@@ -1196,10 +1359,20 @@ export function Portal({
     await loadDocuments();
   };
   const deleteDocument = async (document: PortalDocument) => {
-    if (!window.confirm(translate(locale, "Supprimer ce document ?", "Delete this document?"))) return;
+    if (
+      !window.confirm(
+        translate(locale, "Supprimer ce document ?", "Delete this document?"),
+      )
+    )
+      return;
     setActionError("");
-    const response = await fetch(`/api/documents/${document.id}`, { method: "DELETE" });
-    if (!response.ok) { setActionError(t.error); return; }
+    const response = await fetch(`/api/documents/${document.id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      setActionError(t.error);
+      return;
+    }
     closeDocument();
     await loadDocuments();
   };
@@ -1263,7 +1436,8 @@ export function Portal({
     const target = Math.min(Math.max(1, next), Math.max(1, totalPages));
     setPage(target);
     const parameters = new URLSearchParams();
-    for (const [key, value] of Object.entries(metadataSearch)) if (value) parameters.set(key, value);
+    for (const [key, value] of Object.entries(metadataSearch))
+      if (value) parameters.set(key, value);
     if (query.trim()) parameters.set("q", query.trim());
     if (category) {
       const selected = identity?.spaces
@@ -1460,7 +1634,9 @@ export function Portal({
     if (!openedVersion) return;
     setPdfPageCount(null);
     try {
-      const saved = parsePdfProgress(localStorage.getItem(`isms-pdf-progress:${openedVersion.id}`));
+      const saved = parsePdfProgress(
+        localStorage.getItem(`isms-pdf-progress:${openedVersion.id}`),
+      );
       setPdfPage(saved.page);
       setPdfZoom(saved.zoom);
     } catch {
@@ -1516,16 +1692,19 @@ export function Portal({
   }, [openedPdf, changePdfZoom]);
 
   if (!identity) {
-    const authenticationMessage =
-      translate(locale, authenticationFailure === "timeout"
-          ? "La vérification de session prend trop de temps."
-          : authenticationFailure === "forbidden"
-            ? "Votre session ne permet pas d’accéder à cette page."
-            : "Le service d’authentification est temporairement indisponible.", authenticationFailure === "timeout"
-          ? "The session check is taking too long."
-          : authenticationFailure === "forbidden"
-            ? "Your session cannot access this page."
-            : "The authentication service is temporarily unavailable.");
+    const authenticationMessage = translate(
+      locale,
+      authenticationFailure === "timeout"
+        ? "La vérification de session prend trop de temps."
+        : authenticationFailure === "forbidden"
+          ? "Votre session ne permet pas d’accéder à cette page."
+          : "Le service d’authentification est temporairement indisponible.",
+      authenticationFailure === "timeout"
+        ? "The session check is taking too long."
+        : authenticationFailure === "forbidden"
+          ? "Your session cannot access this page."
+          : "The authentication service is temporarily unavailable.",
+    );
     return (
       <main className="login-shell" aria-busy={!authenticationFailure}>
         <section className="login-card" aria-live="polite">
@@ -1561,7 +1740,10 @@ export function Portal({
 
   const navigationSpaces = identity?.spaces || [];
   const navigationSpacePages = Math.ceil(navigationSpaces.length / 15);
-  const visibleNavigationSpaces = navigationSpaces.slice((spacePage - 1) * 15, spacePage * 15);
+  const visibleNavigationSpaces = navigationSpaces.slice(
+    (spacePage - 1) * 15,
+    spacePage * 15,
+  );
 
   return (
     <div
@@ -1627,8 +1809,14 @@ export function Portal({
             const expanded = expandedSpaces.has(item.slug);
             const submenuId = `space-submenu-${item.id}`;
             const categoryTotalPages = Math.ceil(categories.length / 15);
-            const categoryPage = Math.min(categoryPages[item.id] || 1, Math.max(1, categoryTotalPages));
-            const visibleCategories = categories.slice((categoryPage - 1) * 15, categoryPage * 15);
+            const categoryPage = Math.min(
+              categoryPages[item.id] || 1,
+              Math.max(1, categoryTotalPages),
+            );
+            const visibleCategories = categories.slice(
+              (categoryPage - 1) * 15,
+              categoryPage * 15,
+            );
             return (
               <div
                 className={`navigation-space ${expanded ? "expanded" : ""}`}
@@ -1691,8 +1879,40 @@ export function Portal({
                       </button>
                     ))}
                     {categoryTotalPages > 1 && (
-                      <nav className="category-pagination" aria-label={`${translate(locale, "Pages des catégories", "Category pages")} — ${locale === "fr" ? item.nameFr : item.nameEn}`}>
-                        {paginationItems(categoryPage, categoryTotalPages).map((itemPage, index) => itemPage === "ellipsis" ? <span key={`ellipsis-${index}`} aria-hidden="true">…</span> : <button key={itemPage} type="button" className={itemPage === categoryPage ? "active" : ""} aria-current={itemPage === categoryPage ? "page" : undefined} onClick={() => setCategoryPages((current) => ({ ...current, [item.id]: itemPage }))}>{itemPage}</button>)}
+                      <nav
+                        className="category-pagination"
+                        aria-label={`${translate(locale, "Pages des catégories", "Category pages")} — ${locale === "fr" ? item.nameFr : item.nameEn}`}
+                      >
+                        {paginationItems(categoryPage, categoryTotalPages).map(
+                          (itemPage, index) =>
+                            itemPage === "ellipsis" ? (
+                              <span
+                                key={`ellipsis-${index}`}
+                                aria-hidden="true"
+                              >
+                                …
+                              </span>
+                            ) : (
+                              <button
+                                key={itemPage}
+                                type="button"
+                                className={
+                                  itemPage === categoryPage ? "active" : ""
+                                }
+                                aria-current={
+                                  itemPage === categoryPage ? "page" : undefined
+                                }
+                                onClick={() =>
+                                  setCategoryPages((current) => ({
+                                    ...current,
+                                    [item.id]: itemPage,
+                                  }))
+                                }
+                              >
+                                {itemPage}
+                              </button>
+                            ),
+                        )}
                       </nav>
                     )}
                   </div>
@@ -1701,8 +1921,28 @@ export function Portal({
             );
           })}
           {navigationSpacePages > 1 && (
-            <nav className="category-pagination navigation-pagination" aria-label={translate(locale, "Pages des espaces", "Area pages")}>
-              {paginationItems(spacePage, navigationSpacePages).map((itemPage, index) => itemPage === "ellipsis" ? <span key={`ellipsis-${index}`} aria-hidden="true">…</span> : <button key={itemPage} type="button" className={itemPage === spacePage ? "active" : ""} aria-current={itemPage === spacePage ? "page" : undefined} onClick={() => setSpacePage(itemPage)}>{itemPage}</button>)}
+            <nav
+              className="category-pagination navigation-pagination"
+              aria-label={translate(locale, "Pages des espaces", "Area pages")}
+            >
+              {paginationItems(spacePage, navigationSpacePages).map(
+                (itemPage, index) =>
+                  itemPage === "ellipsis" ? (
+                    <span key={`ellipsis-${index}`} aria-hidden="true">
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={itemPage}
+                      type="button"
+                      className={itemPage === spacePage ? "active" : ""}
+                      aria-current={itemPage === spacePage ? "page" : undefined}
+                      onClick={() => setSpacePage(itemPage)}
+                    >
+                      {itemPage}
+                    </button>
+                  ),
+              )}
             </nav>
           )}
         </nav>
@@ -1717,7 +1957,10 @@ export function Portal({
             role="group"
             aria-label={t.interfaceLanguage}
           >
-            <LanguageButtons locale={locale} onChange={value => void changeLocale(value)} />
+            <LanguageButtons
+              locale={locale}
+              onChange={(value) => void changeLocale(value)}
+            />
           </div>
           <button
             className="help"
@@ -1738,7 +1981,16 @@ export function Portal({
             <div className="account-menu">
               <strong>{identity?.displayName}</strong>
               <small>{identity?.username}</small>
-              <ProfileLanguage locale={locale} defaultLocale={identity?.locale} onChange={next => { setLocale(next); setIdentity(current => current ? { ...current, locale: next } : current); }} />
+              <ProfileLanguage
+                locale={locale}
+                defaultLocale={identity?.locale}
+                onChange={(next) => {
+                  setLocale(next);
+                  setIdentity((current) =>
+                    current ? { ...current, locale: next } : current,
+                  );
+                }}
+              />
               <span
                 className={
                   identity?.authentication.ssoConnected
@@ -1753,7 +2005,15 @@ export function Portal({
                     : t.localAdminSession}
               </span>
               {identity?.isAdmin && <a href="/admin">{t.administration}</a>}
-              {identity?.isModerator && <a href="/moderator">{translate(locale, "Espace modérateur", "Moderator workspace")}</a>}
+              {identity?.isModerator && (
+                <a href="/moderator">
+                  {translate(
+                    locale,
+                    "Espace modérateur",
+                    "Moderator workspace",
+                  )}
+                </a>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -1853,7 +2113,11 @@ export function Portal({
           {reportsMode
             ? t.incidentReportsIntro
             : explorerMode
-              ? translate(locale, "Choisissez une catégorie ou un espace, puis ouvrez vos documents dans le lecteur sécurisé.", "Choose a category or section, then open your documents in the secure viewer.")
+              ? translate(
+                  locale,
+                  "Choisissez une catégorie ou un espace, puis ouvrez vos documents dans le lecteur sécurisé.",
+                  "Choose a category or section, then open your documents in the secure viewer.",
+                )
               : t.subtitle}
         </p>
         {!reportsMode && (
@@ -1863,7 +2127,8 @@ export function Portal({
               event.preventDefault();
               if (explorerMode) {
                 const parameters = new URLSearchParams();
-                for (const [key, value] of Object.entries(metadataSearch)) if (value) parameters.set(key, value);
+                for (const [key, value] of Object.entries(metadataSearch))
+                  if (value) parameters.set(key, value);
                 if (query.trim()) parameters.set("q", query.trim());
                 if (space) parameters.set("space", space);
                 if (category) parameters.set("categoryId", category);
@@ -2104,10 +2369,32 @@ export function Portal({
               <PortalContentSkeleton label={t.loading} />
             ) : (
               <>
-                <nav className="document-breadcrumb" aria-label={translate(locale, "Fil d’Ariane", "Breadcrumb")}>
-                  <button type="button" onClick={clearFilters}>{translate(locale, "Documents", "Documents")}</button>
-                  {selectedSpace && <><span>/</span><button type="button" onClick={() => selectSpace(selectedSpace.slug)}>{locale === "fr" ? selectedSpace.nameFr : selectedSpace.nameEn}</button></>}
-                  {category && <><span>/</span><strong>{categoryLabel}</strong></>}
+                <nav
+                  className="document-breadcrumb"
+                  aria-label={translate(locale, "Fil d’Ariane", "Breadcrumb")}
+                >
+                  <button type="button" onClick={clearFilters}>
+                    {translate(locale, "Documents", "Documents")}
+                  </button>
+                  {selectedSpace && (
+                    <>
+                      <span>/</span>
+                      <button
+                        type="button"
+                        onClick={() => selectSpace(selectedSpace.slug)}
+                      >
+                        {locale === "fr"
+                          ? selectedSpace.nameFr
+                          : selectedSpace.nameEn}
+                      </button>
+                    </>
+                  )}
+                  {category && (
+                    <>
+                      <span>/</span>
+                      <strong>{categoryLabel}</strong>
+                    </>
+                  )}
                 </nav>
                 <section
                   className="explorer-heading"
@@ -2201,7 +2488,11 @@ export function Portal({
                           }
                         >
                           <option value="">{t.allLanguages}</option>
-                          {languageSettings.enabled.map(value => <option key={value} value={value}>{value.toUpperCase()}</option>)}
+                          {languageSettings.enabled.map((value) => (
+                            <option key={value} value={value}>
+                              {value.toUpperCase()}
+                            </option>
+                          ))}
                         </select>
                         <select
                           value={documentSensitivity}
@@ -2218,12 +2509,16 @@ export function Portal({
                           <option value="false">{t.standardOnly}</option>
                         </select>
                       </div>
-                    <button
-                      type="button"
-                      className="explorer-secondary-action"
-                      onClick={() => void saveCurrentSearch()}
+                      <button
+                        type="button"
+                        className="explorer-secondary-action"
+                        onClick={() => void saveCurrentSearch()}
                       >
-                        {translate(locale, "Sauvegarder la recherche", "Save search")}
+                        {translate(
+                          locale,
+                          "Sauvegarder la recherche",
+                          "Save search",
+                        )}
                       </button>
                       {selectedSpace && (
                         <button
@@ -2231,7 +2526,11 @@ export function Portal({
                           className="explorer-secondary-action"
                           onClick={() => void requestSpaceAccess()}
                         >
-                          {translate(locale, "Demander un accès complémentaire", "Request additional access")}
+                          {translate(
+                            locale,
+                            "Demander un accès complémentaire",
+                            "Request additional access",
+                          )}
                         </button>
                       )}
                       <label className="document-sort">
@@ -2279,22 +2578,114 @@ export function Portal({
                     </div>
                   </div>
                 </section>
-                <DocumentSearchForm locale={locale} value={metadataSearch} onApply={value => {
-                  setMetadataSearch(value); setPage(1);
-                  const parameters = new URLSearchParams(window.location.search);
-                  for (const key of ["reference", "owner", "documentType", "keywords", "reviewFrom", "reviewTo"] as const) { if (value[key]) parameters.set(key, value[key]!); else parameters.delete(key); }
-                  parameters.delete("page"); window.history.replaceState(null, "", `/explorer?${parameters}`);
-                }} />
-                {(query || category || space || documentFormat || documentLanguage || documentSensitivity || Object.keys(metadataSearch).length > 0 || documentSort !== "recent") && (
-                  <div className="active-document-filters" aria-label={translate(locale, "Filtres actifs", "Active filters")}>
-                    {query && <button type="button" onClick={() => setQuery("")}>{query} <span aria-hidden="true">×</span></button>}
-                    {space && <button type="button" onClick={() => setSpace("")}>{selectedSpace ? (locale === "fr" ? selectedSpace.nameFr : selectedSpace.nameEn) : space} <span aria-hidden="true">×</span></button>}
-                    {category && <button type="button" onClick={() => setCategory("")}>{categoryLabel} <span aria-hidden="true">×</span></button>}
-                    {documentFormat && <button type="button" onClick={() => changeAdvancedFilter("format", "")}>{documentFormat.toUpperCase()} <span aria-hidden="true">×</span></button>}
-                    {documentLanguage && <button type="button" onClick={() => changeAdvancedFilter("locale", "")}>{documentLanguage.toUpperCase()} <span aria-hidden="true">×</span></button>}
-                    {documentSensitivity && <button type="button" onClick={() => changeAdvancedFilter("sensitive", "")}>{documentSensitivity === "true" ? t.sensitiveOnly : t.standardOnly} <span aria-hidden="true">×</span></button>}
-                    {documentSort !== "recent" && <button type="button" onClick={() => changeDocumentSort("recent")}>{t.sortPopular} <span aria-hidden="true">×</span></button>}
-                    <button type="button" className="clear-document-filters" onClick={clearFilters}>{translate(locale, "Réinitialiser", "Reset")}</button>
+                <DocumentSearchForm
+                  locale={locale}
+                  value={metadataSearch}
+                  onApply={(value) => {
+                    setMetadataSearch(value);
+                    setPage(1);
+                    const parameters = new URLSearchParams(
+                      window.location.search,
+                    );
+                    for (const key of [
+                      "reference",
+                      "owner",
+                      "documentType",
+                      "keywords",
+                      "reviewFrom",
+                      "reviewTo",
+                    ] as const) {
+                      if (value[key]) parameters.set(key, value[key]!);
+                      else parameters.delete(key);
+                    }
+                    parameters.delete("page");
+                    window.history.replaceState(
+                      null,
+                      "",
+                      `/explorer?${parameters}`,
+                    );
+                  }}
+                />
+                {(query ||
+                  category ||
+                  space ||
+                  documentFormat ||
+                  documentLanguage ||
+                  documentSensitivity ||
+                  Object.keys(metadataSearch).length > 0 ||
+                  documentSort !== "recent") && (
+                  <div
+                    className="active-document-filters"
+                    aria-label={translate(
+                      locale,
+                      "Filtres actifs",
+                      "Active filters",
+                    )}
+                  >
+                    {query && (
+                      <button type="button" onClick={() => setQuery("")}>
+                        {query} <span aria-hidden="true">×</span>
+                      </button>
+                    )}
+                    {space && (
+                      <button type="button" onClick={() => setSpace("")}>
+                        {selectedSpace
+                          ? locale === "fr"
+                            ? selectedSpace.nameFr
+                            : selectedSpace.nameEn
+                          : space}{" "}
+                        <span aria-hidden="true">×</span>
+                      </button>
+                    )}
+                    {category && (
+                      <button type="button" onClick={() => setCategory("")}>
+                        {categoryLabel} <span aria-hidden="true">×</span>
+                      </button>
+                    )}
+                    {documentFormat && (
+                      <button
+                        type="button"
+                        onClick={() => changeAdvancedFilter("format", "")}
+                      >
+                        {documentFormat.toUpperCase()}{" "}
+                        <span aria-hidden="true">×</span>
+                      </button>
+                    )}
+                    {documentLanguage && (
+                      <button
+                        type="button"
+                        onClick={() => changeAdvancedFilter("locale", "")}
+                      >
+                        {documentLanguage.toUpperCase()}{" "}
+                        <span aria-hidden="true">×</span>
+                      </button>
+                    )}
+                    {documentSensitivity && (
+                      <button
+                        type="button"
+                        onClick={() => changeAdvancedFilter("sensitive", "")}
+                      >
+                        {documentSensitivity === "true"
+                          ? t.sensitiveOnly
+                          : t.standardOnly}{" "}
+                        <span aria-hidden="true">×</span>
+                      </button>
+                    )}
+                    {documentSort !== "recent" && (
+                      <button
+                        type="button"
+                        onClick={() => changeDocumentSort("recent")}
+                      >
+                        {t.sortPopular} <span aria-hidden="true">×</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="clear-document-filters"
+                      onClick={clearFilters}
+                    >
+                      {translate(locale, "Réinitialiser", "Reset")}
+                    </button>
                   </div>
                 )}
                 <DocumentRows
@@ -2309,9 +2700,17 @@ export function Portal({
                   }
                   onOpen={setOpened}
                   onEdit={(document) => {
-                    const version = document.versions.find((item) => item.locale === selectedLocales[document.id]) || document.versions[0];
-                    const documentLocale = isLocale(version?.locale) ? version.locale : locale;
-                    const translation = document.translations.find((item) => item.locale === documentLocale) || document.translations[0];
+                    const version =
+                      document.versions.find(
+                        (item) => item.locale === selectedLocales[document.id],
+                      ) || document.versions[0];
+                    const documentLocale = isLocale(version?.locale)
+                      ? version.locale
+                      : locale;
+                    const translation =
+                      document.translations.find(
+                        (item) => item.locale === documentLocale,
+                      ) || document.translations[0];
                     setEditVersionId(version?.id || "");
                     setEditLocale(documentLocale);
                     setEditTitle(translation?.title || "");
@@ -2343,8 +2742,30 @@ export function Portal({
                     >
                       ← {t.previous}
                     </button>
-                    <div className="page-numbers" aria-label={`${t.page} ${page} ${t.of} ${Math.max(1, totalPages)}`}>
-                      {paginationItems(page, totalPages).map((itemPage, index) => itemPage === "ellipsis" ? <span key={`ellipsis-${index}`} aria-hidden="true">…</span> : <button key={itemPage} type="button" className="page-number" aria-current={itemPage === page ? "page" : undefined} onClick={() => changePage(itemPage)}>{itemPage}</button>)}
+                    <div
+                      className="page-numbers"
+                      aria-label={`${t.page} ${page} ${t.of} ${Math.max(1, totalPages)}`}
+                    >
+                      {paginationItems(page, totalPages).map(
+                        (itemPage, index) =>
+                          itemPage === "ellipsis" ? (
+                            <span key={`ellipsis-${index}`} aria-hidden="true">
+                              …
+                            </span>
+                          ) : (
+                            <button
+                              key={itemPage}
+                              type="button"
+                              className="page-number"
+                              aria-current={
+                                itemPage === page ? "page" : undefined
+                              }
+                              onClick={() => changePage(itemPage)}
+                            >
+                              {itemPage}
+                            </button>
+                          ),
+                      )}
                     </div>
                     <button
                       type="button"
@@ -2516,7 +2937,11 @@ export function Portal({
                   {translate(locale, "Mon espace personnel", "My workspace")}
                 </h2>
                 <p>
-                  {translate(locale, "Retrouvez vos documents, demandes et préférences.", "Find your documents, requests and preferences.")}
+                  {translate(
+                    locale,
+                    "Retrouvez vos documents, demandes et préférences.",
+                    "Find your documents, requests and preferences.",
+                  )}
                 </p>
               </div>
               <dl className="personal-tools-summary">
@@ -2537,9 +2962,11 @@ export function Portal({
             <div className="personal-tools-content">
               <nav
                 className="personal-tools-tabs"
-                aria-label={
-                  translate(locale, "Rubriques de mon espace personnel", "Personal workspace sections")
-                }
+                aria-label={translate(
+                  locale,
+                  "Rubriques de mon espace personnel",
+                  "Personal workspace sections",
+                )}
               >
                 {(
                   [
@@ -2575,8 +3002,11 @@ export function Portal({
                     },
                     {
                       key: "notifications",
-                      label:
-                        translate(locale, "Notifications", "Notifications"),
+                      label: translate(
+                        locale,
+                        "Notifications",
+                        "Notifications",
+                      ),
                       count: notifications.filter((item) => !item.readAt)
                         .length,
                       icon: "audit",
@@ -2639,7 +3069,11 @@ export function Portal({
                         </ul>
                       ) : (
                         <p>
-                          {translate(locale, "Aucun document dans votre file personnelle.", "Your personal reading list is empty.")}
+                          {translate(
+                            locale,
+                            "Aucun document dans votre file personnelle.",
+                            "Your personal reading list is empty.",
+                          )}
                         </p>
                       )}
                     </section>
@@ -2648,12 +3082,20 @@ export function Portal({
                     <section>
                       <h3>
                         <Icon name="documents" />{" "}
-                        {translate(locale, "Consultés récemment", "Recently viewed")}
+                        {translate(
+                          locale,
+                          "Consultés récemment",
+                          "Recently viewed",
+                        )}
                       </h3>
                       {updates && updates.count > 0 && (
                         <div className="document-updates-notice">
                           <strong>
-                            {translate(locale, `${updates.count} nouveauté(s) depuis votre dernière visite`, `${updates.count} update(s) since your last visit`)}
+                            {translate(
+                              locale,
+                              `${updates.count} nouveauté(s) depuis votre dernière visite`,
+                              `${updates.count} update(s) since your last visit`,
+                            )}
                           </strong>
                           <button
                             type="button"
@@ -2671,7 +3113,11 @@ export function Portal({
                               })
                             }
                           >
-                            {translate(locale, "Tout marquer comme vu", "Mark all as seen")}
+                            {translate(
+                              locale,
+                              "Tout marquer comme vu",
+                              "Mark all as seen",
+                            )}
                           </button>
                         </div>
                       )}
@@ -2688,7 +3134,11 @@ export function Portal({
                           }
                         >
                           <Icon name="delete" />{" "}
-                          {translate(locale, "Effacer mon historique", "Clear my history")}
+                          {translate(
+                            locale,
+                            "Effacer mon historique",
+                            "Clear my history",
+                          )}
                         </button>
                       )}
                       {activities.length ? (
@@ -2723,7 +3173,11 @@ export function Portal({
                         </ul>
                       ) : (
                         <p>
-                          {translate(locale, "Aucune consultation.", "No activity.")}
+                          {translate(
+                            locale,
+                            "Aucune consultation.",
+                            "No activity.",
+                          )}
                         </p>
                       )}
                     </section>
@@ -2732,7 +3186,11 @@ export function Portal({
                     <section>
                       <h3>
                         <Icon name="search" />
-                        {translate(locale, "Recherches sauvegardées", "Saved searches")}
+                        {translate(
+                          locale,
+                          "Recherches sauvegardées",
+                          "Saved searches",
+                        )}
                       </h3>
                       {savedSearches.length ? (
                         <ul>
@@ -2765,7 +3223,11 @@ export function Portal({
                         </ul>
                       ) : (
                         <p>
-                          {translate(locale, "Aucune recherche.", "No saved search.")}
+                          {translate(
+                            locale,
+                            "Aucune recherche.",
+                            "No saved search.",
+                          )}
                         </p>
                       )}
                     </section>
@@ -2774,7 +3236,11 @@ export function Portal({
                     <section>
                       <h3>
                         <Icon name="rules" />
-                        {translate(locale, "Demandes d’accès", "Access requests")}
+                        {translate(
+                          locale,
+                          "Demandes d’accès",
+                          "Access requests",
+                        )}
                       </h3>
                       {accessRequests.length ? (
                         <ul>
@@ -2788,7 +3254,11 @@ export function Portal({
                               — {request.justification}
                               {request.requestedUntil && (
                                 <small>
-                                  {translate(locale, " · Jusqu’au ", " · Until ")}
+                                  {translate(
+                                    locale,
+                                    " · Jusqu’au ",
+                                    " · Until ",
+                                  )}
                                   {new Date(
                                     request.requestedUntil,
                                   ).toLocaleDateString(locale)}
@@ -2809,7 +3279,11 @@ export function Portal({
                     <section>
                       <h3>
                         <Icon name="audit" />{" "}
-                        {translate(locale, "Mes signalements", "My issue reports")}
+                        {translate(
+                          locale,
+                          "Mes signalements",
+                          "My issue reports",
+                        )}
                       </h3>
                       {documentReports.length ? (
                         <ul>
@@ -2837,7 +3311,11 @@ export function Portal({
                                 {report.resolutionComment && (
                                   <p>
                                     <strong>
-                                      {translate(locale, "Réponse ISMS :", "ISMS response:")}
+                                      {translate(
+                                        locale,
+                                        "Réponse ISMS :",
+                                        "ISMS response:",
+                                      )}
                                     </strong>{" "}
                                     {report.resolutionComment}
                                   </p>
@@ -2855,7 +3333,11 @@ export function Portal({
                         </ul>
                       ) : (
                         <p>
-                          {translate(locale, "Aucun signalement documentaire.", "No document issue report.")}
+                          {translate(
+                            locale,
+                            "Aucun signalement documentaire.",
+                            "No document issue report.",
+                          )}
                         </p>
                       )}
                     </section>
@@ -2882,7 +3364,11 @@ export function Portal({
                           }}
                         >
                           <Icon name="publish" />
-                          {translate(locale, "Tout marquer comme vu", "Mark all as seen")}
+                          {translate(
+                            locale,
+                            "Tout marquer comme vu",
+                            "Mark all as seen",
+                          )}
                         </button>
                       )}
                       {notifications.length ? (
@@ -2907,15 +3393,27 @@ export function Portal({
                               >
                                 <Icon name="publish" />
                                 {notification.mandatory
-                                  ? translate(locale, "Accuser réception", "Acknowledge")
-                                  : translate(locale, "Marquer comme lu", "Mark as read")}
+                                  ? translate(
+                                      locale,
+                                      "Accuser réception",
+                                      "Acknowledge",
+                                    )
+                                  : translate(
+                                      locale,
+                                      "Marquer comme lu",
+                                      "Mark as read",
+                                    )}
                               </button>
                             </li>
                           ))}
                         </ul>
                       ) : (
                         <p>
-                          {translate(locale, "Aucune notification.", "No notification.")}
+                          {translate(
+                            locale,
+                            "Aucune notification.",
+                            "No notification.",
+                          )}
                         </p>
                       )}
                     </section>
@@ -2923,14 +3421,38 @@ export function Portal({
                 </div>
               )}
               {personalSection === "preferences" && (
-                <fieldset className="personal-tools-preferences" disabled={savingPreferences} aria-busy={savingPreferences}>
+                <fieldset
+                  className="personal-tools-preferences"
+                  disabled={savingPreferences}
+                  aria-busy={savingPreferences}
+                >
                   <legend>
-                    {translate(locale, "Préférences d’affichage", "Display preferences")}
+                    {translate(
+                      locale,
+                      "Préférences d’affichage",
+                      "Display preferences",
+                    )}
                   </legend>
-                  <label>{languageUi[locale].profile}<LanguageSelect value={locale} syncValue={false} onValueChange={value => void saveDisplayPreferences({ locale: value })} /></label>
+                  <label>
+                    {languageUi[locale].profile}
+                    <LanguageSelect
+                      value={locale}
+                      syncValue={false}
+                      onValueChange={(value) =>
+                        void saveDisplayPreferences({ locale: value })
+                      }
+                    />
+                  </label>
                   <label>
                     {preferenceCopy[locale].view}
-                    <select value={viewMode} onChange={event => void saveDisplayPreferences({ viewMode: event.target.value as ViewMode })}>
+                    <select
+                      value={viewMode}
+                      onChange={(event) =>
+                        void saveDisplayPreferences({
+                          viewMode: event.target.value as ViewMode,
+                        })
+                      }
+                    >
                       <option value="list">{t.listView}</option>
                       <option value="grid">{t.gridView}</option>
                     </select>
@@ -2939,7 +3461,13 @@ export function Portal({
                     {translate(locale, "Densité", "Density")}
                     <select
                       value={density}
-                      onChange={event => void saveDisplayPreferences({ density: event.target.value as "comfortable" | "compact" })}
+                      onChange={(event) =>
+                        void saveDisplayPreferences({
+                          density: event.target.value as
+                            | "comfortable"
+                            | "compact",
+                        })
+                      }
                     >
                       <option value="comfortable">
                         {translate(locale, "Confortable", "Comfortable")}
@@ -2953,7 +3481,11 @@ export function Portal({
                     {translate(locale, "Taille du texte", "Text size")}
                     <select
                       value={textScale}
-                      onChange={event => void saveDisplayPreferences({ textScale: Number(event.target.value) })}
+                      onChange={(event) =>
+                        void saveDisplayPreferences({
+                          textScale: Number(event.target.value),
+                        })
+                      }
                     >
                       <option value={85}>85 %</option>
                       <option value={100}>100 %</option>
@@ -2965,7 +3497,11 @@ export function Portal({
                     <input
                       type="checkbox"
                       checked={highContrast}
-                      onChange={event => void saveDisplayPreferences({ highContrast: event.target.checked })}
+                      onChange={(event) =>
+                        void saveDisplayPreferences({
+                          highContrast: event.target.checked,
+                        })
+                      }
                     />
                     {translate(locale, "Contraste renforcé", "High contrast")}
                   </label>
@@ -2973,14 +3509,43 @@ export function Portal({
                     <input
                       type="checkbox"
                       checked={reducedMotion}
-                      onChange={event => void saveDisplayPreferences({ reducedMotion: event.target.checked })}
+                      onChange={(event) =>
+                        void saveDisplayPreferences({
+                          reducedMotion: event.target.checked,
+                        })
+                      }
                     />
-                    {translate(locale, "Réduire les animations", "Reduce motion")}
+                    {translate(
+                      locale,
+                      "Réduire les animations",
+                      "Reduce motion",
+                    )}
                   </label>
-                  <button type="button" className="primary" onClick={() => void saveDisplayPreferences({ viewMode: "list", density: "comfortable", textScale: 100, highContrast: false, reducedMotion: false })}>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() =>
+                      void saveDisplayPreferences({
+                        viewMode: "list",
+                        density: "comfortable",
+                        textScale: 100,
+                        highContrast: false,
+                        reducedMotion: false,
+                      })
+                    }
+                  >
                     {preferenceCopy[locale].reset}
                   </button>
-                  {preferenceResult && <p className={preferenceResult === "failed" ? "error-state" : "notice"} role={preferenceResult === "failed" ? "alert" : "status"}>{preferenceCopy[locale][preferenceResult]}</p>}
+                  {preferenceResult && (
+                    <p
+                      className={
+                        preferenceResult === "failed" ? "error-state" : "notice"
+                      }
+                      role={preferenceResult === "failed" ? "alert" : "status"}
+                    >
+                      {preferenceCopy[locale][preferenceResult]}
+                    </p>
+                  )}
                 </fieldset>
               )}
             </div>
@@ -3015,7 +3580,10 @@ export function Portal({
                   className="viewer-copy-link"
                   onClick={async () => {
                     const id = opened.id;
-                    const url = documentShareUrl(window.location.origin, opened.slug);
+                    const url = documentShareUrl(
+                      window.location.origin,
+                      opened.slug,
+                    );
                     setCopiedDocumentId(null);
                     setLinkCopyFallback(null);
                     if (await copyDocumentLink(url)) setCopiedDocumentId(id);
@@ -3034,13 +3602,29 @@ export function Portal({
                   aria-pressed={opened.favorite}
                   aria-label={
                     opened.favorite
-                      ? translate(locale, "Retirer des favoris", "Remove from favorites")
-                      : translate(locale, "Ajouter aux favoris", "Add to favorites")
+                      ? translate(
+                          locale,
+                          "Retirer des favoris",
+                          "Remove from favorites",
+                        )
+                      : translate(
+                          locale,
+                          "Ajouter aux favoris",
+                          "Add to favorites",
+                        )
                   }
                   title={
                     opened.favorite
-                      ? translate(locale, "Retirer des favoris", "Remove from favorites")
-                      : translate(locale, "Ajouter aux favoris", "Add to favorites")
+                      ? translate(
+                          locale,
+                          "Retirer des favoris",
+                          "Remove from favorites",
+                        )
+                      : translate(
+                          locale,
+                          "Ajouter aux favoris",
+                          "Add to favorites",
+                        )
                   }
                   onClick={() => void toggleFavorite(opened)}
                 >
@@ -3050,12 +3634,16 @@ export function Portal({
                   type="button"
                   disabled={openedIndex <= 0}
                   onClick={() => setOpened(documents[openedIndex - 1])}
-                  aria-label={
-                    translate(locale, "Document précédent", "Previous document")
-                  }
-                  title={
-                    translate(locale, "Document précédent", "Previous document")
-                  }
+                  aria-label={translate(
+                    locale,
+                    "Document précédent",
+                    "Previous document",
+                  )}
+                  title={translate(
+                    locale,
+                    "Document précédent",
+                    "Previous document",
+                  )}
                 >
                   ←
                 </button>
@@ -3065,9 +3653,11 @@ export function Portal({
                     openedIndex < 0 || openedIndex >= documents.length - 1
                   }
                   onClick={() => setOpened(documents[openedIndex + 1])}
-                  aria-label={
-                    translate(locale, "Document suivant", "Next document")
-                  }
+                  aria-label={translate(
+                    locale,
+                    "Document suivant",
+                    "Next document",
+                  )}
                   title={translate(locale, "Document suivant", "Next document")}
                 >
                   →
@@ -3091,33 +3681,59 @@ export function Portal({
                 </button>
               </div>
             </div>
-            {linkCopyFallback?.id === opened.id && <div className="error-state" role="status">
-              <label>{({ fr: "Copie automatique indisponible. Lien du document :", en: "Automatic copying unavailable. Document link:", es: "Copia automática no disponible. Enlace del documento:", sk: "Automatické kopírovanie nie je dostupné. Odkaz na dokument:" })[locale]}
-                <input type="url" readOnly autoFocus value={linkCopyFallback.url} onFocus={(event) => event.currentTarget.select()} />
-              </label>
-            </div>}
+            {linkCopyFallback?.id === opened.id && (
+              <div className="error-state" role="status">
+                <label>
+                  {
+                    {
+                      fr: "Copie automatique indisponible. Lien du document :",
+                      en: "Automatic copying unavailable. Document link:",
+                      es: "Copia automática no disponible. Enlace del documento:",
+                      sk: "Automatické kopírovanie nie je dostupné. Odkaz na dokument:",
+                    }[locale]
+                  }
+                  <input
+                    type="url"
+                    readOnly
+                    autoFocus
+                    value={linkCopyFallback.url}
+                    onFocus={(event) => event.currentTarget.select()}
+                  />
+                </label>
+              </div>
+            )}
             <div className="modal-locales">
-              {interfaceLocales.filter(item => opened.versions.some(version => version.locale === item)).map((item) => (
-                <button
-                  key={item}
-                  disabled={
-                    !opened.versions.some((version) => version.locale === item)
-                  }
-                  className={openedLocale === item ? "selected" : ""}
-                  onClick={() =>
-                    setSelectedLocales((current) => ({
-                      ...current,
-                      [opened.id]: item,
-                    }))
-                  }
-                >
-                  {item.toUpperCase()}
-                </button>
-              ))}
+              {interfaceLocales
+                .filter((item) =>
+                  opened.versions.some((version) => version.locale === item),
+                )
+                .map((item) => (
+                  <button
+                    key={item}
+                    disabled={
+                      !opened.versions.some(
+                        (version) => version.locale === item,
+                      )
+                    }
+                    className={openedLocale === item ? "selected" : ""}
+                    onClick={() =>
+                      setSelectedLocales((current) => ({
+                        ...current,
+                        [opened.id]: item,
+                      }))
+                    }
+                  >
+                    {item.toUpperCase()}
+                  </button>
+                ))}
             </div>
             <ReaderInformation
               key={opened.id}
-              summary={translate(locale, "Informations documentaires", "Document information")}
+              summary={translate(
+                locale,
+                "Informations documentaires",
+                "Document information",
+              )}
             >
               <dl className="document-reader-meta">
                 <div>
@@ -3143,7 +3759,44 @@ export function Portal({
                   <dt>{translate(locale, "Langue", "Language")}</dt>
                   <dd>{openedLocale?.toUpperCase() || "—"}</dd>
                 </div>
-                {Object.entries(opened.metadata || {}).filter(([field, value]) => field === "ged.keywords" ? metadataKeywords(value).length > 0 : value.trim()).map(([field, value]) => <div className="document-reader-custom-field" key={field}><dt>{metadataLabel(field, (fr, en) => translate(locale, fr, en))}</dt><dd className={field === "ged.keywords" ? "document-metadata-keywords" : undefined}>{field === "ged.keywords" ? metadataKeywords(value).map(keyword => <a key={keyword} href={`/explorer?q=${encodeURIComponent(keyword)}`}>{keyword}</a>) : metadataDisplayValue(field, value, (fr, en) => translate(locale, fr, en), locale)}</dd></div>)}
+                {Object.entries(opened.metadata || {})
+                  .filter(([field, value]) =>
+                    field === "ged.keywords"
+                      ? metadataKeywords(value).length > 0
+                      : value.trim(),
+                  )
+                  .map(([field, value]) => (
+                    <div className="document-reader-custom-field" key={field}>
+                      <dt>
+                        {metadataLabel(field, (fr, en) =>
+                          translate(locale, fr, en),
+                        )}
+                      </dt>
+                      <dd
+                        className={
+                          field === "ged.keywords"
+                            ? "document-metadata-keywords"
+                            : undefined
+                        }
+                      >
+                        {field === "ged.keywords"
+                          ? metadataKeywords(value).map((keyword) => (
+                              <a
+                                key={keyword}
+                                href={`/explorer?q=${encodeURIComponent(keyword)}`}
+                              >
+                                {keyword}
+                              </a>
+                            ))
+                          : metadataDisplayValue(
+                              field,
+                              value,
+                              (fr, en) => translate(locale, fr, en),
+                              locale,
+                            )}
+                      </dd>
+                    </div>
+                  ))}
               </dl>
             </ReaderInformation>
             {openedVersion?.changeDetails &&
@@ -3153,7 +3806,11 @@ export function Portal({
                 0 && (
                 <details className="document-change-details">
                   <summary>
-                    {translate(locale, "Comparer avec la version précédente", "Compare with the previous version")}
+                    {translate(
+                      locale,
+                      "Comparer avec la version précédente",
+                      "Compare with the previous version",
+                    )}
                   </summary>
                   {openedVersion.changeDetails.modified?.map(
                     (change, index) => (
@@ -3224,16 +3881,30 @@ export function Portal({
                       max={pdfPageCount ?? undefined}
                       value={pdfPage}
                       onChange={(event) =>
-                        setPdfPage(Math.min(normalizePdfPage(Number(event.target.value)), pdfPageCount ?? Number.MAX_SAFE_INTEGER))
+                        setPdfPage(
+                          Math.min(
+                            normalizePdfPage(Number(event.target.value)),
+                            pdfPageCount ?? Number.MAX_SAFE_INTEGER,
+                          ),
+                        )
                       }
                     />
-                    <output aria-live="polite">{pdfPageCount !== null ? `/ ${pdfPageCount}` : ""}</output>
+                    <output aria-live="polite">
+                      {pdfPageCount !== null ? `/ ${pdfPageCount}` : ""}
+                    </output>
                   </label>
                   <button
                     type="button"
                     disabled={pdfPageCount !== null && pdfPage >= pdfPageCount}
                     aria-label={translate(locale, "Suivant", "Next")}
-                    onClick={() => setPdfPage((current) => Math.min(current + 1, pdfPageCount ?? Number.MAX_SAFE_INTEGER))}
+                    onClick={() =>
+                      setPdfPage((current) =>
+                        Math.min(
+                          current + 1,
+                          pdfPageCount ?? Number.MAX_SAFE_INTEGER,
+                        ),
+                      )
+                    }
                   >
                     <Icon name="chevron" />
                   </button>
@@ -3278,7 +3949,14 @@ export function Portal({
               <>
                 <div className="document-preview-frame">
                   {openedPdf ? (
-                    <PdfPreview url={openedContentUrl} title={titleFor(opened, openedLocale || locale)} page={pdfPage} zoom={pdfZoom} locale={locale} onPageCount={handlePdfPageCount} />
+                    <PdfPreview
+                      url={openedContentUrl}
+                      title={titleFor(opened, openedLocale || locale)}
+                      page={pdfPage}
+                      zoom={pdfZoom}
+                      locale={locale}
+                      onPageCount={handlePdfPageCount}
+                    />
                   ) : openedVersion.storedFile.mimeType.startsWith("image/") ? (
                     <iframe
                       title={titleFor(opened, openedLocale || locale)}
@@ -3323,7 +4001,11 @@ export function Portal({
                     }}
                   >
                     <Icon name="audit" />
-                    {translate(locale, "Signaler un problème", "Report an issue")}
+                    {translate(
+                      locale,
+                      "Signaler un problème",
+                      "Report an issue",
+                    )}
                   </button>
                 </div>
                 {reportFeedback && (
@@ -3362,10 +4044,18 @@ export function Portal({
               ×
             </button>
             <h2 id="security-report-title">
-              {translate(locale, "Signaler un événement de sécurité", "Report a security event")}
+              {translate(
+                locale,
+                "Signaler un événement de sécurité",
+                "Report a security event",
+              )}
             </h2>
             <p>
-              {translate(locale, "Un numéro de suivi vous sera remis après l’envoi.", "A tracking reference will be provided after submission.")}
+              {translate(
+                locale,
+                "Un numéro de suivi vous sera remis après l’envoi.",
+                "A tracking reference will be provided after submission.",
+              )}
             </p>
             <form
               className="admin-form"
@@ -3381,7 +4071,11 @@ export function Portal({
                 );
                 if (!response.ok) {
                   setSecurityReportFeedback(
-                    translate(locale, "Le signalement n’a pas pu être envoyé.", "The report could not be sent."),
+                    translate(
+                      locale,
+                      "Le signalement n’a pas pu être envoyé.",
+                      "The report could not be sent.",
+                    ),
                   );
                   return;
                 }
@@ -3389,7 +4083,11 @@ export function Portal({
                   reference: string;
                 };
                 setSecurityReportFeedback(
-                  translate(locale, `Signalement enregistré : ${result.reference}`, `Report recorded: ${result.reference}`),
+                  translate(
+                    locale,
+                    `Signalement enregistré : ${result.reference}`,
+                    `Report recorded: ${result.reference}`,
+                  ),
                 );
                 event.currentTarget.reset();
               }}
@@ -3397,7 +4095,9 @@ export function Portal({
               <label>
                 {translate(locale, "Type", "Type")}
                 <select name="category" required defaultValue="INCIDENT">
-                  <option value="INCIDENT">{translate(locale, "Incident", "Incident")}</option>
+                  <option value="INCIDENT">
+                    {translate(locale, "Incident", "Incident")}
+                  </option>
                   <option value="PHISHING">Phishing</option>
                   <option value="LOST_DEVICE">
                     {translate(locale, "Matériel perdu", "Lost device")}
@@ -3438,14 +4138,22 @@ export function Portal({
                 />
               </label>
               <label>
-                {translate(locale, "Pièce jointe sûre (facultative)", "Safe attachment (optional)")}
+                {translate(
+                  locale,
+                  "Pièce jointe sûre (facultative)",
+                  "Safe attachment (optional)",
+                )}
                 <input
                   type="file"
                   name="attachment"
                   accept=".pdf,.png,.jpg,.jpeg,.txt"
                 />
                 <small>
-                  {translate(locale, "PDF, PNG, JPEG ou TXT, 10 Mo maximum. Analyse antivirus obligatoire.", "PDF, PNG, JPEG or TXT, 10 MB maximum. Antivirus scanning is mandatory.")}
+                  {translate(
+                    locale,
+                    "PDF, PNG, JPEG ou TXT, 10 Mo maximum. Analyse antivirus obligatoire.",
+                    "PDF, PNG, JPEG or TXT, 10 MB maximum. Antivirus scanning is mandatory.",
+                  )}
                 </small>
               </label>
               {securityReportFeedback && (
@@ -3486,7 +4194,11 @@ export function Portal({
               {translate(locale, "Signaler un problème", "Report an issue")}
             </h2>
             <p>
-              {translate(locale, `Document : ${titleFor(reporting, locale)}`, `Document: ${titleFor(reporting, locale)}`)}
+              {translate(
+                locale,
+                `Document : ${titleFor(reporting, locale)}`,
+                `Document: ${titleFor(reporting, locale)}`,
+              )}
             </p>
             <form
               className="report-document-form"
@@ -3509,12 +4221,20 @@ export function Portal({
                 setReportSubmitting(false);
                 if (!response?.ok) {
                   setActionError(
-                    translate(locale, "Le signalement n’a pas pu être envoyé. Réessayez.", "The report could not be sent. Please try again."),
+                    translate(
+                      locale,
+                      "Le signalement n’a pas pu être envoyé. Réessayez.",
+                      "The report could not be sent. Please try again.",
+                    ),
                   );
                   return;
                 }
                 setReportFeedback(
-                  translate(locale, "Signalement envoyé à l’équipe ISMS.", "Report sent to the ISMS team."),
+                  translate(
+                    locale,
+                    "Signalement envoyé à l’équipe ISMS.",
+                    "Report sent to the ISMS team.",
+                  ),
                 );
                 setReporting(null);
               }}
@@ -3528,10 +4248,18 @@ export function Portal({
                   }
                 >
                   <option value="OUTDATED">
-                    {translate(locale, "Document obsolète", "Outdated document")}
+                    {translate(
+                      locale,
+                      "Document obsolète",
+                      "Outdated document",
+                    )}
                   </option>
                   <option value="INCORRECT">
-                    {translate(locale, "Information incorrecte", "Incorrect information")}
+                    {translate(
+                      locale,
+                      "Information incorrecte",
+                      "Incorrect information",
+                    )}
                   </option>
                   <option value="SENSITIVE">
                     {translate(locale, "Contenu sensible", "Sensitive content")}
@@ -3548,9 +4276,11 @@ export function Portal({
                   rows={5}
                   value={reportMessage}
                   onChange={(event) => setReportMessage(event.target.value)}
-                  placeholder={
-                    translate(locale, "Décrivez brièvement le problème constaté…", "Briefly describe the issue…")
-                  }
+                  placeholder={translate(
+                    locale,
+                    "Décrivez brièvement le problème constaté…",
+                    "Briefly describe the issue…",
+                  )}
                 />
               </label>
               {actionError && (
@@ -3573,7 +4303,11 @@ export function Portal({
                 >
                   {reportSubmitting
                     ? translate(locale, "Envoi…", "Sending…")
-                    : translate(locale, "Envoyer le signalement", "Send report")}
+                    : translate(
+                        locale,
+                        "Envoyer le signalement",
+                        "Send report",
+                      )}
                 </button>
               </div>
             </form>
@@ -3593,14 +4327,45 @@ export function Portal({
               className="admin-form"
               onSubmit={async (event) => {
                 event.preventDefault();
-                const values = Object.fromEntries(new FormData(event.currentTarget));
+                const values = Object.fromEntries(
+                  new FormData(event.currentTarget),
+                );
                 const categoryId = String(values.categoryId || "") || null;
                 const currentCategoryId = editing.category?.id || null;
-                const currentTranslation = editing.translations.find((translation) => translation.locale === editLocale);
-                const metadataChanged = String(values.title).trim() !== (currentTranslation?.title || "") || String(values.description || "").trim() !== (currentTranslation?.description || "") || JSON.stringify(editMetadata) !== JSON.stringify(editing.metadata || {});
+                const currentTranslation = editing.translations.find(
+                  (translation) => translation.locale === editLocale,
+                );
+                const metadataChanged =
+                  String(values.title).trim() !==
+                    (currentTranslation?.title || "") ||
+                  String(values.description || "").trim() !==
+                    (currentTranslation?.description || "") ||
+                  JSON.stringify(editMetadata) !==
+                    JSON.stringify(editing.metadata || {});
                 const categoryChanged = categoryId !== currentCategoryId;
-                const languageChanged = editing.versions.find((version) => version.id === editVersionId)?.locale !== editLocale;
-                const response = metadataChanged || categoryChanged || languageChanged ? await fetch(`/api/documents/${editing.id}/metadata`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expectedUpdatedAt: editing.updatedAt, locale: editLocale, versionId: editVersionId, title: values.title, description: values.description, categoryId, ...(JSON.stringify(editMetadata) !== JSON.stringify(editing.metadata || {}) ? { metadata: editMetadata } : {}) }) }) : null;
+                const languageChanged =
+                  editing.versions.find(
+                    (version) => version.id === editVersionId,
+                  )?.locale !== editLocale;
+                const response =
+                  metadataChanged || categoryChanged || languageChanged
+                    ? await fetch(`/api/documents/${editing.id}/metadata`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          expectedUpdatedAt: editing.updatedAt,
+                          locale: editLocale,
+                          versionId: editVersionId,
+                          title: values.title,
+                          description: values.description,
+                          categoryId,
+                          ...(JSON.stringify(editMetadata) !==
+                          JSON.stringify(editing.metadata || {})
+                            ? { metadata: editMetadata }
+                            : {}),
+                        }),
+                      })
+                    : null;
                 if (response && !response.ok) {
                   setActionError(await responseMessage(response, t.error));
                   return;
@@ -3611,12 +4376,17 @@ export function Portal({
             >
               <label>
                 {translate(locale, "Langue", "Language")}
-                <LanguageSelect name="locale" value={editLocale} preserveCurrent onValueChange={selected => {
-                  setEditLocale(selected);
-                  const fields = translationFields(editing, selected);
-                  setEditTitle(fields.title);
-                  setEditDescription(fields.description);
-                }} />
+                <LanguageSelect
+                  name="locale"
+                  value={editLocale}
+                  preserveCurrent
+                  onValueChange={(selected) => {
+                    setEditLocale(selected);
+                    const fields = translationFields(editing, selected);
+                    setEditTitle(fields.title);
+                    setEditDescription(fields.description);
+                  }}
+                />
               </label>
               <label>
                 {translate(locale, "Titre", "Title")}
@@ -3637,12 +4407,30 @@ export function Portal({
               </label>
               <label>
                 {translate(locale, "Catégorie", "Category")}
-                <select name="categoryId" defaultValue={editing.category?.id || ""}>
-                  <option value="">{translate(locale, "Sans catégorie", "No category")}</option>
-                  {populatedCategories(identity?.spaces.find((space) => space.id === editing.space.id) || editing.space).map((category) => <option key={category.id} value={category.id}>{"  ".repeat(category.depth)}{locale === "fr" ? category.nameFr : category.nameEn}</option>)}
+                <select
+                  name="categoryId"
+                  defaultValue={editing.category?.id || ""}
+                >
+                  <option value="">
+                    {translate(locale, "Sans catégorie", "No category")}
+                  </option>
+                  {populatedCategories(
+                    identity?.spaces.find(
+                      (space) => space.id === editing.space.id,
+                    ) || editing.space,
+                  ).map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {"  ".repeat(category.depth)}
+                      {locale === "fr" ? category.nameFr : category.nameEn}
+                    </option>
+                  ))}
                 </select>
               </label>
-              <CustomMetadataFields value={editMetadata} onChange={setEditMetadata} t={(fr, en) => translate(locale, fr, en)} />
+              <CustomMetadataFields
+                value={editMetadata}
+                onChange={setEditMetadata}
+                t={(fr, en) => translate(locale, fr, en)}
+              />
               <div className="button-row">
                 <button className="primary">{t.save}</button>
                 <button type="button" onClick={() => setEditing(null)}>
@@ -3680,15 +4468,23 @@ export function Portal({
                 if (uploadInFlight.current) return;
                 uploadInFlight.current = true;
                 let response: Response;
-                try { response = await fetch("/api/documents/upload", {
-                  method: "POST",
-                  body: uploadAttempt(data, uploadRetry),
-                }); } catch (error) {
-                  setActionError(error instanceof Error ? error.message : t.depositError);
+                try {
+                  response = await fetch("/api/documents/upload", {
+                    method: "POST",
+                    body: uploadAttempt(data, uploadRetry),
+                  });
+                } catch (error) {
+                  setActionError(
+                    error instanceof Error ? error.message : t.depositError,
+                  );
                   return;
-                } finally { uploadInFlight.current = false; }
+                } finally {
+                  uploadInFlight.current = false;
+                }
                 if (!response.ok) {
-                  setActionError(await responseMessage(response, t.depositError));
+                  setActionError(
+                    await responseMessage(response, t.depositError),
+                  );
                   return;
                 }
                 setDepositOpen(false);
@@ -3713,9 +4509,17 @@ export function Portal({
                 {translate(locale, "Catégorie", "Category")}
                 <select
                   name="categoryId"
-                  defaultValue={selectedSpace.categories.some((item) => item.id === category) ? category : ""}
+                  defaultValue={
+                    selectedSpace.categories.some(
+                      (item) => item.id === category,
+                    )
+                      ? category
+                      : ""
+                  }
                 >
-                  <option value="">{translate(locale, "Sans catégorie", "No category")}</option>
+                  <option value="">
+                    {translate(locale, "Sans catégorie", "No category")}
+                  </option>
                   {populatedCategories(selectedSpace).map((item) => (
                     <option key={item.id} value={item.id}>
                       {`${"— ".repeat(item.depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}
@@ -3739,8 +4543,16 @@ export function Portal({
               <small>{t.acceptedFiles}</small>
               <StorageSelect spaceId={selectedSpace.id} locale={locale} />
               <label className="check">
-                <input name="suppressEmailNotifications" value="true" type="checkbox" />
-                {translate(locale, "Ne pas envoyer d’alerte e-mail pour ce dépôt ou sa publication", "Do not send email notifications for this upload or publication")}
+                <input
+                  name="suppressEmailNotifications"
+                  value="true"
+                  type="checkbox"
+                />
+                {translate(
+                  locale,
+                  "Ne pas envoyer d’alerte e-mail pour ce dépôt ou sa publication",
+                  "Do not send email notifications for this upload or publication",
+                )}
               </label>
               {actionError && <p className="error-state">{actionError}</p>}
               <div className="button-row">

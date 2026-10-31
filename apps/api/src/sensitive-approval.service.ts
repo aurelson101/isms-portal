@@ -10,21 +10,68 @@ export class SensitiveApprovalService {
     private readonly notifications: NotificationService,
   ) {}
 
-  private async notifyApprovers(approval: { id: string; requestedBy: string; createdAt: Date }) {
+  private async notifyApprovers(approval: {
+    id: string;
+    requestedBy: string;
+    createdAt: Date;
+  }) {
     const now = new Date();
-    const accounts = await this.prisma.adminAccount.findMany({ where: { active: true, role: "ADMIN", AND: [{ OR: [{ validFrom: null }, { validFrom: { lte: now } }] }, { OR: [{ validUntil: null }, { validUntil: { gt: now } }] }] }, select: { username: true } });
-    const identities = [...new Set(accounts.map((item) => item.username))].filter((identity) => identity.toLowerCase() !== approval.requestedBy.toLowerCase());
-    if (identities.length) await this.prisma.userNotification.createMany({ data: identities.map((identity) => ({ identity, title: "Approval required", message: `${approval.requestedBy} requested approval.`, mandatory: true, resourceType: "sensitive-approval", resourceId: approval.id })) });
+    const accounts = await this.prisma.adminAccount.findMany({
+      where: {
+        active: true,
+        role: "ADMIN",
+        AND: [
+          { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
+          { OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
+        ],
+      },
+      select: { username: true },
+    });
+    const identities = [
+      ...new Set(accounts.map((item) => item.username)),
+    ].filter(
+      (identity) =>
+        identity.toLowerCase() !== approval.requestedBy.toLowerCase(),
+    );
+    if (identities.length)
+      await this.prisma.userNotification.createMany({
+        data: identities.map((identity) => ({
+          identity,
+          title: "Approval required",
+          message: `${approval.requestedBy} requested approval.`,
+          mandatory: true,
+          resourceType: "sensitive-approval",
+          resourceId: approval.id,
+        })),
+      });
     try {
-      await this.notifications.enqueue({ action: "sensitive-approval.request", resource: "sensitive-approval:" + approval.id, actor: approval.requestedBy, at: approval.createdAt.toISOString() }, "approval-" + approval.id);
+      await this.notifications.enqueue(
+        {
+          action: "sensitive-approval.request",
+          resource: "sensitive-approval:" + approval.id,
+          actor: approval.requestedBy,
+          at: approval.createdAt.toISOString(),
+        },
+        "approval-" + approval.id,
+      );
     } catch {
-      process.stderr.write(JSON.stringify({ level: "error", event: "notification.enqueue.failed", resource: "sensitive-approval:" + approval.id }) + "\n");
+      process.stderr.write(
+        JSON.stringify({
+          level: "error",
+          event: "notification.enqueue.failed",
+          resource: "sensitive-approval:" + approval.id,
+        }) + "\n",
+      );
     }
   }
 
   async require(
     req: IsmsRequest,
-    operation: "PERMANENT_DELETE" | "BROAD_PRIVILEGE" | "RETENTION_CHANGE" | "SENSITIVE_EXPORT",
+    operation:
+      | "PERMANENT_DELETE"
+      | "BROAD_PRIVILEGE"
+      | "RETENTION_CHANGE"
+      | "SENSITIVE_EXPORT",
     targetType: string,
     targetId: string,
     reason: string,
@@ -37,16 +84,36 @@ export class SensitiveApprovalService {
       if (accounts + groups <= 1) return "";
     }
     const approved = await this.prisma.sensitiveOperationApproval.findFirst({
-      where: { operation, targetType, targetId, requestedBy: req.identity.username, status: "APPROVED" },
+      where: {
+        operation,
+        targetType,
+        targetId,
+        requestedBy: req.identity.username,
+        status: "APPROVED",
+      },
       orderBy: { approvedAt: "desc" },
     });
     if (approved) return approved.id;
     const pending = await this.prisma.sensitiveOperationApproval.findFirst({
-      where: { operation, targetType, targetId, requestedBy: req.identity.username, status: "PENDING" },
+      where: {
+        operation,
+        targetType,
+        targetId,
+        requestedBy: req.identity.username,
+        status: "PENDING",
+      },
     });
-    const approval = pending || (await this.prisma.sensitiveOperationApproval.create({
-      data: { operation, targetType, targetId, requestedBy: req.identity.username, reason },
-    }));
+    const approval =
+      pending ||
+      (await this.prisma.sensitiveOperationApproval.create({
+        data: {
+          operation,
+          targetType,
+          targetId,
+          requestedBy: req.identity.username,
+          reason,
+        },
+      }));
     if (!pending) await this.notifyApprovers(approval);
     throw new ConflictException({
       message: "A second administrator must approve this sensitive operation",

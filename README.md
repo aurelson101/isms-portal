@@ -24,7 +24,7 @@ Le texte intégral applicable est disponible dans [LICENSE.md](LICENSE.md).
   Cette licence ne remplace pas leurs conditions.
 - Le logiciel est fourni sans garantie, dans les limites prévues par la licence.
 
-Il s'agit d'une licence à **code source disponible** (*source available*),
+Il s'agit d'une licence à **code source disponible** (_source available_),
 et non d'une licence open source au sens de l'OSI, puisque les usages commerciaux
 sont restreints. Le résumé ci-dessus est informatif ; le texte de la licence
 fait foi.
@@ -240,12 +240,12 @@ applicatifs et de données sont internes à Docker.
 
 Dimensionnement minimal et recommandé pour une installation autonome :
 
-| Ressource | Minimum (pilote) | Recommandé (production) |
-| --- | ---: | ---: |
-| Processeur | 2 vCPU | 4 vCPU |
-| Mémoire | 4 Gio | 8 Gio |
-| Stockage SSD disponible | 30 Gio | 80 Gio + rétention documentaire |
-| Système | Ubuntu Server 22.04 LTS | Ubuntu Server 24.04 LTS |
+| Ressource               |        Minimum (pilote) |         Recommandé (production) |
+| ----------------------- | ----------------------: | ------------------------------: |
+| Processeur              |                  2 vCPU |                          4 vCPU |
+| Mémoire                 |                   4 Gio |                           8 Gio |
+| Stockage SSD disponible |                  30 Gio | 80 Gio + rétention documentaire |
+| Système                 | Ubuntu Server 22.04 LTS |         Ubuntu Server 24.04 LTS |
 
 Prévoir un volume séparé, sauvegardé et supervisé pour les documents. Ajouter
 de la RAM et du stockage lorsque ClamAV analyse plusieurs fichiers ou que la
@@ -581,13 +581,13 @@ Les modèles **Politique**, **Procédure**, **Guide**, **Preuve** et **Enregistr
 s'appliquent dès leur sélection. Ils ajoutent les champs manquants sans écraser
 les valeurs existantes :
 
-| Champ | Exemple |
-| --- | --- |
-| Référence | `POL-001` |
-| Type de document | Politique |
-| Responsable | Qualité |
-| Mots-clés | `sécurité, SSO` |
-| Date de revue | `2028-02-29` |
+| Champ            | Exemple         |
+| ---------------- | --------------- |
+| Référence        | `POL-001`       |
+| Type de document | Politique       |
+| Responsable      | Qualité         |
+| Mots-clés        | `sécurité, SSO` |
+| Date de revue    | `2028-02-29`    |
 
 Pour un champ libre, saisir **Nom du champ** et **Valeur du champ**, puis cliquer
 sur **Ajouter**. Cliquer ensuite sur **Enregistrer** pour conserver la fiche.

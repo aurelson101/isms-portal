@@ -106,7 +106,8 @@ zabbix_export:
           delay: "0"
           preprocessing:
             - type: PROMETHEUS_PATTERN
-              parameters: ['isms_directory_queue_jobs{state="failed"}', "value", ""]
+              parameters:
+                ['isms_directory_queue_jobs{state="failed"}', "value", ""]
           master_item:
             key: isms.metrics.get
           triggers:

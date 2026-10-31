@@ -81,7 +81,14 @@ export class ObservabilityOptionsDto {
 export class AlertPolicyDto {
   @IsBoolean() enabled!: boolean;
   @IsIn(["graph", "email", "teams", "teams-graph", "slack", "webhook", "none"])
-  channel!: "graph" | "email" | "teams" | "teams-graph" | "slack" | "webhook" | "none";
+  channel!:
+    | "graph"
+    | "email"
+    | "teams"
+    | "teams-graph"
+    | "slack"
+    | "webhook"
+    | "none";
   @IsOptional() @IsString() @MaxLength(255) destinationReference?: string;
   @IsString() @MaxLength(10) fiveXxPercent!: string;
   @IsString() @MaxLength(10) deniedPerMinute!: string;
@@ -90,7 +97,12 @@ export class AlertPolicyDto {
   @IsOptional() @IsBoolean() documentModified?: boolean;
   @IsOptional() @IsBoolean() documentDeleted?: boolean;
   @IsOptional() @IsBoolean() documentVersionOverdue?: boolean;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(3650) documentVersionMaxAgeDays?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(3650)
+  documentVersionMaxAgeDays?: number;
 }
 
 export class AlertChannelsDto {

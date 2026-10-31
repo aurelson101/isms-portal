@@ -6,17 +6,57 @@ import {
 
 describe("AlertDeliveryService", () => {
   const previousPublicUrl = process.env.PUBLIC_URL;
-  beforeAll(() => { process.env.PUBLIC_URL = "https://isms.example.com"; });
+  beforeAll(() => {
+    process.env.PUBLIC_URL = "https://isms.example.com";
+  });
   afterAll(() => {
     if (previousPublicUrl === undefined) delete process.env.PUBLIC_URL;
     else process.env.PUBLIC_URL = previousPublicUrl;
   });
   it("uses valid AD mail recipients and HTML without SMTP fallback", async () => {
-    const service = new AlertDeliveryService({ applicationSetting: { findUnique: vi.fn().mockResolvedValue({ value: { graphTenantId: "tenant", graphClientId: "client", graphSender: "isms@example.com", graphCertificatePemEncrypted: "cert", graphPrivateKeyPemEncrypted: "key" } }) } } as never, {} as never);
-    const graph = vi.spyOn(service as unknown as { graph: (...args: unknown[]) => Promise<void> }, "graph").mockResolvedValue(undefined);
-    await service.sendPreferredTo(["First.Last@example.com", "first.last@example.com", "invalid"], "Document published", "Content", "https://isms.example.com/");
-    expect(graph).toHaveBeenCalledWith(expect.anything(), "Document published", "Content", ["first.last@example.com"], expect.stringContaining('lang="en"'));
-    await expect(service.sendPreferredTo(["not an email"], "Title", "Content", "https://isms.example.com/")).rejects.toThrow("No eligible mail recipients");
+    const service = new AlertDeliveryService(
+      {
+        applicationSetting: {
+          findUnique: vi.fn().mockResolvedValue({
+            value: {
+              graphTenantId: "tenant",
+              graphClientId: "client",
+              graphSender: "isms@example.com",
+              graphCertificatePemEncrypted: "cert",
+              graphPrivateKeyPemEncrypted: "key",
+            },
+          }),
+        },
+      } as never,
+      {} as never,
+    );
+    const graph = vi
+      .spyOn(
+        service as unknown as { graph: (...args: unknown[]) => Promise<void> },
+        "graph",
+      )
+      .mockResolvedValue(undefined);
+    await service.sendPreferredTo(
+      ["First.Last@example.com", "first.last@example.com", "invalid"],
+      "Document published",
+      "Content",
+      "https://isms.example.com/",
+    );
+    expect(graph).toHaveBeenCalledWith(
+      expect.anything(),
+      "Document published",
+      "Content",
+      ["first.last@example.com"],
+      expect.stringContaining('lang="en"'),
+    );
+    await expect(
+      service.sendPreferredTo(
+        ["not an email"],
+        "Title",
+        "Content",
+        "https://isms.example.com/",
+      ),
+    ).rejects.toThrow("No eligible mail recipients");
   });
   it("accepts legacy and Power Automate Teams webhook hosts only", () => {
     expect(isAllowedTeamsWebhookHost("tenant.webhook.office.com")).toBe(true);

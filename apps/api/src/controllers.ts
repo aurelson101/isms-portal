@@ -19,7 +19,11 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { createHash, createHmac, randomUUID } from "crypto";
 import { findUploadReceipt, uploadReceipt } from "./upload-receipt";
-import { metadataWhere, rejectDuplicate, type DocumentFilters } from "./document-management";
+import {
+  metadataWhere,
+  rejectDuplicate,
+  type DocumentFilters,
+} from "./document-management";
 import { basename, extname } from "path";
 import { createConnection } from "net";
 import { ApiConsumes, ApiTags } from "@nestjs/swagger";
@@ -27,7 +31,12 @@ import { register } from "prom-client";
 import { DocumentStatus, Prisma } from "@prisma/client";
 import type { Response } from "express";
 import type { IsmsRequest } from "./types";
-import { AdminOnly, isAdminIdentity, isModeratorIdentity, moderatorCan } from "./security";
+import {
+  AdminOnly,
+  isAdminIdentity,
+  isModeratorIdentity,
+  moderatorCan,
+} from "./security";
 import { PrismaService } from "./prisma.service";
 import { AuthorizationService, type Permission } from "./authorization.service";
 import { ImportCertificateDto } from "./certificate.dto";
@@ -63,22 +72,56 @@ import { safeSsoPath } from "./http-security";
 import { publishWithReview } from "./publication-review";
 import { NotificationService } from "./notification.service";
 import { DocumentPublicationDigestDto } from "./document-digest.dto";
-import { isMipObjectKey, isProtectedOffice, readMipEnvelope, readMipOffice, scanMipUpload, withMipCapacity } from "./mip-reader";
+import {
+  isMipObjectKey,
+  isProtectedOffice,
+  readMipEnvelope,
+  readMipOffice,
+  scanMipUpload,
+  withMipCapacity,
+} from "./mip-reader";
 
-import { supportedLanguages, validateLanguageSettings } from "./language-settings";
+import {
+  supportedLanguages,
+  validateLanguageSettings,
+} from "./language-settings";
 import { categoryAllowed, categoryDocumentWhere } from "./category-permissions";
 
 async function prepareVersionComparison(
-  prisma: PrismaService, storage: StorageService, documentId: string,
-  locale: string, content: Buffer, extension: string, compare = true,
+  prisma: PrismaService,
+  storage: StorageService,
+  documentId: string,
+  locale: string,
+  content: Buffer,
+  extension: string,
+  compare = true,
 ) {
   const previous = await prisma.documentVersion.findFirst({
-    where: { documentId, locale }, orderBy: { version: "desc" }, include: { storedFile: { include: { scans: { orderBy: { scannedAt: "desc" }, take: 1 } } } },
+    where: { documentId, locale },
+    orderBy: { version: "desc" },
+    include: {
+      storedFile: {
+        include: { scans: { orderBy: { scannedAt: "desc" }, take: 1 } },
+      },
+    },
   });
   // Remote file I/O must not hold a database transaction open.
-  const change = previous && compare && !isMipObjectKey(previous.storedFile.objectKey) && previous.storedFile.scans[0]?.status === "CLEAN"
-    ? compareDocumentVersions(await storage.getBuffer(previous.storedFile.objectKey), content, extension)
-    : { details: { added: [], removed: [], modified: [] }, summary: previous ? "Comparison unavailable: antivirus validation required" : "Initial version" };
+  const change =
+    previous &&
+    compare &&
+    !isMipObjectKey(previous.storedFile.objectKey) &&
+    previous.storedFile.scans[0]?.status === "CLEAN"
+      ? compareDocumentVersions(
+          await storage.getBuffer(previous.storedFile.objectKey),
+          content,
+          extension,
+        )
+      : {
+          details: { added: [], removed: [], modified: [] },
+          summary: previous
+            ? "Comparison unavailable: antivirus validation required"
+            : "Initial version",
+        };
   return { previousId: previous?.id, change };
 }
 
@@ -292,7 +335,10 @@ export class IdentityController {
         ssoConnected: req.identity.source === "trusted-proxy",
         sessionExpiresAt: req.identity.sessionExpiresAt || null,
         loginUrl: safeSsoPath(process.env.SSO_LOGIN_URL),
-        logoutUrl: req.identity.source === "trusted-proxy" ? safeSsoPath(process.env.SSO_LOGOUT_URL) : null,
+        logoutUrl:
+          req.identity.source === "trusted-proxy"
+            ? safeSsoPath(process.env.SSO_LOGOUT_URL)
+            : null,
         diagnostics: {
           groupCount: req.identity.groups.length,
           matchedGroups: matchedGroups.map((group) => group.name),
@@ -310,7 +356,8 @@ export class IdentityController {
         permissions: Object.fromEntries(
           permissionNames.map((permission) => [
             permission,
-            administrator || moderatorCan(req.identity.groups, permission) ||
+            administrator ||
+              moderatorCan(req.identity.groups, permission) ||
               accessRules.some((rule) => Boolean(rule[permission])),
           ]),
         ),
@@ -318,23 +365,23 @@ export class IdentityController {
           ? { type: "administrator", groups: [] }
           : moderator
             ? { type: "moderator", groups: [] }
-          : space.ownerGroup &&
-              space.ownerGroup.active &&
-              req.identity.groups.some(
-                (name) =>
-                  name.toLowerCase() === space.ownerGroup!.name.toLowerCase(),
-              )
-            ? { type: "owner", groups: [space.ownerGroup.name] }
-            : {
-                type: "rule",
-                groups: [
-                  ...new Set(
-                    accessRules
-                      .map((rule) => rule.group?.name)
-                      .filter((name): name is string => Boolean(name)),
-                  ),
-                ],
-              },
+            : space.ownerGroup &&
+                space.ownerGroup.active &&
+                req.identity.groups.some(
+                  (name) =>
+                    name.toLowerCase() === space.ownerGroup!.name.toLowerCase(),
+                )
+              ? { type: "owner", groups: [space.ownerGroup.name] }
+              : {
+                  type: "rule",
+                  groups: [
+                    ...new Set(
+                      accessRules
+                        .map((rule) => rule.group?.name)
+                        .filter((name): name is string => Boolean(name)),
+                    ),
+                  ],
+                },
       })),
     };
   }
@@ -382,10 +429,19 @@ export class DocumentsController {
   ) {
     const metadataFilters = metadataWhere(filters);
     const q = query.trim().slice(0, 200);
-    const selectedStatus = Object.values(DocumentStatus).find(value => value === status);
-    if (status && !selectedStatus) throw new BadRequestException("Invalid document status");
-    const requestedPage = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Math.min(1000000, Number(pageValue)) : 1;
-    const limit = Number.isSafeInteger(Number(limitValue)) && Number(limitValue) > 0 ? Math.min(100, Number(limitValue)) : 10;
+    const selectedStatus = Object.values(DocumentStatus).find(
+      (value) => value === status,
+    );
+    if (status && !selectedStatus)
+      throw new BadRequestException("Invalid document status");
+    const requestedPage =
+      Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0
+        ? Math.min(1000000, Number(pageValue))
+        : 1;
+    const limit =
+      Number.isSafeInteger(Number(limitValue)) && Number(limitValue) > 0
+        ? Math.min(100, Number(limitValue))
+        : 10;
     const paginated = Boolean(pageValue);
     const mimeByFormat: Record<string, string> = {
       pdf: "application/pdf",
@@ -393,7 +449,9 @@ export class DocumentsController {
       xlsx: allowedExtensions[".xlsx"][0],
     };
     const selectedMime = mimeByFormat[format.toLowerCase()];
-    const selectedLocale = (supportedLanguages as readonly string[]).includes(documentLocale)
+    const selectedLocale = (supportedLanguages as readonly string[]).includes(
+      documentLocale,
+    )
       ? documentLocale
       : "";
     const emptyResult = paginated
@@ -534,12 +592,42 @@ export class DocumentsController {
       deletedAt: null,
       ...(metadataFilters.length ? { AND: metadataFilters } : {}),
       ...(selectedStatus ? { status: selectedStatus } : {}),
-      OR: managed === "true"
-        ? [{ spaceId: { in: managedSpaceIds }, AND: [{ OR: permissionEntries.filter(([permission]) => ["edit", "publish", "archive"].includes(permission)).map(([, records]) => categoryDocumentWhere(records)) }] }]
-        : [
-            { status: "PUBLISHED", spaceId: { in: readableSpaceIds }, AND: [categoryDocumentWhere(spaces)] },
-            { spaceId: { in: managedSpaceIds }, AND: [{ OR: permissionEntries.filter(([permission]) => ["edit", "publish", "archive"].includes(permission)).map(([, records]) => categoryDocumentWhere(records)) }, ...(searching ? [categoryDocumentWhere(spaces)] : [])] },
-          ],
+      OR:
+        managed === "true"
+          ? [
+              {
+                spaceId: { in: managedSpaceIds },
+                AND: [
+                  {
+                    OR: permissionEntries
+                      .filter(([permission]) =>
+                        ["edit", "publish", "archive"].includes(permission),
+                      )
+                      .map(([, records]) => categoryDocumentWhere(records)),
+                  },
+                ],
+              },
+            ]
+          : [
+              {
+                status: "PUBLISHED",
+                spaceId: { in: readableSpaceIds },
+                AND: [categoryDocumentWhere(spaces)],
+              },
+              {
+                spaceId: { in: managedSpaceIds },
+                AND: [
+                  {
+                    OR: permissionEntries
+                      .filter(([permission]) =>
+                        ["edit", "publish", "archive"].includes(permission),
+                      )
+                      .map(([, records]) => categoryDocumentWhere(records)),
+                  },
+                  ...(searching ? [categoryDocumentWhere(spaces)] : []),
+                ],
+              },
+            ],
       ...(q
         ? { id: { in: fullTextMatches.map((match) => match.documentId) } }
         : {}),
@@ -648,7 +736,15 @@ export class DocumentsController {
       ...document,
       favorite: document.favorites.length > 0,
       permissions: {
-        ...Object.fromEntries(permissionEntries.map(([permission, records]) => [permission, categoryAllowed(records.find(space => space.id === document.space.id), document.category?.id)])),
+        ...Object.fromEntries(
+          permissionEntries.map(([permission, records]) => [
+            permission,
+            categoryAllowed(
+              records.find((space) => space.id === document.space.id),
+              document.category?.id,
+            ),
+          ]),
+        ),
       },
       versions: document.versions.map((version) => ({
         ...version,
@@ -681,9 +777,14 @@ export class DocumentsController {
         ? await this.authorization.can(
             req.identity.groups,
             document.spaceId,
-            "read", document.categoryId ?? null,
+            "read",
+            document.categoryId ?? null,
           )
-        : await this.canManageDocument(req, document.spaceId, document.categoryId ?? null)
+        : await this.canManageDocument(
+            req,
+            document.spaceId,
+            document.categoryId ?? null,
+          )
       : false;
     if (!document || !allowed) throw new NotFoundException();
     await this.prisma.userFavorite.upsert({
@@ -708,23 +809,65 @@ export class DocumentsController {
   }
 
   @Post("publication-digest")
-  async publicationDigest(@Req() req: IsmsRequest, @Body() body: DocumentPublicationDigestDto) {
-    if (!isAdminIdentity(req.identity.groups) && !isModeratorIdentity(req.identity.groups)) throw new NotFoundException();
+  async publicationDigest(
+    @Req() req: IsmsRequest,
+    @Body() body: DocumentPublicationDigestDto,
+  ) {
+    if (
+      !isAdminIdentity(req.identity.groups) &&
+      !isModeratorIdentity(req.identity.groups)
+    )
+      throw new NotFoundException();
     const documents = await this.prisma.document.findMany({
-      where: { id: { in: body.documentIds }, status: "PUBLISHED", deletedAt: null, suppressEmailNotifications: true, space: { deletedAt: null } },
+      where: {
+        id: { in: body.documentIds },
+        status: "PUBLISHED",
+        deletedAt: null,
+        suppressEmailNotifications: true,
+        space: { deletedAt: null },
+      },
       select: { id: true, spaceId: true, categoryId: true },
     });
-    if (documents.length !== body.documentIds.length) throw new NotFoundException();
+    if (documents.length !== body.documentIds.length)
+      throw new NotFoundException();
     for (const document of documents)
-      if (!await this.authorization.can(req.identity.groups, document.spaceId, "publish", document.categoryId)) throw new NotFoundException();
+      if (
+        !(await this.authorization.can(
+          req.identity.groups,
+          document.spaceId,
+          "publish",
+          document.categoryId,
+        ))
+      )
+        throw new NotFoundException();
     const documentIds = documents.map((document) => document.id).sort();
-    const batchId = createHash("sha256").update(JSON.stringify([req.identity.username, documentIds])).digest("hex");
+    const batchId = createHash("sha256")
+      .update(JSON.stringify([req.identity.username, documentIds]))
+      .digest("hex");
     try {
-      await this.notifications.enqueue({ action: "document.publication.digest", resource: `document-batch:${batchId}`, documentIds, actor: req.identity.username, at: new Date().toISOString() }, `publication-digest-${batchId}`);
+      await this.notifications.enqueue(
+        {
+          action: "document.publication.digest",
+          resource: `document-batch:${batchId}`,
+          documentIds,
+          actor: req.identity.username,
+          at: new Date().toISOString(),
+        },
+        `publication-digest-${batchId}`,
+      );
     } catch {
-      throw new ServiceUnavailableException("Unable to queue the publication summary; retry the same batch");
+      throw new ServiceUnavailableException(
+        "Unable to queue the publication summary; retry the same batch",
+      );
     }
-    await this.audit.record(req, "document.publication.digest", `document-batch:${batchId}`, "success", { documentIds }, { notify: false });
+    await this.audit.record(
+      req,
+      "document.publication.digest",
+      `document-batch:${batchId}`,
+      "success",
+      { documentIds },
+      { notify: false },
+    );
     return { queued: true, documents: documentIds.length };
   }
 
@@ -746,12 +889,18 @@ export class DocumentsController {
     if (!body.spaceId || !body.title?.trim())
       throw new BadRequestException("spaceId and title are required");
     const sensitive = body.sensitive === "true";
-    const suppressEmailNotifications = body.suppressEmailNotifications === "true";
+    const suppressEmailNotifications =
+      body.suppressEmailNotifications === "true";
     const watermarkPosition = parseWatermarkPosition(body.watermarkPosition);
     const existing = body.documentId
       ? await this.prisma.document.findFirst({
           where: { id: body.documentId, deletedAt: null },
-          select: { id: true, spaceId: true, categoryId: true, sensitive: true },
+          select: {
+            id: true,
+            spaceId: true,
+            categoryId: true,
+            sensitive: true,
+          },
         })
       : null;
     if (body.documentId && !existing) throw new NotFoundException();
@@ -799,105 +948,151 @@ export class DocumentsController {
     if (previousUpload) return previousUpload.document;
     const sha256 = createHash("sha256").update(file.buffer).digest("hex");
     if (!existing) {
-      const scopes = await this.authorization.permittedSpaces(req.identity.groups, "edit");
+      const scopes = await this.authorization.permittedSpaces(
+        req.identity.groups,
+        "edit",
+      );
       await rejectDuplicate(this.prisma, sha256, categoryDocumentWhere(scopes));
     }
     let replayed = false;
     const scan = protectedOffice
-      ? await scanMipUpload(req, file.buffer, extension, sensitive || !!existing?.sensitive, this.antivirus)
+      ? await scanMipUpload(
+          req,
+          file.buffer,
+          extension,
+          sensitive || !!existing?.sensitive,
+          this.antivirus,
+        )
       : await this.antivirus.scan(file.buffer);
     const documentId = existing?.id || randomUUID();
-    const objectKey = await this.storage.uploadKey(`${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${protectedOffice ? "mip-" : ""}${randomUUID()}${extension}`, body.storageTargetId);
-    const comparison = await prepareVersionComparison(this.prisma, this.storage, documentId, body.locale, file.buffer, extension, scan.status === "CLEAN" && !protectedOffice);
+    const objectKey = await this.storage.uploadKey(
+      `${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${protectedOffice ? "mip-" : ""}${randomUUID()}${extension}`,
+      body.storageTargetId,
+    );
+    const comparison = await prepareVersionComparison(
+      this.prisma,
+      this.storage,
+      documentId,
+      body.locale,
+      file.buffer,
+      extension,
+      scan.status === "CLEAN" && !protectedOffice,
+    );
     await this.storage.putObject(objectKey, file.buffer, {
       "Content-Type": file.mimetype,
       "X-Amz-Meta-Sha256": sha256,
     });
-    const result = await this.prisma.$transaction(async (tx) => {
-      if (!existing) {
-        await tx.document.create({
-          data: {
-            id: documentId,
-            slug: canonicalDocumentSlug(body.title.trim(), documentId),
-            spaceId: body.spaceId,
-            categoryId: body.categoryId || null,
-            sensitive,
-            watermarkPosition,
-            suppressEmailNotifications,
-            status: scan.status === "CLEAN" ? "DRAFT" : "QUARANTINED",
-          },
+    const result = await this.prisma
+      .$transaction(async (tx) => {
+        if (!existing) {
+          await tx.document.create({
+            data: {
+              id: documentId,
+              slug: canonicalDocumentSlug(body.title.trim(), documentId),
+              spaceId: body.spaceId,
+              categoryId: body.categoryId || null,
+              sensitive,
+              watermarkPosition,
+              suppressEmailNotifications,
+              status: scan.status === "CLEAN" ? "DRAFT" : "QUARANTINED",
+            },
+          });
+        }
+        const latest = await tx.documentVersion.findFirst({
+          where: { documentId, locale: body.locale },
+          orderBy: { version: "desc" },
+          include: { storedFile: true },
         });
-      }
-      const latest = await tx.documentVersion.findFirst({
-        where: { documentId, locale: body.locale },
-        orderBy: { version: "desc" },
-        include: { storedFile: true },
-      });
-      if (latest?.id !== comparison.previousId) throw new ConflictException("Another version was uploaded; refresh and retry");
-      if (existing)
-        await tx.document.update({ where: { id: documentId }, data: { suppressEmailNotifications, status: scan.status === "CLEAN" ? "DRAFT" : "QUARANTINED" } });
-      const automatedChange = comparison.change;
-      const storedFile = await tx.storedFile.create({
-        data: {
-          objectKey,
-          originalName: basename(file.originalname).replace(/[\r\n]/g, "_"),
-          mimeType: file.mimetype,
-          size: BigInt(file.size),
-          sha256,
-          scans: {
-            create: {
-              status: scan.status,
-              signature: "signature" in scan ? scan.signature : null,
-              scannedAt: new Date(),
+        if (latest?.id !== comparison.previousId)
+          throw new ConflictException(
+            "Another version was uploaded; refresh and retry",
+          );
+        if (existing)
+          await tx.document.update({
+            where: { id: documentId },
+            data: {
+              suppressEmailNotifications,
+              status: scan.status === "CLEAN" ? "DRAFT" : "QUARANTINED",
+            },
+          });
+        const automatedChange = comparison.change;
+        const storedFile = await tx.storedFile.create({
+          data: {
+            objectKey,
+            originalName: basename(file.originalname).replace(/[\r\n]/g, "_"),
+            mimeType: file.mimetype,
+            size: BigInt(file.size),
+            sha256,
+            scans: {
+              create: {
+                status: scan.status,
+                signature: "signature" in scan ? scan.signature : null,
+                scannedAt: new Date(),
+              },
             },
           },
-        },
+        });
+        await tx.documentVersion.create({
+          data: {
+            ...(receipt ? { id: receipt.id } : {}),
+            documentId,
+            locale: body.locale,
+            version: (latest?.version || 0) + 1,
+            storedFileId: storedFile.id,
+            changeSummary:
+              body.changeSummary?.trim() || automatedChange.summary,
+            changeDetails: {
+              ...automatedChange.details,
+              ...(receipt ? { uploadRequestHash: receipt.fingerprint } : {}),
+            },
+          },
+        });
+        await tx.documentTranslation.upsert({
+          where: { documentId_locale: { documentId, locale: body.locale } },
+          update: {
+            title: body.title.trim(),
+            ...(body.description !== undefined
+              ? { description: body.description?.trim() || null }
+              : {}),
+          },
+          create: {
+            documentId,
+            locale: body.locale,
+            title: body.title.trim(),
+            description: body.description?.trim() || null,
+          },
+        });
+        return tx.document.findUnique({
+          where: { id: documentId },
+          include: { translations: true, versions: true },
+        });
+      })
+      .catch(async (error) => {
+        const completed = await findUploadReceipt(this.prisma, receipt);
+        if (completed) {
+          if (completed.objectKey !== objectKey)
+            await this.storage.removeObject(objectKey).catch(() => undefined);
+          replayed = true;
+          return completed.document;
+        }
+        await this.storage.removeObject(objectKey).catch(() => undefined);
+        throw error;
       });
-      await tx.documentVersion.create({
-        data: {
-          ...(receipt ? { id: receipt.id } : {}),
-          documentId,
+    if (!replayed)
+      await this.audit.record(
+        req,
+        existing ? "document.version.upload" : "document.upload",
+        `document:${documentId}`,
+        scan.status === "CLEAN" ? "success" : "failure",
+        {
           locale: body.locale,
-          version: (latest?.version || 0) + 1,
-          storedFileId: storedFile.id,
-          changeSummary: body.changeSummary?.trim() || automatedChange.summary,
-          changeDetails: { ...automatedChange.details, ...(receipt ? { uploadRequestHash: receipt.fingerprint } : {}) },
+          scanStatus: scan.status,
+          size: file.size,
+          sha256,
+          notificationSuppressed: suppressEmailNotifications,
         },
-      });
-      await tx.documentTranslation.upsert({
-        where: { documentId_locale: { documentId, locale: body.locale } },
-        update: {
-          title: body.title.trim(),
-          ...(body.description !== undefined ? { description: body.description?.trim() || null } : {}),
-        },
-        create: {
-          documentId,
-          locale: body.locale,
-          title: body.title.trim(),
-          description: body.description?.trim() || null,
-        },
-      });
-      return tx.document.findUnique({
-        where: { id: documentId },
-        include: { translations: true, versions: true },
-      });
-    }).catch(async (error) => {
-      const completed = await findUploadReceipt(this.prisma, receipt);
-      if (completed) {
-        if (completed.objectKey !== objectKey) await this.storage.removeObject(objectKey).catch(() => undefined);
-        replayed = true; return completed.document;
-      }
-      await this.storage.removeObject(objectKey).catch(() => undefined);
-      throw error;
-    });
-    if (!replayed) await this.audit.record(
-      req,
-      existing ? "document.version.upload" : "document.upload",
-      `document:${documentId}`,
-      scan.status === "CLEAN" ? "success" : "failure",
-      { locale: body.locale, scanStatus: scan.status, size: file.size, sha256, notificationSuppressed: suppressEmailNotifications },
-      { notify: !suppressEmailNotifications },
-    );
+        { notify: !suppressEmailNotifications },
+      );
     return result;
   }
 
@@ -909,61 +1104,158 @@ export class DocumentsController {
   ) {
     const document = await this.prisma.document.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true, spaceId: true, categoryId: true, updatedAt: true, metadata: true, translations: { where: { locale: body.locale }, select: { title: true, description: true } } },
+      select: {
+        id: true,
+        spaceId: true,
+        categoryId: true,
+        updatedAt: true,
+        metadata: true,
+        translations: {
+          where: { locale: body.locale },
+          select: { title: true, description: true },
+        },
+      },
     });
     if (
       !document ||
       !(await this.authorization.can(
         req.identity.groups,
         document.spaceId,
-        "edit", document.categoryId ?? null,
+        "edit",
+        document.categoryId ?? null,
       ))
     )
       throw new NotFoundException();
     if (body.categoryId) {
-      const category = await this.prisma.documentCategory.findFirst({ where: { id: body.categoryId, spaceId: document.spaceId, deletedAt: null }, select: { id: true } });
-      if (!category) throw new BadRequestException("Invalid category for this document space");
+      const category = await this.prisma.documentCategory.findFirst({
+        where: {
+          id: body.categoryId,
+          spaceId: document.spaceId,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+      if (!category)
+        throw new BadRequestException(
+          "Invalid category for this document space",
+        );
     }
-    if (body.categoryId !== undefined && (body.categoryId || null) !== (document.categoryId || null) && !await this.authorization.can(req.identity.groups, document.spaceId, "edit", body.categoryId || null)) throw new NotFoundException();
-    const version = body.versionId ? await this.prisma.documentVersion.findFirst({
-      where: { id: body.versionId, documentId: id }, select: { id: true, locale: true, version: true },
-    }) : null;
-    if (body.versionId && !version) throw new BadRequestException("Invalid document version");
+    if (
+      body.categoryId !== undefined &&
+      (body.categoryId || null) !== (document.categoryId || null) &&
+      !(await this.authorization.can(
+        req.identity.groups,
+        document.spaceId,
+        "edit",
+        body.categoryId || null,
+      ))
+    )
+      throw new NotFoundException();
+    const version = body.versionId
+      ? await this.prisma.documentVersion.findFirst({
+          where: { id: body.versionId, documentId: id },
+          select: { id: true, locale: true, version: true },
+        })
+      : null;
+    if (body.versionId && !version)
+      throw new BadRequestException("Invalid document version");
     if (version && version.locale !== body.locale) {
       const duplicate = await this.prisma.documentVersion.findFirst({
-        where: { documentId: id, locale: body.locale, version: version.version, id: { not: version.id } }, select: { id: true },
+        where: {
+          documentId: id,
+          locale: body.locale,
+          version: version.version,
+          id: { not: version.id },
+        },
+        select: { id: true },
       });
-      if (duplicate) throw new ConflictException("This document version already exists in the selected language");
+      if (duplicate)
+        throw new ConflictException(
+          "This document version already exists in the selected language",
+        );
     }
     const title = body.title.trim();
     const description = body.description?.trim() || null;
     const existing = document.translations[0];
-    const previousMetadata = (document.metadata || {}) as Record<string, unknown>;
-    const fieldChanges = body.metadata === undefined ? { added: [], modified: [], removed: [] } : {
-      added: Object.keys(body.metadata).filter(key => !Object.hasOwn(previousMetadata, key)),
-      modified: Object.keys(body.metadata).filter(key => Object.hasOwn(previousMetadata, key) && previousMetadata[key] !== body.metadata![key]),
-      removed: Object.keys(previousMetadata).filter(key => !Object.hasOwn(body.metadata!, key)),
-    };
-    const customFieldsChanged = Object.values(fieldChanges).some(keys => keys.length > 0);
-    const metadataChanged = !existing || existing.title !== title || existing.description !== description || customFieldsChanged || Boolean(version && version.locale !== body.locale);
-    const categoryChanged = body.categoryId !== undefined && body.categoryId !== document.categoryId;
+    const previousMetadata = (document.metadata || {}) as Record<
+      string,
+      unknown
+    >;
+    const fieldChanges =
+      body.metadata === undefined
+        ? { added: [], modified: [], removed: [] }
+        : {
+            added: Object.keys(body.metadata).filter(
+              (key) => !Object.hasOwn(previousMetadata, key),
+            ),
+            modified: Object.keys(body.metadata).filter(
+              (key) =>
+                Object.hasOwn(previousMetadata, key) &&
+                previousMetadata[key] !== body.metadata![key],
+            ),
+            removed: Object.keys(previousMetadata).filter(
+              (key) => !Object.hasOwn(body.metadata!, key),
+            ),
+          };
+    const customFieldsChanged = Object.values(fieldChanges).some(
+      (keys) => keys.length > 0,
+    );
+    const metadataChanged =
+      !existing ||
+      existing.title !== title ||
+      existing.description !== description ||
+      customFieldsChanged ||
+      Boolean(version && version.locale !== body.locale);
+    const categoryChanged =
+      body.categoryId !== undefined && body.categoryId !== document.categoryId;
     const translation = await this.prisma.$transaction(async (tx) => {
       const changed = await tx.document.updateMany({
-        where: { id, deletedAt: null, updatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : document.updatedAt },
-        data: { updatedAt: new Date(Math.max(Date.now(), document.updatedAt.getTime() + 1)), ...(categoryChanged ? { categoryId: body.categoryId || null } : {}), ...(body.metadata !== undefined ? { metadata: body.metadata } : {}) },
+        where: {
+          id,
+          deletedAt: null,
+          updatedAt: body.expectedUpdatedAt
+            ? new Date(body.expectedUpdatedAt)
+            : document.updatedAt,
+        },
+        data: {
+          updatedAt: new Date(
+            Math.max(Date.now(), document.updatedAt.getTime() + 1),
+          ),
+          ...(categoryChanged ? { categoryId: body.categoryId || null } : {}),
+          ...(body.metadata !== undefined ? { metadata: body.metadata } : {}),
+        },
       });
-      if (changed.count !== 1) throw new ConflictException({ code: "DOCUMENT_CHANGED", message: "Document changed; reopen the editor before saving" });
-      if (version && version.locale !== body.locale) await tx.documentVersion.update({ where: { id: version.id }, data: { locale: body.locale } });
-      return tx.documentTranslation.upsert({ where: { documentId_locale: { documentId: id, locale: body.locale } }, update: { title, description }, create: { documentId: id, locale: body.locale, title, description } });
+      if (changed.count !== 1)
+        throw new ConflictException({
+          code: "DOCUMENT_CHANGED",
+          message: "Document changed; reopen the editor before saving",
+        });
+      if (version && version.locale !== body.locale)
+        await tx.documentVersion.update({
+          where: { id: version.id },
+          data: { locale: body.locale },
+        });
+      return tx.documentTranslation.upsert({
+        where: { documentId_locale: { documentId: id, locale: body.locale } },
+        update: { title, description },
+        create: { documentId: id, locale: body.locale, title, description },
+      });
     });
     await this.audit.record(
       req,
-      categoryChanged && !metadataChanged ? "document.category.update" : "document.metadata.update",
+      categoryChanged && !metadataChanged
+        ? "document.category.update"
+        : "document.metadata.update",
       `document:${id}`,
       "success",
       {
         locale: body.locale,
-        fields: [existing?.title !== title ? "title" : "", existing?.description !== description ? "description" : "", version && version.locale !== body.locale ? "language" : "", categoryChanged ? "category" : ""].filter(Boolean),
+        fields: [
+          existing?.title !== title ? "title" : "",
+          existing?.description !== description ? "description" : "",
+          version && version.locale !== body.locale ? "language" : "",
+          categoryChanged ? "category" : "",
+        ].filter(Boolean),
         versionId: version?.id,
         previousLocale: version?.locale,
         categoryId: body.categoryId,
@@ -976,13 +1268,34 @@ export class DocumentsController {
 
   @Get(":id/categories")
   async editableCategories(@Req() req: IsmsRequest, @Param("id") id: string) {
-    const document = await this.prisma.document.findFirst({ where: { id, deletedAt: null }, select: { spaceId: true, categoryId: true } });
-    if (!document || !(await this.authorization.can(req.identity.groups, document.spaceId, "edit", document.categoryId ?? null,))) throw new NotFoundException();
-    const scopes = await this.authorization.permittedSpacesFor(req.identity.groups, ["edit"]);
-    const scope = scopes.get("edit")?.find(space => space.id === document.spaceId);
+    const document = await this.prisma.document.findFirst({
+      where: { id, deletedAt: null },
+      select: { spaceId: true, categoryId: true },
+    });
+    if (
+      !document ||
+      !(await this.authorization.can(
+        req.identity.groups,
+        document.spaceId,
+        "edit",
+        document.categoryId ?? null,
+      ))
+    )
+      throw new NotFoundException();
+    const scopes = await this.authorization.permittedSpacesFor(
+      req.identity.groups,
+      ["edit"],
+    );
+    const scope = scopes
+      .get("edit")
+      ?.find((space) => space.id === document.spaceId);
     if (!scope) return [];
     return this.prisma.documentCategory.findMany({
-      where: { spaceId: document.spaceId, deletedAt: null, ...(scope?.aclCategories ? { id: { in: scope.aclCategories } } : {}) },
+      where: {
+        spaceId: document.spaceId,
+        deletedAt: null,
+        ...(scope?.aclCategories ? { id: { in: scope.aclCategories } } : {}),
+      },
       select: { id: true, parentId: true, nameFr: true, nameEn: true },
       orderBy: { nameFr: "asc" },
     });
@@ -994,24 +1307,69 @@ export class DocumentsController {
     @Param("id") id: string,
     @Body() body: DocumentCategoryAssignmentDto,
   ) {
-    const document = await this.prisma.document.findFirst({ where: { id, deletedAt: null }, select: { id: true, spaceId: true, categoryId: true } });
-    if (!document || !(await this.authorization.can(req.identity.groups, document.spaceId, "edit", document.categoryId ?? null,))) throw new NotFoundException();
+    const document = await this.prisma.document.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, spaceId: true, categoryId: true },
+    });
+    if (
+      !document ||
+      !(await this.authorization.can(
+        req.identity.groups,
+        document.spaceId,
+        "edit",
+        document.categoryId ?? null,
+      ))
+    )
+      throw new NotFoundException();
     if (body.categoryId) {
-      const category = await this.prisma.documentCategory.findFirst({ where: { id: body.categoryId, spaceId: document.spaceId, deletedAt: null }, select: { id: true } });
-      if (!category) throw new BadRequestException("Invalid category for this document space");
+      const category = await this.prisma.documentCategory.findFirst({
+        where: {
+          id: body.categoryId,
+          spaceId: document.spaceId,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+      if (!category)
+        throw new BadRequestException(
+          "Invalid category for this document space",
+        );
     }
-    if (!await this.authorization.can(req.identity.groups, document.spaceId, "edit", body.categoryId || null)) throw new NotFoundException();
+    if (
+      !(await this.authorization.can(
+        req.identity.groups,
+        document.spaceId,
+        "edit",
+        body.categoryId || null,
+      ))
+    )
+      throw new NotFoundException();
     const updated = await this.prisma.$transaction(async (tx) => {
       const changed = await tx.document.updateMany({
-        where: { id, deletedAt: null, spaceId: document.spaceId, categoryId: document.categoryId },
+        where: {
+          id,
+          deletedAt: null,
+          spaceId: document.spaceId,
+          categoryId: document.categoryId,
+        },
         data: { categoryId: body.categoryId || null },
       });
-      if (changed.count !== 1) throw new ConflictException("Document changed; refresh and retry");
-      const result = await tx.document.findFirst({ where: { id }, select: { id: true, categoryId: true } });
+      if (changed.count !== 1)
+        throw new ConflictException("Document changed; refresh and retry");
+      const result = await tx.document.findFirst({
+        where: { id },
+        select: { id: true, categoryId: true },
+      });
       if (!result) throw new NotFoundException();
       return result;
     });
-    await this.audit.record(req, "document.category.update", `document:${id}`, "success", { before: document.categoryId, after: updated.categoryId });
+    await this.audit.record(
+      req,
+      "document.category.update",
+      `document:${id}`,
+      "success",
+      { before: document.categoryId, after: updated.categoryId },
+    );
     return updated;
   }
 
@@ -1049,7 +1407,8 @@ export class DocumentsController {
       !(await this.authorization.can(
         req.identity.groups,
         document.spaceId,
-        permission, document.categoryId ?? null,
+        permission,
+        document.categoryId ?? null,
       ))
     )
       throw new NotFoundException();
@@ -1071,31 +1430,65 @@ export class DocumentsController {
         ? await this.watermark.prepareForPublication(document.id)
         : [];
     const publishedAt = new Date();
-    const publication = status === "PUBLISHED"
-      ? await publishWithReview(this.prisma, id, document.versions.slice().sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0]?.id || null, !document.publishedAt, publishedAt, { request: req, action: "document.published", details: distributedFiles.length ? { distributedFiles } : undefined, notify: !document.suppressEmailNotifications })
-      : null;
-    const updated = publication?.document || (status === "DRAFT"
-      ? await this.prisma.$transaction(async (tx) => {
-          const restored = await tx.document.updateMany({
-            where: { id, deletedAt: null, status: "ARCHIVED", spaceId: document.spaceId },
-            data: { status: "DRAFT" },
-          });
-          if (restored.count !== 1) throw new ConflictException("Document changed; refresh and retry");
-          const result = await tx.document.findFirst({ where: { id } });
-          if (!result) throw new NotFoundException();
-          return result;
-        })
-      : await this.prisma.document.update({ where: { id }, data: { status } }));
+    const publication =
+      status === "PUBLISHED"
+        ? await publishWithReview(
+            this.prisma,
+            id,
+            document.versions
+              .slice()
+              .sort(
+                (left, right) =>
+                  right.createdAt.getTime() - left.createdAt.getTime(),
+              )[0]?.id || null,
+            !document.publishedAt,
+            publishedAt,
+            {
+              request: req,
+              action: "document.published",
+              details: distributedFiles.length
+                ? { distributedFiles }
+                : undefined,
+              notify: !document.suppressEmailNotifications,
+            },
+          )
+        : null;
+    const updated =
+      publication?.document ||
+      (status === "DRAFT"
+        ? await this.prisma.$transaction(async (tx) => {
+            const restored = await tx.document.updateMany({
+              where: {
+                id,
+                deletedAt: null,
+                status: "ARCHIVED",
+                spaceId: document.spaceId,
+              },
+              data: { status: "DRAFT" },
+            });
+            if (restored.count !== 1)
+              throw new ConflictException(
+                "Document changed; refresh and retry",
+              );
+            const result = await tx.document.findFirst({ where: { id } });
+            if (!result) throw new NotFoundException();
+            return result;
+          })
+        : await this.prisma.document.update({
+            where: { id },
+            data: { status },
+          }));
     if (publication) {
       for (const event of publication.events) await this.audit.committed(event);
-    } else await this.audit.record(
-      req,
-      `document.${status.toLowerCase()}`,
-      `document:${id}`,
-      "success",
-      distributedFiles.length ? { distributedFiles } : undefined,
-      { notify: !document.suppressEmailNotifications },
-    );
+    } else
+      await this.audit.record(
+        req,
+        `document.${status.toLowerCase()}`,
+        `document:${id}`,
+        "success",
+        distributedFiles.length ? { distributedFiles } : undefined,
+        { notify: !document.suppressEmailNotifications },
+      );
     if (status === "PUBLISHED" && document.favorites.length > 0) {
       await this.prisma.userNotification.createMany({
         data: document.favorites.map(({ identity }) => ({
@@ -1164,12 +1557,17 @@ export class DocumentsController {
       ? await this.authorization.can(
           req.identity.groups,
           document.spaceId,
-          "read", document.categoryId ?? null,
+          "read",
+          document.categoryId ?? null,
         )
       : false;
     const canManage =
       document && document.status !== "PUBLISHED"
-        ? await this.canManageDocument(req, document.spaceId, document.categoryId ?? null)
+        ? await this.canManageDocument(
+            req,
+            document.spaceId,
+            document.categoryId ?? null,
+          )
         : false;
     if (
       !document ||
@@ -1214,7 +1612,8 @@ export class DocumentsController {
         this.authorization.can(
           req.identity.groups,
           document.spaceId,
-          permission, document.categoryId ?? null,
+          permission,
+          document.categoryId ?? null,
         ),
       ),
     );
@@ -1291,7 +1690,13 @@ export class DocumentsController {
           where: { locale },
           orderBy: { version: "desc" },
           take: 1,
-          select: { id: true, storedFile: { include: { scans: { orderBy: { scannedAt: "desc" }, take: 1 } } }, distributedStoredFile: true },
+          select: {
+            id: true,
+            storedFile: {
+              include: { scans: { orderBy: { scannedAt: "desc" }, take: 1 } },
+            },
+            distributedStoredFile: true,
+          },
         },
       },
     });
@@ -1299,12 +1704,17 @@ export class DocumentsController {
       ? await this.authorization.can(
           req.identity.groups,
           document.spaceId,
-          permission, document.categoryId ?? null,
+          permission,
+          document.categoryId ?? null,
         )
       : false;
     const canManage =
       document && document.status !== "PUBLISHED"
-        ? await this.canManageDocument(req, document.spaceId, document.categoryId ?? null)
+        ? await this.canManageDocument(
+            req,
+            document.spaceId,
+            document.categoryId ?? null,
+          )
         : false;
     if (
       !document ||
@@ -1349,30 +1759,71 @@ export class DocumentsController {
     });
     const safeName = basename(storedFile.originalName).replace(/[\r\n"]/g, "_");
     if (inline && isMipObjectKey(storedFile.objectKey)) {
-      if (storedFile.size > BigInt(50 * 1024 * 1024)) throw new BadRequestException("Protected file is too large");
+      if (storedFile.size > BigInt(50 * 1024 * 1024))
+        throw new BadRequestException("Protected file is too large");
       return withMipCapacity(async () => {
         let plain: Buffer | undefined;
         try {
-          plain = await readMipOffice(req, await readMipEnvelope(await this.storage.getObject(storedFile.objectKey)), extname(safeName).toLowerCase());
-          if ((await this.antivirus.scan(plain)).status !== "CLEAN") throw new ServiceUnavailableException("Protected preview did not pass antivirus validation");
-          await this.audit.record(req, "document.mip.preview", `document:${id}`, "success", { locale }, { notify: false });
+          plain = await readMipOffice(
+            req,
+            await readMipEnvelope(
+              await this.storage.getObject(storedFile.objectKey),
+            ),
+            extname(safeName).toLowerCase(),
+          );
+          if ((await this.antivirus.scan(plain)).status !== "CLEAN")
+            throw new ServiceUnavailableException(
+              "Protected preview did not pass antivirus validation",
+            );
+          await this.audit.record(
+            req,
+            "document.mip.preview",
+            `document:${id}`,
+            "success",
+            { locale },
+            { notify: false },
+          );
           response.setHeader("Content-Type", storedFile.mimeType);
           response.setHeader("Content-Length", String(plain.length));
-          response.setHeader("Content-Disposition", `inline; filename="${safeName}"`);
+          response.setHeader(
+            "Content-Disposition",
+            `inline; filename="${safeName}"`,
+          );
           response.setHeader("Cache-Control", "private, no-store");
           response.setHeader("Pragma", "no-cache");
           response.setHeader("X-Content-Type-Options", "nosniff");
           const content = plain;
           await new Promise<void>((resolve) => {
-            const finish = () => { content.fill(0); resolve(); };
-            const timer = setTimeout(() => { response.destroy(); finish(); }, 30000);
-            response.once("close", () => { clearTimeout(timer); finish(); });
-            response.end(content, () => { clearTimeout(timer); finish(); });
+            const finish = () => {
+              content.fill(0);
+              resolve();
+            };
+            const timer = setTimeout(() => {
+              response.destroy();
+              finish();
+            }, 30000);
+            response.once("close", () => {
+              clearTimeout(timer);
+              finish();
+            });
+            response.end(content, () => {
+              clearTimeout(timer);
+              finish();
+            });
           });
           return;
         } catch (error) {
           plain?.fill(0);
-          await this.audit.record(req, "document.mip.preview", `document:${id}`, "denied", { locale }, { notify: false }).catch(() => undefined);
+          await this.audit
+            .record(
+              req,
+              "document.mip.preview",
+              `document:${id}`,
+              "denied",
+              { locale },
+              { notify: false },
+            )
+            .catch(() => undefined);
           throw error;
         }
       });
@@ -1409,23 +1860,66 @@ export class DocumentsController {
 
   @Delete(":id")
   async removeByModerator(@Req() req: IsmsRequest, @Param("id") id: string) {
-    const document = await this.prisma.document.findFirst({ where: { id, deletedAt: null }, select: { id: true, spaceId: true, categoryId: true } });
-    if (!document || !(await this.authorization.can(req.identity.groups, document.spaceId, "archive", document.categoryId ?? null,))) throw new NotFoundException();
-    const reviewIds = await this.prisma.documentReview.findMany({ where: { documentId: id }, select: { id: true, evidenceObjectKey: true } });
+    const document = await this.prisma.document.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, spaceId: true, categoryId: true },
+    });
+    if (
+      !document ||
+      !(await this.authorization.can(
+        req.identity.groups,
+        document.spaceId,
+        "archive",
+        document.categoryId ?? null,
+      ))
+    )
+      throw new NotFoundException();
+    const reviewIds = await this.prisma.documentReview.findMany({
+      where: { documentId: id },
+      select: { id: true, evidenceObjectKey: true },
+    });
     await this.prisma.$transaction([
-      this.prisma.userNotification.deleteMany({ where: { resourceType: "document-review", resourceId: { in: reviewIds.map((review) => review.id) } } }),
+      this.prisma.userNotification.deleteMany({
+        where: {
+          resourceType: "document-review",
+          resourceId: { in: reviewIds.map((review) => review.id) },
+        },
+      }),
       this.prisma.documentReview.deleteMany({ where: { documentId: id } }),
-      this.prisma.document.update({ where: { id }, data: { deletedAt: new Date(), status: "ARCHIVED" } }),
+      this.prisma.document.update({
+        where: { id },
+        data: { deletedAt: new Date(), status: "ARCHIVED" },
+      }),
     ]);
-    await Promise.allSettled(reviewIds.flatMap((review) => review.evidenceObjectKey ? [this.storage.removeObject(review.evidenceObjectKey)] : []));
-    await this.audit.record(req, "document.delete", `document:${id}`, "success");
+    await Promise.allSettled(
+      reviewIds.flatMap((review) =>
+        review.evidenceObjectKey
+          ? [this.storage.removeObject(review.evidenceObjectKey)]
+          : [],
+      ),
+    );
+    await this.audit.record(
+      req,
+      "document.delete",
+      `document:${id}`,
+      "success",
+    );
     return { deleted: true };
   }
 
-  private async canManageDocument(req: IsmsRequest, spaceId: string, categoryId: string | null) {
+  private async canManageDocument(
+    req: IsmsRequest,
+    spaceId: string,
+    categoryId: string | null,
+  ) {
     const permissions = await Promise.all(
       (["edit", "publish", "archive"] as const).map((permission) =>
-        this.authorization.can(req.identity.groups, spaceId, permission, categoryId),
+        this.authorization.can(
+          req.identity.groups,
+          spaceId,
+          permission,
+          categoryId,
+        ),
       ),
     );
     return permissions.some(Boolean);
@@ -1513,8 +2007,16 @@ export class AdminController {
       throw new BadRequestException("Access rules require an active AD group");
     if (!space)
       throw new BadRequestException("Access rules require an active space");
-    if (body.categoryId && !await this.prisma.documentCategory.findFirst({ where: { id: body.categoryId, spaceId: body.spaceId, deletedAt: null }, select: { id: true } }))
-      throw new BadRequestException("Access rules require a category in the selected space");
+    if (
+      body.categoryId &&
+      !(await this.prisma.documentCategory.findFirst({
+        where: { id: body.categoryId, spaceId: body.spaceId, deletedAt: null },
+        select: { id: true },
+      }))
+    )
+      throw new BadRequestException(
+        "Access rules require a category in the selected space",
+      );
     const validFrom = body.validFrom ? new Date(body.validFrom) : null;
     const validUntil = body.validUntil ? new Date(body.validUntil) : null;
     if (body.lifetime && validUntil)
@@ -1701,7 +2203,10 @@ export class AdminController {
         ssoConnected: req.identity.source === "trusted-proxy",
         sessionExpiresAt: req.identity.sessionExpiresAt || null,
         loginUrl: safeSsoPath(process.env.SSO_LOGIN_URL),
-        logoutUrl: req.identity.source === "trusted-proxy" ? safeSsoPath(process.env.SSO_LOGOUT_URL) : null,
+        logoutUrl:
+          req.identity.source === "trusted-proxy"
+            ? safeSsoPath(process.env.SSO_LOGOUT_URL)
+            : null,
         diagnostics: {
           groupCount: req.identity.groups.length,
           mappedSpaceCount,
@@ -1774,8 +2279,10 @@ export class AdminController {
     @Query("sort") sort = "name",
     @Query("order") order: "asc" | "desc" = "asc",
   ) {
-    if (typeof query !== "string") throw new BadRequestException("q must be a string");
-    if (order !== "asc" && order !== "desc") throw new BadRequestException("order must be asc or desc");
+    if (typeof query !== "string")
+      throw new BadRequestException("q must be a string");
+    if (order !== "asc" && order !== "desc")
+      throw new BadRequestException("order must be asc or desc");
     const q = query.trim().slice(0, 120);
     const where: Prisma.DirectoryGroupWhereInput = q
       ? {
@@ -1785,8 +2292,14 @@ export class AdminController {
           ],
         }
       : {};
-    const page = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Math.min(1000000, Number(pageValue)) : 1;
-    const limit = Number.isSafeInteger(Number(limitValue)) && Number(limitValue) > 0 ? Math.min(200, Number(limitValue)) : 50;
+    const page =
+      Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0
+        ? Math.min(1000000, Number(pageValue))
+        : 1;
+    const limit =
+      Number.isSafeInteger(Number(limitValue)) && Number(limitValue) > 0
+        ? Math.min(200, Number(limitValue))
+        : 50;
     const orderBy =
       sort === "memberCount"
         ? { memberCount: order }
@@ -1904,8 +2417,10 @@ export class AdminController {
     @Query("limit") limitValue = "50",
     @Query("order") order: "asc" | "desc" = "asc",
   ) {
-    if (typeof query !== "string") throw new BadRequestException("q must be a string");
-    if (order !== "asc" && order !== "desc") throw new BadRequestException("order must be asc or desc");
+    if (typeof query !== "string")
+      throw new BadRequestException("q must be a string");
+    if (order !== "asc" && order !== "desc")
+      throw new BadRequestException("order must be asc or desc");
     const q = query.trim().slice(0, 120);
     const where: Prisma.AccessRuleWhereInput = q
       ? {
@@ -1920,12 +2435,22 @@ export class AdminController {
           ],
         }
       : {};
-    const page = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Math.min(1000000, Number(pageValue)) : 1;
-    const limit = Number.isSafeInteger(Number(limitValue)) && Number(limitValue) > 0 ? Math.min(200, Number(limitValue)) : 50;
+    const page =
+      Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0
+        ? Math.min(1000000, Number(pageValue))
+        : 1;
+    const limit =
+      Number.isSafeInteger(Number(limitValue)) && Number(limitValue) > 0
+        ? Math.min(200, Number(limitValue))
+        : 50;
     const options: Prisma.AccessRuleFindManyArgs = {
       where,
       include: { group: true, space: true, category: true },
-      orderBy: [{ group: { name: order } }, { space: { slug: order } }, { id: "asc" }],
+      orderBy: [
+        { group: { name: order } },
+        { space: { slug: order } },
+        { id: "asc" },
+      ],
       ...(pageValue ? { skip: (page - 1) * limit, take: limit } : {}),
     };
     const [items, total] = await Promise.all([
@@ -2123,13 +2648,30 @@ export class AdminController {
     @Body() body: AccessRuleBulkDto,
   ) {
     for (const rule of body.rules) await this.validateAccessRuleTargets(rule);
-    const saved = await this.prisma.$transaction(async tx => {
+    const saved = await this.prisma.$transaction(async (tx) => {
       const records = [];
       for (const rule of body.rules) {
-        const where = { groupId: rule.groupId, spaceId: rule.spaceId, categoryId: rule.categoryId || null };
-        const existing = await tx.accessRule.findFirst({ where, select: { id: true } });
-        const options = { data: accessRuleData(rule), include: { group: true, space: true, category: true } };
-        records.push(existing ? await tx.accessRule.update({ where: { id: existing.id }, ...options }) : await tx.accessRule.create(options));
+        const where = {
+          groupId: rule.groupId,
+          spaceId: rule.spaceId,
+          categoryId: rule.categoryId || null,
+        };
+        const existing = await tx.accessRule.findFirst({
+          where,
+          select: { id: true },
+        });
+        const options = {
+          data: accessRuleData(rule),
+          include: { group: true, space: true, category: true },
+        };
+        records.push(
+          existing
+            ? await tx.accessRule.update({
+                where: { id: existing.id },
+                ...options,
+              })
+            : await tx.accessRule.create(options),
+        );
       }
       return records;
     });
@@ -2665,12 +3207,22 @@ export class AdminController {
     @Query("action") action?: unknown,
     @Query("result") result?: unknown,
   ) {
-    if (action !== undefined && typeof action !== "string") throw new BadRequestException("action must be a string");
-    if (result !== undefined && typeof result !== "string") throw new BadRequestException("result must be a string");
-    if (action !== undefined && action.length > 200) throw new BadRequestException("action must not exceed 200 characters");
-    if (result !== undefined && result.length > 64) throw new BadRequestException("result must not exceed 64 characters");
-    const page = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Math.min(1000000, Number(pageValue)) : 1;
-    const limit = Number.isSafeInteger(Number(limitValue)) && Number(limitValue) > 0 ? Math.min(200, Number(limitValue)) : 50;
+    if (action !== undefined && typeof action !== "string")
+      throw new BadRequestException("action must be a string");
+    if (result !== undefined && typeof result !== "string")
+      throw new BadRequestException("result must be a string");
+    if (action !== undefined && action.length > 200)
+      throw new BadRequestException("action must not exceed 200 characters");
+    if (result !== undefined && result.length > 64)
+      throw new BadRequestException("result must not exceed 64 characters");
+    const page =
+      Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0
+        ? Math.min(1000000, Number(pageValue))
+        : 1;
+    const limit =
+      Number.isSafeInteger(Number(limitValue)) && Number(limitValue) > 0
+        ? Math.min(200, Number(limitValue))
+        : 50;
     const where: Prisma.AuditEventWhereInput = {
       ...(action
         ? { action: { contains: action, mode: "insensitive" as const } }
@@ -2711,7 +3263,9 @@ export class AdminController {
     if (normalizedFormat === "csv") {
       const escape = (value: unknown) => {
         const text = String(value ?? "");
-        const unsafe = /^[\s\uFEFF]*[=+@\-\uFF1D\uFF0B\uFF0D\uFF20]/u.test(text) || /^[\t\r\n]/.test(text);
+        const unsafe =
+          /^[\s\uFEFF]*[=+@\-\uFF1D\uFF0B\uFF0D\uFF20]/u.test(text) ||
+          /^[\t\r\n]/.test(text);
         // Spreadsheet display safety; the JSON export retains the original values.
         return `"${(unsafe ? "\t" + text : text).replace(/"/g, '""')}"`;
       };
@@ -2854,45 +3408,86 @@ export class DocumentAdminController {
     @Query("summary") summary?: string,
     @Query() filters: DocumentFilters = {},
   ) {
-    if (typeof query !== "string") throw new BadRequestException("q must be a string");
-    if (order !== "asc" && order !== "desc") throw new BadRequestException("order must be asc or desc");
+    if (typeof query !== "string")
+      throw new BadRequestException("q must be a string");
+    if (order !== "asc" && order !== "desc")
+      throw new BadRequestException("order must be asc or desc");
     const q = query.trim().slice(0, 200);
     const metadataFilters = metadataWhere(filters);
-    const metadataMatches = q ? await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    const metadataMatches = q
+      ? await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
       SELECT id FROM "Document" WHERE "deletedAt" IS NULL
       AND EXISTS (SELECT 1 FROM jsonb_each_text(metadata) AS field WHERE field.key ILIKE ${`%${q}%`} OR field.value ILIKE ${`%${q}%`})
-    `) : [];
+    `)
+      : [];
     const where: Prisma.DocumentWhereInput = {
       deletedAt: null,
       ...(metadataFilters.length ? { AND: metadataFilters } : {}),
       ...(q
         ? {
             OR: [
-              { translations: { some: { OR: [{ title: { contains: q, mode: "insensitive" as const } }, { description: { contains: q, mode: "insensitive" as const } }] } } },
+              {
+                translations: {
+                  some: {
+                    OR: [
+                      { title: { contains: q, mode: "insensitive" as const } },
+                      {
+                        description: {
+                          contains: q,
+                          mode: "insensitive" as const,
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
               { slug: { contains: q, mode: "insensitive" as const } },
-              { id: { in: metadataMatches.map(item => item.id) } },
+              { id: { in: metadataMatches.map((item) => item.id) } },
             ],
           }
         : {}),
     };
     if (summary === "true") {
-      const summaryPage = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Math.min(1000000, Number(pageValue)) : 1;
-      const summaryLimit = Math.min(200, Math.max(1, Math.floor(Number(limitValue) || 50)));
+      const summaryPage =
+        Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0
+          ? Math.min(1000000, Number(pageValue))
+          : 1;
+      const summaryLimit = Math.min(
+        200,
+        Math.max(1, Math.floor(Number(limitValue) || 50)),
+      );
       const items = await this.prisma.document.findMany({
         where,
         select: {
           id: true,
           translations: { select: { locale: true, title: true } },
-          versions: { select: { id: true, locale: true, version: true }, orderBy: { createdAt: "desc" }, take: 1 },
+          versions: {
+            select: { id: true, locale: true, version: true },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
         },
         orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
         skip: (summaryPage - 1) * summaryLimit,
         take: summaryLimit,
       });
-      return pageValue ? { items, page: summaryPage, limit: summaryLimit, total: await this.prisma.document.count({ where }) } : items;
+      return pageValue
+        ? {
+            items,
+            page: summaryPage,
+            limit: summaryLimit,
+            total: await this.prisma.document.count({ where }),
+          }
+        : items;
     }
-    const page = Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0 ? Math.min(1000000, Number(pageValue)) : 1;
-    const limit = Math.min(200, Math.max(1, Math.floor(Number(limitValue) || 50)));
+    const page =
+      Number.isSafeInteger(Number(pageValue)) && Number(pageValue) > 0
+        ? Math.min(1000000, Number(pageValue))
+        : 1;
+    const limit = Math.min(
+      200,
+      Math.max(1, Math.floor(Number(limitValue) || 50)),
+    );
     const orderBy =
       sort === "status"
         ? { status: order }
@@ -2903,7 +3498,7 @@ export class DocumentAdminController {
       where,
       include: {
         translations: true,
-      versions: {
+        versions: {
           select: { id: true, locale: true, version: true, createdAt: true },
           orderBy: { createdAt: "desc" },
         },
@@ -2922,7 +3517,17 @@ export class DocumentAdminController {
 
   @Get("trash")
   async trash() {
-    return this.prisma.document.findMany({ where: { deletedAt: { not: null } }, select: { id: true, slug: true, deletedAt: true, translations: { select: { title: true } } }, orderBy: { deletedAt: "desc" }, take: 100 });
+    return this.prisma.document.findMany({
+      where: { deletedAt: { not: null } },
+      select: {
+        id: true,
+        slug: true,
+        deletedAt: true,
+        translations: { select: { title: true } },
+      },
+      orderBy: { deletedAt: "desc" },
+      take: 100,
+    });
   }
 
   @Post(":id/trash/restore")
@@ -2932,10 +3537,16 @@ export class DocumentAdminController {
         where: { id, deletedAt: { not: null } },
         data: { deletedAt: null, status: "ARCHIVED" },
       });
-      if (restored.count !== 1) throw new NotFoundException("Document not found in trash");
+      if (restored.count !== 1)
+        throw new NotFoundException("Document not found in trash");
       return tx.document.findUnique({ where: { id } });
     });
-    await this.audit.record(req, "document.trash.restore", `document:${id}`, "success");
+    await this.audit.record(
+      req,
+      "document.trash.restore",
+      `document:${id}`,
+      "success",
+    );
     return document;
   }
 
@@ -2957,7 +3568,8 @@ export class DocumentAdminController {
     if (!body.spaceId || !body.title?.trim())
       throw new BadRequestException("spaceId and title are required");
     const sensitive = body.sensitive === "true";
-    const suppressEmailNotifications = body.suppressEmailNotifications === "true";
+    const suppressEmailNotifications =
+      body.suppressEmailNotifications === "true";
     const watermarkPosition = parseWatermarkPosition(body.watermarkPosition);
     const existing = body.documentId
       ? await this.prisma.document.findFirst({
@@ -2999,112 +3611,154 @@ export class DocumentAdminController {
     const receipt = uploadReceipt(req.identity.username, body, file);
     const previousUpload = await findUploadReceipt(this.prisma, receipt);
     if (previousUpload) return previousUpload.document;
-    if (!existing) await rejectDuplicate(this.prisma, createHash("sha256").update(file.buffer).digest("hex"), {});
+    if (!existing)
+      await rejectDuplicate(
+        this.prisma,
+        createHash("sha256").update(file.buffer).digest("hex"),
+        {},
+      );
     let replayed = false;
     const scan = protectedOffice
-      ? await scanMipUpload(req, file.buffer, extension, sensitive || !!existing?.sensitive, this.antivirus)
+      ? await scanMipUpload(
+          req,
+          file.buffer,
+          extension,
+          sensitive || !!existing?.sensitive,
+          this.antivirus,
+        )
       : await this.antivirus.scan(file.buffer);
     const documentId = existing?.id || randomUUID();
-    const objectKey = await this.storage.uploadKey(`${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${protectedOffice ? "mip-" : ""}${randomUUID()}${extension}`, body.storageTargetId);
-    const comparison = await prepareVersionComparison(this.prisma, this.storage, documentId, body.locale, file.buffer, extension, scan.status === "CLEAN" && !protectedOffice);
+    const objectKey = await this.storage.uploadKey(
+      `${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${protectedOffice ? "mip-" : ""}${randomUUID()}${extension}`,
+      body.storageTargetId,
+    );
+    const comparison = await prepareVersionComparison(
+      this.prisma,
+      this.storage,
+      documentId,
+      body.locale,
+      file.buffer,
+      extension,
+      scan.status === "CLEAN" && !protectedOffice,
+    );
     await this.storage.putObject(objectKey, file.buffer, {
       "Content-Type": file.mimetype,
       "X-Amz-Meta-Sha256": createHash("sha256")
         .update(file.buffer)
         .digest("hex"),
     });
-    const result = await this.prisma.$transaction(async (tx) => {
-      const document = existing
-        ? existing
-        : await tx.document.create({
+    const result = await this.prisma
+      .$transaction(async (tx) => {
+        const document = existing
+          ? existing
+          : await tx.document.create({
+              data: {
+                id: documentId,
+                slug: canonicalDocumentSlug(body.title.trim(), documentId),
+                spaceId: body.spaceId,
+                categoryId: body.categoryId || null,
+                sensitive,
+                watermarkPosition,
+                suppressEmailNotifications,
+                status: scan.status === "CLEAN" ? "DRAFT" : "QUARANTINED",
+              },
+            });
+        if (!document) throw new NotFoundException("Document not found");
+        const latest = await tx.documentVersion.findFirst({
+          where: { documentId, locale: body.locale },
+          orderBy: { version: "desc" },
+          include: { storedFile: true },
+        });
+        if (latest?.id !== comparison.previousId)
+          throw new ConflictException(
+            "Another version was uploaded; refresh and retry",
+          );
+        if (existing)
+          await tx.document.update({
+            where: { id: documentId },
             data: {
-              id: documentId,
-              slug: canonicalDocumentSlug(body.title.trim(), documentId),
-              spaceId: body.spaceId,
-              categoryId: body.categoryId || null,
-              sensitive,
-              watermarkPosition,
               suppressEmailNotifications,
               status: scan.status === "CLEAN" ? "DRAFT" : "QUARANTINED",
             },
           });
-      if (!document) throw new NotFoundException("Document not found");
-      const latest = await tx.documentVersion.findFirst({
-        where: { documentId, locale: body.locale },
-        orderBy: { version: "desc" },
-        include: { storedFile: true },
-      });
-      if (latest?.id !== comparison.previousId) throw new ConflictException("Another version was uploaded; refresh and retry");
-      if (existing)
-        await tx.document.update({ where: { id: documentId }, data: { suppressEmailNotifications, status: scan.status === "CLEAN" ? "DRAFT" : "QUARANTINED" } });
-      const automatedChange = comparison.change;
-      const storedFile = await tx.storedFile.create({
-        data: {
-          objectKey,
-          originalName: basename(file.originalname).replace(/[\r\n]/g, "_"),
-          mimeType: file.mimetype,
-          size: BigInt(file.size),
-          sha256: createHash("sha256").update(file.buffer).digest("hex"),
-          scans: {
-            create: {
-              status: scan.status,
-              signature: "signature" in scan ? scan.signature : null,
-              scannedAt: new Date(),
+        const automatedChange = comparison.change;
+        const storedFile = await tx.storedFile.create({
+          data: {
+            objectKey,
+            originalName: basename(file.originalname).replace(/[\r\n]/g, "_"),
+            mimeType: file.mimetype,
+            size: BigInt(file.size),
+            sha256: createHash("sha256").update(file.buffer).digest("hex"),
+            scans: {
+              create: {
+                status: scan.status,
+                signature: "signature" in scan ? scan.signature : null,
+                scannedAt: new Date(),
+              },
             },
           },
-        },
+        });
+        await tx.documentVersion.create({
+          data: {
+            ...(receipt ? { id: receipt.id } : {}),
+            documentId,
+            locale: body.locale,
+            version: (latest?.version || 0) + 1,
+            storedFileId: storedFile.id,
+            changeSummary:
+              body.changeSummary?.trim() || automatedChange.summary,
+            changeDetails: {
+              ...automatedChange.details,
+              ...(receipt ? { uploadRequestHash: receipt.fingerprint } : {}),
+            },
+          },
+        });
+        await tx.documentTranslation.upsert({
+          where: { documentId_locale: { documentId, locale: body.locale } },
+          update: {
+            title: body.title.trim(),
+            ...(body.description !== undefined
+              ? { description: body.description?.trim() || null }
+              : {}),
+          },
+          create: {
+            documentId,
+            locale: body.locale,
+            title: body.title.trim(),
+            description: body.description?.trim() || null,
+          },
+        });
+        return tx.document.findUnique({
+          where: { id: documentId },
+          include: { translations: true, versions: true },
+        });
+      })
+      .catch(async (error) => {
+        const completed = await findUploadReceipt(this.prisma, receipt);
+        if (completed) {
+          if (completed.objectKey !== objectKey)
+            await this.storage.removeObject(objectKey).catch(() => undefined);
+          replayed = true;
+          return completed.document;
+        }
+        await this.storage.removeObject(objectKey).catch(() => undefined);
+        throw error;
       });
-      await tx.documentVersion.create({
-        data: {
-          ...(receipt ? { id: receipt.id } : {}),
-          documentId,
+    if (!replayed)
+      await this.audit.record(
+        req,
+        "document.upload",
+        `document:${documentId}`,
+        scan.status === "CLEAN" ? "success" : "failure",
+        {
           locale: body.locale,
-          version: (latest?.version || 0) + 1,
-          storedFileId: storedFile.id,
-          changeSummary: body.changeSummary?.trim() || automatedChange.summary,
-          changeDetails: { ...automatedChange.details, ...(receipt ? { uploadRequestHash: receipt.fingerprint } : {}) },
+          scanStatus: scan.status,
+          size: file.size,
+          sha256: createHash("sha256").update(file.buffer).digest("hex"),
+          notificationSuppressed: suppressEmailNotifications,
         },
-      });
-      await tx.documentTranslation.upsert({
-        where: { documentId_locale: { documentId, locale: body.locale } },
-        update: {
-          title: body.title.trim(),
-          ...(body.description !== undefined ? { description: body.description?.trim() || null } : {}),
-        },
-        create: {
-          documentId,
-          locale: body.locale,
-          title: body.title.trim(),
-          description: body.description?.trim() || null,
-        },
-      });
-      return tx.document.findUnique({
-        where: { id: documentId },
-        include: { translations: true, versions: true },
-      });
-    }).catch(async (error) => {
-      const completed = await findUploadReceipt(this.prisma, receipt);
-      if (completed) {
-        if (completed.objectKey !== objectKey) await this.storage.removeObject(objectKey).catch(() => undefined);
-        replayed = true; return completed.document;
-      }
-      await this.storage.removeObject(objectKey).catch(() => undefined);
-      throw error;
-    });
-    if (!replayed) await this.audit.record(
-      req,
-      "document.upload",
-      `document:${documentId}`,
-      scan.status === "CLEAN" ? "success" : "failure",
-      {
-        locale: body.locale,
-        scanStatus: scan.status,
-        size: file.size,
-        sha256: createHash("sha256").update(file.buffer).digest("hex"),
-        notificationSuppressed: suppressEmailNotifications,
-      },
-      { notify: !suppressEmailNotifications },
-    );
+        { notify: !suppressEmailNotifications },
+      );
     return result;
   }
 
@@ -3129,17 +3783,40 @@ export class DocumentAdminController {
       );
     }
     const distributedFiles = await this.watermark.prepareForPublication(id);
-    const publication = await publishWithReview(this.prisma, id, document.versions.slice().sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0]?.id || null, !document.publishedAt, new Date(), { request: req, action: "document.publish", details: distributedFiles.length ? { distributedFiles } : undefined, notify: !document.suppressEmailNotifications });
+    const publication = await publishWithReview(
+      this.prisma,
+      id,
+      document.versions
+        .slice()
+        .sort(
+          (left, right) => right.createdAt.getTime() - left.createdAt.getTime(),
+        )[0]?.id || null,
+      !document.publishedAt,
+      new Date(),
+      {
+        request: req,
+        action: "document.publish",
+        details: distributedFiles.length ? { distributedFiles } : undefined,
+        notify: !document.suppressEmailNotifications,
+      },
+    );
     const updated = publication.document;
     for (const event of publication.events) await this.audit.committed(event);
     return updated;
   }
 
   @Put(":id/status")
-  async changeStatus(@Req() req: IsmsRequest, @Param("id") id: string, @Body() body: DocumentStatusDto) {
-    const document = await this.prisma.document.findFirst({ where: { id, deletedAt: null } });
+  async changeStatus(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: DocumentStatusDto,
+  ) {
+    const document = await this.prisma.document.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (!document) throw new NotFoundException();
-    if (document.status === "QUARANTINED") throw new ConflictException("Quarantined documents cannot change status");
+    if (document.status === "QUARANTINED")
+      throw new ConflictException("Quarantined documents cannot change status");
     if (document.status === body.status) return document;
     if (body.status === "PUBLISHED") return this.publish(req, id);
     if (body.status === "ARCHIVED") return this.archive(req, id);
@@ -3149,7 +3826,8 @@ export class DocumentAdminController {
         where: { id, deletedAt: null, status: document.status },
         data: { status: "DRAFT" },
       });
-      if (changed.count !== 1) throw new ConflictException("Document changed; refresh and retry");
+      if (changed.count !== 1)
+        throw new ConflictException("Document changed; refresh and retry");
       return tx.document.findUnique({ where: { id } });
     });
     await this.audit.record(req, "document.draft", `document:${id}`, "success");
@@ -3178,7 +3856,8 @@ export class DocumentAdminController {
         where: { id, deletedAt: null, status: "ARCHIVED" },
         data: { status: "DRAFT" },
       });
-      if (restored.count !== 1) throw new NotFoundException("Archived document not found");
+      if (restored.count !== 1)
+        throw new NotFoundException("Archived document not found");
       return tx.document.findUnique({ where: { id } });
     });
     await this.audit.record(
@@ -3221,7 +3900,12 @@ export class DocumentAdminController {
     );
     const storedFileIds = storedFiles.map((file) => file.id);
     await this.prisma.$transaction([
-      this.prisma.userNotification.deleteMany({ where: { resourceType: "document-review", resourceId: { in: document.reviews.map((review) => review.id) } } }),
+      this.prisma.userNotification.deleteMany({
+        where: {
+          resourceType: "document-review",
+          resourceId: { in: document.reviews.map((review) => review.id) },
+        },
+      }),
       this.prisma.applicationSetting.deleteMany({
         where: { key: `document-annual-review:${id}` },
       }),
@@ -3241,7 +3925,11 @@ export class DocumentAdminController {
     ]);
     const cleanupResults = await Promise.allSettled([
       ...storedFiles.map((file) => this.storage.removeObject(file.objectKey)),
-      ...document.reviews.flatMap((review) => review.evidenceObjectKey ? [this.storage.removeObject(review.evidenceObjectKey)] : []),
+      ...document.reviews.flatMap((review) =>
+        review.evidenceObjectKey
+          ? [this.storage.removeObject(review.evidenceObjectKey)]
+          : [],
+      ),
     ]);
     const storageCleanupFailures = cleanupResults.filter(
       (result) => result.status === "rejected",

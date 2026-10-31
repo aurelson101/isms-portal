@@ -22,28 +22,45 @@ describe("SSO diagnostics", () => {
   it("rejects an invalid tenant before making a request", async () => {
     const request = vi.fn();
     vi.stubGlobal("fetch", request);
-    await expect(controller.testSso("entra", "../example")).rejects.toThrow("Invalid Entra tenant ID");
+    await expect(controller.testSso("entra", "../example")).rejects.toThrow(
+      "Invalid Entra tenant ID",
+    );
     expect(request).not.toHaveBeenCalled();
   });
 
   it("checks the expected Entra issuer", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ issuer: `https://login.microsoftonline.com/${tenant}/v2.0` }),
+      json: async () => ({
+        issuer: `https://login.microsoftonline.com/${tenant}/v2.0`,
+      }),
     });
     vi.stubGlobal("fetch", request);
-    await expect(controller.testSso("entra", tenant)).resolves.toEqual({ target: "entra", ok: true });
-    expect(request.mock.calls[0][0]).toBe(`https://login.microsoftonline.com/${tenant}/v2.0/.well-known/openid-configuration`);
+    await expect(controller.testSso("entra", tenant)).resolves.toEqual({
+      target: "entra",
+      ok: true,
+    });
+    expect(request.mock.calls[0][0]).toBe(
+      `https://login.microsoftonline.com/${tenant}/v2.0/.well-known/openid-configuration`,
+    );
   });
 
   it("reports an unavailable proxy without exposing the network error", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("internal host detail")));
-    await expect(controller.testSso("proxy")).resolves.toEqual({ target: "proxy", ok: false });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("internal host detail")),
+    );
+    await expect(controller.testSso("proxy")).resolves.toEqual({
+      target: "proxy",
+      ok: false,
+    });
   });
 });
 
 describe("SSO login configuration", () => {
-  const controller = new AuthController({ directoryLoginEnabled: vi.fn().mockResolvedValue(true) } as never);
+  const controller = new AuthController({
+    directoryLoginEnabled: vi.fn().mockResolvedValue(true),
+  } as never);
 
   it("hides the SSO link until the pilot is explicitly verified", async () => {
     delete process.env.SSO_LOGIN_VERIFIED;
@@ -51,7 +68,11 @@ describe("SSO login configuration", () => {
     process.env.SSO_LOGIN_URL = "/oauth2/start?rd=/";
     const request = vi.fn();
     vi.stubGlobal("fetch", request);
-    await expect(controller.config()).resolves.toMatchObject({ ssoEnabled: false, ssoPilotUrl: null, ssoLoginUrl: null });
+    await expect(controller.config()).resolves.toMatchObject({
+      ssoEnabled: false,
+      ssoPilotUrl: null,
+      ssoLoginUrl: null,
+    });
     expect(request).not.toHaveBeenCalled();
   });
 
@@ -60,14 +81,22 @@ describe("SSO login configuration", () => {
     process.env.SSO_PILOT_URL = "/oauth2/start?rd=/";
     delete process.env.SSO_LOGIN_URL;
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
-    await expect(controller.config()).resolves.toMatchObject({ ssoEnabled: true, ssoPilotUrl: "/oauth2/start?rd=/", ssoLoginUrl: null });
+    await expect(controller.config()).resolves.toMatchObject({
+      ssoEnabled: true,
+      ssoPilotUrl: "/oauth2/start?rd=/",
+      ssoLoginUrl: null,
+    });
   });
 
   it("hides the SSO link if the verified proxy becomes unavailable", async () => {
     process.env.SSO_LOGIN_VERIFIED = "true";
     process.env.SSO_PILOT_URL = "/oauth2/start?rd=/";
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("proxy down")));
-    await expect(controller.config()).resolves.toMatchObject({ ssoEnabled: false, ssoPilotUrl: null, ssoLoginUrl: null });
+    await expect(controller.config()).resolves.toMatchObject({
+      ssoEnabled: false,
+      ssoPilotUrl: null,
+      ssoLoginUrl: null,
+    });
   });
 
   it("ignores an invalid external pilot URL", async () => {
@@ -75,6 +104,10 @@ describe("SSO login configuration", () => {
     process.env.SSO_PILOT_URL = "https://untrusted.example/oauth2/start";
     delete process.env.SSO_LOGIN_URL;
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
-    await expect(controller.config()).resolves.toMatchObject({ ssoEnabled: false, ssoPilotUrl: null, ssoLoginUrl: null });
+    await expect(controller.config()).resolves.toMatchObject({
+      ssoEnabled: false,
+      ssoPilotUrl: null,
+      ssoLoginUrl: null,
+    });
   });
 });

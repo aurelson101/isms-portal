@@ -23,11 +23,25 @@ function periodWhere(year?: string, month?: string) {
   if (!year) return {};
   const parsedYear = Number(year);
   const parsedMonth = month ? Number(month) : undefined;
-  if (!Number.isInteger(parsedYear) || parsedYear < 2020 || parsedYear > 2100 || (parsedMonth !== undefined && (!Number.isInteger(parsedMonth) || parsedMonth < 1 || parsedMonth > 12)))
+  if (
+    !Number.isInteger(parsedYear) ||
+    parsedYear < 2020 ||
+    parsedYear > 2100 ||
+    (parsedMonth !== undefined &&
+      (!Number.isInteger(parsedMonth) || parsedMonth < 1 || parsedMonth > 12))
+  )
     throw new BadRequestException("Invalid approval period");
-  const start = new Date(Date.UTC(parsedYear, parsedMonth ? parsedMonth - 1 : 0, 1));
+  const start = new Date(
+    Date.UTC(parsedYear, parsedMonth ? parsedMonth - 1 : 0, 1),
+  );
   const end = parsedMonth
-    ? new Date(Date.UTC(parsedMonth === 12 ? parsedYear + 1 : parsedYear, parsedMonth === 12 ? 0 : parsedMonth, 1))
+    ? new Date(
+        Date.UTC(
+          parsedMonth === 12 ? parsedYear + 1 : parsedYear,
+          parsedMonth === 12 ? 0 : parsedMonth,
+          1,
+        ),
+      )
     : new Date(Date.UTC(parsedYear + 1, 0, 1));
   return { createdAt: { gte: start, lt: end } };
 }
@@ -41,14 +55,22 @@ export class ApprovalsController {
   ) {}
 
   @Get()
-  async list(@Req() req: IsmsRequest, @Query("year") year?: string, @Query("month") month?: string) {
+  async list(
+    @Req() req: IsmsRequest,
+    @Query("year") year?: string,
+    @Query("month") month?: string,
+  ) {
     if (!isAdminIdentity(req.identity.groups)) return [];
     const approvals = await this.prisma.sensitiveOperationApproval.findMany({
       where: periodWhere(year, month),
       orderBy: { createdAt: "desc" },
       take: 300,
     });
-    return approvals.map((item) => ({ ...item, canDecide: item.requestedBy.toLowerCase() !== req.identity.username.toLowerCase() }));
+    return approvals.map((item) => ({
+      ...item,
+      canDecide:
+        item.requestedBy.toLowerCase() !== req.identity.username.toLowerCase(),
+    }));
   }
 
   @Put(":id/decision")
@@ -57,17 +79,26 @@ export class ApprovalsController {
     @Param("id") id: string,
     @Body() body: { status?: string },
   ) {
-    if (!isAdminIdentity(req.identity.groups)) throw new ForbiddenException("An administrator must decide privileged operations");
+    if (!isAdminIdentity(req.identity.groups))
+      throw new ForbiddenException(
+        "An administrator must decide privileged operations",
+      );
     if (!body.status || !["APPROVED", "REJECTED"].includes(body.status))
-      throw new BadRequestException("Approval status must be APPROVED or REJECTED");
+      throw new BadRequestException(
+        "Approval status must be APPROVED or REJECTED",
+      );
     const existing = await this.prisma.sensitiveOperationApproval.findUnique({
       where: { id },
     });
     if (!existing) throw new NotFoundException();
     if (existing.status !== "PENDING")
       throw new ConflictException("Approval already decided");
-    if (existing.requestedBy.toLowerCase() === req.identity.username.toLowerCase())
-      throw new ConflictException("A requester cannot approve their own request");
+    if (
+      existing.requestedBy.toLowerCase() === req.identity.username.toLowerCase()
+    )
+      throw new ConflictException(
+        "A requester cannot approve their own request",
+      );
     const changed = await this.prisma.sensitiveOperationApproval.updateMany({
       where: { id, status: "PENDING" },
       data: {
@@ -76,8 +107,11 @@ export class ApprovalsController {
         approvedAt: new Date(),
       },
     });
-    if (changed.count !== 1) throw new ConflictException("Approval already decided");
-    const item = await this.prisma.sensitiveOperationApproval.findUniqueOrThrow({ where: { id } });
+    if (changed.count !== 1)
+      throw new ConflictException("Approval already decided");
+    const item = await this.prisma.sensitiveOperationApproval.findUniqueOrThrow(
+      { where: { id } },
+    );
     await this.prisma.userNotification.create({
       data: {
         identity: item.requestedBy,
@@ -101,34 +135,126 @@ export class ApprovalsController {
 
 @Controller("reviews")
 export class ReviewInboxController {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   @Get()
-  async list(@Req() req: IsmsRequest, @Query("year") year?: string, @Query("month") month?: string) {
-    const identity = { equals: req.identity.username, mode: "insensitive" as const };
+  async list(
+    @Req() req: IsmsRequest,
+    @Query("year") year?: string,
+    @Query("month") month?: string,
+  ) {
+    const identity = {
+      equals: req.identity.username,
+      mode: "insensitive" as const,
+    };
     const period = periodWhere(year, month);
     const moderator = isModeratorIdentity(req.identity.groups);
     const reviews = await this.prisma.documentReview.findMany({
-      where: isAdminIdentity(req.identity.groups) ? period : moderator ? { AND: [period, { OR: [{ automaticAnnual: true }, { automaticPublication: true }, { owner: identity }, { reviewer: identity }, { approver: identity }] }] } : { AND: [period, { OR: [{ owner: identity }, { reviewer: identity }, { approver: identity }] }] },
-      include: { document: { select: { slug: true, translations: true } } }, orderBy: { createdAt: "desc" }, take: 200,
+      where: isAdminIdentity(req.identity.groups)
+        ? period
+        : moderator
+          ? {
+              AND: [
+                period,
+                {
+                  OR: [
+                    { automaticAnnual: true },
+                    { automaticPublication: true },
+                    { owner: identity },
+                    { reviewer: identity },
+                    { approver: identity },
+                  ],
+                },
+              ],
+            }
+          : {
+              AND: [
+                period,
+                {
+                  OR: [
+                    { owner: identity },
+                    { reviewer: identity },
+                    { approver: identity },
+                  ],
+                },
+              ],
+            },
+      include: { document: { select: { slug: true, translations: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 200,
     });
-    return reviews.map((review) => ({ ...review, canDecide: review.owner.toLowerCase() !== req.identity.username.toLowerCase() && (isAdminIdentity(req.identity.groups) || (moderator && (review.automaticAnnual || review.automaticPublication || review.approver.toLowerCase() === req.identity.username.toLowerCase()))) }));
+    return reviews.map((review) => ({
+      ...review,
+      canDecide:
+        review.owner.toLowerCase() !== req.identity.username.toLowerCase() &&
+        (isAdminIdentity(req.identity.groups) ||
+          (moderator &&
+            (review.automaticAnnual ||
+              review.automaticPublication ||
+              review.approver.toLowerCase() ===
+                req.identity.username.toLowerCase()))),
+    }));
   }
 
   @Put(":id/decision")
-  async decide(@Req() req: IsmsRequest, @Param("id") id: string, @Body() body: ReviewDecisionDto) {
+  async decide(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: ReviewDecisionDto,
+  ) {
     const item = await this.prisma.documentReview.findUnique({ where: { id } });
     if (!item) throw new NotFoundException();
     const actor = req.identity.username.toLowerCase();
     const moderator = isModeratorIdentity(req.identity.groups);
-    const allowed = isAdminIdentity(req.identity.groups) || (moderator && (item.automaticAnnual || item.automaticPublication || item.approver.toLowerCase() === actor)) || (body.status === "IN_REVIEW" && item.reviewer.toLowerCase() === actor);
+    const allowed =
+      isAdminIdentity(req.identity.groups) ||
+      (moderator &&
+        (item.automaticAnnual ||
+          item.automaticPublication ||
+          item.approver.toLowerCase() === actor)) ||
+      (body.status === "IN_REVIEW" && item.reviewer.toLowerCase() === actor);
     if (!allowed) throw new ForbiddenException();
-    if (actor === item.owner.toLowerCase()) throw new ForbiddenException("The owner cannot approve their own review");
+    if (actor === item.owner.toLowerCase())
+      throw new ForbiddenException("The owner cannot approve their own review");
     const closed = body.status !== "IN_REVIEW";
-    const { review, archived } = await recordReviewDecision(this.prisma, id, item.documentId, body, req.identity.username);
-    if (closed) await this.prisma.userNotification.createMany({ data: [...new Set([item.owner, item.reviewer, item.approver])].map((identity) => ({ identity, title: "Document review decision", message: `${body.status}: ${body.comment.trim()}`, resourceType: "document-review", resourceId: id, mandatory: body.status === "REJECTED" })) });
-    await this.audit.record(req, "document-review.decision", `document-review:${id}`, "success", { before: item.status, after: body.status });
-    if (archived) await this.audit.record(req, "document.archive", `document:${item.documentId}`, "success", { reason: "review.rejected", reviewId: id });
+    const { review, archived } = await recordReviewDecision(
+      this.prisma,
+      id,
+      item.documentId,
+      body,
+      req.identity.username,
+    );
+    if (closed)
+      await this.prisma.userNotification.createMany({
+        data: [...new Set([item.owner, item.reviewer, item.approver])].map(
+          (identity) => ({
+            identity,
+            title: "Document review decision",
+            message: `${body.status}: ${body.comment.trim()}`,
+            resourceType: "document-review",
+            resourceId: id,
+            mandatory: body.status === "REJECTED",
+          }),
+        ),
+      });
+    await this.audit.record(
+      req,
+      "document-review.decision",
+      `document-review:${id}`,
+      "success",
+      { before: item.status, after: body.status },
+    );
+    if (archived)
+      await this.audit.record(
+        req,
+        "document.archive",
+        `document:${item.documentId}`,
+        "success",
+        { reason: "review.rejected", reviewId: id },
+      );
     return review;
   }
 }

@@ -18,7 +18,10 @@ import { AuthorizationService } from "./authorization.service";
 import { AuditService } from "./audit.service";
 import { StorageService } from "./storage.service";
 import { StorageTargetsService } from "./storage-targets.service";
-import { StorageTargetsController, StorageOptionsController } from "./storage-targets.controller";
+import {
+  StorageTargetsController,
+  StorageOptionsController,
+} from "./storage-targets.controller";
 import { AntivirusService } from "./antivirus.service";
 import { CryptoService } from "./crypto.service";
 import { DirectoryService } from "./directory.service";
@@ -34,7 +37,10 @@ import {
 import { GovernanceController } from "./governance.controller";
 import { AlertDeliveryService } from "./alert-delivery.service";
 import { BrandingController } from "./branding.controller";
-import { ApprovalsController, ReviewInboxController } from "./approvals.controller";
+import {
+  ApprovalsController,
+  ReviewInboxController,
+} from "./approvals.controller";
 import { NotificationService } from "./notification.service";
 
 @Module({

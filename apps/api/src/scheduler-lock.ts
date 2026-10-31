@@ -7,12 +7,19 @@ export function exclusiveScheduler(prisma: PrismaService) {
     if (running) return false;
     running = true;
     try {
-      return await prisma.$transaction(async tx => {
-        const rows = await tx.$queryRaw<Array<{ acquired: boolean }>>`SELECT pg_try_advisory_xact_lock(hashtext('isms-scheduler')) AS acquired`;
-        if (!rows[0]?.acquired) return false;
-        await work(tx);
-        return true;
-      }, { timeout: 120000, maxWait: 5000 });
-    } finally { running = false; }
+      return await prisma.$transaction(
+        async (tx) => {
+          const rows = await tx.$queryRaw<
+            Array<{ acquired: boolean }>
+          >`SELECT pg_try_advisory_xact_lock(hashtext('isms-scheduler')) AS acquired`;
+          if (!rows[0]?.acquired) return false;
+          await work(tx);
+          return true;
+        },
+        { timeout: 120000, maxWait: 5000 },
+      );
+    } finally {
+      running = false;
+    }
   };
 }

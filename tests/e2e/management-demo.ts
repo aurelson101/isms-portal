@@ -171,14 +171,12 @@ export async function installManagementDemo(
       });
     if (path === "/api/user-tools/recent")
       return route.fulfill({
-        json: documents
-          .slice(0, 3)
-          .map((document) => ({
-            id: document.id,
-            action: "OPEN",
-            occurredAt: "2026-10-31T08:00:00.000Z",
-            document,
-          })),
+        json: documents.slice(0, 3).map((document) => ({
+          id: document.id,
+          action: "OPEN",
+          occurredAt: "2026-10-31T08:00:00.000Z",
+          document,
+        })),
       });
     if (path === "/api/admin/dashboard") return route.fulfill({ json: null });
     if (path === "/api/admin/audit")

@@ -65,7 +65,9 @@ describe("AuditService", () => {
     const event = {
       id: "audit-business-1",
       identity: "alice",
-      action: "access-request.create", resource: "access-request:123", result: "success",
+      action: "access-request.create",
+      resource: "access-request:123",
+      result: "success",
       occurredAt: new Date("2026-09-02T12:00:00.000Z"),
     };
     const transaction = {
@@ -107,7 +109,16 @@ describe("AuditService", () => {
       "success",
     );
 
-    expect(transaction.notificationOutbox.create).toHaveBeenCalledWith({ data: { id: event.id, payload: expect.objectContaining({ action: "access-request.create", resource: "access-request:123", actor: "alice" }) } });
+    expect(transaction.notificationOutbox.create).toHaveBeenCalledWith({
+      data: {
+        id: event.id,
+        payload: expect.objectContaining({
+          action: "access-request.create",
+          resource: "access-request:123",
+          actor: "alice",
+        }),
+      },
+    });
     expect(notifications.enqueue).not.toHaveBeenCalled();
     output.mockRestore();
   });

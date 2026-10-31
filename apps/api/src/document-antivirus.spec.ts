@@ -96,25 +96,28 @@ describe("Document antivirus distribution", () => {
   describe.each([DocumentsController, DocumentAdminController])(
     "%s version upload",
     (Controller) => {
-      it.each(["CLEAN", "INFECTED", "ERROR"].flatMap(status =>
-        [undefined, "", " Updated description "].map(description => ({ status, description })),
-      ))(
+      it.each(
+        ["CLEAN", "INFECTED", "ERROR"].flatMap((status) =>
+          [undefined, "", " Updated description "].map((description) => ({
+            status,
+            description,
+          })),
+        ),
+      )(
         "requires publication after scan $status and preserves description semantics ($description)",
         async ({ status, description }) => {
           const update = vi.fn();
           const findFirst = vi
             .fn()
             .mockResolvedValue({ id: "doc", spaceId: "space" });
-          const findVersion = vi
-            .fn()
-            .mockResolvedValue({
-              id: "previous",
-              version: 1,
-              storedFile: {
-                objectKey: "documents/old.pdf",
-                scans: [{ status: "CLEAN" }],
-              },
-            });
+          const findVersion = vi.fn().mockResolvedValue({
+            id: "previous",
+            version: 1,
+            storedFile: {
+              objectKey: "documents/old.pdf",
+              scans: [{ status: "CLEAN" }],
+            },
+          });
           const getBuffer = vi
             .fn()
             .mockResolvedValue(Buffer.from("%PDF-1.4\nfixture"));
@@ -176,9 +179,17 @@ describe("Document antivirus distribution", () => {
               status: status === "CLEAN" ? "DRAFT" : "QUARANTINED",
             },
           });
-          const translation = prisma.documentTranslation.upsert.mock.calls[0][0];
-          expect(translation.update).toEqual({ title: "Guide", ...(description !== undefined ? { description: description.trim() || null } : {}) });
-          expect(translation.create.description).toBe(description?.trim() || null);
+          const translation =
+            prisma.documentTranslation.upsert.mock.calls[0][0];
+          expect(translation.update).toEqual({
+            title: "Guide",
+            ...(description !== undefined
+              ? { description: description.trim() || null }
+              : {}),
+          });
+          expect(translation.create.description).toBe(
+            description?.trim() || null,
+          );
           if (status !== "CLEAN") expect(getBuffer).not.toHaveBeenCalled();
         },
       );

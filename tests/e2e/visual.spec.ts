@@ -67,6 +67,7 @@ for (const viewport of viewports) {
       await page.getByRole("button", { name: "Filtrer et trier" }).click();
     }
     await expect(page.getByLabel("Trier par")).toBeVisible();
+    await page.mouse.move(0, 0);
     await expect(page).toHaveScreenshot(`explorer-${viewport.name}.png`, {
       animations: "disabled",
       fullPage: true,
@@ -101,10 +102,13 @@ for (const viewport of viewports) {
     await expect(
       page.getByRole("heading", { name: "Documents", exact: true, level: 1 }),
     ).toBeVisible();
-    await expect(page).toHaveScreenshot(`admin-documents-${viewport.name}.png`, {
-      animations: "disabled",
-      fullPage: true,
-      maxDiffPixelRatio: 0.01,
-    });
+    await expect(page).toHaveScreenshot(
+      `admin-documents-${viewport.name}.png`,
+      {
+        animations: "disabled",
+        fullPage: true,
+        maxDiffPixelRatio: 0.01,
+      },
+    );
   });
 }

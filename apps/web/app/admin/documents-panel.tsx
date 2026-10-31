@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ComponentType } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ComponentType,
+} from "react";
 import type { Locale } from "../i18n/locale";
 import { isLocale } from "../i18n/locale";
 import { LanguageSelect } from "../language-controls";
@@ -9,16 +16,37 @@ import { StorageSelect } from "../storage-select";
 import { BatchImport } from "../batch-import";
 import { DocumentMetadataFields } from "../document-metadata-fields";
 import { ManagementViewToggle, useManagementView } from "../management-view";
-import { DocumentBulkEditor, DocumentHistory, DocumentQuality, DocumentSearchForm } from "../document-management";
-import { readMetadataFilters, type MetadataFilters } from "../document-management-copy";
+import {
+  DocumentBulkEditor,
+  DocumentHistory,
+  DocumentQuality,
+  DocumentSearchForm,
+} from "../document-management";
+import {
+  readMetadataFilters,
+  type MetadataFilters,
+} from "../document-management-copy";
 import { uploadAttempt, type UploadAttempt } from "../upload-attempt";
-import { translationFields, latestVersion, validateUpload } from "../moderator/document-model";
+import {
+  translationFields,
+  latestVersion,
+  validateUpload,
+} from "../moderator/document-model";
 import { api } from "./api-client";
-import { flattenCategories, paginationItems, type AdminDocument, type Space } from "./document-model";
+import {
+  flattenCategories,
+  paginationItems,
+  type AdminDocument,
+  type Space,
+} from "./document-model";
 
 export function DocumentsPanel({
   metadataOnly = false,
-  locale, t, confirmAction, EmptyState, statusLabel,
+  locale,
+  t,
+  confirmAction,
+  EmptyState,
+  statusLabel,
   spaces,
   search,
   onSearch,
@@ -44,12 +72,15 @@ export function DocumentsPanel({
   const [metadataSearch, setMetadataSearch] = useState<MetadataFilters>({});
   const [versionUploadDocument, setVersionUploadDocument] =
     useState<AdminDocument | null>(null);
-  const [editingMetadataDocument, setEditingMetadataDocument] = useState<AdminDocument | null>(null);
+  const [editingMetadataDocument, setEditingMetadataDocument] =
+    useState<AdminDocument | null>(null);
   const [editedCategoryId, setEditedCategoryId] = useState("");
   const [editedLocale, setEditedLocale] = useState<Locale>("fr");
   const [editedTitle, setEditedTitle] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
-  const [editedMetadata, setEditedMetadata] = useState<Record<string, string>>({});
+  const [editedMetadata, setEditedMetadata] = useState<Record<string, string>>(
+    {},
+  );
   const [savingMetadata, setSavingMetadata] = useState(false);
   const metadataInFlight = useRef(false);
   const [metadataSaved, setMetadataSaved] = useState(false);
@@ -68,7 +99,9 @@ export function DocumentsPanel({
   const statusInFlight = useRef(false);
   const documentRequest = useRef(0);
   const documentController = useRef<AbortController | null>(null);
-  const [documentQuery, setDocumentQuery] = useState(search.trim().slice(0, 200));
+  const [documentQuery, setDocumentQuery] = useState(
+    search.trim().slice(0, 200),
+  );
   const [documentSort, setDocumentSort] = useState("updatedAt");
   const [viewReady, setViewReady] = useState(false);
   useEffect(() => {
@@ -76,12 +109,19 @@ export function DocumentsPanel({
       const query = new URLSearchParams(window.location.search);
       setMetadataSearch(readMetadataFilters(query));
       const page = Number(query.get("docPage") || 1);
-      setDocumentPage(Number.isSafeInteger(page) && page > 0 ? Math.min(page, 1000000) : 1);
+      setDocumentPage(
+        Number.isSafeInteger(page) && page > 0 ? Math.min(page, 1000000) : 1,
+      );
       const sort = query.get("docSort") || "updatedAt";
-      setDocumentSort(["updatedAt", "publishedAt", "status"].includes(sort) ? sort : "updatedAt");
+      setDocumentSort(
+        ["updatedAt", "publishedAt", "status"].includes(sort)
+          ? sort
+          : "updatedAt",
+      );
       if (query.has("docQ")) {
         const text = (query.get("docQ") || "").trim().slice(0, 200);
-        onSearch(text); setDocumentQuery(text);
+        onSearch(text);
+        setDocumentQuery(text);
       }
       setViewReady(true);
     };
@@ -92,16 +132,38 @@ export function DocumentsPanel({
   useEffect(() => {
     if (!viewReady) return;
     const url = new URL(window.location.href);
-    for (const key of ["reference", "owner", "documentType", "keywords", "reviewFrom", "reviewTo"] as const) { if (metadataSearch[key]) url.searchParams.set(key, metadataSearch[key]!); else url.searchParams.delete(key); }
-    for (const [key, value] of [["docPage", documentPage > 1 ? String(documentPage) : ""], ["docSort", documentSort !== "updatedAt" ? documentSort : ""], ["docQ", documentQuery]]) {
-      if (value) url.searchParams.set(key, value); else url.searchParams.delete(key);
+    for (const key of [
+      "reference",
+      "owner",
+      "documentType",
+      "keywords",
+      "reviewFrom",
+      "reviewTo",
+    ] as const) {
+      if (metadataSearch[key]) url.searchParams.set(key, metadataSearch[key]!);
+      else url.searchParams.delete(key);
     }
-    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    for (const [key, value] of [
+      ["docPage", documentPage > 1 ? String(documentPage) : ""],
+      ["docSort", documentSort !== "updatedAt" ? documentSort : ""],
+      ["docQ", documentQuery],
+    ]) {
+      if (value) url.searchParams.set(key, value);
+      else url.searchParams.delete(key);
+    }
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
   }, [viewReady, documentPage, documentSort, documentQuery, metadataSearch]);
   useEffect(() => {
     const query = search.trim().slice(0, 200);
     if (query === documentQuery) return;
-    const timer = window.setTimeout(() => { setDocumentPage(1); setDocumentQuery(query); }, 300);
+    const timer = window.setTimeout(() => {
+      setDocumentPage(1);
+      setDocumentQuery(query);
+    }, 300);
     return () => window.clearTimeout(timer);
   }, [search, documentQuery]);
   const documentPageSize = 20;
@@ -124,9 +186,12 @@ export function DocumentsPanel({
       if (request !== documentRequest.current) return;
       setPageDocuments(result.items);
       setDocumentTotal(result.total);
-      setDocumentPage((page) => Math.min(page, Math.max(1, Math.ceil(result.total / documentPageSize))));
+      setDocumentPage((page) =>
+        Math.min(page, Math.max(1, Math.ceil(result.total / documentPageSize))),
+      );
     } catch (error) {
-      if (!controller.signal.aborted && request === documentRequest.current) onError((error as Error).message);
+      if (!controller.signal.aborted && request === documentRequest.current)
+        onError((error as Error).message);
     } finally {
       if (request === documentRequest.current) setDocumentsLoading(false);
     }
@@ -135,16 +200,26 @@ export function DocumentsPanel({
     if (refreshing || !viewReady) return;
     const requests = documentRequest;
     void loadDocuments();
-    return () => { requests.current++; documentController.current?.abort(); };
+    return () => {
+      requests.current++;
+      documentController.current?.abort();
+    };
   }, [loadDocuments, refreshing, viewReady]);
   const selectedSpace = spaces.find((space) => space.id === spaceId);
-  const versionTranslation = versionUploadDocument?.translations.find(
-    (translation) => translation.locale === locale,
-  ) ?? versionUploadDocument?.translations[0];
+  const versionTranslation =
+    versionUploadDocument?.translations.find(
+      (translation) => translation.locale === locale,
+    ) ?? versionUploadDocument?.translations[0];
   const nextVersion = versionUploadDocument
-    ? Math.max(0, ...versionUploadDocument.versions.map((version) => version.version)) + 1
+    ? Math.max(
+        0,
+        ...versionUploadDocument.versions.map((version) => version.version),
+      ) + 1
     : null;
-  const selectMetadataLocale = (document: AdminDocument, documentLocale: Locale) => {
+  const selectMetadataLocale = (
+    document: AdminDocument,
+    documentLocale: Locale,
+  ) => {
     const fields = translationFields(document, documentLocale);
     setEditedLocale(documentLocale);
     setEditedTitle(fields.title);
@@ -155,9 +230,16 @@ export function DocumentsPanel({
     statusInFlight.current = true;
     setChangingStatus(document.id);
     try {
-      if (!(await confirmAction(`${t("État")} : ${statusLabel(document.status)} → ${statusLabel(status)} ?`))) return;
+      if (
+        !(await confirmAction(
+          `${t("État")} : ${statusLabel(document.status)} → ${statusLabel(status)} ?`,
+        ))
+      )
+        return;
       await api(`/api/admin/documents/${document.id}/status`, {
-        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
       });
       await loadDocuments();
       await onChanged();
@@ -170,227 +252,426 @@ export function DocumentsPanel({
   };
   return (
     <>
-      <h1>{metadataOnly ? t("Métadonnées GED", "GED metadata") : t("Documents")}</h1>
-      <DocumentSearchForm locale={locale} value={metadataSearch} onApply={value => { setMetadataSearch(value); setDocumentPage(1); }} />
+      <h1>
+        {metadataOnly ? t("Métadonnées GED", "GED metadata") : t("Documents")}
+      </h1>
+      <DocumentSearchForm
+        locale={locale}
+        value={metadataSearch}
+        onApply={(value) => {
+          setMetadataSearch(value);
+          setDocumentPage(1);
+        }}
+      />
       <DocumentQuality locale={locale} admin />
       <div className="admin-management-tools">
-        <label>{t("Rechercher un document", "Search documents")}<input type="search" maxLength={200} value={search} onChange={(event) => onSearch(event.target.value)} /></label>
-        <label>{t("Trier par", "Sort by")}<select value={documentSort} onChange={(event) => { setDocumentPage(1); setDocumentSort(event.target.value); }}>
-          <option value="updatedAt">{t("Dernière modification", "Last updated")}</option>
-          <option value="publishedAt">{t("Publication", "Publication")}</option>
-          <option value="status">{t("État")}</option>
-        </select></label>
-        <span role="status">{documentsLoading ? t("Chargement…") : `${documentTotal} ${t("documents", "documents")}`}</span>
-        <ManagementViewToggle locale={locale} view={managementView} onChange={changeManagementView} />
-      </div>
-      <div hidden={metadataOnly}>
-      <BatchImport locale={locale} disabled={refreshing || uploading} onComplete={async () => { await loadDocuments(); await onChanged(); }} />
-      <form
-        key={versionUploadDocument?.id || "new-document"}
-        id="document-upload-form"
-        className="admin-form upload-form"
-        aria-busy={uploading}
-        onSubmit={async (event: FormEvent<HTMLFormElement>) => {
-          event.preventDefault();
-          if (uploadInFlight.current) return;
-          const formElement = event.currentTarget;
-          const data = new FormData(formElement);
-          try { validateUpload(data, locale, { requireSummary: false }); }
-          catch (error) { onError((error as Error).message); return; }
-          uploadInFlight.current = true;
-          setUploading(true);
-          await api("/api/admin/documents", { method: "POST", body: uploadAttempt(data, uploadRetry) })
-            .then(async () => {
-              formElement.reset();
-              uploadRetry.current = null;
-              setSpaceId("");
-              setVersionUploadDocument(null);
-              setSensitive(false);
-              setWatermarkPosition("CENTER");
-              await onChanged();
-            })
-            .catch((error) => onError(error.message))
-            .finally(() => { uploadInFlight.current = false; setUploading(false); });
-        }}
-      >
-        <input name="documentId" type="hidden" value={versionUploadDocument?.id || ""} />
-        <h2>{versionUploadDocument ? t("Déposer une nouvelle version") : t("Déposer un document", "Upload a document")}</h2>
-        {versionUploadDocument && (
-          <p className="notice">
-            {t("Document sélectionné")}: <strong>{versionTranslation?.title}</strong> · {t("prochaine version")} v{nextVersion}
-          </p>
-        )}
-        <p>
-          {t(
-            "Formats acceptés : PDF, Word DOCX et Excel XLSX. Les utilisateurs les consultent en lecture seule.",
-            "Accepted formats: PDF, Word DOCX and Excel XLSX. Users view them in read-only mode.",
-          )}
-        </p>
         <label>
-          {t("Espace")}
-          {versionUploadDocument && <input type="hidden" name="spaceId" value={spaceId} />}
-          <select
-            name={versionUploadDocument ? undefined : "spaceId"}
-            required
-            value={spaceId}
-            disabled={Boolean(versionUploadDocument)}
-            onChange={(event) => setSpaceId(event.target.value)}
-          >
-            <option value="">{t("Sélectionner…")}</option>
-            {spaces.map((space) => (
-              <option value={space.id} key={space.id}>
-                {locale === "fr" ? space.nameFr : space.nameEn}
-              </option>
-            ))}
-          </select>
-        </label>
-        {!versionUploadDocument && (
-          <label>
-            {t("Catégorie")}
-            <select name="categoryId">
-              <option value="">{t("Sans catégorie")}</option>
-              {flattenCategories(selectedSpace?.categories || []).map(
-                ({ item, depth }) => (
-                  <option value={item.id} key={item.id}>
-                    {`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}
-                  </option>
-                ),
-              )}
-            </select>
-          </label>
-        )}
-        <fieldset className="document-language-field">
-          <legend>{t("Langue du document")}</legend>
-          <LanguageSelect name="locale" defaultValue={versionTranslation?.locale || locale} required />
-          <small>{t("Indique uniquement la langue du fichier.")}</small>
-        </fieldset>
-        <label>
-          {t("Titre")}
-          <input name="title" required maxLength={255} defaultValue={versionTranslation?.title || ""} />
-        </label>
-        <label>
-          {t("Description")}
-          <textarea name="description" maxLength={2000} defaultValue={versionTranslation?.description || ""} />
-        </label>
-        <label>
-          {t("Résumé des changements")}
-          <textarea
-            name="changeSummary"
-            maxLength={2000}
-            placeholder={t("Décrivez ce qui change dans cette version.")}
+          {t("Rechercher un document", "Search documents")}
+          <input
+            type="search"
+            maxLength={200}
+            value={search}
+            onChange={(event) => onSearch(event.target.value)}
           />
         </label>
         <label>
-          {t("Fichier")}
-          <input name="file" type="file" required accept=".pdf,.docx,.xlsx" />
+          {t("Trier par", "Sort by")}
+          <select
+            value={documentSort}
+            onChange={(event) => {
+              setDocumentPage(1);
+              setDocumentSort(event.target.value);
+            }}
+          >
+            <option value="updatedAt">
+              {t("Dernière modification", "Last updated")}
+            </option>
+            <option value="publishedAt">
+              {t("Publication", "Publication")}
+            </option>
+            <option value="status">{t("État")}</option>
+          </select>
         </label>
-        <StorageSelect spaceId={spaceId} locale={locale} admin />
-        <label className="check">
-          <input name="suppressEmailNotifications" value="true" type="checkbox" /> {t("Ne pas envoyer d’alerte e-mail pour ce dépôt ou sa publication")}
-        </label>
-        <label className="check">
+        <span role="status">
+          {documentsLoading
+            ? t("Chargement…")
+            : `${documentTotal} ${t("documents", "documents")}`}
+        </span>
+        <ManagementViewToggle
+          locale={locale}
+          view={managementView}
+          onChange={changeManagementView}
+        />
+      </div>
+      <div hidden={metadataOnly}>
+        <BatchImport
+          locale={locale}
+          disabled={refreshing || uploading}
+          onComplete={async () => {
+            await loadDocuments();
+            await onChanged();
+          }}
+        />
+        <form
+          key={versionUploadDocument?.id || "new-document"}
+          id="document-upload-form"
+          className="admin-form upload-form"
+          aria-busy={uploading}
+          onSubmit={async (event: FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            if (uploadInFlight.current) return;
+            const formElement = event.currentTarget;
+            const data = new FormData(formElement);
+            try {
+              validateUpload(data, locale, { requireSummary: false });
+            } catch (error) {
+              onError((error as Error).message);
+              return;
+            }
+            uploadInFlight.current = true;
+            setUploading(true);
+            await api("/api/admin/documents", {
+              method: "POST",
+              body: uploadAttempt(data, uploadRetry),
+            })
+              .then(async () => {
+                formElement.reset();
+                uploadRetry.current = null;
+                setSpaceId("");
+                setVersionUploadDocument(null);
+                setSensitive(false);
+                setWatermarkPosition("CENTER");
+                await onChanged();
+              })
+              .catch((error) => onError(error.message))
+              .finally(() => {
+                uploadInFlight.current = false;
+                setUploading(false);
+              });
+          }}
+        >
           <input
-            name="sensitive"
-            value="true"
-            type="checkbox"
-            checked={sensitive}
-            onChange={(event) => setSensitive(event.target.checked)}
-          />{" "}
-          {t("Document sensible")}
-        </label>
-        {sensitive && (
-          <section className="watermark-config">
+            name="documentId"
+            type="hidden"
+            value={versionUploadDocument?.id || ""}
+          />
+          <h2>
+            {versionUploadDocument
+              ? t("Déposer une nouvelle version")
+              : t("Déposer un document", "Upload a document")}
+          </h2>
+          {versionUploadDocument && (
+            <p className="notice">
+              {t("Document sélectionné")}:{" "}
+              <strong>{versionTranslation?.title}</strong> ·{" "}
+              {t("prochaine version")} v{nextVersion}
+            </p>
+          )}
+          <p>
+            {t(
+              "Formats acceptés : PDF, Word DOCX et Excel XLSX. Les utilisateurs les consultent en lecture seule.",
+              "Accepted formats: PDF, Word DOCX and Excel XLSX. Users view them in read-only mode.",
+            )}
+          </p>
+          <label>
+            {t("Espace")}
+            {versionUploadDocument && (
+              <input type="hidden" name="spaceId" value={spaceId} />
+            )}
+            <select
+              name={versionUploadDocument ? undefined : "spaceId"}
+              required
+              value={spaceId}
+              disabled={Boolean(versionUploadDocument)}
+              onChange={(event) => setSpaceId(event.target.value)}
+            >
+              <option value="">{t("Sélectionner…")}</option>
+              {spaces.map((space) => (
+                <option value={space.id} key={space.id}>
+                  {locale === "fr" ? space.nameFr : space.nameEn}
+                </option>
+              ))}
+            </select>
+          </label>
+          {!versionUploadDocument && (
             <label>
-              {t("Position du filigrane")}
-              <select
-                name="watermarkPosition"
-                value={watermarkPosition}
-                onChange={(event) =>
-                  setWatermarkPosition(
-                    event.target.value as "HEADER" | "CENTER" | "FOOTER",
-                  )
-                }
-              >
-                <option value="HEADER">{t("Haut de page")}</option>
-                <option value="CENTER">{t("Milieu de page")}</option>
-                <option value="FOOTER">{t("Bas de page")}</option>
+              {t("Catégorie")}
+              <select name="categoryId">
+                <option value="">{t("Sans catégorie")}</option>
+                {flattenCategories(selectedSpace?.categories || []).map(
+                  ({ item, depth }) => (
+                    <option value={item.id} key={item.id}>
+                      {`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}
+                    </option>
+                  ),
+                )}
               </select>
             </label>
-            <div>
-              <strong>{t("Aperçu du filigrane")}</strong>
-              <div className="watermark-preview" aria-live="polite">
-                <span
-                  className={`sensitive-watermark ${watermarkPosition.toLowerCase()}`}
+          )}
+          <fieldset className="document-language-field">
+            <legend>{t("Langue du document")}</legend>
+            <LanguageSelect
+              name="locale"
+              defaultValue={versionTranslation?.locale || locale}
+              required
+            />
+            <small>{t("Indique uniquement la langue du fichier.")}</small>
+          </fieldset>
+          <label>
+            {t("Titre")}
+            <input
+              name="title"
+              required
+              maxLength={255}
+              defaultValue={versionTranslation?.title || ""}
+            />
+          </label>
+          <label>
+            {t("Description")}
+            <textarea
+              name="description"
+              maxLength={2000}
+              defaultValue={versionTranslation?.description || ""}
+            />
+          </label>
+          <label>
+            {t("Résumé des changements")}
+            <textarea
+              name="changeSummary"
+              maxLength={2000}
+              placeholder={t("Décrivez ce qui change dans cette version.")}
+            />
+          </label>
+          <label>
+            {t("Fichier")}
+            <input name="file" type="file" required accept=".pdf,.docx,.xlsx" />
+          </label>
+          <StorageSelect spaceId={spaceId} locale={locale} admin />
+          <label className="check">
+            <input
+              name="suppressEmailNotifications"
+              value="true"
+              type="checkbox"
+            />{" "}
+            {t(
+              "Ne pas envoyer d’alerte e-mail pour ce dépôt ou sa publication",
+            )}
+          </label>
+          <label className="check">
+            <input
+              name="sensitive"
+              value="true"
+              type="checkbox"
+              checked={sensitive}
+              onChange={(event) => setSensitive(event.target.checked)}
+            />{" "}
+            {t("Document sensible")}
+          </label>
+          {sensitive && (
+            <section className="watermark-config">
+              <label>
+                {t("Position du filigrane")}
+                <select
+                  name="watermarkPosition"
+                  value={watermarkPosition}
+                  onChange={(event) =>
+                    setWatermarkPosition(
+                      event.target.value as "HEADER" | "CENTER" | "FOOTER",
+                    )
+                  }
                 >
-                  SENSITIVE DOCUMENT
-                </span>
+                  <option value="HEADER">{t("Haut de page")}</option>
+                  <option value="CENTER">{t("Milieu de page")}</option>
+                  <option value="FOOTER">{t("Bas de page")}</option>
+                </select>
+              </label>
+              <div>
+                <strong>{t("Aperçu du filigrane")}</strong>
+                <div className="watermark-preview" aria-live="polite">
+                  <span
+                    className={`sensitive-watermark ${watermarkPosition.toLowerCase()}`}
+                  >
+                    SENSITIVE DOCUMENT
+                  </span>
+                </div>
               </div>
-            </div>
-          </section>
-        )}
-        <div className="button-row">
-          <button className="primary" disabled={uploading}>{uploading ? t("Traitement…", "Processing…") : versionUploadDocument ? t("Déposer la nouvelle version") : t("Déposer et analyser")}</button>
-          {versionUploadDocument && <button type="button" disabled={uploading} onClick={() => { setVersionUploadDocument(null); setSpaceId(""); setSensitive(false); setWatermarkPosition("CENTER"); }}>{t("Annuler la modification")}</button>}
-        </div>
-      </form>
+            </section>
+          )}
+          <div className="button-row">
+            <button className="primary" disabled={uploading}>
+              {uploading
+                ? t("Traitement…", "Processing…")
+                : versionUploadDocument
+                  ? t("Déposer la nouvelle version")
+                  : t("Déposer et analyser")}
+            </button>
+            {versionUploadDocument && (
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => {
+                  setVersionUploadDocument(null);
+                  setSpaceId("");
+                  setSensitive(false);
+                  setWatermarkPosition("CENTER");
+                }}
+              >
+                {t("Annuler la modification")}
+              </button>
+            )}
+          </div>
+        </form>
       </div>
-      {metadataSaved && <p role="status">{t("Métadonnées enregistrées.", "Metadata saved.")}</p>}
+      {metadataSaved && (
+        <p role="status">{t("Métadonnées enregistrées.", "Metadata saved.")}</p>
+      )}
       {editingMetadataDocument && (
-        <form id="document-metadata-form" className="admin-form upload-form" onSubmit={async (event) => {
-          event.preventDefault();
-          if (metadataInFlight.current) return;
-          metadataInFlight.current = true;
-          setMetadataSaved(false);
-          setSavingMetadata(true);
-          try {
-            await api(`/api/documents/${editingMetadataDocument.id}/metadata`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ expectedUpdatedAt: editingMetadataDocument.updatedAt, locale: editedLocale, versionId: latestVersion(editingMetadataDocument)?.id, title: editedTitle.trim(), description: editedDescription.trim(), categoryId: editedCategoryId || null, ...(JSON.stringify(editedMetadata) !== JSON.stringify(editingMetadataDocument.metadata || {}) ? { metadata: editedMetadata } : {}) }),
-            });
-            await loadDocuments();
-            setEditingMetadataDocument(null);
-            setMetadataSaved(true);
-            await onChanged();
-          } catch (error) {
-            onError(error instanceof Error ? error.message : String(error));
-          } finally {
-            metadataInFlight.current = false;
-            setSavingMetadata(false);
-          }
-        }}>
+        <form
+          id="document-metadata-form"
+          className="admin-form upload-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (metadataInFlight.current) return;
+            metadataInFlight.current = true;
+            setMetadataSaved(false);
+            setSavingMetadata(true);
+            try {
+              await api(
+                `/api/documents/${editingMetadataDocument.id}/metadata`,
+                {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    expectedUpdatedAt: editingMetadataDocument.updatedAt,
+                    locale: editedLocale,
+                    versionId: latestVersion(editingMetadataDocument)?.id,
+                    title: editedTitle.trim(),
+                    description: editedDescription.trim(),
+                    categoryId: editedCategoryId || null,
+                    ...(JSON.stringify(editedMetadata) !==
+                    JSON.stringify(editingMetadataDocument.metadata || {})
+                      ? { metadata: editedMetadata }
+                      : {}),
+                  }),
+                },
+              );
+              await loadDocuments();
+              setEditingMetadataDocument(null);
+              setMetadataSaved(true);
+              await onChanged();
+            } catch (error) {
+              onError(error instanceof Error ? error.message : String(error));
+            } finally {
+              metadataInFlight.current = false;
+              setSavingMetadata(false);
+            }
+          }}
+        >
           <h2>{t("Éditer les métadonnées")}</h2>
-          <p>{editingMetadataDocument.translations.map((item) => item.title).join(" / ")}</p>
-          <DocumentMetadataFields t={t} disabled={savingMetadata}
-            value={{ locale: editedLocale, title: editedTitle, description: editedDescription, categoryId: editedCategoryId, metadata: editedMetadata }}
-            onLocaleChange={(selected) => selectMetadataLocale(editingMetadataDocument, selected)}
-            onChange={(value) => { setEditedTitle(value.title); setEditedDescription(value.description); setEditedCategoryId(value.categoryId); setEditedMetadata(value.metadata || {}); }}>
-              {flattenCategories(spaces.find((space) => space.id === editingMetadataDocument.space.id)?.categories || []).map(({ item, depth }) => (
-                <option key={item.id} value={item.id}>{`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}</option>
-              ))}
+          <p>
+            {editingMetadataDocument.translations
+              .map((item) => item.title)
+              .join(" / ")}
+          </p>
+          <DocumentMetadataFields
+            t={t}
+            disabled={savingMetadata}
+            value={{
+              locale: editedLocale,
+              title: editedTitle,
+              description: editedDescription,
+              categoryId: editedCategoryId,
+              metadata: editedMetadata,
+            }}
+            onLocaleChange={(selected) =>
+              selectMetadataLocale(editingMetadataDocument, selected)
+            }
+            onChange={(value) => {
+              setEditedTitle(value.title);
+              setEditedDescription(value.description);
+              setEditedCategoryId(value.categoryId);
+              setEditedMetadata(value.metadata || {});
+            }}
+          >
+            {flattenCategories(
+              spaces.find(
+                (space) => space.id === editingMetadataDocument.space.id,
+              )?.categories || [],
+            ).map(({ item, depth }) => (
+              <option
+                key={item.id}
+                value={item.id}
+              >{`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}</option>
+            ))}
           </DocumentMetadataFields>
           <div className="button-row">
-            <button className="primary" disabled={savingMetadata || !editedTitle.trim()}>{t("Enregistrer")}</button>
-            <button type="button" disabled={savingMetadata} onClick={() => setEditingMetadataDocument(null)}>{t("Annuler")}</button>
+            <button
+              className="primary"
+              disabled={savingMetadata || !editedTitle.trim()}
+            >
+              {t("Enregistrer")}
+            </button>
+            <button
+              type="button"
+              disabled={savingMetadata}
+              onClick={() => setEditingMetadataDocument(null)}
+            >
+              {t("Annuler")}
+            </button>
           </div>
         </form>
       )}
-      <DocumentBulkEditor key={pageDocuments.map(document => document.id + document.updatedAt).join(",")} documents={pageDocuments} locale={locale} admin onComplete={async () => { await loadDocuments(); await onChanged(); }} />
-      {editingMetadataDocument && <DocumentHistory key={editingMetadataDocument.id} id={editingMetadataDocument.id} locale={locale} />}
-      <div className={`admin-table-wrap management-documents management-documents--${managementView}`}>
-        <table className="admin-actions-table" role="table" aria-busy={documentsLoading}>
+      <DocumentBulkEditor
+        key={pageDocuments
+          .map((document) => document.id + document.updatedAt)
+          .join(",")}
+        documents={pageDocuments}
+        locale={locale}
+        admin
+        onComplete={async () => {
+          await loadDocuments();
+          await onChanged();
+        }}
+      />
+      {editingMetadataDocument && (
+        <DocumentHistory
+          key={editingMetadataDocument.id}
+          id={editingMetadataDocument.id}
+          locale={locale}
+        />
+      )}
+      <div
+        className={`admin-table-wrap management-documents management-documents--${managementView}`}
+      >
+        <table
+          className="admin-actions-table"
+          role="table"
+          aria-busy={documentsLoading}
+        >
           <thead>
             <tr>
               <th>{t("Titre")}</th>
               <th>{t("Espace")}</th>
               <th>{t("Catégorie")}</th>
               <th>{t("Langue du document")}</th>
-              <th>{metadataOnly ? t("Métadonnées GED", "GED metadata") : t("État")}</th>
+              <th>
+                {metadataOnly
+                  ? t("Métadonnées GED", "GED metadata")
+                  : t("État")}
+              </th>
               <th>{t("Actions")}</th>
             </tr>
           </thead>
           <tbody>
-            {documentsLoading && <tr><td colSpan={6}><p className="loading-state" role="status">{t("Chargement…")}</p></td></tr>}
+            {documentsLoading && (
+              <tr>
+                <td colSpan={6}>
+                  <p className="loading-state" role="status">
+                    {t("Chargement…")}
+                  </p>
+                </td>
+              </tr>
+            )}
             {!documentsLoading && pageDocuments.length === 0 && (
               <tr>
                 <td colSpan={6}>
@@ -449,7 +730,11 @@ export function DocumentsPanel({
                     : document.space.nameEn}
                 </td>
                 <td data-label={t("Catégorie")}>
-                  {document.category ? (locale === "fr" ? document.category.nameFr : document.category.nameEn) : t("Sans catégorie")}
+                  {document.category
+                    ? locale === "fr"
+                      ? document.category.nameFr
+                      : document.category.nameEn
+                    : t("Sans catégorie")}
                 </td>
                 <td data-label={t("Langue du document")}>
                   <div
@@ -470,19 +755,52 @@ export function DocumentsPanel({
                     ))}
                   </div>
                 </td>
-                <td data-label={metadataOnly ? t("Métadonnées GED", "GED metadata") : t("État")}>
-                  {metadataOnly ? <span>{Object.values(document.metadata || {}).filter(value => value.trim()).length}/{Object.keys(document.metadata || {}).length} {t("champs renseignés", "fields completed")}</span> : <select
-                    className="document-status-select"
-                    aria-label={`${t("État")} : ${document.translations[0]?.title || document.id}`}
-                    value={document.status}
-                    disabled={!!changingStatus || refreshing || document.status === "QUARANTINED"}
-                    aria-busy={changingStatus === document.id}
-                    onChange={event => void changeStatus(document, event.target.value)}
-                  >
-                    {["DRAFT", "PUBLISHED", "ARCHIVED", ...(document.status === "QUARANTINED" ? ["QUARANTINED"] : [])].map(status => (
-                      <option key={status} value={status}>{statusLabel(status)}</option>
-                    ))}
-                  </select>}
+                <td
+                  data-label={
+                    metadataOnly
+                      ? t("Métadonnées GED", "GED metadata")
+                      : t("État")
+                  }
+                >
+                  {metadataOnly ? (
+                    <span>
+                      {
+                        Object.values(document.metadata || {}).filter((value) =>
+                          value.trim(),
+                        ).length
+                      }
+                      /{Object.keys(document.metadata || {}).length}{" "}
+                      {t("champs renseignés", "fields completed")}
+                    </span>
+                  ) : (
+                    <select
+                      className="document-status-select"
+                      aria-label={`${t("État")} : ${document.translations[0]?.title || document.id}`}
+                      value={document.status}
+                      disabled={
+                        !!changingStatus ||
+                        refreshing ||
+                        document.status === "QUARANTINED"
+                      }
+                      aria-busy={changingStatus === document.id}
+                      onChange={(event) =>
+                        void changeStatus(document, event.target.value)
+                      }
+                    >
+                      {[
+                        "DRAFT",
+                        "PUBLISHED",
+                        "ARCHIVED",
+                        ...(document.status === "QUARANTINED"
+                          ? ["QUARANTINED"]
+                          : []),
+                      ].map((status) => (
+                        <option key={status} value={status}>
+                          {statusLabel(status)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </td>
                 <td data-label={t("Actions")}>
                   <div className="document-actions">
@@ -495,50 +813,75 @@ export function DocumentsPanel({
                         setEditedMetadata(document.metadata || {});
                         setEditedCategoryId(document.category?.id || "");
                         const currentLocale = latestVersion(document)?.locale;
-                        selectMetadataLocale(document, isLocale(currentLocale) ? currentLocale : locale);
-                        window.setTimeout(() => window.document.getElementById("document-metadata-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+                        selectMetadataLocale(
+                          document,
+                          isLocale(currentLocale) ? currentLocale : locale,
+                        );
+                        window.setTimeout(
+                          () =>
+                            window.document
+                              .getElementById("document-metadata-form")
+                              ?.scrollIntoView({
+                                behavior: "smooth",
+                                block: "start",
+                              }),
+                          0,
+                        );
                       }}
                     >
                       <Icon name="documents" />
                       {t("Éditer les métadonnées")}
                     </button>
-                    {!metadataOnly && <button
-                      type="button"
-                      className="document-action"
-                      onClick={() => {
-                        if (uploadInFlight.current) return;
-                        uploadRetry.current = null;
-                        setVersionUploadDocument(document);
-                        setSpaceId(document.space.id);
-                        setSensitive(document.sensitive);
-                        setWatermarkPosition(document.watermarkPosition);
-                        window.setTimeout(() => window.document.getElementById("document-upload-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-                      }}
-                    >
-                      <Icon name="upload" />
-                      {t("Nouvelle version")}
-                    </button>}
-                    {!metadataOnly && <button
-                      className="document-action delete"
-                      onClick={async () => {
-                        if (
-                          !(await confirmAction(
-                            t(
-                              "Supprimer définitivement ce document et tous ses fichiers ?",
-                            ),
-                          ))
-                        )
-                          return;
-                        await api(`/api/admin/documents/${document.id}`, {
-                          method: "DELETE",
-                        })
-                          .then(onChanged)
-                          .catch((error) => onError(error.message));
-                      }}
-                    >
-                      <Icon name="delete" />
-                      {t("Supprimer")}
-                    </button>}
+                    {!metadataOnly && (
+                      <button
+                        type="button"
+                        className="document-action"
+                        onClick={() => {
+                          if (uploadInFlight.current) return;
+                          uploadRetry.current = null;
+                          setVersionUploadDocument(document);
+                          setSpaceId(document.space.id);
+                          setSensitive(document.sensitive);
+                          setWatermarkPosition(document.watermarkPosition);
+                          window.setTimeout(
+                            () =>
+                              window.document
+                                .getElementById("document-upload-form")
+                                ?.scrollIntoView({
+                                  behavior: "smooth",
+                                  block: "start",
+                                }),
+                            0,
+                          );
+                        }}
+                      >
+                        <Icon name="upload" />
+                        {t("Nouvelle version")}
+                      </button>
+                    )}
+                    {!metadataOnly && (
+                      <button
+                        className="document-action delete"
+                        onClick={async () => {
+                          if (
+                            !(await confirmAction(
+                              t(
+                                "Supprimer définitivement ce document et tous ses fichiers ?",
+                              ),
+                            ))
+                          )
+                            return;
+                          await api(`/api/admin/documents/${document.id}`, {
+                            method: "DELETE",
+                          })
+                            .then(onChanged)
+                            .catch((error) => onError(error.message));
+                        }}
+                      >
+                        <Icon name="delete" />
+                        {t("Supprimer")}
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

@@ -15,12 +15,28 @@ const decodeText = (content: Buffer) => {
 const parsePkcs7 = (content: Buffer | string) => {
   try {
     const pem = typeof content === "string";
-    const input = pem ? content.replace(/-----BEGIN CMS-----/g, "-----BEGIN PKCS7-----").replace(/-----END CMS-----/g, "-----END PKCS7-----") : content;
-    const output = execFileSync("openssl", ["pkcs7", "-inform", pem ? "PEM" : "DER", "-print_certs"], {
-      input, encoding: "utf8", timeout: 3000, maxBuffer: MAX_CERTIFICATE_BYTES * 4,
-      windowsHide: true, stdio: ["pipe", "pipe", "pipe"],
-    });
-    return (output.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g) || []).map(block => new X509Certificate(block));
+    const input = pem
+      ? content
+          .replace(/-----BEGIN CMS-----/g, "-----BEGIN PKCS7-----")
+          .replace(/-----END CMS-----/g, "-----END PKCS7-----")
+      : content;
+    const output = execFileSync(
+      "openssl",
+      ["pkcs7", "-inform", pem ? "PEM" : "DER", "-print_certs"],
+      {
+        input,
+        encoding: "utf8",
+        timeout: 3000,
+        maxBuffer: MAX_CERTIFICATE_BYTES * 4,
+        windowsHide: true,
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
+    return (
+      output.match(
+        /-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g,
+      ) || []
+    ).map((block) => new X509Certificate(block));
   } catch {
     return [];
   }

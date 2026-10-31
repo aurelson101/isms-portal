@@ -7,7 +7,11 @@ import { PrismaService } from "./prisma.service";
 import { CryptoService } from "./crypto.service";
 import { DirectoryService } from "./directory.service";
 import { AlertDeliveryService } from "./alert-delivery.service";
-import { NotificationService, notificationConnection, type NotificationJob } from "./notification.service";
+import {
+  NotificationService,
+  notificationConnection,
+  type NotificationJob,
+} from "./notification.service";
 import { AuthorizationService } from "./authorization.service";
 import { exclusiveScheduler } from "./scheduler-lock";
 import { dispatchOutbox, maintainHistory } from "./notification-outbox";
@@ -19,11 +23,43 @@ const prisma = new PrismaService();
 const crypto = new CryptoService();
 const directory = new DirectoryService(prisma, crypto);
 const alerts = new AlertDeliveryService(prisma, crypto);
-const notifications = new NotificationService(prisma, directory, alerts, new AuthorizationService(prisma));
-const mailWorker = new Worker<NotificationJob>("notification-mail", (job) => notifications.process(job), { connection: notificationConnection(), concurrency: 1 });
-mailWorker.on("completed", (job, result) => process.stdout.write(JSON.stringify({ event: "notification.accepted", jobId: job.id, action: job.data.action, ...result }) + "\n"));
-mailWorker.on("failed", (job, error) => process.stderr.write(JSON.stringify({ event: "notification.failed", jobId: job?.id, action: job?.data.action, attempt: job?.attemptsMade, message: error.message }) + "\n"));
-mailWorker.on("error", () => process.stderr.write(JSON.stringify({ event: "notification.worker.error" }) + "\n"));
+const notifications = new NotificationService(
+  prisma,
+  directory,
+  alerts,
+  new AuthorizationService(prisma),
+);
+const mailWorker = new Worker<NotificationJob>(
+  "notification-mail",
+  (job) => notifications.process(job),
+  { connection: notificationConnection(), concurrency: 1 },
+);
+mailWorker.on("completed", (job, result) =>
+  process.stdout.write(
+    JSON.stringify({
+      event: "notification.accepted",
+      jobId: job.id,
+      action: job.data.action,
+      ...result,
+    }) + "\n",
+  ),
+);
+mailWorker.on("failed", (job, error) =>
+  process.stderr.write(
+    JSON.stringify({
+      event: "notification.failed",
+      jobId: job?.id,
+      action: job?.data.action,
+      attempt: job?.attemptsMade,
+      message: error.message,
+    }) + "\n",
+  ),
+);
+mailWorker.on("error", () =>
+  process.stderr.write(
+    JSON.stringify({ event: "notification.worker.error" }) + "\n",
+  ),
+);
 const queue = new Queue("directory-sync", { connection });
 
 const log = (event: string, details: Record<string, unknown> = {}) => {
@@ -76,17 +112,58 @@ worker.on("failed", (job, error) => {
 
 async function schedule(db: Prisma.TransactionClient) {
   const now = Date.now();
-  const reminderSettings = readReminderSettings((await db.applicationSetting.findUnique({ where: { key: "documents.reminders" } }))?.value);
-  const reminderBefore = reminderSettings.publicationRepeatDays > 0 ? new Date(now - reminderSettings.publicationRepeatDays * 86400000) : undefined;
-  const overduePublicationReviews = reminderSettings.enabled ? await db.documentReview.findMany({
-    where: { automaticPublication: true, status: { in: ["PENDING", "IN_REVIEW"] }, OR: [{ overdueNotifiedAt: null }, ...(reminderBefore ? [{ overdueNotifiedAt: { lte: reminderBefore } }] : [])], dueAt: { lte: new Date(now) }, document: { status: "PUBLISHED", deletedAt: null } },
-    select: { id: true }, orderBy: { dueAt: "asc" }, take: 100,
-  }) : [];
+  const reminderSettings = readReminderSettings(
+    (
+      await db.applicationSetting.findUnique({
+        where: { key: "documents.reminders" },
+      })
+    )?.value,
+  );
+  const reminderBefore =
+    reminderSettings.publicationRepeatDays > 0
+      ? new Date(now - reminderSettings.publicationRepeatDays * 86400000)
+      : undefined;
+  const overduePublicationReviews = reminderSettings.enabled
+    ? await db.documentReview.findMany({
+        where: {
+          automaticPublication: true,
+          status: { in: ["PENDING", "IN_REVIEW"] },
+          OR: [
+            { overdueNotifiedAt: null },
+            ...(reminderBefore
+              ? [{ overdueNotifiedAt: { lte: reminderBefore } }]
+              : []),
+          ],
+          dueAt: { lte: new Date(now) },
+          document: { status: "PUBLISHED", deletedAt: null },
+        },
+        select: { id: true },
+        orderBy: { dueAt: "asc" },
+        take: 100,
+      })
+    : [];
   if (overduePublicationReviews.length) {
     const reviewIds = overduePublicationReviews.map((review) => review.id);
-    const batchId = createHash("sha256").update(reviewIds.slice().sort().join(",")).digest("hex").slice(0, 24);
-    const period = reminderBefore ? `-${Math.floor(now / (reminderSettings.publicationRepeatDays * 86400000))}` : "";
-    await notifications.enqueue({ action: "document-review.overdue", resource: `review-overdue:${batchId}`, reviewIds, ...(reminderBefore ? { reviewReminderBefore: reminderBefore.toISOString() } : {}), actor: "ISMS scheduler", at: new Date(now).toISOString() }, `publication-review-overdue-${batchId}${period}`);
+    const batchId = createHash("sha256")
+      .update(reviewIds.slice().sort().join(","))
+      .digest("hex")
+      .slice(0, 24);
+    const period = reminderBefore
+      ? `-${Math.floor(now / (reminderSettings.publicationRepeatDays * 86400000))}`
+      : "";
+    await notifications.enqueue(
+      {
+        action: "document-review.overdue",
+        resource: `review-overdue:${batchId}`,
+        reviewIds,
+        ...(reminderBefore
+          ? { reviewReminderBefore: reminderBefore.toISOString() }
+          : {}),
+        actor: "ISMS scheduler",
+        at: new Date(now).toISOString(),
+      },
+      `publication-review-overdue-${batchId}${period}`,
+    );
   }
   const reviewAt = new Date(now + 30 * 86400000);
   const dueExceptions = await db.riskException.findMany({
@@ -121,12 +198,42 @@ async function schedule(db: Prisma.TransactionClient) {
   const expiredGrants = await db.temporaryAccessGrant.deleteMany({
     where: { validUntil: { lte: new Date(now) } },
   });
-  const annualReviewScope = { document: { deletedAt: null, status: "PUBLISHED" as const } };
+  const annualReviewScope = {
+    document: { deletedAt: null, status: "PUBLISHED" as const },
+  };
   const reminderAt = new Date(now + reminderSettings.leadDays * 86400000);
-  const reviewReminders = reminderSettings.enabled ? await db.documentVersion.findMany({ where: { ...annualReviewScope, annualReviewReminderAt: null, annualReviewDueAt: { gt: new Date(now), lte: reminderAt } }, select: { id: true, documentId: true }, take: 100 }) : [];
+  const reviewReminders = reminderSettings.enabled
+    ? await db.documentVersion.findMany({
+        where: {
+          ...annualReviewScope,
+          annualReviewReminderAt: null,
+          annualReviewDueAt: { gt: new Date(now), lte: reminderAt },
+        },
+        select: { id: true, documentId: true },
+        take: 100,
+      })
+    : [];
   for (const version of reviewReminders)
-    await notifications.enqueue({ action: "document.review.reminder", resource: `document:${version.documentId}`, documentVersionId: version.id, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `annual-review-reminder-${version.id}`);
-  const annualReviewVersions = await db.documentVersion.findMany({ where: { ...annualReviewScope, annualReviewNotifiedAt: null, annualReviewDueAt: { lte: new Date(now) } }, select: { id: true, documentId: true }, orderBy: { annualReviewDueAt: "asc" }, take: 100 });
+    await notifications.enqueue(
+      {
+        action: "document.review.reminder",
+        resource: `document:${version.documentId}`,
+        documentVersionId: version.id,
+        actor: "ISMS scheduler",
+        at: new Date(now).toISOString(),
+      },
+      `annual-review-reminder-${version.id}`,
+    );
+  const annualReviewVersions = await db.documentVersion.findMany({
+    where: {
+      ...annualReviewScope,
+      annualReviewNotifiedAt: null,
+      annualReviewDueAt: { lte: new Date(now) },
+    },
+    select: { id: true, documentId: true },
+    orderBy: { annualReviewDueAt: "asc" },
+    take: 100,
+  });
   const overdueDocumentVersions = annualReviewVersions.length;
   for (const version of annualReviewVersions) {
     const existingReview = await db.documentReview.findFirst({
@@ -149,11 +256,41 @@ async function schedule(db: Prisma.TransactionClient) {
           automaticAnnual: true,
         },
       });
-    await notifications.enqueue({ action: "document.review.annual", resource: `document:${version.documentId}`, documentVersionId: version.id, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `annual-review-${version.documentId}-${version.id}-${new Date(now).toISOString().slice(0, 10)}`);
+    await notifications.enqueue(
+      {
+        action: "document.review.annual",
+        resource: `document:${version.documentId}`,
+        documentVersionId: version.id,
+        actor: "ISMS scheduler",
+        at: new Date(now).toISOString(),
+      },
+      `annual-review-${version.documentId}-${version.id}-${new Date(now).toISOString().slice(0, 10)}`,
+    );
   }
-  const reviewOverdues = reminderSettings.enabled ? await db.documentVersion.findMany({ where: { ...annualReviewScope, annualReviewOverdueAt: null, annualReviewDueAt: { lte: new Date(now - reminderSettings.overdueDays * 86400000) } }, select: { id: true, documentId: true }, take: 100 }) : [];
+  const reviewOverdues = reminderSettings.enabled
+    ? await db.documentVersion.findMany({
+        where: {
+          ...annualReviewScope,
+          annualReviewOverdueAt: null,
+          annualReviewDueAt: {
+            lte: new Date(now - reminderSettings.overdueDays * 86400000),
+          },
+        },
+        select: { id: true, documentId: true },
+        take: 100,
+      })
+    : [];
   for (const version of reviewOverdues)
-    await notifications.enqueue({ action: "document.review.overdue", resource: `document:${version.documentId}`, documentVersionId: version.id, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `annual-review-overdue-${version.id}`);
+    await notifications.enqueue(
+      {
+        action: "document.review.overdue",
+        resource: `document:${version.documentId}`,
+        documentVersionId: version.id,
+        actor: "ISMS scheduler",
+        at: new Date(now).toISOString(),
+      },
+      `annual-review-overdue-${version.id}`,
+    );
   const connections = await db.directoryConnection.findMany({
     where: { enabled: true },
   });
@@ -198,11 +335,15 @@ let activeTick: Promise<void> | null = null;
 async function tick() {
   const now = Date.now();
   const maintenanceDue = now - lastMaintenance >= 86400000;
-  const ran = await exclusively(async tx => {
+  const ran = await exclusively(async (tx) => {
     if (process.uptime() >= 120) {
-      await alerts.evaluateHealth(collectHealthSnapshot, () => notifications.staff("edit", true)).catch(() => {
-        log("infrastructure.alert.failed", { level: "error" });
-      });
+      await alerts
+        .evaluateHealth(collectHealthSnapshot, () =>
+          notifications.staff("edit", true),
+        )
+        .catch(() => {
+          log("infrastructure.alert.failed", { level: "error" });
+        });
     }
     await schedule(tx);
     await dispatchOutbox(prisma, notifications);
@@ -210,12 +351,21 @@ async function tick() {
   });
   if (ran && maintenanceDue) lastMaintenance = now;
   await queue.getJobCounts("waiting", "failed");
-  await writeFile("/tmp/isms-worker-health.next", JSON.stringify({ checkedAt: Date.now(), mailRunning: mailWorker.isRunning(), directoryRunning: worker.isRunning() }));
+  await writeFile(
+    "/tmp/isms-worker-health.next",
+    JSON.stringify({
+      checkedAt: Date.now(),
+      mailRunning: mailWorker.isRunning(),
+      directoryRunning: worker.isRunning(),
+    }),
+  );
   await rename("/tmp/isms-worker-health.next", "/tmp/isms-worker-health.json");
 }
 const startTick = () => {
   if (activeTick) return activeTick;
-  activeTick = tick().finally(() => { activeTick = null; });
+  activeTick = tick().finally(() => {
+    activeTick = null;
+  });
   return activeTick;
 };
 const timer = setInterval(() => {

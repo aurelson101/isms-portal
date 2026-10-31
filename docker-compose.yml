@@ -167,10 +167,19 @@ services:
     env_file:
       - path: .env.redis
         required: false
-    command: ["sh", "-c", "test -n \"$${REDIS_PASSWORD}\" || exit 1; exec docker-entrypoint.sh redis-server --appendonly yes --maxmemory 384mb --maxmemory-policy noeviction --requirepass \"$${REDIS_PASSWORD}\""]
+    command:
+      [
+        "sh",
+        "-c",
+        'test -n "$${REDIS_PASSWORD}" || exit 1; exec docker-entrypoint.sh redis-server --appendonly yes --maxmemory 384mb --maxmemory-policy noeviction --requirepass "$${REDIS_PASSWORD}"',
+      ]
     volumes: [redis-data:/data]
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping 2>/dev/null | grep -q PONG"]
+      test:
+        [
+          "CMD-SHELL",
+          'redis-cli -a "$${REDIS_PASSWORD}" ping 2>/dev/null | grep -q PONG',
+        ]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -193,7 +202,12 @@ services:
     env_file:
       - path: .env
         required: true
-    command: ["sh", "-c", "node prisma/prepare-migrations.js && node node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma"]
+    command:
+      [
+        "sh",
+        "-c",
+        "node prisma/prepare-migrations.js && node node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma",
+      ]
     depends_on:
       postgres: { condition: service_healthy }
     networks: [data]

@@ -4,7 +4,11 @@ import { api } from "./api-client";
 import { DocumentsPanel } from "./documents-panel";
 import { LanguagesPanel } from "./languages-panel";
 import { LanguageButtons, ProfileLanguage } from "../language-controls";
-import { flattenCategories, type Space, type AdminDocument } from "./document-model";
+import {
+  flattenCategories,
+  type Space,
+  type AdminDocument,
+} from "./document-model";
 
 import { localizedPair, localizeRecord, translate } from "../i18n/translate";
 
@@ -66,7 +70,11 @@ const useAdminI18n = () => {
   return {
     locale,
     t: (fr: string, en?: string) =>
-      translate(locale, fr, en || adminEnglishCatalog[fr as keyof typeof adminEnglishCatalog] || fr),
+      translate(
+        locale,
+        fr,
+        en || adminEnglishCatalog[fr as keyof typeof adminEnglishCatalog] || fr,
+      ),
   };
 };
 const localizedStatus = (locale: Locale, value: string) => {
@@ -139,7 +147,6 @@ type DirectoryGroupSuggestion = {
   memberCount: number;
 };
 
-
 function ModeratorsPanel({
   onError,
   onNotice,
@@ -148,63 +155,487 @@ function ModeratorsPanel({
   onNotice: (message: string) => void;
 }) {
   const { t } = useAdminI18n();
-  type Moderator = { id: string; username: string; displayName: string; source: string; role?: string; justification: string | null; canManageDocuments: boolean; canPublishDocuments: boolean; canDeleteDocuments: boolean };
-  type ModeratorGroup = { id: string; name: string; distinguishedName: string; role?: string; justification: string; canManageDocuments: boolean; canPublishDocuments: boolean; canDeleteDocuments: boolean };
+  type Moderator = {
+    id: string;
+    username: string;
+    displayName: string;
+    source: string;
+    role?: string;
+    justification: string | null;
+    canManageDocuments: boolean;
+    canPublishDocuments: boolean;
+    canDeleteDocuments: boolean;
+  };
+  type ModeratorGroup = {
+    id: string;
+    name: string;
+    distinguishedName: string;
+    role?: string;
+    justification: string;
+    canManageDocuments: boolean;
+    canPublishDocuments: boolean;
+    canDeleteDocuments: boolean;
+  };
   const [accounts, setAccounts] = useState<Moderator[]>([]);
   const [groups, setGroups] = useState<ModeratorGroup[]>([]);
-  const [users, setUsers] = useState<Array<{ username: string; displayName: string; email: string | null }>>([]);
+  const [users, setUsers] = useState<
+    Array<{ username: string; displayName: string; email: string | null }>
+  >([]);
   const [directoryQuery, setDirectoryQuery] = useState("");
-  const [selectedUser, setSelectedUser] = useState<{ username: string; displayName: string; email: string | null } | null>(null);
+  const [selectedUser, setSelectedUser] = useState<{
+    username: string;
+    displayName: string;
+    email: string | null;
+  } | null>(null);
   const [directoryJustification, setDirectoryJustification] = useState("");
   const [groupQuery, setGroupQuery] = useState("");
-  const [groupSuggestions, setGroupSuggestions] = useState<DirectoryGroupSuggestion[]>([]);
-  const [selectedGroup, setSelectedGroup] = useState<DirectoryGroupSuggestion | null>(null);
+  const [groupSuggestions, setGroupSuggestions] = useState<
+    DirectoryGroupSuggestion[]
+  >([]);
+  const [selectedGroup, setSelectedGroup] =
+    useState<DirectoryGroupSuggestion | null>(null);
   const [groupJustification, setGroupJustification] = useState("");
   const load = useCallback(() => {
-    void api<Moderator[]>("/api/admin/accounts").then((items) => setAccounts(items.filter((item) => item.role === "MODERATOR"))).catch((error) => onError(error.message));
-    void api<ModeratorGroup[]>("/api/admin/accounts/groups").then((items) => setGroups(items.filter((item) => item.role === "MODERATOR"))).catch((error) => onError(error.message));
+    void api<Moderator[]>("/api/admin/accounts")
+      .then((items) =>
+        setAccounts(items.filter((item) => item.role === "MODERATOR")),
+      )
+      .catch((error) => onError(error.message));
+    void api<ModeratorGroup[]>("/api/admin/accounts/groups")
+      .then((items) =>
+        setGroups(items.filter((item) => item.role === "MODERATOR")),
+      )
+      .catch((error) => onError(error.message));
   }, [onError]);
-  useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    if (directoryQuery.trim().length < 2) { setUsers([]); return; }
+    load();
+  }, [load]);
+  useEffect(() => {
+    if (directoryQuery.trim().length < 2) {
+      setUsers([]);
+      return;
+    }
     const timer = window.setTimeout(() => {
-      void api<typeof users>(`/api/admin/accounts/directory-users/${encodeURIComponent(directoryQuery)}`).then(setUsers).catch((error) => onError(error.message));
+      void api<typeof users>(
+        `/api/admin/accounts/directory-users/${encodeURIComponent(directoryQuery)}`,
+      )
+        .then(setUsers)
+        .catch((error) => onError(error.message));
     }, 300);
     return () => window.clearTimeout(timer);
   }, [directoryQuery, onError]);
   useEffect(() => {
-    if (groupQuery.trim().length < 2) { setGroupSuggestions([]); return; }
+    if (groupQuery.trim().length < 2) {
+      setGroupSuggestions([]);
+      return;
+    }
     const timer = window.setTimeout(() => {
-      void api<DirectoryGroupSuggestion[]>(`/api/admin/accounts/directory-groups/${encodeURIComponent(groupQuery)}`).then(setGroupSuggestions).catch((error) => onError(error.message));
+      void api<DirectoryGroupSuggestion[]>(
+        `/api/admin/accounts/directory-groups/${encodeURIComponent(groupQuery)}`,
+      )
+        .then(setGroupSuggestions)
+        .catch((error) => onError(error.message));
     }, 300);
     return () => window.clearTimeout(timer);
   }, [groupQuery, onError]);
   const create = async (payload: Record<string, unknown>) => {
-    await api("/api/admin/accounts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, role: "MODERATOR" }) });
-    load(); onNotice(t("Modérateur ajouté.", "Moderator added."));
+    await api("/api/admin/accounts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, role: "MODERATOR" }),
+    });
+    load();
+    onNotice(t("Modérateur ajouté.", "Moderator added."));
   };
-  return <>
-    <h1>{t("Comptes modérateurs", "Moderator accounts")}</h1>
-    <p className="lead">{t("Les modérateurs peuvent gérer, publier, versionner, archiver et supprimer les documents. Ils n'ont pas accès à la configuration administrative.", "Moderators can manage, publish, version, archive and delete documents. They cannot access administrative configuration.")}</p>
-    <section className="admin-card"><h2>{t("Modérateurs configurés", "Configured moderators")}</h2>
-      <div className="admin-account-list">
-        {accounts.map((account) => <form key={account.id} onSubmit={(event) => { event.preventDefault(); const values = new FormData(event.currentTarget); void api(`/api/admin/accounts/${account.id}/permissions`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ canManageDocuments: values.get("manage") === "on", canPublishDocuments: values.get("publish") === "on", canDeleteDocuments: values.get("archive") === "on" }) }).then(() => { load(); onNotice(t("Droits du modérateur mis à jour.", "Moderator permissions updated.")); }).catch((error) => onError(error.message)); }}><span><strong>{account.displayName}</strong><small>{account.username} · {account.source}</small></span><label><input name="manage" type="checkbox" defaultChecked={account.canManageDocuments} /> {t("Gérer", "Manage")}</label><label><input name="publish" type="checkbox" defaultChecked={account.canPublishDocuments} /> {t("Publier", "Publish")}</label><label><input name="archive" type="checkbox" defaultChecked={account.canDeleteDocuments} /> {t("Archiver / supprimer", "Archive / delete")}</label><button type="submit">{t("Enregistrer", "Save")}</button><button className="danger" type="button" onClick={() => void api(`/api/admin/accounts/${account.id}`, { method: "DELETE" }).then(() => { load(); onNotice(t("Modérateur retiré.", "Moderator removed.")); }).catch((error) => onError(error.message))}>{t("Retirer", "Remove")}</button></form>)}
-        {groups.map((group) => <form key={group.id} onSubmit={(event) => { event.preventDefault(); const values = new FormData(event.currentTarget); void api(`/api/admin/accounts/groups/${group.id}/permissions`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ canManageDocuments: values.get("manage") === "on", canPublishDocuments: values.get("publish") === "on", canDeleteDocuments: values.get("archive") === "on" }) }).then(() => { load(); onNotice(t("Droits du groupe de modérateurs mis à jour.", "Moderator group permissions updated.")); }).catch((error) => onError(error.message)); }}><span><strong>{group.name}</strong><small>{t("Groupe Active Directory", "Active Directory group")}</small></span><label><input name="manage" type="checkbox" defaultChecked={group.canManageDocuments} /> {t("Gérer", "Manage")}</label><label><input name="publish" type="checkbox" defaultChecked={group.canPublishDocuments} /> {t("Publier", "Publish")}</label><label><input name="archive" type="checkbox" defaultChecked={group.canDeleteDocuments} /> {t("Archiver / supprimer", "Archive / delete")}</label><button type="submit">{t("Enregistrer", "Save")}</button><button className="danger" type="button" onClick={() => void api(`/api/admin/accounts/groups/${group.id}`, { method: "DELETE" }).then(() => { load(); onNotice(t("Groupe de modérateurs retiré.", "Moderator group removed.")); }).catch((error) => onError(error.message))}>{t("Retirer", "Remove")}</button></form>)}
-        {!accounts.length && !groups.length && <p className="admin-empty compact">{t("Aucun modérateur configuré.", "No moderator configured.")}</p>}
-      </div>
-    </section>
-    <section className="admin-grid two-columns">
-      <form className="admin-card admin-form" onSubmit={(event) => { event.preventDefault(); const element = event.currentTarget; const form = new FormData(element); void create({ displayName: form.get("displayName"), username: form.get("username"), password: form.get("password"), source: "LOCAL", justification: form.get("justification") }).then(() => element.reset()).catch((error) => onError(error.message)); }}>
-        <h2>{t("Ajouter un modérateur local", "Add a local moderator")}</h2><label>{t("Nom affiché", "Display name")}<input name="displayName" required /></label><label>{t("Identifiant", "Username")}<input name="username" required /></label><label>{t("Mot de passe fort", "Strong password")}<input name="password" type="password" minLength={14} required /></label><label>{t("Justification des privilèges", "Privilege justification")}<textarea name="justification" minLength={3} required /></label><button className="primary">{t("Ajouter le modérateur", "Add moderator")}</button>
-      </form>
-      <form className="admin-card admin-form" onSubmit={(event) => { event.preventDefault(); if (!selectedUser) { onError(t("Sélectionnez un utilisateur Active Directory.", "Select an Active Directory user.")); return; } void create({ displayName: selectedUser.displayName, username: selectedUser.email || selectedUser.username, source: "DIRECTORY", justification: directoryJustification }).then(() => { setDirectoryQuery(""); setSelectedUser(null); setDirectoryJustification(""); }).catch((error) => onError(error.message)); }}>
-        <h2>{t("Ajouter un utilisateur Active Directory", "Add an Active Directory user")}</h2><label>{t("Rechercher dans Active Directory", "Search Active Directory")}<input value={selectedUser ? `${selectedUser.displayName} (${selectedUser.email || selectedUser.username})` : directoryQuery} onChange={(event) => { setSelectedUser(null); setDirectoryQuery(event.target.value); }} placeholder={t("Nom ou e-mail", "Name or email")} /></label>{!selectedUser && users.map((user) => <button className="directory-suggestion" type="button" key={user.username} onClick={() => { setSelectedUser(user); setUsers([]); }}><strong>{user.displayName}</strong><small>{user.email || user.username}</small></button>)}<label>{t("Justification des privilèges", "Privilege justification")}<textarea minLength={3} required value={directoryJustification} onChange={(event) => setDirectoryJustification(event.target.value)} /></label><button className="primary">{t("Ajouter le modérateur", "Add moderator")}</button>
-      </form>
-      <form className="admin-card admin-form" onSubmit={(event) => { event.preventDefault(); if (!selectedGroup) { onError(t("Sélectionnez un groupe Active Directory.", "Select an Active Directory group.")); return; } const submit = async () => { if (selectedGroup.memberCount > 100 && !window.confirm(t(`Ce groupe contient ${selectedGroup.memberCount} membres. Continuer ?`, `This group contains ${selectedGroup.memberCount} members. Continue?`))) return; await api("/api/admin/accounts/groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: selectedGroup.name, distinguishedName: selectedGroup.distinguishedName, justification: groupJustification, largeGroupConfirmed: selectedGroup.memberCount > 100, role: "MODERATOR" }) }); load(); setGroupQuery(""); setSelectedGroup(null); setGroupJustification(""); onNotice(t("Groupe de modérateurs ajouté.", "Moderator group added.")); }; void submit().catch((error) => onError(error.message)); }}>
-        <h2>{t("Ajouter un groupe Active Directory", "Add an Active Directory group")}</h2><label>{t("Rechercher dans Active Directory", "Search Active Directory")}<input value={selectedGroup ? selectedGroup.name : groupQuery} onChange={(event) => { setSelectedGroup(null); setGroupQuery(event.target.value); }} placeholder={t("Nom du groupe", "Group name")} /></label>{!selectedGroup && groupSuggestions.map((group) => <button className="directory-suggestion" type="button" key={group.distinguishedName} onClick={() => { setSelectedGroup(group); setGroupSuggestions([]); }}><strong>{group.name}</strong><small>{group.memberCount} {t("membres", "members")}</small></button>)}<label>{t("Justification des privilèges", "Privilege justification")}<textarea minLength={3} required value={groupJustification} onChange={(event) => setGroupJustification(event.target.value)} /></label><button className="primary">{t("Ajouter le groupe de modérateurs", "Add moderator group")}</button>
-      </form>
-    </section>
-  </>;
+  return (
+    <>
+      <h1>{t("Comptes modérateurs", "Moderator accounts")}</h1>
+      <p className="lead">
+        {t(
+          "Les modérateurs peuvent gérer, publier, versionner, archiver et supprimer les documents. Ils n'ont pas accès à la configuration administrative.",
+          "Moderators can manage, publish, version, archive and delete documents. They cannot access administrative configuration.",
+        )}
+      </p>
+      <section className="admin-card">
+        <h2>{t("Modérateurs configurés", "Configured moderators")}</h2>
+        <div className="admin-account-list">
+          {accounts.map((account) => (
+            <form
+              key={account.id}
+              onSubmit={(event) => {
+                event.preventDefault();
+                const values = new FormData(event.currentTarget);
+                void api(`/api/admin/accounts/${account.id}/permissions`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    canManageDocuments: values.get("manage") === "on",
+                    canPublishDocuments: values.get("publish") === "on",
+                    canDeleteDocuments: values.get("archive") === "on",
+                  }),
+                })
+                  .then(() => {
+                    load();
+                    onNotice(
+                      t(
+                        "Droits du modérateur mis à jour.",
+                        "Moderator permissions updated.",
+                      ),
+                    );
+                  })
+                  .catch((error) => onError(error.message));
+              }}
+            >
+              <span>
+                <strong>{account.displayName}</strong>
+                <small>
+                  {account.username} · {account.source}
+                </small>
+              </span>
+              <label>
+                <input
+                  name="manage"
+                  type="checkbox"
+                  defaultChecked={account.canManageDocuments}
+                />{" "}
+                {t("Gérer", "Manage")}
+              </label>
+              <label>
+                <input
+                  name="publish"
+                  type="checkbox"
+                  defaultChecked={account.canPublishDocuments}
+                />{" "}
+                {t("Publier", "Publish")}
+              </label>
+              <label>
+                <input
+                  name="archive"
+                  type="checkbox"
+                  defaultChecked={account.canDeleteDocuments}
+                />{" "}
+                {t("Archiver / supprimer", "Archive / delete")}
+              </label>
+              <button type="submit">{t("Enregistrer", "Save")}</button>
+              <button
+                className="danger"
+                type="button"
+                onClick={() =>
+                  void api(`/api/admin/accounts/${account.id}`, {
+                    method: "DELETE",
+                  })
+                    .then(() => {
+                      load();
+                      onNotice(t("Modérateur retiré.", "Moderator removed."));
+                    })
+                    .catch((error) => onError(error.message))
+                }
+              >
+                {t("Retirer", "Remove")}
+              </button>
+            </form>
+          ))}
+          {groups.map((group) => (
+            <form
+              key={group.id}
+              onSubmit={(event) => {
+                event.preventDefault();
+                const values = new FormData(event.currentTarget);
+                void api(`/api/admin/accounts/groups/${group.id}/permissions`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    canManageDocuments: values.get("manage") === "on",
+                    canPublishDocuments: values.get("publish") === "on",
+                    canDeleteDocuments: values.get("archive") === "on",
+                  }),
+                })
+                  .then(() => {
+                    load();
+                    onNotice(
+                      t(
+                        "Droits du groupe de modérateurs mis à jour.",
+                        "Moderator group permissions updated.",
+                      ),
+                    );
+                  })
+                  .catch((error) => onError(error.message));
+              }}
+            >
+              <span>
+                <strong>{group.name}</strong>
+                <small>
+                  {t("Groupe Active Directory", "Active Directory group")}
+                </small>
+              </span>
+              <label>
+                <input
+                  name="manage"
+                  type="checkbox"
+                  defaultChecked={group.canManageDocuments}
+                />{" "}
+                {t("Gérer", "Manage")}
+              </label>
+              <label>
+                <input
+                  name="publish"
+                  type="checkbox"
+                  defaultChecked={group.canPublishDocuments}
+                />{" "}
+                {t("Publier", "Publish")}
+              </label>
+              <label>
+                <input
+                  name="archive"
+                  type="checkbox"
+                  defaultChecked={group.canDeleteDocuments}
+                />{" "}
+                {t("Archiver / supprimer", "Archive / delete")}
+              </label>
+              <button type="submit">{t("Enregistrer", "Save")}</button>
+              <button
+                className="danger"
+                type="button"
+                onClick={() =>
+                  void api(`/api/admin/accounts/groups/${group.id}`, {
+                    method: "DELETE",
+                  })
+                    .then(() => {
+                      load();
+                      onNotice(
+                        t(
+                          "Groupe de modérateurs retiré.",
+                          "Moderator group removed.",
+                        ),
+                      );
+                    })
+                    .catch((error) => onError(error.message))
+                }
+              >
+                {t("Retirer", "Remove")}
+              </button>
+            </form>
+          ))}
+          {!accounts.length && !groups.length && (
+            <p className="admin-empty compact">
+              {t("Aucun modérateur configuré.", "No moderator configured.")}
+            </p>
+          )}
+        </div>
+      </section>
+      <section className="admin-grid two-columns">
+        <form
+          className="admin-card admin-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const element = event.currentTarget;
+            const form = new FormData(element);
+            void create({
+              displayName: form.get("displayName"),
+              username: form.get("username"),
+              password: form.get("password"),
+              source: "LOCAL",
+              justification: form.get("justification"),
+            })
+              .then(() => element.reset())
+              .catch((error) => onError(error.message));
+          }}
+        >
+          <h2>{t("Ajouter un modérateur local", "Add a local moderator")}</h2>
+          <label>
+            {t("Nom affiché", "Display name")}
+            <input name="displayName" required />
+          </label>
+          <label>
+            {t("Identifiant", "Username")}
+            <input name="username" required />
+          </label>
+          <label>
+            {t("Mot de passe fort", "Strong password")}
+            <input name="password" type="password" minLength={14} required />
+          </label>
+          <label>
+            {t("Justification des privilèges", "Privilege justification")}
+            <textarea name="justification" minLength={3} required />
+          </label>
+          <button className="primary">
+            {t("Ajouter le modérateur", "Add moderator")}
+          </button>
+        </form>
+        <form
+          className="admin-card admin-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!selectedUser) {
+              onError(
+                t(
+                  "Sélectionnez un utilisateur Active Directory.",
+                  "Select an Active Directory user.",
+                ),
+              );
+              return;
+            }
+            void create({
+              displayName: selectedUser.displayName,
+              username: selectedUser.email || selectedUser.username,
+              source: "DIRECTORY",
+              justification: directoryJustification,
+            })
+              .then(() => {
+                setDirectoryQuery("");
+                setSelectedUser(null);
+                setDirectoryJustification("");
+              })
+              .catch((error) => onError(error.message));
+          }}
+        >
+          <h2>
+            {t(
+              "Ajouter un utilisateur Active Directory",
+              "Add an Active Directory user",
+            )}
+          </h2>
+          <label>
+            {t("Rechercher dans Active Directory", "Search Active Directory")}
+            <input
+              value={
+                selectedUser
+                  ? `${selectedUser.displayName} (${selectedUser.email || selectedUser.username})`
+                  : directoryQuery
+              }
+              onChange={(event) => {
+                setSelectedUser(null);
+                setDirectoryQuery(event.target.value);
+              }}
+              placeholder={t("Nom ou e-mail", "Name or email")}
+            />
+          </label>
+          {!selectedUser &&
+            users.map((user) => (
+              <button
+                className="directory-suggestion"
+                type="button"
+                key={user.username}
+                onClick={() => {
+                  setSelectedUser(user);
+                  setUsers([]);
+                }}
+              >
+                <strong>{user.displayName}</strong>
+                <small>{user.email || user.username}</small>
+              </button>
+            ))}
+          <label>
+            {t("Justification des privilèges", "Privilege justification")}
+            <textarea
+              minLength={3}
+              required
+              value={directoryJustification}
+              onChange={(event) =>
+                setDirectoryJustification(event.target.value)
+              }
+            />
+          </label>
+          <button className="primary">
+            {t("Ajouter le modérateur", "Add moderator")}
+          </button>
+        </form>
+        <form
+          className="admin-card admin-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!selectedGroup) {
+              onError(
+                t(
+                  "Sélectionnez un groupe Active Directory.",
+                  "Select an Active Directory group.",
+                ),
+              );
+              return;
+            }
+            const submit = async () => {
+              if (
+                selectedGroup.memberCount > 100 &&
+                !window.confirm(
+                  t(
+                    `Ce groupe contient ${selectedGroup.memberCount} membres. Continuer ?`,
+                    `This group contains ${selectedGroup.memberCount} members. Continue?`,
+                  ),
+                )
+              )
+                return;
+              await api("/api/admin/accounts/groups", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: selectedGroup.name,
+                  distinguishedName: selectedGroup.distinguishedName,
+                  justification: groupJustification,
+                  largeGroupConfirmed: selectedGroup.memberCount > 100,
+                  role: "MODERATOR",
+                }),
+              });
+              load();
+              setGroupQuery("");
+              setSelectedGroup(null);
+              setGroupJustification("");
+              onNotice(
+                t("Groupe de modérateurs ajouté.", "Moderator group added."),
+              );
+            };
+            void submit().catch((error) => onError(error.message));
+          }}
+        >
+          <h2>
+            {t(
+              "Ajouter un groupe Active Directory",
+              "Add an Active Directory group",
+            )}
+          </h2>
+          <label>
+            {t("Rechercher dans Active Directory", "Search Active Directory")}
+            <input
+              value={selectedGroup ? selectedGroup.name : groupQuery}
+              onChange={(event) => {
+                setSelectedGroup(null);
+                setGroupQuery(event.target.value);
+              }}
+              placeholder={t("Nom du groupe", "Group name")}
+            />
+          </label>
+          {!selectedGroup &&
+            groupSuggestions.map((group) => (
+              <button
+                className="directory-suggestion"
+                type="button"
+                key={group.distinguishedName}
+                onClick={() => {
+                  setSelectedGroup(group);
+                  setGroupSuggestions([]);
+                }}
+              >
+                <strong>{group.name}</strong>
+                <small>
+                  {group.memberCount} {t("membres", "members")}
+                </small>
+              </button>
+            ))}
+          <label>
+            {t("Justification des privilèges", "Privilege justification")}
+            <textarea
+              minLength={3}
+              required
+              value={groupJustification}
+              onChange={(event) => setGroupJustification(event.target.value)}
+            />
+          </label>
+          <button className="primary">
+            {t("Ajouter le groupe de modérateurs", "Add moderator group")}
+          </button>
+        </form>
+      </section>
+    </>
+  );
 }
 type Rule = {
   id: string;
@@ -342,7 +773,12 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["settings", "settings", "Identité visuelle", "Branding"],
   ["languages", "settings", "Langues", "Languages"],
   ["profile", "settings", "Profil administrateur", "Administrator profile"],
-  ["administrators", "groups", "Comptes administrateurs", "Administrator accounts"],
+  [
+    "administrators",
+    "groups",
+    "Comptes administrateurs",
+    "Administrator accounts",
+  ],
   ["moderators", "groups", "Comptes modérateurs", "Moderator accounts"],
   ["advanced-settings", "settings", "Paramètres avancés", "Advanced settings"],
   ["integrations", "sync", "Intégrations", "Integrations"],
@@ -351,13 +787,64 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["storage", "folder", "Stockage", "Storage"],
 ];
 const navigationGroups: Array<[string, string, typeof tabs]> = [
-  ["overview", "Vue d’ensemble", tabs.filter(([key]) => ["dashboard", "help"].includes(key))],
-  ["content", "Contenu et accès", tabs.filter(([key]) => ["groups", "rules", "spaces", "documents", "metadata", "trash", "incidents", "requests"].includes(key))],
-  ["infrastructure", "Infrastructure", tabs.filter(([key]) => ["governance", "directory", "sso", "certificates"].includes(key))],
-  ["system", "Supervision", tabs.filter(([key]) => ["health", "observability", "audit"].includes(key))],
-  ["configuration", "Configuration", tabs.filter(([key]) => ["settings", "languages", "profile", "administrators", "advanced-settings", "integrations", "alert-channels", "alert-policy", "moderators", "storage"].includes(key))],
+  [
+    "overview",
+    "Vue d’ensemble",
+    tabs.filter(([key]) => ["dashboard", "help"].includes(key)),
+  ],
+  [
+    "content",
+    "Contenu et accès",
+    tabs.filter(([key]) =>
+      [
+        "groups",
+        "rules",
+        "spaces",
+        "documents",
+        "metadata",
+        "trash",
+        "incidents",
+        "requests",
+      ].includes(key),
+    ),
+  ],
+  [
+    "infrastructure",
+    "Infrastructure",
+    tabs.filter(([key]) =>
+      ["governance", "directory", "sso", "certificates"].includes(key),
+    ),
+  ],
+  [
+    "system",
+    "Supervision",
+    tabs.filter(([key]) => ["health", "observability", "audit"].includes(key)),
+  ],
+  [
+    "configuration",
+    "Configuration",
+    tabs.filter(([key]) =>
+      [
+        "settings",
+        "languages",
+        "profile",
+        "administrators",
+        "advanced-settings",
+        "integrations",
+        "alert-channels",
+        "alert-policy",
+        "moderators",
+        "storage",
+      ].includes(key),
+    ),
+  ],
 ];
-const normalizeNavigationQuery = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+const normalizeNavigationQuery = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 const permissionKeys = [
   "showMenu",
   "read",
@@ -406,7 +893,6 @@ const emptyRule = (
   justification: "",
 });
 
-
 export default function Admin() {
   const branding = useBranding();
   const [locale, setLocale] = useInterfaceLocale();
@@ -417,7 +903,9 @@ export default function Admin() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [connections, setConnections] = useState<DirectoryConnection[]>([]);
-  const [documents, setDocuments] = useState<Pick<AdminDocument, "id" | "translations" | "versions">[]>([]);
+  const [documents, setDocuments] = useState<
+    Pick<AdminDocument, "id" | "translations" | "versions">[]
+  >([]);
   const [incidentReports, setIncidentReports] = useState<
     AnnualIncidentReport[]
   >([]);
@@ -449,9 +937,23 @@ export default function Admin() {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [navigationSearch, setNavigationSearch] = useState("");
   const navigationQuery = normalizeNavigationQuery(navigationSearch);
-  const visibleNavigationGroups = useMemo(() => navigationGroups
-    .map(([id, label, items]): [string, string, typeof tabs] => [id, label, navigationQuery ? items.filter(([, , fr, en]) => normalizeNavigationQuery(`${fr} ${en} ${translate(locale, fr, en)}`).includes(navigationQuery)) : items])
-    .filter(([, , items]) => items.length > 0), [navigationQuery, locale]);
+  const visibleNavigationGroups = useMemo(
+    () =>
+      navigationGroups
+        .map(([id, label, items]): [string, string, typeof tabs] => [
+          id,
+          label,
+          navigationQuery
+            ? items.filter(([, , fr, en]) =>
+                normalizeNavigationQuery(
+                  `${fr} ${en} ${translate(locale, fr, en)}`,
+                ).includes(navigationQuery),
+              )
+            : items,
+        ])
+        .filter(([, , items]) => items.length > 0),
+    [navigationQuery, locale],
+  );
   const navigationToggle = useRef<HTMLButtonElement>(null);
   const [expandedNavigationGroups, setExpandedNavigationGroups] = useState<
     Set<string>
@@ -479,7 +981,11 @@ export default function Admin() {
     return () => observer.disconnect();
   }, []);
   const t = (fr: string, en?: string) =>
-    translate(locale, fr, en || adminEnglishCatalog[fr as keyof typeof adminEnglishCatalog] || fr);
+    translate(
+      locale,
+      fr,
+      en || adminEnglishCatalog[fr as keyof typeof adminEnglishCatalog] || fr,
+    );
   useEffect(() => {
     const activeGroup =
       tabs.findIndex(([key]) => key === tab) === 0
@@ -488,7 +994,9 @@ export default function Admin() {
           ? "content"
           : tabs.findIndex(([key]) => key === tab) < 12
             ? "infrastructure"
-            : tabs.findIndex(([key]) => key === tab) < 14 ? "system" : "configuration";
+            : tabs.findIndex(([key]) => key === tab) < 14
+              ? "system"
+              : "configuration";
     setExpandedNavigationGroups((current) =>
       current.has(activeGroup) ? current : new Set([...current, activeGroup]),
     );
@@ -572,16 +1080,30 @@ export default function Admin() {
     void (async () => {
       const items: typeof documents = [];
       for (let page = 1; active; page++) {
-        const result = await api<{ items: typeof documents; total: number } | typeof documents>(`/api/admin/documents?summary=true&page=${page}&limit=200`, { signal: controller.signal });
+        const result = await api<
+          { items: typeof documents; total: number } | typeof documents
+        >(`/api/admin/documents?summary=true&page=${page}&limit=200`, {
+          signal: controller.signal,
+        });
         if (!active) return;
-        if (Array.isArray(result)) { items.push(...result); break; }
+        if (Array.isArray(result)) {
+          items.push(...result);
+          break;
+        }
         items.push(...result.items);
         if (items.length >= result.total || !result.items.length) break;
       }
-      if (active) setDocuments([...new Map(items.map(item => [item.id, item])).values()]);
-    })()
-      .catch((error) => { if (active) setError(error.message); });
-    return () => { active = false; controller.abort(); };
+      if (active)
+        setDocuments([
+          ...new Map(items.map((item) => [item.id, item])).values(),
+        ]);
+    })().catch((error) => {
+      if (active) setError(error.message);
+    });
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [tab, isAdmin, loading, refreshing]);
 
   const refreshAccessRules = useCallback(async () => {
@@ -595,21 +1117,30 @@ export default function Admin() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ locale: next }),
     }).catch(() => null);
-    if (response?.ok) setIdentity(current => current ? { ...current, locale: next } : current);
+    if (response?.ok)
+      setIdentity((current) =>
+        current ? { ...current, locale: next } : current,
+      );
   };
 
   const activateTab = useCallback((requested: string) => {
     const next = tabs.find(([key]) => key === requested)?.[0] || "dashboard";
     setTab(next);
-    const group = navigationGroups.find(([, , items]) => items.some(([key]) => key === next));
-    if (group) setExpandedNavigationGroups((current) => current.has(group[0]) ? current : new Set([...current, group[0]]));
+    const group = navigationGroups.find(([, , items]) =>
+      items.some(([key]) => key === next),
+    );
+    if (group)
+      setExpandedNavigationGroups((current) =>
+        current.has(group[0]) ? current : new Set([...current, group[0]]),
+      );
     setNavigationOpen(false);
     setNavigationSearch("");
     setError("");
     setNotice("");
   }, []);
   useEffect(() => {
-    const synchronizeTabWithLocation = () => activateTab(window.location.hash.slice(1));
+    const synchronizeTabWithLocation = () =>
+      activateTab(window.location.hash.slice(1));
     synchronizeTabWithLocation();
     window.addEventListener("hashchange", synchronizeTabWithLocation);
     void refresh();
@@ -625,7 +1156,9 @@ export default function Admin() {
     };
     window.addEventListener("keydown", closeNavigation);
     const mobile = window.matchMedia("(max-width: 900px)");
-    const resetNavigation = () => { if (!mobile.matches) setNavigationOpen(false); };
+    const resetNavigation = () => {
+      if (!mobile.matches) setNavigationOpen(false);
+    };
     mobile.addEventListener("change", resetNavigation);
     return () => {
       window.removeEventListener("keydown", closeNavigation);
@@ -633,13 +1166,16 @@ export default function Admin() {
     };
   }, [navigationOpen]);
   useEffect(() => {
-    const current = document.querySelector<HTMLButtonElement>('#admin-navigation [aria-current="page"]');
+    const current = document.querySelector<HTMLButtonElement>(
+      '#admin-navigation [aria-current="page"]',
+    );
     const nav = document.getElementById("admin-navigation");
     if (!current?.offsetParent || !nav) return;
     const item = current.getBoundingClientRect();
     const bounds = nav.getBoundingClientRect();
     if (item.top < bounds.top) nav.scrollTop += item.top - bounds.top;
-    else if (item.bottom > bounds.bottom) nav.scrollTop += item.bottom - bounds.bottom;
+    else if (item.bottom > bounds.bottom)
+      nav.scrollTop += item.bottom - bounds.bottom;
   }, [tab, navigationOpen, expandedNavigationGroups, navigationQuery]);
   useEffect(() => {
     let active = true;
@@ -655,9 +1191,11 @@ export default function Admin() {
         return;
       }
       if (!response.ok) return;
-      const currentIdentity = (await response.json().catch(() => null)) as (typeof identity & {
-        isAdmin: boolean;
-      }) | null;
+      const currentIdentity = (await response.json().catch(() => null)) as
+        | (typeof identity & {
+            isAdmin: boolean;
+          })
+        | null;
       if (!active || typeof currentIdentity?.isAdmin !== "boolean") return;
       if (!currentIdentity.isAdmin) {
         window.location.replace(loginDestination("admin"));
@@ -675,8 +1213,14 @@ export default function Admin() {
   }, []);
   const selectTab = (next: Tab) => {
     activateTab(next);
-    if (window.location.hash !== `#${next}`) window.history.pushState(window.history.state, "", `#${next}`);
-    window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    if (window.location.hash !== `#${next}`)
+      window.history.pushState(window.history.state, "", `#${next}`);
+    window.scrollTo({
+      top: 0,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
   };
   const selectRule = (rule: Rule) => {
     setSelectedRule(rule);
@@ -803,8 +1347,16 @@ export default function Admin() {
                 className="navigation-toggle"
                 aria-controls="admin-navigation"
                 aria-expanded={navigationOpen}
-                aria-label={navigationOpen ? t("Masquer la navigation", "Hide navigation") : t("Afficher la navigation", "Show navigation")}
-                title={navigationOpen ? t("Masquer la navigation", "Hide navigation") : t("Afficher la navigation", "Show navigation")}
+                aria-label={
+                  navigationOpen
+                    ? t("Masquer la navigation", "Hide navigation")
+                    : t("Afficher la navigation", "Show navigation")
+                }
+                title={
+                  navigationOpen
+                    ? t("Masquer la navigation", "Hide navigation")
+                    : t("Afficher la navigation", "Show navigation")
+                }
                 onClick={() => setNavigationOpen((current) => !current)}
               >
                 <Icon name={navigationOpen ? "close" : "menu"} />
@@ -813,39 +1365,53 @@ export default function Admin() {
             <nav id="admin-navigation" aria-label="Administration">
               <label className="admin-menu-search">
                 <span>{t("Rechercher un menu", "Find a menu")}</span>
-                <input type="search" value={navigationSearch} onChange={(event) => setNavigationSearch(event.target.value)} />
+                <input
+                  type="search"
+                  value={navigationSearch}
+                  onChange={(event) => setNavigationSearch(event.target.value)}
+                />
               </label>
-              {!visibleNavigationGroups.length && <p role="status" className="admin-menu-empty">{t("Aucun menu trouvé", "No matching menu")}</p>}
-              {visibleNavigationGroups.map(([groupId, groupLabel, groupTabs]) => (
-                <div
-                  className={`admin-navigation-group ${navigationQuery || expandedNavigationGroups.has(groupId) ? "expanded" : ""}`}
-                  key={groupId}
-                >
-                  <button
-                    type="button"
-                    className="admin-navigation-heading"
-                    aria-controls={`admin-navigation-${groupId}`}
-                    aria-expanded={Boolean(navigationQuery) || expandedNavigationGroups.has(groupId)}
-                    disabled={Boolean(navigationQuery)}
-                    onClick={() =>
-                      setExpandedNavigationGroups((current) => {
-                        const next = new Set(current);
-                        if (next.has(groupId)) next.delete(groupId);
-                        else next.add(groupId);
-                        return next;
-                      })
-                    }
-                  >
-                    <span>{t(groupLabel)}</span>
-                    <Icon className="submenu-chevron" name="chevron" />
-                  </button>
+              {!visibleNavigationGroups.length && (
+                <p role="status" className="admin-menu-empty">
+                  {t("Aucun menu trouvé", "No matching menu")}
+                </p>
+              )}
+              {visibleNavigationGroups.map(
+                ([groupId, groupLabel, groupTabs]) => (
                   <div
-                    className="admin-navigation-submenu"
-                    id={`admin-navigation-${groupId}`}
-                    hidden={!navigationQuery && !expandedNavigationGroups.has(groupId)}
+                    className={`admin-navigation-group ${navigationQuery || expandedNavigationGroups.has(groupId) ? "expanded" : ""}`}
+                    key={groupId}
                   >
-                    {groupTabs.map(
-                      ([key, icon, labelFr, labelEn]) => (
+                    <button
+                      type="button"
+                      className="admin-navigation-heading"
+                      aria-controls={`admin-navigation-${groupId}`}
+                      aria-expanded={
+                        Boolean(navigationQuery) ||
+                        expandedNavigationGroups.has(groupId)
+                      }
+                      disabled={Boolean(navigationQuery)}
+                      onClick={() =>
+                        setExpandedNavigationGroups((current) => {
+                          const next = new Set(current);
+                          if (next.has(groupId)) next.delete(groupId);
+                          else next.add(groupId);
+                          return next;
+                        })
+                      }
+                    >
+                      <span>{t(groupLabel)}</span>
+                      <Icon className="submenu-chevron" name="chevron" />
+                    </button>
+                    <div
+                      className="admin-navigation-submenu"
+                      id={`admin-navigation-${groupId}`}
+                      hidden={
+                        !navigationQuery &&
+                        !expandedNavigationGroups.has(groupId)
+                      }
+                    >
+                      {groupTabs.map(([key, icon, labelFr, labelEn]) => (
                         <button
                           type="button"
                           aria-current={tab === key ? "page" : undefined}
@@ -856,11 +1422,11 @@ export default function Admin() {
                           <Icon name={icon} />{" "}
                           <span>{translate(locale, labelFr, labelEn)}</span>
                         </button>
-                      ),
-                    )}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ),
+              )}
             </nav>
             <a className="back-link" href="/">
               ← {t("Retour au portail")}
@@ -909,7 +1475,10 @@ export default function Admin() {
                 role="group"
                 aria-label={t("Langue de l’interface")}
               >
-                <LanguageButtons locale={locale} onChange={value => void changeLocale(value)} />
+                <LanguageButtons
+                  locale={locale}
+                  onChange={(value) => void changeLocale(value)}
+                />
               </div>
               <button className="refresh-button" onClick={() => void refresh()}>
                 <Icon name="sync" /> <span>{t("Actualiser")}</span>
@@ -948,10 +1517,16 @@ export default function Admin() {
                       {identity?.displayName || t("Administrateur ISMS")}
                     </strong>
                     <small>{identity?.username}</small>
-                    <ProfileLanguage locale={locale} defaultLocale={identity?.locale} onChange={next => {
-                      setLocale(next);
-                      setIdentity(current => current ? { ...current, locale: next } : current);
-                    }} />
+                    <ProfileLanguage
+                      locale={locale}
+                      defaultLocale={identity?.locale}
+                      onChange={(next) => {
+                        setLocale(next);
+                        setIdentity((current) =>
+                          current ? { ...current, locale: next } : current,
+                        );
+                      }}
+                    />
                     <span
                       className={
                         identity?.authentication.ssoConnected
@@ -1025,7 +1600,9 @@ export default function Admin() {
                     onNavigate={selectTab}
                   />
                 )}
-                {tab === "help" && <HelpPanel locale={locale} onNavigate={selectTab} />}
+                {tab === "help" && (
+                  <HelpPanel locale={locale} onNavigate={selectTab} />
+                )}
                 {tab === "groups" && (
                   <GroupsPanel
                     groups={groups}
@@ -1121,10 +1698,23 @@ export default function Admin() {
                   />
                 )}
                 {tab === "audit" && <AuditPanel events={audit} />}
-                {["observability", "integrations", "alert-channels", "alert-policy"].includes(tab) && (
+                {[
+                  "observability",
+                  "integrations",
+                  "alert-channels",
+                  "alert-policy",
+                ].includes(tab) && (
                   <ObservabilityPanel
                     key={tab}
-                    view={tab === "integrations" ? "integrations" : tab === "alert-channels" ? "channels" : tab === "alert-policy" ? "policy" : "overview"}
+                    view={
+                      tab === "integrations"
+                        ? "integrations"
+                        : tab === "alert-channels"
+                          ? "channels"
+                          : tab === "alert-policy"
+                            ? "policy"
+                            : "overview"
+                    }
                     dashboard={dashboard}
                     events={audit}
                     health={health}
@@ -1133,10 +1723,23 @@ export default function Admin() {
                 )}
                 {tab === "health" && <HealthPanel health={health} />}
                 {tab === "storage" && <StoragePanel locale={locale} />}
-                {["settings", "profile", "administrators", "advanced-settings"].includes(tab) && (
+                {[
+                  "settings",
+                  "profile",
+                  "administrators",
+                  "advanced-settings",
+                ].includes(tab) && (
                   <SettingsPanel
                     key={tab}
-                    section={tab === "profile" ? "profile" : tab === "administrators" ? "administrators" : tab === "advanced-settings" ? "advanced" : "branding"}
+                    section={
+                      tab === "profile"
+                        ? "profile"
+                        : tab === "administrators"
+                          ? "administrators"
+                          : tab === "advanced-settings"
+                            ? "advanced"
+                            : "branding"
+                    }
                     identity={identity}
                     onError={setError}
                     onNotice={setNotice}
@@ -1177,7 +1780,11 @@ export default function Admin() {
                 <select
                   value={ruleDraft.spaceId}
                   onChange={(event) =>
-                    setRuleDraft({ ...ruleDraft, spaceId: event.target.value, categoryId: null })
+                    setRuleDraft({
+                      ...ruleDraft,
+                      spaceId: event.target.value,
+                      categoryId: null,
+                    })
                   }
                 >
                   <option value="">{t("Sélectionner…")}</option>
@@ -1188,11 +1795,41 @@ export default function Admin() {
                   ))}
                 </select>
               </label>
-              <label>{t("Catégorie")}<select value={ruleDraft.categoryId || ""} disabled={!ruleDraft.spaceId} onChange={event => setRuleDraft({ ...ruleDraft, categoryId: event.target.value || null })}>
-                <option value="">{t("Tout l’espace (héritage)", "Entire space (inheritance)")}</option>
-                {flattenCategories(spaces.find(space => space.id === ruleDraft.spaceId)?.categories || []).map(({ item, depth }) => <option key={item.id} value={item.id}>{`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}</option>)}
-              </select></label>
-              <p>{t("Les droits du parent sont hérités sauf si une règle existe pour cette catégorie.", "Parent permissions are inherited unless this category has its own rules.")}</p>
+              <label>
+                {t("Catégorie")}
+                <select
+                  value={ruleDraft.categoryId || ""}
+                  disabled={!ruleDraft.spaceId}
+                  onChange={(event) =>
+                    setRuleDraft({
+                      ...ruleDraft,
+                      categoryId: event.target.value || null,
+                    })
+                  }
+                >
+                  <option value="">
+                    {t(
+                      "Tout l’espace (héritage)",
+                      "Entire space (inheritance)",
+                    )}
+                  </option>
+                  {flattenCategories(
+                    spaces.find((space) => space.id === ruleDraft.spaceId)
+                      ?.categories || [],
+                  ).map(({ item, depth }) => (
+                    <option
+                      key={item.id}
+                      value={item.id}
+                    >{`${"— ".repeat(depth)}${locale === "fr" ? item.nameFr : item.nameEn}`}</option>
+                  ))}
+                </select>
+              </label>
+              <p>
+                {t(
+                  "Les droits du parent sont hérités sauf si une règle existe pour cette catégorie.",
+                  "Parent permissions are inherited unless this category has its own rules.",
+                )}
+              </p>
               <h3>{t("Permissions accordées")}</h3>
               {permissionKeys.map((key) => (
                 <label className="toggle" key={key}>
@@ -1343,11 +1980,13 @@ export default function Admin() {
                     const requested = `${window.location.pathname}${window.location.search}${window.location.hash}`;
                     const authentication = identity?.authentication;
                     const ssoUrl = authentication?.ssoConnected
-                      ? ssoDestination(authentication.loginUrl || "/oauth2/start", requested, "/admin")
+                      ? ssoDestination(
+                          authentication.loginUrl || "/oauth2/start",
+                          requested,
+                          "/admin",
+                        )
                       : null;
-                    window.location.assign(
-                      ssoUrl || loginDestination("admin"),
-                    );
+                    window.location.assign(ssoUrl || loginDestination("admin"));
                   }}
                 >
                   {t("Se reconnecter")}
@@ -1614,13 +2253,18 @@ function GroupsPanel({
     distinguishedName: "",
     description: "",
   });
-  const filtered = groups.filter((group) =>
-    normalizeNavigationQuery(`${group.name} ${group.distinguishedName} ${group.description || ""}`).includes(normalizeNavigationQuery(search)) &&
-    (!statusFilter || group.active === (statusFilter === "active")),
+  const filtered = groups.filter(
+    (group) =>
+      normalizeNavigationQuery(
+        `${group.name} ${group.distinguishedName} ${group.description || ""}`,
+      ).includes(normalizeNavigationQuery(search)) &&
+      (!statusFilter || group.active === (statusFilter === "active")),
   );
   const pageCount = Math.max(1, Math.ceil(filtered.length / 20));
   const currentPage = Math.min(page, pageCount);
-  useEffect(() => { setPage(1); }, [search, statusFilter]);
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
   useEffect(() => {
     const query = directoryQuery.trim();
     if (query.length < 2 || selectedDirectoryGroup) {
@@ -1778,11 +2422,20 @@ function GroupsPanel({
         <button className="primary">{t("Ajouter")}</button>
       </form>
       <div className="admin-management-tools">
-        <label>{t("État")}<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-          <option value="">{t("Tous les groupes", "All groups")}</option>
-          <option value="active">{t("Actif")}</option><option value="inactive">{t("Inactif")}</option>
-        </select></label>
-        <span role="status">{filtered.length} / {groups.length} {t("groupes", "groups")}</span>
+        <label>
+          {t("État")}
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+          >
+            <option value="">{t("Tous les groupes", "All groups")}</option>
+            <option value="active">{t("Actif")}</option>
+            <option value="inactive">{t("Inactif")}</option>
+          </select>
+        </label>
+        <span role="status">
+          {filtered.length} / {groups.length} {t("groupes", "groups")}
+        </span>
       </div>
       <div className="admin-table-wrap">
         <table className="admin-actions-table">
@@ -1810,72 +2463,109 @@ function GroupsPanel({
                 </td>
               </tr>
             )}
-            {filtered.slice((currentPage - 1) * 20, currentPage * 20).map((group) => (
-              <tr key={group.id}>
-                <td data-label={t("Nom")}>
-                  <strong>{group.name}</strong>
-                  <small>{group.description}</small>
-                </td>
-                <td data-label="DN">{group.distinguishedName}</td>
-                <td data-label={t("Source")}>
-                  {group.lastSyncedAt ? t("Synchronisé AD") : t("Ajout local")}
-                </td>
-                <td data-label={t("Membres")}>{group.memberCount}</td>
-                <td data-label={t("Dernière synchro")}>
-                  {group.lastSyncedAt
-                    ? new Date(group.lastSyncedAt).toLocaleString(locale)
-                    : t("Jamais")}
-                </td>
-                <td data-label={t("Espaces")}>
-                  {group.accessRules
-                    .map((rule) =>
-                      locale === "fr" ? rule.space.nameFr : rule.space.nameEn,
-                    )
-                    .join(", ") || "—"}
-                </td>
-                <td data-label={t("État")}>
-                  <mark>{group.active ? t("Actif") : t("Inactif")}</mark>
-                </td>
-                <td data-label={t("Actions")}>
-                  <button
-                    className="danger"
-                    onClick={async () => {
-                      const warning = t(
-                        `${group.lastSyncedAt ? "Ce groupe synchronisé pourra revenir à la prochaine synchronisation. " : ""}${group.accessRules.length} règle(s) associée(s) seront supprimée(s). Continuer ?`,
-                        group.lastSyncedAt ? `This synchronized group may return during the next synchronization. ${group.accessRules.length} associated rule(s) will be deleted. Continue?` : `${group.accessRules.length} associated rule(s) will be deleted. Continue?`,
-                      );
-                      if (!(await confirmAction(warning))) return;
-                      await api(`/api/admin/groups/${group.id}`, {
-                        method: "DELETE",
-                      })
-                        .then(async () => {
-                          onNotice(t("Groupe supprimé."));
-                          await onChanged();
+            {filtered
+              .slice((currentPage - 1) * 20, currentPage * 20)
+              .map((group) => (
+                <tr key={group.id}>
+                  <td data-label={t("Nom")}>
+                    <strong>{group.name}</strong>
+                    <small>{group.description}</small>
+                  </td>
+                  <td data-label="DN">{group.distinguishedName}</td>
+                  <td data-label={t("Source")}>
+                    {group.lastSyncedAt
+                      ? t("Synchronisé AD")
+                      : t("Ajout local")}
+                  </td>
+                  <td data-label={t("Membres")}>{group.memberCount}</td>
+                  <td data-label={t("Dernière synchro")}>
+                    {group.lastSyncedAt
+                      ? new Date(group.lastSyncedAt).toLocaleString(locale)
+                      : t("Jamais")}
+                  </td>
+                  <td data-label={t("Espaces")}>
+                    {group.accessRules
+                      .map((rule) =>
+                        locale === "fr" ? rule.space.nameFr : rule.space.nameEn,
+                      )
+                      .join(", ") || "—"}
+                  </td>
+                  <td data-label={t("État")}>
+                    <mark>{group.active ? t("Actif") : t("Inactif")}</mark>
+                  </td>
+                  <td data-label={t("Actions")}>
+                    <button
+                      className="danger"
+                      onClick={async () => {
+                        const warning = t(
+                          `${group.lastSyncedAt ? "Ce groupe synchronisé pourra revenir à la prochaine synchronisation. " : ""}${group.accessRules.length} règle(s) associée(s) seront supprimée(s). Continuer ?`,
+                          group.lastSyncedAt
+                            ? `This synchronized group may return during the next synchronization. ${group.accessRules.length} associated rule(s) will be deleted. Continue?`
+                            : `${group.accessRules.length} associated rule(s) will be deleted. Continue?`,
+                        );
+                        if (!(await confirmAction(warning))) return;
+                        await api(`/api/admin/groups/${group.id}`, {
+                          method: "DELETE",
                         })
-                        .catch((error) => onError(error.message));
-                    }}
-                  >
-                    {t("Supprimer")}
-                  </button>
-                </td>
-              </tr>
-            ))}
+                          .then(async () => {
+                            onNotice(t("Groupe supprimé."));
+                            await onChanged();
+                          })
+                          .catch((error) => onError(error.message));
+                      }}
+                    >
+                      {t("Supprimer")}
+                    </button>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
-      <ManagementPagination page={currentPage} pages={pageCount} onPage={setPage} label={t("Pagination des groupes", "Group pagination")} />
+      <ManagementPagination
+        page={currentPage}
+        pages={pageCount}
+        onPage={setPage}
+        label={t("Pagination des groupes", "Group pagination")}
+      />
     </>
   );
 }
 
-function ManagementPagination({ page, pages, onPage, label }: { page: number; pages: number; onPage: (page: number) => void; label: string }) {
+function ManagementPagination({
+  page,
+  pages,
+  onPage,
+  label,
+}: {
+  page: number;
+  pages: number;
+  onPage: (page: number) => void;
+  label: string;
+}) {
   const { t } = useAdminI18n();
   if (pages <= 1) return null;
-  return <nav className="document-pagination" aria-label={label}>
-    <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)}>{t("Précédent")}</button>
-    <span aria-live="polite">{t("Page")} {page} {t("sur")} {pages}</span>
-    <button type="button" disabled={page >= pages} onClick={() => onPage(page + 1)}>{t("Suivant")}</button>
-  </nav>;
+  return (
+    <nav className="document-pagination" aria-label={label}>
+      <button
+        type="button"
+        disabled={page <= 1}
+        onClick={() => onPage(page - 1)}
+      >
+        {t("Précédent")}
+      </button>
+      <span aria-live="polite">
+        {t("Page")} {page} {t("sur")} {pages}
+      </span>
+      <button
+        type="button"
+        disabled={page >= pages}
+        onClick={() => onPage(page + 1)}
+      >
+        {t("Suivant")}
+      </button>
+    </nav>
+  );
 }
 
 function RulesPanel({
@@ -1904,10 +2594,17 @@ function RulesPanel({
   const [spaceFilter, setSpaceFilter] = useState("");
   const [page, setPage] = useState(1);
   const [filterSpaceId, filterCategoryId] = spaceFilter.split(":");
-  const filtered = rules.filter((rule) => (!groupFilter || rule.group.id === groupFilter) && (!filterSpaceId || rule.space.id === filterSpaceId) && (!filterCategoryId || rule.categoryId === filterCategoryId));
+  const filtered = rules.filter(
+    (rule) =>
+      (!groupFilter || rule.group.id === groupFilter) &&
+      (!filterSpaceId || rule.space.id === filterSpaceId) &&
+      (!filterCategoryId || rule.categoryId === filterCategoryId),
+  );
   const pageCount = Math.max(1, Math.ceil(filtered.length / 20));
   const currentPage = Math.min(page, pageCount);
-  useEffect(() => { setPage(1); }, [rules, groupFilter, spaceFilter]);
+  useEffect(() => {
+    setPage(1);
+  }, [rules, groupFilter, spaceFilter]);
   return (
     <>
       <h1>{t("Gestion des droits d’accès")}</h1>
@@ -1925,18 +2622,54 @@ function RulesPanel({
           </button>
         </div>
         <div className="admin-management-tools">
-          <label>{t("Groupe")}<select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
-            <option value="">{t("Tous les groupes", "All groups")}</option>
-            {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
-          </select></label>
-          <label>{t("Espace")}<select value={spaceFilter} onChange={(event) => setSpaceFilter(event.target.value)}>
-            <option value="">{t("Tous les espaces", "All spaces")}</option>
-            {spaces.map((space) => <optgroup key={space.id} label={locale === "fr" ? space.nameFr : space.nameEn}>
-              <option value={space.id}>{locale === "fr" ? space.nameFr : space.nameEn} — {t("Tout l’espace (héritage)", "Entire space (inheritance)")}</option>
-              {flattenCategories(space.categories || []).map(({ item, depth }) => <option key={item.id} value={`${space.id}:${item.id}`}>{"— ".repeat(depth + 1)}{locale === "fr" ? item.nameFr : item.nameEn}</option>)}
-            </optgroup>)}
-          </select></label>
-          <span role="status">{filtered.length} / {rules.length} {t("règles", "rules")}</span>
+          <label>
+            {t("Groupe")}
+            <select
+              value={groupFilter}
+              onChange={(event) => setGroupFilter(event.target.value)}
+            >
+              <option value="">{t("Tous les groupes", "All groups")}</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("Espace")}
+            <select
+              value={spaceFilter}
+              onChange={(event) => setSpaceFilter(event.target.value)}
+            >
+              <option value="">{t("Tous les espaces", "All spaces")}</option>
+              {spaces.map((space) => (
+                <optgroup
+                  key={space.id}
+                  label={locale === "fr" ? space.nameFr : space.nameEn}
+                >
+                  <option value={space.id}>
+                    {locale === "fr" ? space.nameFr : space.nameEn} —{" "}
+                    {t(
+                      "Tout l’espace (héritage)",
+                      "Entire space (inheritance)",
+                    )}
+                  </option>
+                  {flattenCategories(space.categories || []).map(
+                    ({ item, depth }) => (
+                      <option key={item.id} value={`${space.id}:${item.id}`}>
+                        {"— ".repeat(depth + 1)}
+                        {locale === "fr" ? item.nameFr : item.nameEn}
+                      </option>
+                    ),
+                  )}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          <span role="status">
+            {filtered.length} / {rules.length} {t("règles", "rules")}
+          </span>
         </div>
         <div className="admin-table-wrap">
           <table>
@@ -1963,28 +2696,61 @@ function RulesPanel({
                   </td>
                 </tr>
               )}
-              {filtered.slice((currentPage - 1) * 20, currentPage * 20).map((rule) => (
-                <tr
-                  className={selected?.id === rule.id ? "selected-row" : ""}
-                  key={rule.id}
-                  onClick={() => onSelect(rule)}
-                >
-                  <td data-label={t("Groupe")}>
-                    <button type="button" aria-label={`${t("Éditer", "Edit")} ${rule.group.name}`} onClick={(event) => { event.stopPropagation(); onSelect(rule); }}><Icon name="rules" />{rule.group.name}</button>
-                  </td>
-                  <td data-label={t("Espace")}>
-                    {locale === "fr" ? rule.space.nameFr : rule.space.nameEn}
-                    {rule.category && <small> / {locale === "fr" ? rule.category.nameFr : rule.category.nameEn}</small>}
-                  </td>
-                  {permissionKeys.map((key) => (
-                    <td key={key} data-label={localizedPair(locale, permissionLabels[key])}>{rule[key] ? "✓" : "—"}</td>
-                  ))}
-                </tr>
-              ))}
+              {filtered
+                .slice((currentPage - 1) * 20, currentPage * 20)
+                .map((rule) => (
+                  <tr
+                    className={selected?.id === rule.id ? "selected-row" : ""}
+                    key={rule.id}
+                    onClick={() => onSelect(rule)}
+                  >
+                    <td data-label={t("Groupe")}>
+                      <button
+                        type="button"
+                        aria-label={`${t("Éditer", "Edit")} ${rule.group.name}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onSelect(rule);
+                        }}
+                      >
+                        <Icon name="rules" />
+                        {rule.group.name}
+                      </button>
+                    </td>
+                    <td data-label={t("Espace")}>
+                      {locale === "fr" ? rule.space.nameFr : rule.space.nameEn}
+                      {rule.category && (
+                        <small>
+                          {" "}
+                          /{" "}
+                          {locale === "fr"
+                            ? rule.category.nameFr
+                            : rule.category.nameEn}
+                        </small>
+                      )}
+                    </td>
+                    {permissionKeys.map((key) => (
+                      <td
+                        key={key}
+                        data-label={localizedPair(
+                          locale,
+                          permissionLabels[key],
+                        )}
+                      >
+                        {rule[key] ? "✓" : "—"}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
-        <ManagementPagination page={currentPage} pages={pageCount} onPage={setPage} label={t("Pagination des règles", "Rule pagination")} />
+        <ManagementPagination
+          page={currentPage}
+          pages={pageCount}
+          onPage={setPage}
+          label={t("Pagination des règles", "Rule pagination")}
+        />
       </section>
       <AccessGovernancePanel
         rules={rules}
@@ -2427,13 +3193,27 @@ function SpacesPanel({
     nameEn: "",
   });
   const [editedCategoryId, setEditedCategoryId] = useState("");
-  const [collapsedBranches, setCollapsedBranches] = useState<Set<string>>(() => new Set());
-  const categoryParents = useMemo(() => new Map(spaces.flatMap(space => (space.categories || []).map(item => [item.id, item.parentId] as const))), [spaces]);
-  const toggleBranch = (id: string) => setCollapsedBranches(current => {
-    const next = new Set(current);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
+  const [collapsedBranches, setCollapsedBranches] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const categoryParents = useMemo(
+    () =>
+      new Map(
+        spaces.flatMap((space) =>
+          (space.categories || []).map(
+            (item) => [item.id, item.parentId] as const,
+          ),
+        ),
+      ),
+    [spaces],
+  );
+  const toggleBranch = (id: string) =>
+    setCollapsedBranches((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const [creationMode, setCreationMode] = useState<"space" | "category" | null>(
     null,
   );
@@ -2746,7 +3526,20 @@ function SpacesPanel({
                 <Icon name="folder" />
               </span>
               <div className="space-management-title">
-                <h2><button type="button" className="space-branch-toggle" aria-expanded={!collapsedBranches.has(space.id)} aria-controls={`space-children-${space.id}`} onClick={() => toggleBranch(space.id)}><span aria-hidden="true">{collapsedBranches.has(space.id) ? "▸" : "▾"}</span> {locale === "fr" ? space.nameFr : space.nameEn}</button></h2>
+                <h2>
+                  <button
+                    type="button"
+                    className="space-branch-toggle"
+                    aria-expanded={!collapsedBranches.has(space.id)}
+                    aria-controls={`space-children-${space.id}`}
+                    onClick={() => toggleBranch(space.id)}
+                  >
+                    <span aria-hidden="true">
+                      {collapsedBranches.has(space.id) ? "▸" : "▾"}
+                    </span>{" "}
+                    {locale === "fr" ? space.nameFr : space.nameEn}
+                  </button>
+                </h2>
                 <code>{space.slug}</code>
               </div>
               <div className="space-management-counts">
@@ -2851,7 +3644,11 @@ function SpacesPanel({
                 </button>
               </div>
             </header>
-            <div className="space-category-list" id={`space-children-${space.id}`} hidden={collapsedBranches.has(space.id)}>
+            <div
+              className="space-category-list"
+              id={`space-children-${space.id}`}
+              hidden={collapsedBranches.has(space.id)}
+            >
               {!space.categories?.length && (
                 <EmptyState
                   compact
@@ -2859,24 +3656,39 @@ function SpacesPanel({
                   en="No category in this space."
                 />
               )}
-              {flattenCategories(space.categories || []).filter(({ item }) => {
-                const visited = new Set<string>();
-                let parent = item.parentId;
-                while (parent && !visited.has(parent)) {
-                  if (collapsedBranches.has(parent)) return false;
-                  visited.add(parent);
-                  parent = categoryParents.get(parent);
-                }
-                return true;
-              }).map(
-                ({ item, depth }) => (
+              {flattenCategories(space.categories || [])
+                .filter(({ item }) => {
+                  const visited = new Set<string>();
+                  let parent = item.parentId;
+                  while (parent && !visited.has(parent)) {
+                    if (collapsedBranches.has(parent)) return false;
+                    visited.add(parent);
+                    parent = categoryParents.get(parent);
+                  }
+                  return true;
+                })
+                .map(({ item, depth }) => (
                   <div
                     className={`space-category-row category-depth-${Math.min(depth, 4)}`}
                     key={item.id}
                   >
-                    {(space.categories || []).some(category => category.parentId === item.id) ? <button type="button" className="space-category-icon space-branch-toggle" aria-label={`${t("Catégorie", "Category")} : ${locale === "fr" ? item.nameFr : item.nameEn}`} aria-expanded={!collapsedBranches.has(item.id)} onClick={() => toggleBranch(item.id)}>{collapsedBranches.has(item.id) ? "▸" : "▾"}</button> : <span className="space-category-icon">
-                      <Icon name="folder" />
-                    </span>}
+                    {(space.categories || []).some(
+                      (category) => category.parentId === item.id,
+                    ) ? (
+                      <button
+                        type="button"
+                        className="space-category-icon space-branch-toggle"
+                        aria-label={`${t("Catégorie", "Category")} : ${locale === "fr" ? item.nameFr : item.nameEn}`}
+                        aria-expanded={!collapsedBranches.has(item.id)}
+                        onClick={() => toggleBranch(item.id)}
+                      >
+                        {collapsedBranches.has(item.id) ? "▸" : "▾"}
+                      </button>
+                    ) : (
+                      <span className="space-category-icon">
+                        <Icon name="folder" />
+                      </span>
+                    )}
                     <span className="space-category-name">
                       <strong>
                         {locale === "fr" ? item.nameFr : item.nameEn}
@@ -2958,8 +3770,7 @@ function SpacesPanel({
                       </button>
                     </span>
                   </div>
-                ),
-              )}
+                ))}
             </div>
           </article>
         ))}
@@ -2968,8 +3779,11 @@ function SpacesPanel({
   );
 }
 
-
-function SsoPanel({ identity }: { identity: { authentication: Authentication } | null }) {
+function SsoPanel({
+  identity,
+}: {
+  identity: { authentication: Authentication } | null;
+}) {
   const { t } = useAdminI18n();
   const [config, setConfig] = useState<{
     ssoLoginUrl: string | null;
@@ -2978,9 +3792,14 @@ function SsoPanel({ identity }: { identity: { authentication: Authentication } |
   } | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [testing, setTesting] = useState<"entra" | "proxy" | null>(null);
-  const [testResults, setTestResults] = useState<Partial<Record<"entra" | "proxy", boolean>>>({});
+  const [testResults, setTestResults] = useState<
+    Partial<Record<"entra" | "proxy", boolean>>
+  >({});
   const [tenantId, setTenantId] = useState("");
-  const validTenantId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantId);
+  const validTenantId =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      tenantId,
+    );
 
   useEffect(() => {
     fetch("/api/auth/config", { cache: "no-store" })
@@ -3026,13 +3845,17 @@ function SsoPanel({ identity }: { identity: { authentication: Authentication } |
             <dt>{t("Mode Entra")}</dt>
             <dd>{mode}</dd>
             <dt>{t("Connexion AD directe")}</dt>
-            <dd>{config.directoryLoginEnabled ? t("Activée") : t("Désactivée")}</dd>
+            <dd>
+              {config.directoryLoginEnabled ? t("Activée") : t("Désactivée")}
+            </dd>
             <dt>{t("Identité de cette session")}</dt>
             <dd>{identity?.authentication.source || "—"}</dd>
             <dt>{t("Groupes associés")}</dt>
             <dd>{identity?.authentication.diagnostics.groupCount ?? "—"}</dd>
             <dt>{t("Espaces associés")}</dt>
-            <dd>{identity?.authentication.diagnostics.mappedSpaceCount ?? "—"}</dd>
+            <dd>
+              {identity?.authentication.diagnostics.mappedSpaceCount ?? "—"}
+            </dd>
           </dl>
         )}
       </section>
@@ -3040,9 +3863,18 @@ function SsoPanel({ identity }: { identity: { authentication: Authentication } |
         <h2>{t("Configuration Entra ID")}</h2>
         <dl>
           <dt>Tenant ID</dt>
-          <dd><input aria-label="Tenant ID" value={tenantId} onChange={(event) => setTenantId(event.target.value.trim())} placeholder="00000000-0000-0000-0000-000000000000" /></dd>
+          <dd>
+            <input
+              aria-label="Tenant ID"
+              value={tenantId}
+              onChange={(event) => setTenantId(event.target.value.trim())}
+              placeholder="00000000-0000-0000-0000-000000000000"
+            />
+          </dd>
           <dt>{t("URL de retour")}</dt>
-          <dd><code>/oauth2/callback</code></dd>
+          <dd>
+            <code>/oauth2/callback</code>
+          </dd>
           <dt>{t("Application Entra")}</dt>
           <dd>ISMS Portal SSO</dd>
           <dt>{t("Affectations")}</dt>
@@ -3050,24 +3882,48 @@ function SsoPanel({ identity }: { identity: { authentication: Authentication } |
           <dt>{t("Identifiants et secret")}</dt>
           <dd>{t("À configurer sur le serveur ISMS")}</dd>
           <dt>{t("Permissions demandées")}</dt>
-          <dd><code>openid profile email</code> · {t("Aucun accès aux données Microsoft Graph")}</dd>
+          <dd>
+            <code>openid profile email</code> ·{" "}
+            {t("Aucun accès aux données Microsoft Graph")}
+          </dd>
           <dt>{t("Authentification du client")}</dt>
-          <dd>{t("Secret client actuellement. Certificat non pris en charge par le proxy SSO actuel.")}</dd>
+          <dd>
+            {t(
+              "Secret client actuellement. Certificat non pris en charge par le proxy SSO actuel.",
+            )}
+          </dd>
         </dl>
         <div className="administrator-row-actions">
-          <button type="button" disabled={testing !== null || !validTenantId} onClick={() => void runTest("entra")}>
+          <button
+            type="button"
+            disabled={testing !== null || !validTenantId}
+            onClick={() => void runTest("entra")}
+          >
             {testing === "entra" ? t("Test en cours…") : t("Tester Entra ID")}
           </button>
-          <button type="button" disabled={testing !== null} onClick={() => void runTest("proxy")}>
-            {testing === "proxy" ? t("Test en cours…") : t("Tester le proxy SSO")}
+          <button
+            type="button"
+            disabled={testing !== null}
+            onClick={() => void runTest("proxy")}
+          >
+            {testing === "proxy"
+              ? t("Test en cours…")
+              : t("Tester le proxy SSO")}
           </button>
         </div>
-        {(Object.keys(testResults) as Array<"entra" | "proxy">).map((target) => (
-          <p key={target} role="status">
-            {target === "entra" ? "Entra ID" : t("Proxy SSO")}: {testResults[target] ? t("Joignable") : t("Indisponible")}
-          </p>
-        ))}
-        <p>{t("L'activation nécessite une affectation pilote, un secret client installé sur le serveur et un déploiement contrôlé. Aucun secret n'est saisi ou affiché ici.")}</p>
+        {(Object.keys(testResults) as Array<"entra" | "proxy">).map(
+          (target) => (
+            <p key={target} role="status">
+              {target === "entra" ? "Entra ID" : t("Proxy SSO")}:{" "}
+              {testResults[target] ? t("Joignable") : t("Indisponible")}
+            </p>
+          ),
+        )}
+        <p>
+          {t(
+            "L'activation nécessite une affectation pilote, un secret client installé sur le serveur et un déploiement contrôlé. Aucun secret n'est saisi ou affiché ici.",
+          )}
+        </p>
       </section>
     </>
   );
@@ -3716,13 +4572,98 @@ function CertificatesPanel({
   );
 }
 
-function DocumentTrashPanel({ onChanged, onError }: { onChanged: () => Promise<void>; onError: (message: string) => void }) {
+function DocumentTrashPanel({
+  onChanged,
+  onError,
+}: {
+  onChanged: () => Promise<void>;
+  onError: (message: string) => void;
+}) {
   const { locale, t } = useAdminI18n();
   const confirmAction = useContext(ConfirmContext);
-  const [trash, setTrash] = useState<Array<{ id: string; slug: string; deletedAt: string; translations: Array<{ title: string }> }>>([]);
-  const loadTrash = useCallback(() => api<typeof trash>("/api/admin/documents/trash").then(setTrash).catch((error) => onError(error.message)), [onError]);
-  useEffect(() => { void loadTrash(); }, [loadTrash]);
-  return <><h1>{t("Corbeille documentaire")}</h1><section className="admin-card"><p>{t("Les documents supprimés peuvent être restaurés ou supprimés définitivement.")}</p>{!trash.length && <p className="admin-empty compact">{t("Aucun document supprimé.")}</p>}<div className="admin-account-list">{trash.map((document) => <div key={document.id}><span><strong>{document.translations[0]?.title || document.slug}</strong><small>{new Date(document.deletedAt).toLocaleString(locale)}</small></span><button type="button" onClick={() => void api(`/api/admin/documents/${document.id}/trash/restore`, { method: "POST" }).then(async () => { await loadTrash(); await onChanged(); }).catch((error) => onError(error.message))}>{t("Restaurer")}</button><button className="danger" type="button" onClick={() => void confirmAction(t("Supprimer définitivement ce document et ses fichiers ?")).then(async (confirmed) => { if (!confirmed) return; await api(`/api/admin/documents/${document.id}`, { method: "DELETE" }); await loadTrash(); await onChanged(); }).catch((error) => onError(error.message))}>{t("Supprimer définitivement")}</button></div>)}</div></section></>;
+  const [trash, setTrash] = useState<
+    Array<{
+      id: string;
+      slug: string;
+      deletedAt: string;
+      translations: Array<{ title: string }>;
+    }>
+  >([]);
+  const loadTrash = useCallback(
+    () =>
+      api<typeof trash>("/api/admin/documents/trash")
+        .then(setTrash)
+        .catch((error) => onError(error.message)),
+    [onError],
+  );
+  useEffect(() => {
+    void loadTrash();
+  }, [loadTrash]);
+  return (
+    <>
+      <h1>{t("Corbeille documentaire")}</h1>
+      <section className="admin-card">
+        <p>
+          {t(
+            "Les documents supprimés peuvent être restaurés ou supprimés définitivement.",
+          )}
+        </p>
+        {!trash.length && (
+          <p className="admin-empty compact">{t("Aucun document supprimé.")}</p>
+        )}
+        <div className="admin-account-list">
+          {trash.map((document) => (
+            <div key={document.id}>
+              <span>
+                <strong>
+                  {document.translations[0]?.title || document.slug}
+                </strong>
+                <small>
+                  {new Date(document.deletedAt).toLocaleString(locale)}
+                </small>
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  void api(
+                    `/api/admin/documents/${document.id}/trash/restore`,
+                    { method: "POST" },
+                  )
+                    .then(async () => {
+                      await loadTrash();
+                      await onChanged();
+                    })
+                    .catch((error) => onError(error.message))
+                }
+              >
+                {t("Restaurer")}
+              </button>
+              <button
+                className="danger"
+                type="button"
+                onClick={() =>
+                  void confirmAction(
+                    t("Supprimer définitivement ce document et ses fichiers ?"),
+                  )
+                    .then(async (confirmed) => {
+                      if (!confirmed) return;
+                      await api(`/api/admin/documents/${document.id}`, {
+                        method: "DELETE",
+                      });
+                      await loadTrash();
+                      await onChanged();
+                    })
+                    .catch((error) => onError(error.message))
+                }
+              >
+                {t("Supprimer définitivement")}
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+    </>
+  );
 }
 
 function IncidentReportsPanel({
@@ -4099,8 +5040,24 @@ type OperationsWorkItems = {
     createdAt: string;
     attachmentOriginalName?: string | null;
   }>;
-  reviews: Array<{ id: string; owner: string; reviewer: string; approver: string; dueAt: string; document?: { slug: string; translations?: Array<{ locale: string; title: string }> } }>;
-  approvals: Array<{ id: string; operation: string; requestedBy: string; reason: string; createdAt: string }>;
+  reviews: Array<{
+    id: string;
+    owner: string;
+    reviewer: string;
+    approver: string;
+    dueAt: string;
+    document?: {
+      slug: string;
+      translations?: Array<{ locale: string; title: string }>;
+    };
+  }>;
+  approvals: Array<{
+    id: string;
+    operation: string;
+    requestedBy: string;
+    reason: string;
+    createdAt: string;
+  }>;
 };
 
 function RequestsPanel({
@@ -4132,7 +5089,11 @@ function RequestsPanel({
       });
       if (!response.ok)
         throw new Error(
-          translate(locale, "Impossible de charger les demandes.", "Unable to load requests."),
+          translate(
+            locale,
+            "Impossible de charger les demandes.",
+            "Unable to load requests.",
+          ),
         );
       setItems(await response.json());
     } catch (error) {
@@ -4525,18 +5486,54 @@ function ObservabilityPanel({
       reason: string;
       status: string;
     }>;
-    reviews: Array<{ id: string; owner: string; reviewer: string; approver: string; dueAt: string; document?: { slug: string; translations?: Array<{ locale: string; title: string }> } }>;
-    approvals: Array<{ id: string; operation: string; requestedBy: string; reason: string; createdAt: string }>;
+    reviews: Array<{
+      id: string;
+      owner: string;
+      reviewer: string;
+      approver: string;
+      dueAt: string;
+      document?: {
+        slug: string;
+        translations?: Array<{ locale: string; title: string }>;
+      };
+    }>;
+    approvals: Array<{
+      id: string;
+      operation: string;
+      requestedBy: string;
+      reason: string;
+      createdAt: string;
+    }>;
   }>({ accessRequests: [], reports: [], reviews: [], approvals: [] });
   const [integrationState, setIntegrationState] = useState<
     Record<string, boolean>
   >({});
   const [portalOrigin, setPortalOrigin] = useState("");
-  const [integrationTests, setIntegrationTests] = useState<Record<string, "testing" | "ready" | "failed">>({});
-  const integrationDownloads: Record<string, Array<{ variant: string; fr: string; en: string }>> = {
-    prometheus: [{ variant: "alerts", fr: "Règles d’alerte", en: "Alert rules" }],
-    wazuh: [{ variant: "agent", fr: "Configuration de l’agent", en: "Agent configuration" }, { variant: "samples", fr: "Événements de test", en: "Test events" }],
-    syslog: [{ variant: "compose", fr: "Configuration Docker TLS", en: "Docker TLS configuration" }],
+  const [integrationTests, setIntegrationTests] = useState<
+    Record<string, "testing" | "ready" | "failed">
+  >({});
+  const integrationDownloads: Record<
+    string,
+    Array<{ variant: string; fr: string; en: string }>
+  > = {
+    prometheus: [
+      { variant: "alerts", fr: "Règles d’alerte", en: "Alert rules" },
+    ],
+    wazuh: [
+      {
+        variant: "agent",
+        fr: "Configuration de l’agent",
+        en: "Agent configuration",
+      },
+      { variant: "samples", fr: "Événements de test", en: "Test events" },
+    ],
+    syslog: [
+      {
+        variant: "compose",
+        fr: "Configuration Docker TLS",
+        en: "Docker TLS configuration",
+      },
+    ],
   };
   const [alertPolicy, setAlertPolicy] = useState({
     enabled: false,
@@ -4568,51 +5565,191 @@ function ObservabilityPanel({
   const [testingAlertChannel, setTestingAlertChannel] = useState<
     "email" | "teams" | "slack" | "webhook" | null
   >(null);
-  const [emailDeliveries, setEmailDeliveries] = useState<Array<{ id: string; action: string; resource: string; status: "WAITING" | "ACTIVE" | "DELAYED" | "ACCEPTED" | "SKIPPED" | "FAILED"; attempts: number; createdAt: string; finishedAt: string | null; accepted: number; error: string | null }>>([]);
+  const [emailDeliveries, setEmailDeliveries] = useState<
+    Array<{
+      id: string;
+      action: string;
+      resource: string;
+      status:
+        | "WAITING"
+        | "ACTIVE"
+        | "DELAYED"
+        | "ACCEPTED"
+        | "SKIPPED"
+        | "FAILED";
+      attempts: number;
+      createdAt: string;
+      finishedAt: string | null;
+      accepted: number;
+      error: string | null;
+    }>
+  >([]);
   const [emailStatusFilter, setEmailStatusFilter] = useState("ALL");
   const [emailError, setEmailError] = useState("");
-  const [emailQueueCounts, setEmailQueueCounts] = useState({ waiting: 0, active: 0, delayed: 0, completed: 0, failed: 0, pendingOutbox: 0 });
+  const [emailQueueCounts, setEmailQueueCounts] = useState({
+    waiting: 0,
+    active: 0,
+    delayed: 0,
+    completed: 0,
+    failed: 0,
+    pendingOutbox: 0,
+  });
   const [emailTestRecipient, setEmailTestRecipient] = useState("");
-  const [emailTestType, setEmailTestType] = useState<"document" | "approval" | "review" | "report">("approval");
+  const [emailTestType, setEmailTestType] = useState<
+    "document" | "approval" | "review" | "report"
+  >("approval");
   const [emailBusy, setEmailBusy] = useState(false);
-  const emailCopy = locale === "fr" ? {
-    all: "Tous les états", attempts: "Tentatives", resource: "Ressource", refresh: "Actualiser les e-mails", refreshFailed: "Impossible de charger le suivi des e-mails.", retryFailed: "La relance a échoué. Actualisez le suivi avant de réessayer.",
-    title: "Suivi des e-mails", recipient: "Destinataire", template: "Modèle d’e-mail", document: "Publication documentaire", approval: "Demande d’approbation", review: "Revue documentaire", report: "Signalement", sending: "Envoi…", test: "Envoyer un e-mail de test", event: "Événement", status: "État", recipients: "Acceptés", completed: "Date", action: "Action", empty: "Aucun envoi récent.", retry: "Relancer", accepted: "Accepté par le service d’envoi", waiting: "En attente", active: "En cours", delayed: "Différé", skipped: "Non envoyé", failed: "Échoué", deliveryNote: "L’acceptation par le service d’envoi ne garantit pas la réception. Vérifiez les journaux du fournisseur.",
-  } : localizeRecord(locale, {
-    all: "All statuses", attempts: "Attempts", resource: "Resource", refresh: "Refresh email history", refreshFailed: "Unable to load email history.", retryFailed: "Retry failed. Refresh the history before trying again.",
-    title: "Email delivery", recipient: "Recipient", template: "Email template", document: "Document publication", approval: "Approval request", review: "Document review", report: "Issue report", sending: "Sending…", test: "Send template test", event: "Event", status: "Status", recipients: "Accepted", completed: "Date", action: "Action", empty: "No recent email deliveries.", retry: "Retry", accepted: "Accepted by mail provider", waiting: "Waiting", active: "Processing", delayed: "Delayed", skipped: "Not sent", failed: "Failed", deliveryNote: "Mail provider acceptance does not guarantee inbox delivery. Check the provider delivery logs.",
-  });
-  const ui = locale === "fr" ? {
-    refresh: "Actualiser les données", loading: "Chargement des données…", updated: "Dernière actualisation",
-    loadError: "Chargement incomplet. Les dernières données disponibles sont conservées. Réessayez.",
-    actionError: "L’opération a échoué. Vérifiez la configuration puis réessayez.",
-    search: "Rechercher un événement ou une ressource", previous: "Précédent", next: "Suivant", page: "Page",
-    of: "sur", all: "Tous les types", type: "Type", items: "éléments", unknown: "—",
-  } : localizeRecord(locale, {
-    refresh: "Refresh data", loading: "Loading data…", updated: "Last refreshed",
-    loadError: "Incomplete refresh. The last available data is preserved. Try again.",
-    actionError: "The operation failed. Check the configuration and try again.",
-    search: "Search events or resources", previous: "Previous", next: "Next", page: "Page",
-    of: "of", all: "All types", type: "Type", items: "items", unknown: "—",
-  });
-  const dateFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
-  const formatDate = (value: string) => Number.isFinite(Date.parse(value)) ? dateFormatter.format(new Date(value)) : ui.unknown;
+  const emailCopy =
+    locale === "fr"
+      ? {
+          all: "Tous les états",
+          attempts: "Tentatives",
+          resource: "Ressource",
+          refresh: "Actualiser les e-mails",
+          refreshFailed: "Impossible de charger le suivi des e-mails.",
+          retryFailed:
+            "La relance a échoué. Actualisez le suivi avant de réessayer.",
+          title: "Suivi des e-mails",
+          recipient: "Destinataire",
+          template: "Modèle d’e-mail",
+          document: "Publication documentaire",
+          approval: "Demande d’approbation",
+          review: "Revue documentaire",
+          report: "Signalement",
+          sending: "Envoi…",
+          test: "Envoyer un e-mail de test",
+          event: "Événement",
+          status: "État",
+          recipients: "Acceptés",
+          completed: "Date",
+          action: "Action",
+          empty: "Aucun envoi récent.",
+          retry: "Relancer",
+          accepted: "Accepté par le service d’envoi",
+          waiting: "En attente",
+          active: "En cours",
+          delayed: "Différé",
+          skipped: "Non envoyé",
+          failed: "Échoué",
+          deliveryNote:
+            "L’acceptation par le service d’envoi ne garantit pas la réception. Vérifiez les journaux du fournisseur.",
+        }
+      : localizeRecord(locale, {
+          all: "All statuses",
+          attempts: "Attempts",
+          resource: "Resource",
+          refresh: "Refresh email history",
+          refreshFailed: "Unable to load email history.",
+          retryFailed: "Retry failed. Refresh the history before trying again.",
+          title: "Email delivery",
+          recipient: "Recipient",
+          template: "Email template",
+          document: "Document publication",
+          approval: "Approval request",
+          review: "Document review",
+          report: "Issue report",
+          sending: "Sending…",
+          test: "Send template test",
+          event: "Event",
+          status: "Status",
+          recipients: "Accepted",
+          completed: "Date",
+          action: "Action",
+          empty: "No recent email deliveries.",
+          retry: "Retry",
+          accepted: "Accepted by mail provider",
+          waiting: "Waiting",
+          active: "Processing",
+          delayed: "Delayed",
+          skipped: "Not sent",
+          failed: "Failed",
+          deliveryNote:
+            "Mail provider acceptance does not guarantee inbox delivery. Check the provider delivery logs.",
+        });
+  const ui =
+    locale === "fr"
+      ? {
+          refresh: "Actualiser les données",
+          loading: "Chargement des données…",
+          updated: "Dernière actualisation",
+          loadError:
+            "Chargement incomplet. Les dernières données disponibles sont conservées. Réessayez.",
+          actionError:
+            "L’opération a échoué. Vérifiez la configuration puis réessayez.",
+          search: "Rechercher un événement ou une ressource",
+          previous: "Précédent",
+          next: "Suivant",
+          page: "Page",
+          of: "sur",
+          all: "Tous les types",
+          type: "Type",
+          items: "éléments",
+          unknown: "—",
+        }
+      : localizeRecord(locale, {
+          refresh: "Refresh data",
+          loading: "Loading data…",
+          updated: "Last refreshed",
+          loadError:
+            "Incomplete refresh. The last available data is preserved. Try again.",
+          actionError:
+            "The operation failed. Check the configuration and try again.",
+          search: "Search events or resources",
+          previous: "Previous",
+          next: "Next",
+          page: "Page",
+          of: "of",
+          all: "All types",
+          type: "Type",
+          items: "items",
+          unknown: "—",
+        });
+  const dateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        dateStyle: "short",
+        timeStyle: "short",
+      }),
+    [locale],
+  );
+  const formatDate = (value: string) =>
+    Number.isFinite(Date.parse(value))
+      ? dateFormatter.format(new Date(value))
+      : ui.unknown;
   const filteredEmailDeliveries = useMemo(() => {
     const query = emailSearch.trim().toLocaleLowerCase(locale);
-    return emailDeliveries.filter((delivery) => (emailStatusFilter === "ALL" || delivery.status === emailStatusFilter)
-      && (!query || [delivery.action, delivery.resource, delivery.error || ""].some((value) => value.toLocaleLowerCase(locale).includes(query))));
+    return emailDeliveries.filter(
+      (delivery) =>
+        (emailStatusFilter === "ALL" ||
+          delivery.status === emailStatusFilter) &&
+        (!query ||
+          [delivery.action, delivery.resource, delivery.error || ""].some(
+            (value) => value.toLocaleLowerCase(locale).includes(query),
+          )),
+    );
   }, [emailDeliveries, emailStatusFilter, emailSearch, locale]);
-  const emailTotalPages = Math.max(1, Math.ceil(filteredEmailDeliveries.length / 20));
+  const emailTotalPages = Math.max(
+    1,
+    Math.ceil(filteredEmailDeliveries.length / 20),
+  );
   const currentEmailPage = Math.min(emailPage, emailTotalPages);
-  const visibleEmailDeliveries = filteredEmailDeliveries.slice((currentEmailPage - 1) * 20, currentEmailPage * 20);
+  const visibleEmailDeliveries = filteredEmailDeliveries.slice(
+    (currentEmailPage - 1) * 20,
+    currentEmailPage * 20,
+  );
   const runOperation = async (operation: () => Promise<void>) => {
     if (operationLock.current) return;
     operationLock.current = true;
     setOperationsBusy(true);
     setOperationsError("");
-    try { await operation(); }
-    catch { setOperationsError(ui.actionError); }
-    finally { operationLock.current = false; setOperationsBusy(false); }
+    try {
+      await operation();
+    } catch {
+      setOperationsError(ui.actionError);
+    } finally {
+      operationLock.current = false;
+      setOperationsBusy(false);
+    }
   };
   const reloadEmailDeliveries = useCallback(async () => {
     const request = ++emailRequest.current;
@@ -4624,16 +5761,32 @@ function ObservabilityPanel({
     setEmailError("");
     try {
       const [history, counts] = await Promise.all([
-        api<typeof emailDeliveries>("/api/admin/operations/email-deliveries", { cache: "no-store", signal: controller.signal }),
-        api<typeof emailQueueCounts>("/api/admin/operations/email-deliveries/counts", { cache: "no-store", signal: controller.signal }),
+        api<typeof emailDeliveries>("/api/admin/operations/email-deliveries", {
+          cache: "no-store",
+          signal: controller.signal,
+        }),
+        api<typeof emailQueueCounts>(
+          "/api/admin/operations/email-deliveries/counts",
+          { cache: "no-store", signal: controller.signal },
+        ),
       ]);
       if (request !== emailRequest.current) return;
-      if (!Array.isArray(history) || !counts || !["waiting", "active", "delayed", "completed", "failed"].every((key) => Number.isFinite(counts[key as keyof typeof counts]) && counts[key as keyof typeof counts] >= 0)) throw new Error("Invalid email response");
+      if (
+        !Array.isArray(history) ||
+        !counts ||
+        !["waiting", "active", "delayed", "completed", "failed"].every(
+          (key) =>
+            Number.isFinite(counts[key as keyof typeof counts]) &&
+            counts[key as keyof typeof counts] >= 0,
+        )
+      )
+        throw new Error("Invalid email response");
       setEmailDeliveries(history);
       setEmailQueueCounts(counts);
       setEmailLoaded(true);
     } catch {
-      if (request === emailRequest.current) setEmailError(emailCopy.refreshFailed);
+      if (request === emailRequest.current)
+        setEmailError(emailCopy.refreshFailed);
     } finally {
       window.clearTimeout(timeout);
       if (request === emailRequest.current) setEmailBusy(false);
@@ -4649,23 +5802,62 @@ function ObservabilityPanel({
     setOperationsError("");
     try {
       const options = { cache: "no-store" as const, signal: controller.signal };
-      const [summary, work, integrations, nextHealth, nextDashboard, policy, channels] = await Promise.all([
-        api<NonNullable<typeof operations>>("/api/admin/operations/summary", options),
+      const [
+        summary,
+        work,
+        integrations,
+        nextHealth,
+        nextDashboard,
+        policy,
+        channels,
+      ] = await Promise.all([
+        api<NonNullable<typeof operations>>(
+          "/api/admin/operations/summary",
+          options,
+        ),
         api<typeof workItems>("/api/admin/operations/work-items", options),
-        api<{ settings: Array<{ key: string; value: { enabled?: boolean } }> }>("/api/admin/operations/integrations", options),
+        api<{ settings: Array<{ key: string; value: { enabled?: boolean } }> }>(
+          "/api/admin/operations/integrations",
+          options,
+        ),
         api<Health>("/api/health/details", options),
         api<Dashboard>("/api/admin/dashboard", options),
-        settingsLoaded.current ? Promise.resolve(null) : api<typeof alertPolicy>("/api/admin/operations/alert-policy", options),
-        settingsLoaded.current ? Promise.resolve(null) : api<typeof alertChannels>("/api/admin/operations/alert-channels", options),
+        settingsLoaded.current
+          ? Promise.resolve(null)
+          : api<typeof alertPolicy>(
+              "/api/admin/operations/alert-policy",
+              options,
+            ),
+        settingsLoaded.current
+          ? Promise.resolve(null)
+          : api<typeof alertChannels>(
+              "/api/admin/operations/alert-channels",
+              options,
+            ),
       ]);
       if (request !== operationsRequest.current) return;
-      if (!summary || !work || !["accessRequests", "reports", "reviews", "approvals"].every((key) => Array.isArray(work[key as keyof typeof work]))
-        || !integrations || !Array.isArray(integrations.settings)) throw new Error("Invalid operations response");
+      if (
+        !summary ||
+        !work ||
+        !["accessRequests", "reports", "reviews", "approvals"].every((key) =>
+          Array.isArray(work[key as keyof typeof work]),
+        ) ||
+        !integrations ||
+        !Array.isArray(integrations.settings)
+      )
+        throw new Error("Invalid operations response");
       setOperations(summary);
       setWorkItems(work);
       setLiveHealth(nextHealth);
       setLiveDashboard(nextDashboard);
-      setIntegrationState(Object.fromEntries(integrations.settings.map((setting) => [setting.key.replace("observability.", ""), setting.value.enabled === true])));
+      setIntegrationState(
+        Object.fromEntries(
+          integrations.settings.map((setting) => [
+            setting.key.replace("observability.", ""),
+            setting.value.enabled === true,
+          ]),
+        ),
+      );
       // Refresh operational data without replacing unsaved channel/policy fields.
       if (policy && channels) {
         setAlertPolicy(policy);
@@ -4675,7 +5867,14 @@ function ObservabilityPanel({
       }
       setLastUpdated(new Date());
     } catch {
-      if (request === operationsRequest.current) setOperationsError(translate(locale, "Chargement incomplet. Les dernières données disponibles sont conservées. Réessayez.", "Incomplete refresh. The last available data is preserved. Try again."));
+      if (request === operationsRequest.current)
+        setOperationsError(
+          translate(
+            locale,
+            "Chargement incomplet. Les dernières données disponibles sont conservées. Réessayez.",
+            "Incomplete refresh. The last available data is preserved. Try again.",
+          ),
+        );
     } finally {
       window.clearTimeout(timeout);
       if (request === operationsRequest.current) setOperationsLoading(false);
@@ -4685,13 +5884,19 @@ function ObservabilityPanel({
     void reloadOperations();
     const requests = operationsRequest;
     const controller = operationsController;
-    return () => { requests.current++; controller.current?.abort(); };
+    return () => {
+      requests.current++;
+      controller.current?.abort();
+    };
   }, [reloadOperations]);
   useEffect(() => {
     if (view === "overview") void reloadEmailDeliveries();
     const requests = emailRequest;
     const controller = emailController;
-    return () => { requests.current++; controller.current?.abort(); };
+    return () => {
+      requests.current++;
+      controller.current?.abort();
+    };
   }, [reloadEmailDeliveries, view]);
   useEffect(() => {
     setPortalOrigin(window.location.origin);
@@ -4746,29 +5951,44 @@ function ObservabilityPanel({
       config: `Importer deploy/monitoring/zabbix-isms-template.yaml\n{$ISMS.URL}=${detectedPortalUrl}\n{$ISMS.METRICS.URL}=http://api:3001/metrics\n# Le serveur/proxy Zabbix doit rejoindre le réseau privé.`,
     },
   ];
-  const copy = (downloadUrl: string) => runOperation(async () => {
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 10000);
-    const configuration = fetch(downloadUrl, { signal: controller.signal, cache: "no-store", redirect: "error" }).then(async (response) => {
-      if (!response.ok) throw new Error("Configuration download failed");
-      const content = await response.text();
-      if (!content.trim()) throw new Error("Empty integration configuration");
-      return new Blob([content], { type: "text/plain" });
-    });
-    try {
-      if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) {
-        await navigator.clipboard.writeText(await (await configuration).text());
-      } else {
-        // Request clipboard access during the click, before awaiting the download.
-        await Promise.all([configuration, navigator.clipboard.write([new ClipboardItem({ "text/plain": configuration })])]);
+  const copy = (downloadUrl: string) =>
+    runOperation(async () => {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 10000);
+      const configuration = fetch(downloadUrl, {
+        signal: controller.signal,
+        cache: "no-store",
+        redirect: "error",
+      }).then(async (response) => {
+        if (!response.ok) throw new Error("Configuration download failed");
+        const content = await response.text();
+        if (!content.trim()) throw new Error("Empty integration configuration");
+        return new Blob([content], { type: "text/plain" });
+      });
+      try {
+        if (
+          typeof ClipboardItem === "undefined" ||
+          !navigator.clipboard?.write
+        ) {
+          await navigator.clipboard.writeText(
+            await (await configuration).text(),
+          );
+        } else {
+          // Request clipboard access during the click, before awaiting the download.
+          await Promise.all([
+            configuration,
+            navigator.clipboard.write([
+              new ClipboardItem({ "text/plain": configuration }),
+            ]),
+          ]);
+        }
+        onNotice(t("Configuration copiée."));
+      } finally {
+        controller.abort();
+        window.clearTimeout(timeout);
+        await configuration.catch(() => undefined);
       }
-      onNotice(t("Configuration copiée."));
-    } finally {
-      controller.abort();
-      window.clearTimeout(timeout);
-      await configuration.catch(() => undefined);
-    }
-  });
+    });
   const saveAlertChannels = async () => {
     const { configured: _configured, ...payload } = alertChannels;
     const response = await fetch("/api/admin/operations/alert-channels", {
@@ -4778,85 +5998,156 @@ function ObservabilityPanel({
     });
     if (!response.ok) return null;
     const channels = await response.json();
-    setAlertChannels((current) => ({ ...current, ...channels, smtpPassword: "", genericWebhookSecret: "" }));
+    setAlertChannels((current) => ({
+      ...current,
+      ...channels,
+      smtpPassword: "",
+      genericWebhookSecret: "",
+    }));
     return channels;
   };
   const testAlertChannel = async (
     channel: "email" | "teams" | "slack" | "webhook",
-  ) => runOperation(async () => {
-    setTestingAlertChannel(channel);
-    try {
-      const saved = await saveAlertChannels();
-      if (!saved) {
-        onNotice(t("Configuration des canaux invalide."));
-        return;
+  ) =>
+    runOperation(async () => {
+      setTestingAlertChannel(channel);
+      try {
+        const saved = await saveAlertChannels();
+        if (!saved) {
+          onNotice(t("Configuration des canaux invalide."));
+          return;
+        }
+        const response = await fetch(
+          `/api/admin/operations/alert-channels/${channel}/test`,
+          { method: "POST" },
+        );
+        onNotice(
+          response.ok
+            ? channel === "email"
+              ? t("E-mail de test envoyé aux destinataires configurés.")
+              : t("Alerte de test envoyée vers le canal configuré.")
+            : t(
+                "Échec de l’envoi de test. Vérifiez la configuration et les journaux.",
+              ),
+        );
+      } finally {
+        setTestingAlertChannel(null);
       }
-      const response = await fetch(
-        `/api/admin/operations/alert-channels/${channel}/test`,
-        { method: "POST" },
-      );
-      onNotice(
-        response.ok
-          ? channel === "email"
-            ? t("E-mail de test envoyé aux destinataires configurés.")
-            : t("Alerte de test envoyée vers le canal configuré.")
-          : t(
-              "Échec de l’envoi de test. Vérifiez la configuration et les journaux.",
-            ),
-      );
-    } finally {
-      setTestingAlertChannel(null);
-    }
-  });
+    });
   const testEmailTemplate = async (event: FormEvent) => {
     event.preventDefault();
     await runOperation(async () => {
-    setEmailBusy(true);
-    try {
-      const response = await fetch(`/api/admin/operations/email-tests/${emailTestType}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient: emailTestRecipient.trim() }) });
-      onNotice(response.ok ? t("E-mail de test envoyé.") : t("Échec de l’envoi de test."));
-      if (response.ok) await reloadEmailDeliveries();
-    } finally { setEmailBusy(false); }
+      setEmailBusy(true);
+      try {
+        const response = await fetch(
+          `/api/admin/operations/email-tests/${emailTestType}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ recipient: emailTestRecipient.trim() }),
+          },
+        );
+        onNotice(
+          response.ok
+            ? t("E-mail de test envoyé.")
+            : t("Échec de l’envoi de test."),
+        );
+        if (response.ok) await reloadEmailDeliveries();
+      } finally {
+        setEmailBusy(false);
+      }
     });
   };
-  const retryEmailDelivery = async (id: string) => runOperation(async () => {
-    setEmailBusy(true);
-    setEmailError("");
-    try {
-      const response = await fetch(`/api/admin/operations/email-deliveries/${encodeURIComponent(id)}/retry`, { method: "POST" });
-      if (!response.ok) {
+  const retryEmailDelivery = async (id: string) =>
+    runOperation(async () => {
+      setEmailBusy(true);
+      setEmailError("");
+      try {
+        const response = await fetch(
+          `/api/admin/operations/email-deliveries/${encodeURIComponent(id)}/retry`,
+          { method: "POST" },
+        );
+        if (!response.ok) {
+          setEmailError(emailCopy.retryFailed);
+          return;
+        }
+        onNotice(t("Relance de l’e-mail enregistrée."));
+        await reloadEmailDeliveries();
+      } catch {
         setEmailError(emailCopy.retryFailed);
-        return;
+      } finally {
+        setEmailBusy(false);
       }
-      onNotice(t("Relance de l’e-mail enregistrée."));
-      await reloadEmailDeliveries();
-    } catch {
-      setEmailError(emailCopy.retryFailed);
-    } finally { setEmailBusy(false); }
-  });
+    });
 
   const workRows = [
-    ...workItems.accessRequests.filter((item) => item.status === "PENDING").map((item) => ({ key: `access:${item.id}`, type: "access", label: t("Demande d’accès"), identity: item.identity, reason: item.justification, id: item.id })),
-    ...workItems.reports.filter((item) => item.status === "OPEN").map((item) => ({ key: `report:${item.id}`, type: "report", label: t("Signalement"), identity: item.identity, reason: item.reason, id: item.id })),
-    ...workItems.reviews.map((item) => ({ key: `review:${item.id}`, type: "review", label: t("Revue documentaire"), identity: item.approver, reason: `${item.document?.translations?.find((translation) => translation.locale === locale)?.title || item.document?.translations?.[0]?.title || item.document?.slug || "—"} · ${t("Échéance")} ${formatDate(item.dueAt)}`, id: item.id })),
-    ...workItems.approvals.map((item) => ({ key: `approval:${item.id}`, type: "approval", label: t("Approbation sensible"), identity: item.requestedBy, reason: `${item.operation} · ${item.reason}`, id: item.id })),
+    ...workItems.accessRequests
+      .filter((item) => item.status === "PENDING")
+      .map((item) => ({
+        key: `access:${item.id}`,
+        type: "access",
+        label: t("Demande d’accès"),
+        identity: item.identity,
+        reason: item.justification,
+        id: item.id,
+      })),
+    ...workItems.reports
+      .filter((item) => item.status === "OPEN")
+      .map((item) => ({
+        key: `report:${item.id}`,
+        type: "report",
+        label: t("Signalement"),
+        identity: item.identity,
+        reason: item.reason,
+        id: item.id,
+      })),
+    ...workItems.reviews.map((item) => ({
+      key: `review:${item.id}`,
+      type: "review",
+      label: t("Revue documentaire"),
+      identity: item.approver,
+      reason: `${item.document?.translations?.find((translation) => translation.locale === locale)?.title || item.document?.translations?.[0]?.title || item.document?.slug || "—"} · ${t("Échéance")} ${formatDate(item.dueAt)}`,
+      id: item.id,
+    })),
+    ...workItems.approvals.map((item) => ({
+      key: `approval:${item.id}`,
+      type: "approval",
+      label: t("Approbation sensible"),
+      identity: item.requestedBy,
+      reason: `${item.operation} · ${item.reason}`,
+      id: item.id,
+    })),
   ].filter((item) => workFilter === "ALL" || item.type === workFilter);
   const workTotalPages = Math.max(1, Math.ceil(workRows.length / 20));
   const currentWorkPage = Math.min(workPage, workTotalPages);
-  const decideAccess = (id: string, status: "APPROVED" | "REJECTED") => runOperation(async () => {
-    const response = await fetch(`/api/admin/operations/access-requests/${encodeURIComponent(id)}`, {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
+  const decideAccess = (id: string, status: "APPROVED" | "REJECTED") =>
+    runOperation(async () => {
+      const response = await fetch(
+        `/api/admin/operations/access-requests/${encodeURIComponent(id)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        },
+      );
+      if (!response.ok) throw new Error("Access decision failed");
+      await reloadOperations();
     });
-    if (!response.ok) throw new Error("Access decision failed");
-    await reloadOperations();
-  });
 
   return (
     <section className="observability-panel">
       <div className="section-heading">
         <div>
           <span className="eyebrow">{t("Exploitation et SIEM")}</span>
-          <h1>{view === "integrations" ? t("Intégrations", "Integrations") : view === "channels" ? t("Canaux d’alerte", "Alert channels") : view === "policy" ? t("Seuils d’alerte", "Alert thresholds") : t("Observabilité")}</h1>
+          <h1>
+            {view === "integrations"
+              ? t("Intégrations", "Integrations")
+              : view === "channels"
+                ? t("Canaux d’alerte", "Alert channels")
+                : view === "policy"
+                  ? t("Seuils d’alerte", "Alert thresholds")
+                  : t("Observabilité")}
+          </h1>
           <p>
             {t(
               "Visualisez les signaux essentiels et préparez les intégrations sans exposer les métriques sur Internet.",
@@ -4864,555 +6155,927 @@ function ObservabilityPanel({
           </p>
         </div>
         <div className="observability-refresh">
-          <button type="button" disabled={operationsLoading || operationsBusy || emailBusy} onClick={() => { void reloadOperations(); if (view === "overview") void reloadEmailDeliveries(); }}><Icon name="sync" />{ui.refresh}</button>
-          <small role="status">{operationsLoading ? ui.loading : lastUpdated ? `${ui.updated}: ${dateFormatter.format(lastUpdated)}` : ui.unknown}</small>
+          <button
+            type="button"
+            disabled={operationsLoading || operationsBusy || emailBusy}
+            onClick={() => {
+              void reloadOperations();
+              if (view === "overview") void reloadEmailDeliveries();
+            }}
+          >
+            <Icon name="sync" />
+            {ui.refresh}
+          </button>
+          <small role="status">
+            {operationsLoading
+              ? ui.loading
+              : lastUpdated
+                ? `${ui.updated}: ${dateFormatter.format(lastUpdated)}`
+                : ui.unknown}
+          </small>
         </div>
       </div>
-      {operationsError && <p className="error-state" role="alert">{operationsError}</p>}
-      <fieldset className="observability-controls" disabled={operationsLoading || operationsBusy || emailBusy || !settingsReady}>
-      {view === "overview" && <>
-      <div className="summary-grid">
-        <article>
-          <strong>
-            {healthyServices}/{services.length || "—"}
-          </strong>
-          <span>{t("services disponibles")}</span>
-        </article>
-        <article>
-          <strong>{failures}</strong>
-          <span>{t("échecs dans le journal chargé")}</span>
-        </article>
-        <article>
-          <strong>{liveDashboard?.syncErrors ?? "—"}</strong>
-          <span>{t("erreurs de synchronisation")}</span>
-        </article>
-        <article>
-          <strong>{operations?.denied ?? "—"}</strong>
-          <span>{t("refus sur les dernières 24 heures")}</span>
-        </article>
-      </div>
-      <div className="summary-grid">
-        <article>
-          <strong>{storage ? formatBytes(storage.availableBytes) : "—"}</strong>
-          <span>{t("espace documentaire disponible")}</span>
-        </article>
-        <article>
-          <strong>{storage ? `${storage.usedPercent} %` : "—"}</strong>
-          <span>
-            {storage
-              ? `${t("stockage utilisé")} · ${formatBytes(storage.totalBytes)}`
-              : t("stockage utilisé")}
-          </span>
-        </article>
-        <article>
-          <strong>{operations?.accessRequests ?? "—"}</strong>
-          <span>{t("demandes d’accès en attente")}</span>
-        </article>
-        <article>
-          <strong>{operations?.reports ?? "—"}</strong>
-          <span>{t("signalements documentaires ouverts")}</span>
-        </article>
-        <article>
-          <strong>{operations?.unreadNotifications ?? "—"}</strong>
-          <span>{t("notifications non lues")}</span>
-        </article>
-        <article>
-          <strong>{operations?.failures ?? "—"}</strong>
-          <span>{t("échecs applicatifs sur 24 heures")}</span>
-        </article>
-      </div>
-      <section className="operations-work-items">
-        <div className="section-heading">
-          <h2>{emailCopy.title}</h2>
-          <div className="email-history-tools">
-            <label>{ui.search}<input type="search" maxLength={200} value={emailSearch} onChange={(event) => { setEmailSearch(event.target.value); setEmailPage(1); }} /></label>
-            <label>{emailCopy.status}<select value={emailStatusFilter} onChange={(event) => { setEmailStatusFilter(event.target.value); setEmailPage(1); }}>
-              <option value="ALL">{emailCopy.all}</option>
-              {(["WAITING", "ACTIVE", "DELAYED", "ACCEPTED", "SKIPPED", "FAILED"] as const).map((status) => <option key={status} value={status}>{emailCopy[status.toLowerCase() as "waiting" | "active" | "delayed" | "accepted" | "skipped" | "failed"]}</option>)}
-            </select></label>
-            <button type="button" title={emailCopy.refresh} aria-label={emailCopy.refresh} disabled={emailBusy} onClick={() => void reloadEmailDeliveries()}><Icon name="sync" /></button>
+      {operationsError && (
+        <p className="error-state" role="alert">
+          {operationsError}
+        </p>
+      )}
+      <fieldset
+        className="observability-controls"
+        disabled={
+          operationsLoading || operationsBusy || emailBusy || !settingsReady
+        }
+      >
+        {view === "overview" && (
+          <>
+            <div className="summary-grid">
+              <article>
+                <strong>
+                  {healthyServices}/{services.length || "—"}
+                </strong>
+                <span>{t("services disponibles")}</span>
+              </article>
+              <article>
+                <strong>{failures}</strong>
+                <span>{t("échecs dans le journal chargé")}</span>
+              </article>
+              <article>
+                <strong>{liveDashboard?.syncErrors ?? "—"}</strong>
+                <span>{t("erreurs de synchronisation")}</span>
+              </article>
+              <article>
+                <strong>{operations?.denied ?? "—"}</strong>
+                <span>{t("refus sur les dernières 24 heures")}</span>
+              </article>
+            </div>
+            <div className="summary-grid">
+              <article>
+                <strong>
+                  {storage ? formatBytes(storage.availableBytes) : "—"}
+                </strong>
+                <span>{t("espace documentaire disponible")}</span>
+              </article>
+              <article>
+                <strong>{storage ? `${storage.usedPercent} %` : "—"}</strong>
+                <span>
+                  {storage
+                    ? `${t("stockage utilisé")} · ${formatBytes(storage.totalBytes)}`
+                    : t("stockage utilisé")}
+                </span>
+              </article>
+              <article>
+                <strong>{operations?.accessRequests ?? "—"}</strong>
+                <span>{t("demandes d’accès en attente")}</span>
+              </article>
+              <article>
+                <strong>{operations?.reports ?? "—"}</strong>
+                <span>{t("signalements documentaires ouverts")}</span>
+              </article>
+              <article>
+                <strong>{operations?.unreadNotifications ?? "—"}</strong>
+                <span>{t("notifications non lues")}</span>
+              </article>
+              <article>
+                <strong>{operations?.failures ?? "—"}</strong>
+                <span>{t("échecs applicatifs sur 24 heures")}</span>
+              </article>
+            </div>
+            <section className="operations-work-items">
+              <div className="section-heading">
+                <h2>{emailCopy.title}</h2>
+                <div className="email-history-tools">
+                  <label>
+                    {ui.search}
+                    <input
+                      type="search"
+                      maxLength={200}
+                      value={emailSearch}
+                      onChange={(event) => {
+                        setEmailSearch(event.target.value);
+                        setEmailPage(1);
+                      }}
+                    />
+                  </label>
+                  <label>
+                    {emailCopy.status}
+                    <select
+                      value={emailStatusFilter}
+                      onChange={(event) => {
+                        setEmailStatusFilter(event.target.value);
+                        setEmailPage(1);
+                      }}
+                    >
+                      <option value="ALL">{emailCopy.all}</option>
+                      {(
+                        [
+                          "WAITING",
+                          "ACTIVE",
+                          "DELAYED",
+                          "ACCEPTED",
+                          "SKIPPED",
+                          "FAILED",
+                        ] as const
+                      ).map((status) => (
+                        <option key={status} value={status}>
+                          {
+                            emailCopy[
+                              status.toLowerCase() as
+                                | "waiting"
+                                | "active"
+                                | "delayed"
+                                | "accepted"
+                                | "skipped"
+                                | "failed"
+                            ]
+                          }
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    title={emailCopy.refresh}
+                    aria-label={emailCopy.refresh}
+                    disabled={emailBusy}
+                    onClick={() => void reloadEmailDeliveries()}
+                  >
+                    <Icon name="sync" />
+                  </button>
+                </div>
+              </div>
+              {emailError && (
+                <p className="error-message" role="alert">
+                  {emailError}
+                </p>
+              )}
+              <p>
+                {emailCopy.waiting}:{" "}
+                {emailLoaded
+                  ? emailQueueCounts.waiting +
+                    (emailQueueCounts.pendingOutbox || 0)
+                  : "—"}{" "}
+                · {emailCopy.active}:{" "}
+                {emailLoaded ? emailQueueCounts.active : "—"} ·{" "}
+                {emailCopy.delayed}:{" "}
+                {emailLoaded ? emailQueueCounts.delayed : "—"} ·{" "}
+                {emailCopy.failed}:{" "}
+                {emailLoaded ? emailQueueCounts.failed : "—"}
+              </p>
+              <form
+                className="admin-form observability-policy"
+                onSubmit={(event) => void testEmailTemplate(event)}
+              >
+                <label>
+                  {emailCopy.recipient}
+                  <input
+                    required
+                    type="email"
+                    value={emailTestRecipient}
+                    onChange={(event) =>
+                      setEmailTestRecipient(event.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  {emailCopy.template}
+                  <select
+                    value={emailTestType}
+                    onChange={(event) =>
+                      setEmailTestType(
+                        event.target.value as typeof emailTestType,
+                      )
+                    }
+                  >
+                    <option value="document">{emailCopy.document}</option>
+                    <option value="approval">{emailCopy.approval}</option>
+                    <option value="review">{emailCopy.review}</option>
+                    <option value="report">{emailCopy.report}</option>
+                  </select>
+                </label>
+                <button disabled={emailBusy}>
+                  {emailBusy ? emailCopy.sending : emailCopy.test}
+                </button>
+              </form>
+              <div className="admin-table-wrap">
+                <table aria-busy={emailBusy}>
+                  <thead>
+                    <tr>
+                      <th>{emailCopy.event}</th>
+                      <th>{emailCopy.resource}</th>
+                      <th>{emailCopy.status}</th>
+                      <th>{emailCopy.attempts}</th>
+                      <th>{emailCopy.recipients}</th>
+                      <th>{emailCopy.completed}</th>
+                      <th>{emailCopy.action}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!filteredEmailDeliveries.length && (
+                      <tr>
+                        <td colSpan={7}>{emailCopy.empty}</td>
+                      </tr>
+                    )}
+                    {visibleEmailDeliveries.map((delivery) => (
+                      <tr key={delivery.id}>
+                        <td data-label={emailCopy.event}>{delivery.action}</td>
+                        <td data-label={emailCopy.resource}>
+                          {delivery.resource}
+                        </td>
+                        <td data-label={emailCopy.status}>
+                          {delivery.status === "ACCEPTED" ? (
+                            <span title={emailCopy.deliveryNote}>
+                              {emailCopy.accepted}
+                            </span>
+                          ) : (
+                            `${emailCopy[delivery.status.toLowerCase() as "waiting" | "active" | "delayed" | "skipped" | "failed"]}${delivery.error ? `: ${delivery.error}` : ""}`
+                          )}
+                        </td>
+                        <td data-label={emailCopy.attempts}>
+                          {delivery.attempts}
+                        </td>
+                        <td data-label={emailCopy.recipients}>
+                          {delivery.accepted}
+                        </td>
+                        <td data-label={emailCopy.completed}>
+                          {formatDate(
+                            delivery.finishedAt || delivery.createdAt,
+                          )}
+                        </td>
+                        <td data-label={emailCopy.action}>
+                          {delivery.status === "FAILED" && (
+                            <button
+                              type="button"
+                              disabled={emailBusy}
+                              onClick={() =>
+                                void retryEmailDelivery(delivery.id)
+                              }
+                            >
+                              {emailCopy.retry}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {emailTotalPages > 1 && (
+                <nav
+                  className="document-pagination"
+                  aria-label={translate(
+                    locale,
+                    "Pagination des e-mails",
+                    "Email history pagination",
+                  )}
+                >
+                  <button
+                    type="button"
+                    disabled={currentEmailPage <= 1}
+                    onClick={() => setEmailPage(currentEmailPage - 1)}
+                  >
+                    {ui.previous}
+                  </button>
+                  <span aria-live="polite">
+                    {ui.page} {currentEmailPage} {ui.of} {emailTotalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={currentEmailPage >= emailTotalPages}
+                    onClick={() => setEmailPage(currentEmailPage + 1)}
+                  >
+                    {ui.next}
+                  </button>
+                </nav>
+              )}
+            </section>
+            <section className="operations-work-items">
+              <div className="section-heading">
+                <h2>{t("Demandes et signalements à traiter")}</h2>
+                <label>
+                  {ui.type}
+                  <select
+                    value={workFilter}
+                    onChange={(event) => {
+                      setWorkFilter(event.target.value);
+                      setWorkPage(1);
+                    }}
+                  >
+                    <option value="ALL">{ui.all}</option>
+                    <option value="access">{t("Demande d’accès")}</option>
+                    <option value="report">{t("Signalement")}</option>
+                    <option value="review">{t("Revue documentaire")}</option>
+                    <option value="approval">
+                      {t("Approbation sensible")}
+                    </option>
+                  </select>
+                </label>
+              </div>
+              <p role="status">
+                {workRows.length} {ui.items}
+              </p>
+              {!workRows.length ? (
+                <p>{t("Aucun élément en attente.")}</p>
+              ) : (
+                <div className="admin-table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>{t("Type")}</th>
+                        <th>{t("Identité")}</th>
+                        <th>{t("Motif")}</th>
+                        <th>{t("Action")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {workRows
+                        .slice((currentWorkPage - 1) * 20, currentWorkPage * 20)
+                        .map((item) => (
+                          <tr key={item.key}>
+                            <td data-label={t("Type")}>{item.label}</td>
+                            <td data-label={t("Identité")}>{item.identity}</td>
+                            <td data-label={t("Motif")}>{item.reason}</td>
+                            <td data-label={t("Action")}>
+                              <div className="button-row">
+                                {item.type === "access" ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void decideAccess(item.id, "APPROVED")
+                                      }
+                                    >
+                                      {t("Approuver")}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void decideAccess(item.id, "REJECTED")
+                                      }
+                                    >
+                                      {t("Refuser")}
+                                    </button>
+                                  </>
+                                ) : item.type === "report" ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      window.location.hash = "requests";
+                                    }}
+                                  >
+                                    {t("Ouvrir le traitement")}
+                                  </button>
+                                ) : (
+                                  <a className="button-link" href="/approvals">
+                                    {item.type === "review"
+                                      ? t("Ouvrir la revue")
+                                      : t("Ouvrir l’approbation")}
+                                  </a>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {workTotalPages > 1 && (
+                <nav
+                  className="document-pagination"
+                  aria-label={translate(
+                    locale,
+                    "Pagination des éléments à traiter",
+                    "Work item pagination",
+                  )}
+                >
+                  <button
+                    type="button"
+                    disabled={currentWorkPage <= 1}
+                    onClick={() => setWorkPage(currentWorkPage - 1)}
+                  >
+                    {ui.previous}
+                  </button>
+                  <span aria-live="polite">
+                    {ui.page} {currentWorkPage} {ui.of} {workTotalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={currentWorkPage >= workTotalPages}
+                    onClick={() => setWorkPage(currentWorkPage + 1)}
+                  >
+                    {ui.next}
+                  </button>
+                </nav>
+              )}
+            </section>
+          </>
+        )}
+        {view === "integrations" && (
+          <div className="observability-settings">
+            <div className="admin-alert observability-warning">
+              {t("Adresse du portail détectée automatiquement")}:{" "}
+              <strong>{detectedPortalUrl}</strong> ({hostType}).
+            </div>
+            <div className="admin-alert warning observability-warning">
+              {t(
+                "Le point /metrics reste accessible uniquement depuis le réseau privé de l’API. Les secrets et certificats doivent rester dans le gestionnaire de secrets de l’infrastructure.",
+              )}
+            </div>
+            <div className="admin-alert observability-warning">
+              {t(
+                "Architecture recommandée : Prometheus ou Zabbix collecte les métriques sur le réseau privé ; rsyslog normalise les journaux ; Wazuh les corrèle. Évitez de faire collecter le même signal par plusieurs agents.",
+              )}
+            </div>
+            <div className="admin-alert observability-warning">
+              {t(
+                "Le réseau isms-portal_observability est dédié aux collecteurs autorisés. Il n’est pas interne et n’expose aucun port hôte : un collecteur Docker externe peut le rejoindre explicitement.",
+              )}
+            </div>
+            <div className="integration-grid">
+              {integrations.map((integration) => {
+                const tool = integration.name
+                  .toLowerCase()
+                  .includes("prometheus")
+                  ? "prometheus"
+                  : integration.name.toLowerCase().includes("syslog")
+                    ? "syslog"
+                    : integration.name.toLowerCase();
+                const downloadUrl = `/api/admin/operations/integrations/${tool}/download?portalUrl=${encodeURIComponent(detectedPortalUrl)}`;
+                return (
+                  <article className="integration-card" key={integration.name}>
+                    <h2>{integration.name}</h2>
+                    <label className="toggle-line">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(integrationState[tool])}
+                        onChange={(event) => {
+                          const enabled = event.target.checked;
+                          void runOperation(async () => {
+                            const response = await fetch(
+                              `/api/admin/operations/integrations/${tool}`,
+                              {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ enabled }),
+                              },
+                            );
+                            if (!response.ok)
+                              throw new Error("Integration update failed");
+                            {
+                              setIntegrationState((current) => ({
+                                ...current,
+                                [tool]: enabled,
+                              }));
+                              onNotice(
+                                enabled
+                                  ? t("Intégration optionnelle activée.")
+                                  : t("Intégration optionnelle désactivée."),
+                              );
+                            }
+                          });
+                        }}
+                      />
+                      {t(
+                        "Enregistrer l’intégration comme activée",
+                        "Mark integration as enabled",
+                      )}
+                    </label>
+                    <p>{integration.description}</p>
+                    <pre>
+                      <code>{integration.config}</code>
+                    </pre>
+                    <button
+                      type="button"
+                      onClick={() => void copy(downloadUrl)}
+                    >
+                      {t("Copier la configuration")}
+                    </button>
+                    <a href={downloadUrl}>
+                      {t("Télécharger la configuration")}
+                    </a>
+                    {(integrationDownloads[tool] || []).map((download) => (
+                      <a
+                        key={download.variant}
+                        href={`/api/admin/operations/integrations/${tool}/download?artifact=${download.variant}`}
+                      >
+                        {translate(locale, download.fr, download.en)}
+                      </a>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void runOperation(async () => {
+                          setIntegrationTests((current) => ({
+                            ...current,
+                            [tool]: "testing",
+                          }));
+                          const controller = new AbortController();
+                          const timeout = window.setTimeout(
+                            () => controller.abort(),
+                            10000,
+                          );
+                          try {
+                            const response = await fetch(
+                              `/api/admin/operations/integrations/${tool}/test`,
+                              { signal: controller.signal, cache: "no-store" },
+                            );
+                            if (!response.ok)
+                              throw new Error("Integration preparation failed");
+                            const result = (await response.json()) as {
+                              applicationHealthy?: boolean;
+                              metricsAvailable?: boolean;
+                              artifactsAvailable?: boolean;
+                            };
+                            const ready =
+                              result.applicationHealthy === true &&
+                              result.metricsAvailable === true &&
+                              result.artifactsAvailable === true;
+                            setIntegrationTests((current) => ({
+                              ...current,
+                              [tool]: ready ? "ready" : "failed",
+                            }));
+                          } catch (error) {
+                            setIntegrationTests((current) => ({
+                              ...current,
+                              [tool]: "failed",
+                            }));
+                            throw error;
+                          } finally {
+                            window.clearTimeout(timeout);
+                          }
+                        })
+                      }
+                    >
+                      {t("Tester la préparation")}
+                    </button>
+                    {Object.hasOwn(integrationTests, tool) && (
+                      <p role="status">
+                        {integrationTests[tool] === "testing"
+                          ? t("Test en cours", "Test in progress")
+                          : integrationTests[tool] === "ready"
+                            ? t(
+                                "Préparation locale validée",
+                                "Local readiness verified",
+                              )
+                            : t(
+                                "Préparation locale en échec",
+                                "Local readiness failed",
+                              )}
+                        {" · "}
+                        {t(
+                          "Collecte externe non vérifiée",
+                          "External collection unverified",
+                        )}
+                      </p>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
           </div>
-        </div>
-        {emailError && <p className="error-message" role="alert">{emailError}</p>}
-        <p>{emailCopy.waiting}: {emailLoaded ? emailQueueCounts.waiting + (emailQueueCounts.pendingOutbox || 0) : "—"} · {emailCopy.active}: {emailLoaded ? emailQueueCounts.active : "—"} · {emailCopy.delayed}: {emailLoaded ? emailQueueCounts.delayed : "—"} · {emailCopy.failed}: {emailLoaded ? emailQueueCounts.failed : "—"}</p>
-        <form className="admin-form observability-policy" onSubmit={(event) => void testEmailTemplate(event)}>
-          <label>{emailCopy.recipient}<input required type="email" value={emailTestRecipient} onChange={(event) => setEmailTestRecipient(event.target.value)} /></label>
-          <label>{emailCopy.template}<select value={emailTestType} onChange={(event) => setEmailTestType(event.target.value as typeof emailTestType)}><option value="document">{emailCopy.document}</option><option value="approval">{emailCopy.approval}</option><option value="review">{emailCopy.review}</option><option value="report">{emailCopy.report}</option></select></label>
-          <button disabled={emailBusy}>{emailBusy ? emailCopy.sending : emailCopy.test}</button>
-        </form>
-        <div className="admin-table-wrap">
-          <table aria-busy={emailBusy}><thead><tr><th>{emailCopy.event}</th><th>{emailCopy.resource}</th><th>{emailCopy.status}</th><th>{emailCopy.attempts}</th><th>{emailCopy.recipients}</th><th>{emailCopy.completed}</th><th>{emailCopy.action}</th></tr></thead><tbody>
-            {!filteredEmailDeliveries.length && <tr><td colSpan={7}>{emailCopy.empty}</td></tr>}
-            {visibleEmailDeliveries.map((delivery) => <tr key={delivery.id}><td data-label={emailCopy.event}>{delivery.action}</td><td data-label={emailCopy.resource}>{delivery.resource}</td><td data-label={emailCopy.status}>{delivery.status === "ACCEPTED" ? <span title={emailCopy.deliveryNote}>{emailCopy.accepted}</span> : `${emailCopy[delivery.status.toLowerCase() as "waiting" | "active" | "delayed" | "skipped" | "failed"]}${delivery.error ? `: ${delivery.error}` : ""}`}</td><td data-label={emailCopy.attempts}>{delivery.attempts}</td><td data-label={emailCopy.recipients}>{delivery.accepted}</td><td data-label={emailCopy.completed}>{formatDate(delivery.finishedAt || delivery.createdAt)}</td><td data-label={emailCopy.action}>{delivery.status === "FAILED" && <button type="button" disabled={emailBusy} onClick={() => void retryEmailDelivery(delivery.id)}>{emailCopy.retry}</button>}</td></tr>)}
-          </tbody></table>
-        </div>
-        {emailTotalPages > 1 && <nav className="document-pagination" aria-label={translate(locale, "Pagination des e-mails", "Email history pagination")}>
-          <button type="button" disabled={currentEmailPage <= 1} onClick={() => setEmailPage(currentEmailPage - 1)}>{ui.previous}</button>
-          <span aria-live="polite">{ui.page} {currentEmailPage} {ui.of} {emailTotalPages}</span>
-          <button type="button" disabled={currentEmailPage >= emailTotalPages} onClick={() => setEmailPage(currentEmailPage + 1)}>{ui.next}</button>
-        </nav>}
-      </section>
-      <section className="operations-work-items">
-        <div className="section-heading"><h2>{t("Demandes et signalements à traiter")}</h2>
-          <label>{ui.type}<select value={workFilter} onChange={(event) => { setWorkFilter(event.target.value); setWorkPage(1); }}>
-            <option value="ALL">{ui.all}</option><option value="access">{t("Demande d’accès")}</option><option value="report">{t("Signalement")}</option>
-            <option value="review">{t("Revue documentaire")}</option><option value="approval">{t("Approbation sensible")}</option>
-          </select></label>
-        </div>
-        <p role="status">{workRows.length} {ui.items}</p>
-        {!workRows.length ? <p>{t("Aucun élément en attente.")}</p> : <div className="admin-table-wrap">
-          <table><thead><tr><th>{t("Type")}</th><th>{t("Identité")}</th><th>{t("Motif")}</th><th>{t("Action")}</th></tr></thead>
-          <tbody>{workRows.slice((currentWorkPage - 1) * 20, currentWorkPage * 20).map((item) => <tr key={item.key}>
-            <td data-label={t("Type")}>{item.label}</td><td data-label={t("Identité")}>{item.identity}</td><td data-label={t("Motif")}>{item.reason}</td>
-            <td data-label={t("Action")}><div className="button-row">
-              {item.type === "access" ? <><button type="button" onClick={() => void decideAccess(item.id, "APPROVED")}>{t("Approuver")}</button><button type="button" onClick={() => void decideAccess(item.id, "REJECTED")}>{t("Refuser")}</button></>
-              : item.type === "report" ? <button type="button" onClick={() => { window.location.hash = "requests"; }}>{t("Ouvrir le traitement")}</button>
-              : <a className="button-link" href="/approvals">{item.type === "review" ? t("Ouvrir la revue") : t("Ouvrir l’approbation")}</a>}
-            </div></td>
-          </tr>)}</tbody></table>
-        </div>}
-        {workTotalPages > 1 && <nav className="document-pagination" aria-label={translate(locale, "Pagination des éléments à traiter", "Work item pagination")}>
-          <button type="button" disabled={currentWorkPage <= 1} onClick={() => setWorkPage(currentWorkPage - 1)}>{ui.previous}</button>
-          <span aria-live="polite">{ui.page} {currentWorkPage} {ui.of} {workTotalPages}</span>
-          <button type="button" disabled={currentWorkPage >= workTotalPages} onClick={() => setWorkPage(currentWorkPage + 1)}>{ui.next}</button>
-        </nav>}
-      </section>
-      </>}
-      {view === "integrations" && <div className="observability-settings">
-      <div className="admin-alert observability-warning">
-        {t("Adresse du portail détectée automatiquement")}:{" "}
-        <strong>{detectedPortalUrl}</strong> ({hostType}).
-      </div>
-      <div className="admin-alert warning observability-warning">
-        {t(
-          "Le point /metrics reste accessible uniquement depuis le réseau privé de l’API. Les secrets et certificats doivent rester dans le gestionnaire de secrets de l’infrastructure.",
         )}
-      </div>
-      <div className="admin-alert observability-warning">
-        {t(
-          "Architecture recommandée : Prometheus ou Zabbix collecte les métriques sur le réseau privé ; rsyslog normalise les journaux ; Wazuh les corrèle. Évitez de faire collecter le même signal par plusieurs agents.",
-        )}
-      </div>
-      <div className="admin-alert observability-warning">
-        {t(
-          "Le réseau isms-portal_observability est dédié aux collecteurs autorisés. Il n’est pas interne et n’expose aucun port hôte : un collecteur Docker externe peut le rejoindre explicitement.",
-        )}
-      </div>
-      <div className="integration-grid">
-        {integrations.map((integration) => {
-          const tool = integration.name.toLowerCase().includes("prometheus")
-            ? "prometheus"
-            : integration.name.toLowerCase().includes("syslog")
-              ? "syslog"
-              : integration.name.toLowerCase();
-          const downloadUrl = `/api/admin/operations/integrations/${tool}/download?portalUrl=${encodeURIComponent(detectedPortalUrl)}`;
-          return (
-            <article className="integration-card" key={integration.name}>
-              <h2>{integration.name}</h2>
+        {view === "channels" && (
+          <form
+            className="admin-form observability-policy"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              await runOperation(async () => {
+                const channels = await saveAlertChannels();
+                if (channels) {
+                  onNotice(
+                    t("Canaux d’alerte enregistrés et secrets chiffrés."),
+                  );
+                } else onNotice(t("Configuration des canaux invalide."));
+              });
+            }}
+          >
+            <h2>{t("Configuration des canaux d’alerte")}</h2>
+            <p>
+              {t(
+                "Les valeurs secrètes déjà enregistrées restent masquées. Un test effectue un envoi réel vers le canal sélectionné.",
+              )}
+            </p>
+            <p>
+              {t(
+                "Les demandes, signalements et événements de gouvernance utilisent automatiquement le SMTP. Si l’envoi échoue ou si SMTP n’est pas configuré, ISMS essaie Teams, puis Slack, puis le webhook générique.",
+              )}
+            </p>
+            <fieldset>
+              <legend>SMTP / E-mail</legend>
+              <label>
+                {t("Serveur SMTP")}
+                <input
+                  value={alertChannels.smtpHost}
+                  onChange={(e) =>
+                    setAlertChannels({
+                      ...alertChannels,
+                      smtpHost: e.target.value,
+                    })
+                  }
+                  placeholder="smtp.example.com"
+                />
+              </label>
+              <label>
+                {t("Port SMTP")}
+                <input
+                  inputMode="numeric"
+                  type="number"
+                  min={1}
+                  max={65535}
+                  step={1}
+                  value={alertChannels.smtpPort}
+                  onChange={(e) =>
+                    setAlertChannels({
+                      ...alertChannels,
+                      smtpPort: e.target.value,
+                    })
+                  }
+                />
+              </label>
               <label className="toggle-line">
                 <input
                   type="checkbox"
-                  checked={Boolean(integrationState[tool])}
-                  onChange={(event) => {
-                    const enabled = event.target.checked;
-                    void runOperation(async () => {
-                    const response = await fetch(
-                      `/api/admin/operations/integrations/${tool}`,
-                      {
-                        method: "PUT",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ enabled }),
-                      },
-                    );
-                    if (!response.ok) throw new Error("Integration update failed");
-                    {
-                      setIntegrationState((current) => ({
-                        ...current,
-                        [tool]: enabled,
-                      }));
-                      onNotice(
-                        enabled
-                          ? t("Intégration optionnelle activée.")
-                          : t("Intégration optionnelle désactivée."),
-                      );
-                    }
-                    });
-                  }}
-                />
-                {t("Enregistrer l’intégration comme activée", "Mark integration as enabled")}
-              </label>
-              <p>{integration.description}</p>
-              <pre>
-                <code>{integration.config}</code>
-              </pre>
-              <button
-                type="button"
-                onClick={() => void copy(downloadUrl)}
-              >
-                {t("Copier la configuration")}
-              </button>
-              <a
-                href={downloadUrl}
-              >
-                {t("Télécharger la configuration")}
-              </a>
-              {(integrationDownloads[tool] || []).map((download) => <a key={download.variant} href={`/api/admin/operations/integrations/${tool}/download?artifact=${download.variant}`}>
-                {translate(locale, download.fr, download.en)}
-              </a>)}
-              <button
-                type="button"
-                onClick={() => void runOperation(async () => {
-                  setIntegrationTests((current) => ({ ...current, [tool]: "testing" }));
-                  const controller = new AbortController();
-                  const timeout = window.setTimeout(() => controller.abort(), 10000);
-                  try {
-                    const response = await fetch(
-                      `/api/admin/operations/integrations/${tool}/test`,
-                      { signal: controller.signal, cache: "no-store" },
-                    );
-                    if (!response.ok) throw new Error("Integration preparation failed");
-                    const result = await response.json() as { applicationHealthy?: boolean; metricsAvailable?: boolean; artifactsAvailable?: boolean };
-                    const ready = result.applicationHealthy === true && result.metricsAvailable === true && result.artifactsAvailable === true;
-                    setIntegrationTests((current) => ({ ...current, [tool]: ready ? "ready" : "failed" }));
-                  } catch (error) {
-                    setIntegrationTests((current) => ({ ...current, [tool]: "failed" }));
-                    throw error;
-                  } finally {
-                    window.clearTimeout(timeout);
+                  checked={alertChannels.smtpSecure}
+                  onChange={(e) =>
+                    setAlertChannels({
+                      ...alertChannels,
+                      smtpSecure: e.target.checked,
+                    })
                   }
-                })}
+                />
+                {t("TLS implicite (port 465)")}
+              </label>
+              <label className="toggle-line">
+                <input
+                  type="checkbox"
+                  checked={alertChannels.smtpStartTls}
+                  onChange={(e) =>
+                    setAlertChannels({
+                      ...alertChannels,
+                      smtpStartTls: e.target.checked,
+                    })
+                  }
+                />
+                STARTTLS
+              </label>
+              <label>
+                {t("Utilisateur SMTP")}
+                <input
+                  autoComplete="off"
+                  value={alertChannels.smtpUsername}
+                  onChange={(e) =>
+                    setAlertChannels({
+                      ...alertChannels,
+                      smtpUsername: e.target.value,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                {t("Mot de passe SMTP")}
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={alertChannels.smtpPassword}
+                  onChange={(e) =>
+                    setAlertChannels({
+                      ...alertChannels,
+                      smtpPassword: e.target.value,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                {t("Adresse expéditrice")}
+                <input
+                  type="email"
+                  value={alertChannels.smtpFrom}
+                  onChange={(e) =>
+                    setAlertChannels({
+                      ...alertChannels,
+                      smtpFrom: e.target.value,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                {t("Destinataires (séparés par des virgules)")}
+                <input
+                  value={alertChannels.smtpRecipients}
+                  onChange={(e) =>
+                    setAlertChannels({
+                      ...alertChannels,
+                      smtpRecipients: e.target.value,
+                    })
+                  }
+                />
+              </label>
+              <button
+                type="button"
+                disabled={testingAlertChannel !== null}
+                onClick={() => void testAlertChannel("email")}
               >
-                {t("Tester la préparation")}
+                {testingAlertChannel === "email"
+                  ? t("Envoi du test…")
+                  : t("Enregistrer et envoyer un e-mail de test")}
               </button>
-              {Object.hasOwn(integrationTests, tool) && <p role="status">{integrationTests[tool] === "testing"
-                ? t("Test en cours", "Test in progress")
-                : integrationTests[tool] === "ready"
-                  ? t("Préparation locale validée", "Local readiness verified")
-                  : t("Préparation locale en échec", "Local readiness failed")}
-                {" · "}{t("Collecte externe non vérifiée", "External collection unverified")}</p>}
-            </article>
-          );
-        })}
-      </div>
-      </div>}
-      {view === "channels" && (
-      <form
-        className="admin-form observability-policy"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          await runOperation(async () => {
-          const channels = await saveAlertChannels();
-          if (channels) {
-            onNotice(t("Canaux d’alerte enregistrés et secrets chiffrés."));
-          } else onNotice(t("Configuration des canaux invalide."));
-          });
-        }}
-      >
-        <h2>{t("Configuration des canaux d’alerte")}</h2>
-        <p>
-          {t(
-            "Les valeurs secrètes déjà enregistrées restent masquées. Un test effectue un envoi réel vers le canal sélectionné.",
-          )}
-        </p>
-        <p>
-          {t(
-            "Les demandes, signalements et événements de gouvernance utilisent automatiquement le SMTP. Si l’envoi échoue ou si SMTP n’est pas configuré, ISMS essaie Teams, puis Slack, puis le webhook générique.",
-          )}
-        </p>
-        <fieldset>
-          <legend>SMTP / E-mail</legend>
-          <label>
-            {t("Serveur SMTP")}
-            <input
-              value={alertChannels.smtpHost}
-              onChange={(e) =>
-                setAlertChannels({ ...alertChannels, smtpHost: e.target.value })
-              }
-              placeholder="smtp.example.com"
-            />
-          </label>
-          <label>
-            {t("Port SMTP")}
-            <input
-              inputMode="numeric"
-              type="number" min={1} max={65535} step={1}
-              value={alertChannels.smtpPort}
-              onChange={(e) =>
-                setAlertChannels({ ...alertChannels, smtpPort: e.target.value })
-              }
-            />
-          </label>
-          <label className="toggle-line">
-            <input
-              type="checkbox"
-              checked={alertChannels.smtpSecure}
-              onChange={(e) =>
-                setAlertChannels({
-                  ...alertChannels,
-                  smtpSecure: e.target.checked,
-                })
-              }
-            />
-            {t("TLS implicite (port 465)")}
-          </label>
-          <label className="toggle-line">
-            <input
-              type="checkbox"
-              checked={alertChannels.smtpStartTls}
-              onChange={(e) =>
-                setAlertChannels({
-                  ...alertChannels,
-                  smtpStartTls: e.target.checked,
-                })
-              }
-            />
-            STARTTLS
-          </label>
-          <label>
-            {t("Utilisateur SMTP")}
-            <input
-              autoComplete="off"
-              value={alertChannels.smtpUsername}
-              onChange={(e) =>
-                setAlertChannels({
-                  ...alertChannels,
-                  smtpUsername: e.target.value,
-                })
-              }
-            />
-          </label>
-          <label>
-            {t("Mot de passe SMTP")}
-            <input
-              type="password"
-              autoComplete="new-password"
-              value={alertChannels.smtpPassword}
-              onChange={(e) =>
-                setAlertChannels({
-                  ...alertChannels,
-                  smtpPassword: e.target.value,
-                })
-              }
-            />
-          </label>
-          <label>
-            {t("Adresse expéditrice")}
-            <input
-              type="email"
-              value={alertChannels.smtpFrom}
-              onChange={(e) =>
-                setAlertChannels({ ...alertChannels, smtpFrom: e.target.value })
-              }
-            />
-          </label>
-          <label>
-            {t("Destinataires (séparés par des virgules)")}
-            <input
-              value={alertChannels.smtpRecipients}
-              onChange={(e) =>
-                setAlertChannels({
-                  ...alertChannels,
-                  smtpRecipients: e.target.value,
-                })
-              }
-            />
-          </label>
-          <button
-            type="button"
-            disabled={testingAlertChannel !== null}
-            onClick={() => void testAlertChannel("email")}
-          >
-            {testingAlertChannel === "email"
-              ? t("Envoi du test…")
-              : t("Enregistrer et envoyer un e-mail de test")}
-          </button>
-        </fieldset>
-        <fieldset>
-          <legend>Microsoft Teams</legend>
-          <label>
-            {t("URL du webhook Teams")}
-            <input
-              type="password"
-              autoComplete="off"
-              value={alertChannels.teamsWebhookUrl}
-              onChange={(e) =>
-                setAlertChannels({
-                  ...alertChannels,
-                  teamsWebhookUrl: e.target.value,
-                })
-              }
-            />
-          </label>
-          <button
-            type="button"
-            disabled={testingAlertChannel !== null}
-            onClick={() => void testAlertChannel("teams")}
-          >
-            {testingAlertChannel === "teams"
-              ? t("Envoi du test…")
-              : t("Enregistrer et envoyer une alerte Teams")}
-          </button>
-        </fieldset>
-        <fieldset>
-          <legend>Slack</legend>
-          <label>
-            {t("URL du webhook Slack")}
-            <input
-              type="password"
-              autoComplete="off"
-              value={alertChannels.slackWebhookUrl}
-              onChange={(e) =>
-                setAlertChannels({
-                  ...alertChannels,
-                  slackWebhookUrl: e.target.value,
-                })
-              }
-            />
-          </label>
-          <button
-            type="button"
-            disabled={testingAlertChannel !== null}
-            onClick={() => void testAlertChannel("slack")}
-          >
-            {testingAlertChannel === "slack"
-              ? t("Envoi du test…")
-              : t("Enregistrer et envoyer une alerte Slack")}
-          </button>
-        </fieldset>
-        <fieldset>
-          <legend>Webhook</legend>
-          <label>
-            {t("URL du webhook HTTPS")}
-            <input
-              type="password"
-              autoComplete="off"
-              value={alertChannels.genericWebhookUrl}
-              onChange={(e) =>
-                setAlertChannels({
-                  ...alertChannels,
-                  genericWebhookUrl: e.target.value,
-                })
-              }
-            />
-          </label>
-          <label>
-            {t("Jeton Bearer (facultatif)")}
-            <input
-              type="password"
-              autoComplete="new-password"
-              value={alertChannels.genericWebhookSecret}
-              onChange={(e) =>
-                setAlertChannels({
-                  ...alertChannels,
-                  genericWebhookSecret: e.target.value,
-                })
-              }
-            />
-          </label>
-          <button
-            type="button"
-            disabled={testingAlertChannel !== null}
-            onClick={() => void testAlertChannel("webhook")}
-          >
-            {testingAlertChannel === "webhook"
-              ? t("Envoi du test…")
-              : t("Enregistrer et tester le webhook")}
-          </button>
-        </fieldset>
-        <button>{t("Enregistrer les canaux")}</button>
-      </form>
-      )}
-      {view === "policy" && (
-      <form
-        className="admin-form observability-policy"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          await runOperation(async () => {
-          const response = await fetch("/api/admin/operations/alert-policy", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(alertPolicy),
-          });
-          onNotice(
-            response.ok
-              ? t("Politique d’alerte enregistrée.")
-              : t("Politique d’alerte invalide."),
-          );
-          });
-        }}
-      >
-        <h2>{t("Seuils et canal d’alerte")}</h2>
-        <label className="toggle-line">
-          <input
-            type="checkbox"
-            checked={alertPolicy.enabled}
-            onChange={(event) =>
-              setAlertPolicy((current) => ({
-                ...current,
-                enabled: event.target.checked,
-              }))
-            }
-          />
-          {t("Activer les alertes externes")}
-        </label>
-        <label>
-          {t("Taux maximal d’échecs d’audit (%)")}
-          <input
-            inputMode="decimal"
-            type="number" min={0} max={100} step="0.1" required
-            value={alertPolicy.fiveXxPercent}
-            onChange={(event) =>
-              setAlertPolicy((current) => ({
-                ...current,
-                fiveXxPercent: event.target.value,
-              }))
-            }
-          />
-        </label>
-        <label>
-          {t("Refus maximaux par minute")}
-          <input
-            inputMode="numeric"
-            type="number" min={0} step={1} required
-            value={alertPolicy.deniedPerMinute}
-            onChange={(event) =>
-              setAlertPolicy((current) => ({
-                ...current,
-                deniedPerMinute: event.target.value,
-              }))
-            }
-          />
-        </label>
-        <label>
-          {t("Canal")}
-          <select
-            value={alertPolicy.channel}
-            onChange={(event) =>
-              setAlertPolicy((current) => ({
-                ...current,
-                channel: event.target.value,
-              }))
-            }
-          >
-            <option value="none">—</option>
-            <option value="graph">Microsoft Graph</option>
-            <option value="email">E-mail</option>
-            <option value="teams">Teams</option>
-            <option value="teams-graph">Teams → Microsoft Graph</option>
-            <option value="slack">Slack</option>
-            <option value="webhook">Webhook</option>
-          </select>
-        </label>
-        <button>{t("Enregistrer la politique")}</button>
-      </form>
-      )}
-      {view === "integrations" && (
-      <p className="lead">
-        {t(
-          "Les exemples complets et les règles d’alerte se trouvent dans deploy/monitoring.",
+            </fieldset>
+            <fieldset>
+              <legend>Microsoft Teams</legend>
+              <label>
+                {t("URL du webhook Teams")}
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={alertChannels.teamsWebhookUrl}
+                  onChange={(e) =>
+                    setAlertChannels({
+                      ...alertChannels,
+                      teamsWebhookUrl: e.target.value,
+                    })
+                  }
+                />
+              </label>
+              <button
+                type="button"
+                disabled={testingAlertChannel !== null}
+                onClick={() => void testAlertChannel("teams")}
+              >
+                {testingAlertChannel === "teams"
+                  ? t("Envoi du test…")
+                  : t("Enregistrer et envoyer une alerte Teams")}
+              </button>
+            </fieldset>
+            <fieldset>
+              <legend>Slack</legend>
+              <label>
+                {t("URL du webhook Slack")}
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={alertChannels.slackWebhookUrl}
+                  onChange={(e) =>
+                    setAlertChannels({
+                      ...alertChannels,
+                      slackWebhookUrl: e.target.value,
+                    })
+                  }
+                />
+              </label>
+              <button
+                type="button"
+                disabled={testingAlertChannel !== null}
+                onClick={() => void testAlertChannel("slack")}
+              >
+                {testingAlertChannel === "slack"
+                  ? t("Envoi du test…")
+                  : t("Enregistrer et envoyer une alerte Slack")}
+              </button>
+            </fieldset>
+            <fieldset>
+              <legend>Webhook</legend>
+              <label>
+                {t("URL du webhook HTTPS")}
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={alertChannels.genericWebhookUrl}
+                  onChange={(e) =>
+                    setAlertChannels({
+                      ...alertChannels,
+                      genericWebhookUrl: e.target.value,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                {t("Jeton Bearer (facultatif)")}
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={alertChannels.genericWebhookSecret}
+                  onChange={(e) =>
+                    setAlertChannels({
+                      ...alertChannels,
+                      genericWebhookSecret: e.target.value,
+                    })
+                  }
+                />
+              </label>
+              <button
+                type="button"
+                disabled={testingAlertChannel !== null}
+                onClick={() => void testAlertChannel("webhook")}
+              >
+                {testingAlertChannel === "webhook"
+                  ? t("Envoi du test…")
+                  : t("Enregistrer et tester le webhook")}
+              </button>
+            </fieldset>
+            <button>{t("Enregistrer les canaux")}</button>
+          </form>
         )}
-      </p>
-      )}
+        {view === "policy" && (
+          <form
+            className="admin-form observability-policy"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              await runOperation(async () => {
+                const response = await fetch(
+                  "/api/admin/operations/alert-policy",
+                  {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(alertPolicy),
+                  },
+                );
+                onNotice(
+                  response.ok
+                    ? t("Politique d’alerte enregistrée.")
+                    : t("Politique d’alerte invalide."),
+                );
+              });
+            }}
+          >
+            <h2>{t("Seuils et canal d’alerte")}</h2>
+            <label className="toggle-line">
+              <input
+                type="checkbox"
+                checked={alertPolicy.enabled}
+                onChange={(event) =>
+                  setAlertPolicy((current) => ({
+                    ...current,
+                    enabled: event.target.checked,
+                  }))
+                }
+              />
+              {t("Activer les alertes externes")}
+            </label>
+            <label>
+              {t("Taux maximal d’échecs d’audit (%)")}
+              <input
+                inputMode="decimal"
+                type="number"
+                min={0}
+                max={100}
+                step="0.1"
+                required
+                value={alertPolicy.fiveXxPercent}
+                onChange={(event) =>
+                  setAlertPolicy((current) => ({
+                    ...current,
+                    fiveXxPercent: event.target.value,
+                  }))
+                }
+              />
+            </label>
+            <label>
+              {t("Refus maximaux par minute")}
+              <input
+                inputMode="numeric"
+                type="number"
+                min={0}
+                step={1}
+                required
+                value={alertPolicy.deniedPerMinute}
+                onChange={(event) =>
+                  setAlertPolicy((current) => ({
+                    ...current,
+                    deniedPerMinute: event.target.value,
+                  }))
+                }
+              />
+            </label>
+            <label>
+              {t("Canal")}
+              <select
+                value={alertPolicy.channel}
+                onChange={(event) =>
+                  setAlertPolicy((current) => ({
+                    ...current,
+                    channel: event.target.value,
+                  }))
+                }
+              >
+                <option value="none">—</option>
+                <option value="graph">Microsoft Graph</option>
+                <option value="email">E-mail</option>
+                <option value="teams">Teams</option>
+                <option value="teams-graph">Teams → Microsoft Graph</option>
+                <option value="slack">Slack</option>
+                <option value="webhook">Webhook</option>
+              </select>
+            </label>
+            <button>{t("Enregistrer la politique")}</button>
+          </form>
+        )}
+        {view === "integrations" && (
+          <p className="lead">
+            {t(
+              "Les exemples complets et les règles d’alerte se trouvent dans deploy/monitoring.",
+            )}
+          </p>
+        )}
       </fieldset>
     </section>
   );
@@ -5651,9 +7314,10 @@ function SettingsPanel({
     if (section === "administrators") void loadAccounts();
   }, [loadAccounts, section]);
   useEffect(() => {
-    if (section === "branding") void api<PortalBranding>("/api/branding")
-      .then(setPortalBranding)
-      .catch((error) => onError(error.message));
+    if (section === "branding")
+      void api<PortalBranding>("/api/branding")
+        .then(setPortalBranding)
+        .catch((error) => onError(error.message));
   }, [onError, section]);
   const loadAdminGroups = useCallback(
     () =>
@@ -5816,264 +7480,277 @@ function SettingsPanel({
   };
   return (
     <>
-      <h1>{section === "profile" ? t("Profil administrateur") : section === "administrators" ? t("Comptes administrateurs") : section === "advanced" ? t("Paramètres avancés", "Advanced settings") : t("Identité visuelle du portail")}</h1>
+      <h1>
+        {section === "profile"
+          ? t("Profil administrateur")
+          : section === "administrators"
+            ? t("Comptes administrateurs")
+            : section === "advanced"
+              ? t("Paramètres avancés", "Advanced settings")
+              : t("Identité visuelle du portail")}
+      </h1>
       {section === "branding" && (
-      <section className="admin-card profile-settings">
-        <h2>{t("Identité visuelle du portail")}</h2>
-        <p>
-          {t(
-            "Le titre et le logo sont affichés sur la connexion, le portail utilisateur et l’administration.",
-          )}
-        </p>
-        <div className="branding-preview" aria-label={t("Aperçu du portail")}>
-          {portalBranding.logoDataUrl ? (
-            <img
-              className="brand-logo"
-              src={portalBranding.logoDataUrl}
-              alt=""
-            />
-          ) : (
-            <span aria-hidden="true">◇</span>
-          )}
-          <strong>{portalBranding.title}</strong>
-        </div>
-        <form
-          className="admin-form"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            try {
-              const saved = await api<PortalBranding>("/api/branding", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title: portalBranding.title, logoDataUrl: portalBranding.logoDataUrl }),
-              });
-              setPortalBranding(saved);
-              updateBrandingCache(saved);
-              onNotice(t("Identité visuelle enregistrée."));
-            } catch (currentError) {
-              onError((currentError as Error).message);
-            }
-          }}
-        >
-          <label>
-            {t("Titre du portail")}
-            <input
-              required
-              minLength={3}
-              maxLength={60}
-              value={portalBranding.title}
-              onChange={(event) =>
-                setPortalBranding((current) => ({
-                  ...current,
-                  title: event.target.value,
-                }))
-              }
-            />
-          </label>
-          <label>
-            {t("Logo du portail")}
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={async (event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                setLogoProcessing(true);
-                try {
-                  const logoDataUrl = await prepareBrandLogo(file);
-                  setPortalBranding((current) => ({
-                    ...current,
-                    logoDataUrl,
-                  }));
-                  onNotice(t("Logo redimensionné et optimisé."));
-                } catch {
-                  onError(
-                    t(
-                      "Le logo doit être une image PNG, JPEG ou WebP valide de moins de 20 Mio.",
-                    ),
-                  );
-                } finally {
-                  setLogoProcessing(false);
-                }
-              }}
-            />
-            <small>
-              {t(
-                "L’image est automatiquement redimensionnée et compressée avant son envoi.",
-              )}
-            </small>
-          </label>
-          <div className="button-row">
-            <button className="primary" disabled={logoProcessing}>
-              {logoProcessing ? t("Optimisation…") : t("Enregistrer")}
-            </button>
-            {portalBranding.logoDataUrl && (
-              <button
-                type="button"
-                onClick={() =>
-                  setPortalBranding((current) => ({
-                    ...current,
-                    logoDataUrl: null,
-                  }))
-                }
-              >
-                {t("Retirer le logo")}
-              </button>
+        <section className="admin-card profile-settings">
+          <h2>{t("Identité visuelle du portail")}</h2>
+          <p>
+            {t(
+              "Le titre et le logo sont affichés sur la connexion, le portail utilisateur et l’administration.",
             )}
+          </p>
+          <div className="branding-preview" aria-label={t("Aperçu du portail")}>
+            {portalBranding.logoDataUrl ? (
+              <img
+                className="brand-logo"
+                src={portalBranding.logoDataUrl}
+                alt=""
+              />
+            ) : (
+              <span aria-hidden="true">◇</span>
+            )}
+            <strong>{portalBranding.title}</strong>
           </div>
-        </form>
-      </section>
-      )}
-      {section === "profile" && (
-      <section className="admin-card profile-settings">
-        <h2>{t("Profil administrateur")}</h2>
-        <a href="/explorer?workspace=preferences">{t("Préférences d’affichage", "Display preferences")}</a>
-        {profilePhoto && (
-          <img className="profile-photo" src={profilePhoto} alt="" />
-        )}
-        <form
-          className="admin-form"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            const values = Object.fromEntries(
-              new FormData(event.currentTarget),
-            );
-            await api("/api/admin/accounts/me/profile", {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                displayName: values.displayName,
-                profilePhoto: profilePhoto || null,
-              }),
-            })
-              .then(() => onNotice(t("Profil enregistré.")))
-              .catch((error) => onError(error.message));
-          }}
-        >
-          <label>
-            {t("Nom affiché")}
-            <input
-              name="displayName"
-              defaultValue={identity?.displayName}
-              required
-            />
-          </label>
-          <label>
-            {t("Photo de profil")}
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                if (file.size > 256 * 1024) {
-                  onError(
-                    t(
-                      "La photo doit faire moins de 256 Kio.",
-                      "The photo must be smaller than 256 KiB.",
-                    ),
-                  );
-                  return;
-                }
-                const reader = new FileReader();
-                reader.onload = () => setProfilePhoto(String(reader.result));
-                reader.readAsDataURL(file);
-              }}
-            />
-          </label>
-          <button className="primary">{t("Enregistrer")}</button>
-        </form>
-        {identity?.authentication.source === "local-admin" && (
           <form
             className="admin-form"
             onSubmit={async (event) => {
               event.preventDefault();
-              const formElement = event.currentTarget;
-              const values = Object.fromEntries(new FormData(formElement));
-              await api("/api/admin/accounts/me/password", {
+              try {
+                const saved = await api<PortalBranding>("/api/branding", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    title: portalBranding.title,
+                    logoDataUrl: portalBranding.logoDataUrl,
+                  }),
+                });
+                setPortalBranding(saved);
+                updateBrandingCache(saved);
+                onNotice(t("Identité visuelle enregistrée."));
+              } catch (currentError) {
+                onError((currentError as Error).message);
+              }
+            }}
+          >
+            <label>
+              {t("Titre du portail")}
+              <input
+                required
+                minLength={3}
+                maxLength={60}
+                value={portalBranding.title}
+                onChange={(event) =>
+                  setPortalBranding((current) => ({
+                    ...current,
+                    title: event.target.value,
+                  }))
+                }
+              />
+            </label>
+            <label>
+              {t("Logo du portail")}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  setLogoProcessing(true);
+                  try {
+                    const logoDataUrl = await prepareBrandLogo(file);
+                    setPortalBranding((current) => ({
+                      ...current,
+                      logoDataUrl,
+                    }));
+                    onNotice(t("Logo redimensionné et optimisé."));
+                  } catch {
+                    onError(
+                      t(
+                        "Le logo doit être une image PNG, JPEG ou WebP valide de moins de 20 Mio.",
+                      ),
+                    );
+                  } finally {
+                    setLogoProcessing(false);
+                  }
+                }}
+              />
+              <small>
+                {t(
+                  "L’image est automatiquement redimensionnée et compressée avant son envoi.",
+                )}
+              </small>
+            </label>
+            <div className="button-row">
+              <button className="primary" disabled={logoProcessing}>
+                {logoProcessing ? t("Optimisation…") : t("Enregistrer")}
+              </button>
+              {portalBranding.logoDataUrl && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPortalBranding((current) => ({
+                      ...current,
+                      logoDataUrl: null,
+                    }))
+                  }
+                >
+                  {t("Retirer le logo")}
+                </button>
+              )}
+            </div>
+          </form>
+        </section>
+      )}
+      {section === "profile" && (
+        <section className="admin-card profile-settings">
+          <h2>{t("Profil administrateur")}</h2>
+          <a href="/explorer?workspace=preferences">
+            {t("Préférences d’affichage", "Display preferences")}
+          </a>
+          {profilePhoto && (
+            <img className="profile-photo" src={profilePhoto} alt="" />
+          )}
+          <form
+            className="admin-form"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const values = Object.fromEntries(
+                new FormData(event.currentTarget),
+              );
+              await api("/api/admin/accounts/me/profile", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(values),
+                body: JSON.stringify({
+                  displayName: values.displayName,
+                  profilePhoto: profilePhoto || null,
+                }),
               })
-                .then(() => window.location.assign("/admin/login"))
+                .then(() => onNotice(t("Profil enregistré.")))
                 .catch((error) => onError(error.message));
             }}
           >
-            <h3>{t("Changer le mot de passe")}</h3>
-            <input
-              name="currentPassword"
-              type="password"
-              placeholder={t("Mot de passe actuel")}
-              required
-            />
-            <input
-              name="newPassword"
-              type="password"
-              minLength={14}
-              placeholder={t(
-                "Nouveau mot de passe (14 caractères minimum)",
-                "New password (14 characters minimum)",
-              )}
-              required
-            />
-            <button>{t("Changer le mot de passe")}</button>
-          </form>
-        )}
-        {identity?.authentication.source === "local-admin" && (
-          <div className="mfa-settings">
-            <h3>{t("Authentification MFA")}</h3>
-            {!mfaSetup ? (
-              <button
-                onClick={() =>
-                  api<{ secret: string; otpauthUrl: string }>(
-                    "/api/admin/accounts/me/mfa/setup",
-                    { method: "POST" },
-                  )
-                    .then(setMfaSetup)
-                    .catch((error) => onError(error.message))
-                }
-              >
-                {t("Configurer le MFA")}
-              </button>
-            ) : (
-              <form
-                className="admin-form"
-                onSubmit={async (event) => {
-                  event.preventDefault();
-                  const code = new FormData(event.currentTarget).get("code");
-                  await api("/api/admin/accounts/me/mfa/confirm", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ code }),
-                  })
-                    .then(async () => {
-                      setMfaSetup(null);
-                      onNotice(t("MFA activé."));
-                      await loadAccounts();
-                    })
-                    .catch((error) => onError(error.message));
+            <label>
+              {t("Nom affiché")}
+              <input
+                name="displayName"
+                defaultValue={identity?.displayName}
+                required
+              />
+            </label>
+            <label>
+              {t("Photo de profil")}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 256 * 1024) {
+                    onError(
+                      t(
+                        "La photo doit faire moins de 256 Kio.",
+                        "The photo must be smaller than 256 KiB.",
+                      ),
+                    );
+                    return;
+                  }
+                  const reader = new FileReader();
+                  reader.onload = () => setProfilePhoto(String(reader.result));
+                  reader.readAsDataURL(file);
                 }}
-              >
-                <p>
-                  {t(
-                    "Ajoutez cette clé dans Microsoft Authenticator, Google Authenticator ou une application TOTP :",
-                    "Add this key to Microsoft Authenticator, Google Authenticator, or another TOTP app:",
-                  )}
-                </p>
-                <code>{mfaSetup.secret}</code>
-                <input
-                  name="code"
-                  inputMode="numeric"
-                  pattern="[0-9]{6}"
-                  placeholder="000000"
-                  required
-                />
-                <button className="primary">{t("Confirmer le MFA")}</button>
-              </form>
-            )}
-          </div>
-        )}
-      </section>
+              />
+            </label>
+            <button className="primary">{t("Enregistrer")}</button>
+          </form>
+          {identity?.authentication.source === "local-admin" && (
+            <form
+              className="admin-form"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const formElement = event.currentTarget;
+                const values = Object.fromEntries(new FormData(formElement));
+                await api("/api/admin/accounts/me/password", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(values),
+                })
+                  .then(() => window.location.assign("/admin/login"))
+                  .catch((error) => onError(error.message));
+              }}
+            >
+              <h3>{t("Changer le mot de passe")}</h3>
+              <input
+                name="currentPassword"
+                type="password"
+                placeholder={t("Mot de passe actuel")}
+                required
+              />
+              <input
+                name="newPassword"
+                type="password"
+                minLength={14}
+                placeholder={t(
+                  "Nouveau mot de passe (14 caractères minimum)",
+                  "New password (14 characters minimum)",
+                )}
+                required
+              />
+              <button>{t("Changer le mot de passe")}</button>
+            </form>
+          )}
+          {identity?.authentication.source === "local-admin" && (
+            <div className="mfa-settings">
+              <h3>{t("Authentification MFA")}</h3>
+              {!mfaSetup ? (
+                <button
+                  onClick={() =>
+                    api<{ secret: string; otpauthUrl: string }>(
+                      "/api/admin/accounts/me/mfa/setup",
+                      { method: "POST" },
+                    )
+                      .then(setMfaSetup)
+                      .catch((error) => onError(error.message))
+                  }
+                >
+                  {t("Configurer le MFA")}
+                </button>
+              ) : (
+                <form
+                  className="admin-form"
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    const code = new FormData(event.currentTarget).get("code");
+                    await api("/api/admin/accounts/me/mfa/confirm", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ code }),
+                    })
+                      .then(async () => {
+                        setMfaSetup(null);
+                        onNotice(t("MFA activé."));
+                        await loadAccounts();
+                      })
+                      .catch((error) => onError(error.message));
+                  }}
+                >
+                  <p>
+                    {t(
+                      "Ajoutez cette clé dans Microsoft Authenticator, Google Authenticator ou une application TOTP :",
+                      "Add this key to Microsoft Authenticator, Google Authenticator, or another TOTP app:",
+                    )}
+                  </p>
+                  <code>{mfaSetup.secret}</code>
+                  <input
+                    name="code"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    placeholder="000000"
+                    required
+                  />
+                  <button className="primary">{t("Confirmer le MFA")}</button>
+                </form>
+              )}
+            </div>
+          )}
+        </section>
       )}
       {identity && section === "administrators" && (
         <section className="admin-card administrator-management">
@@ -6527,35 +8204,40 @@ function SettingsPanel({
           </div>
         </section>
       )}
-      {section === "advanced" && (<form
-        className="admin-form"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          try {
-            await api(`/api/admin/settings/${key}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(JSON.parse(value)),
-            });
-            onNotice(t("Paramètre enregistré."));
-          } catch (error) {
-            onError((error as Error).message);
-          }
-        }}
-      >
-        <label>
-          {t("Clé")}
-          <input value={key} onChange={(event) => setKey(event.target.value)} />
-        </label>
-        <label>
-          {t("Valeur JSON")}
-          <textarea
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-          />
-        </label>
-        <button className="primary">{t("Enregistrer")}</button>
-      </form>)}
+      {section === "advanced" && (
+        <form
+          className="admin-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            try {
+              await api(`/api/admin/settings/${key}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(JSON.parse(value)),
+              });
+              onNotice(t("Paramètre enregistré."));
+            } catch (error) {
+              onError((error as Error).message);
+            }
+          }}
+        >
+          <label>
+            {t("Clé")}
+            <input
+              value={key}
+              onChange={(event) => setKey(event.target.value)}
+            />
+          </label>
+          <label>
+            {t("Valeur JSON")}
+            <textarea
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+            />
+          </label>
+          <button className="primary">{t("Enregistrer")}</button>
+        </form>
+      )}
     </>
   );
 }

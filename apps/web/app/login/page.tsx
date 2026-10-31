@@ -3,8 +3,19 @@
 import { withLocales } from "../i18n/translate";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { configuredSsoDestination, returnDestination, ssoDestination } from "../auth-navigation";
-import { authConfig, loginFailure, loginRequest, LoginMethods, LoginToolbar, PasswordField } from "../login-shared";
+import {
+  configuredSsoDestination,
+  returnDestination,
+  ssoDestination,
+} from "../auth-navigation";
+import {
+  authConfig,
+  loginFailure,
+  loginRequest,
+  LoginMethods,
+  LoginToolbar,
+  PasswordField,
+} from "../login-shared";
 import { useInterfaceLocale } from "../i18n/use-locale";
 import { readLocale } from "../i18n/locale";
 
@@ -68,7 +79,9 @@ export default function LoginPage() {
       .then((config) => {
         if (controller.signal.aborted) return;
         setAvailable(config.directoryLoginEnabled);
-        setPilotSsoUrl(configuredSsoDestination(config, parameters.get("return")));
+        setPilotSsoUrl(
+          configuredSsoDestination(config, parameters.get("return")),
+        );
         if (
           !config.ssoEnabled ||
           !config.ssoLoginUrl ||
@@ -77,7 +90,10 @@ export default function LoginPage() {
         )
           return;
 
-        const destination = ssoDestination(config.ssoLoginUrl, parameters.get("return"));
+        const destination = ssoDestination(
+          config.ssoLoginUrl,
+          parameters.get("return"),
+        );
         if (!destination) {
           setError(copy[readLocale()].ssoUnavailable);
           return;
@@ -85,7 +101,9 @@ export default function LoginPage() {
         setDetectingSso(true);
         window.location.replace(destination);
       })
-      .catch(() => { if (!controller.signal.aborted) setAvailable(false); });
+      .catch(() => {
+        if (!controller.signal.aborted) setAvailable(false);
+      });
     return () => controller.abort();
   }, []);
 
@@ -97,7 +115,9 @@ export default function LoginPage() {
     setError("");
     const values = Object.fromEntries(new FormData(event.currentTarget));
     const response = await loginRequest("/api/auth/directory-login", {
-      login: String(values.login || "").trim(), password: values.password, rememberDevice: values.rememberDevice === "on",
+      login: String(values.login || "").trim(),
+      password: values.password,
+      rememberDevice: values.rememberDevice === "on",
     });
     submitting.current = false;
     setBusy(false);
@@ -121,42 +141,53 @@ export default function LoginPage() {
             {t.detecting}
           </p>
         )}
-        <LoginMethods locale={locale} ssoUrl={detectingSso ? null : pilotSsoUrl} showCredentials={localLogin}>
-        {!available && <p className="login-warning">{t.unavailable}</p>}
-        <form onSubmit={submit} className="login-form" aria-busy={busy || detectingSso}>
-          <fieldset className="login-fields" disabled={busy || detectingSso}>
-          <label>
-            {t.identifier}
-            <input
-              name="login"
-              required
-              autoComplete="username"
-              autoCapitalize="none"
-              spellCheck={false}
-              maxLength={128}
-            />
-          </label>
-          <PasswordField locale={locale} label={t.password} />
-          <label className="remember-device">
-            <input name="rememberDevice" type="checkbox" />
-            <span>{t.rememberDevice}</span>
-          </label>
-          {error && (
-            <p className="error-message" role="alert">
-              {error}
-            </p>
-          )}
-          <button
-            className="primary"
-            disabled={busy || !available || detectingSso}
+        <LoginMethods
+          locale={locale}
+          ssoUrl={detectingSso ? null : pilotSsoUrl}
+          showCredentials={localLogin}
+        >
+          {!available && <p className="login-warning">{t.unavailable}</p>}
+          <form
+            onSubmit={submit}
+            className="login-form"
+            aria-busy={busy || detectingSso}
           >
-            {detectingSso ? t.detecting : busy ? t.busy : t.submit}
-          </button>
-          </fieldset>
-        </form>
+            <fieldset className="login-fields" disabled={busy || detectingSso}>
+              <label>
+                {t.identifier}
+                <input
+                  name="login"
+                  required
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  maxLength={128}
+                />
+              </label>
+              <PasswordField locale={locale} label={t.password} />
+              <label className="remember-device">
+                <input name="rememberDevice" type="checkbox" />
+                <span>{t.rememberDevice}</span>
+              </label>
+              {error && (
+                <p className="error-message" role="alert">
+                  {error}
+                </p>
+              )}
+              <button
+                className="primary"
+                disabled={busy || !available || detectingSso}
+              >
+                {detectingSso ? t.detecting : busy ? t.busy : t.submit}
+              </button>
+            </fieldset>
+          </form>
         </LoginMethods>
         {detectingSso && (
-          <a className="login-back" href={`/login?local=1&return=${encodeURIComponent(returnDestination(new URLSearchParams(window.location.search).get("return")))}`}>
+          <a
+            className="login-back"
+            href={`/login?local=1&return=${encodeURIComponent(returnDestination(new URLSearchParams(window.location.search).get("return")))}`}
+          >
             {t.useCredentials}
           </a>
         )}

@@ -155,7 +155,10 @@ export class WatermarkService {
         );
       const sha256 = createHash("sha256").update(watermarked).digest("hex");
       const extension = extname(version.storedFile.originalName).toLowerCase();
-      const objectKey = this.storage.derivedKey(version.storedFile.objectKey, `documents/${document.id}/${version.locale}/distributed/${randomUUID()}${extension}`);
+      const objectKey = this.storage.derivedKey(
+        version.storedFile.objectKey,
+        `documents/${document.id}/${version.locale}/distributed/${randomUUID()}${extension}`,
+      );
       await this.storage.putObject(objectKey, watermarked, {
         "Content-Type": version.storedFile.mimeType,
         "X-Amz-Meta-Sha256": sha256,

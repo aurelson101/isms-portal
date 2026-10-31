@@ -19,7 +19,10 @@ import type { Prisma } from "@prisma/client";
 import type { Response } from "express";
 import { createHash, randomUUID } from "crypto";
 import { basename, extname } from "path";
-import { integrationArtifact, integrationArtifacts } from "./integration-artifacts";
+import {
+  integrationArtifact,
+  integrationArtifacts,
+} from "./integration-artifacts";
 import { AdminOnly } from "./security";
 import { PrismaService } from "./prisma.service";
 import { AuthorizationService } from "./authorization.service";
@@ -44,7 +47,10 @@ import {
   AlertDeliveryService,
   type AlertChannel,
 } from "./alert-delivery.service";
-import { NotificationService, type EmailTestType } from "./notification.service";
+import {
+  NotificationService,
+  type EmailTestType,
+} from "./notification.service";
 
 const allowedFilterKeys = new Set([
   "q",
@@ -55,7 +61,12 @@ const allowedFilterKeys = new Set([
   "sensitive",
   "sort",
   "favorites",
-  "reference", "owner", "documentType", "keywords", "reviewFrom", "reviewTo",
+  "reference",
+  "owner",
+  "documentType",
+  "keywords",
+  "reviewFrom",
+  "reviewTo",
 ]);
 
 const securityAttachmentTypes: Record<string, string[]> = {
@@ -104,8 +115,18 @@ export class UserToolsController {
         },
       },
     });
-    const readable = await this.authorization.permittedSpaces(req.identity.groups, "read");
-    return activities.filter(({ document }) => document.status === "PUBLISHED" && categoryAllowed(readable.find(space => space.id === document.spaceId), document.categoryId));
+    const readable = await this.authorization.permittedSpaces(
+      req.identity.groups,
+      "read",
+    );
+    return activities.filter(
+      ({ document }) =>
+        document.status === "PUBLISHED" &&
+        categoryAllowed(
+          readable.find((space) => space.id === document.spaceId),
+          document.categoryId,
+        ),
+    );
   }
 
   @Delete("recent")
@@ -129,8 +150,11 @@ export class UserToolsController {
       where: { identity: req.identity.username },
       select: { lastSeenAt: true },
     });
-    const readable = await this.authorization.permittedSpaces(req.identity.groups, "read");
-    const readableSpaceIds = readable.map(space => space.id);
+    const readable = await this.authorization.permittedSpaces(
+      req.identity.groups,
+      "read",
+    );
+    const readableSpaceIds = readable.map((space) => space.id);
     const since = preference?.lastSeenAt || new Date(0);
     const documents = await this.prisma.document.findMany({
       where: {
@@ -312,7 +336,8 @@ export class UserToolsController {
         ? await this.authorization.can(
             req.identity.groups,
             document.spaceId,
-            "read", document.categoryId ?? null,
+            "read",
+            document.categoryId ?? null,
           )
         : (
             await Promise.all(
@@ -320,7 +345,8 @@ export class UserToolsController {
                 this.authorization.can(
                   req.identity.groups,
                   document.spaceId,
-                  permission, document.categoryId ?? null,
+                  permission,
+                  document.categoryId ?? null,
                 ),
               ),
             )
@@ -347,9 +373,15 @@ export class UserToolsController {
 
   @Get("document-reports")
   async reports(@Req() req: IsmsRequest) {
-    const spaces = await this.authorization.permittedSpaces(req.identity.groups, "read");
+    const spaces = await this.authorization.permittedSpaces(
+      req.identity.groups,
+      "read",
+    );
     return this.prisma.documentReport.findMany({
-      where: { identity: req.identity.username, document: { deletedAt: null, AND: [categoryDocumentWhere(spaces)] } },
+      where: {
+        identity: req.identity.username,
+        document: { deletedAt: null, AND: [categoryDocumentWhere(spaces)] },
+      },
       include: {
         document: {
           select: { slug: true, translations: true },
@@ -368,7 +400,14 @@ export class UserToolsController {
     const version = await this.prisma.documentVersion.findFirst({
       where: { id: body.versionId, documentId: body.documentId },
       include: {
-        document: { select: { spaceId: true, categoryId: true, status: true, deletedAt: true } },
+        document: {
+          select: {
+            spaceId: true,
+            categoryId: true,
+            status: true,
+            deletedAt: true,
+          },
+        },
         storedFile: { select: { sha256: true } },
       },
     });
@@ -380,7 +419,8 @@ export class UserToolsController {
         !(await this.authorization.can(
           req.identity.groups,
           version.document.spaceId,
-          "read", version.document.categoryId,
+          "read",
+          version.document.categoryId,
         )))
     )
       throw new NotFoundException();
@@ -590,32 +630,33 @@ export class OperationsController {
 
   @Get("work-items")
   async workItems() {
-    const [accessRequests, reports, securityReports, reviews, approvals] = await Promise.all([
-      this.prisma.accessRequest.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 100,
-      }),
-      this.prisma.documentReport.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 100,
-        include: { document: { select: { translations: true } } },
-      }),
-      this.prisma.securityReport.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 100,
-      }),
-      this.prisma.documentReview.findMany({
-        where: { status: "PENDING" },
-        orderBy: { dueAt: "asc" },
-        take: 100,
-        include: { document: { select: { slug: true, translations: true } } },
-      }),
-      this.prisma.sensitiveOperationApproval.findMany({
-        where: { status: "PENDING" },
-        orderBy: { createdAt: "asc" },
-        take: 100,
-      }),
-    ]);
+    const [accessRequests, reports, securityReports, reviews, approvals] =
+      await Promise.all([
+        this.prisma.accessRequest.findMany({
+          orderBy: { createdAt: "desc" },
+          take: 100,
+        }),
+        this.prisma.documentReport.findMany({
+          orderBy: { createdAt: "desc" },
+          take: 100,
+          include: { document: { select: { translations: true } } },
+        }),
+        this.prisma.securityReport.findMany({
+          orderBy: { createdAt: "desc" },
+          take: 100,
+        }),
+        this.prisma.documentReview.findMany({
+          where: { status: "PENDING" },
+          orderBy: { dueAt: "asc" },
+          take: 100,
+          include: { document: { select: { slug: true, translations: true } } },
+        }),
+        this.prisma.sensitiveOperationApproval.findMany({
+          where: { status: "PENDING" },
+          orderBy: { createdAt: "asc" },
+          take: 100,
+        }),
+      ]);
     return { accessRequests, reports, securityReports, reviews, approvals };
   }
 
@@ -850,7 +891,8 @@ export class OperationsController {
     @Param("tool") tool: string,
     @Body() body: ObservabilityOptionsDto,
   ) {
-    if (!Object.hasOwn(integrationArtifacts, tool)) throw new NotFoundException();
+    if (!Object.hasOwn(integrationArtifacts, tool))
+      throw new NotFoundException();
     const value = JSON.parse(JSON.stringify(body)) as Prisma.InputJsonValue;
     const setting = await this.prisma.applicationSetting.upsert({
       where: { key: `observability.${tool}` },
@@ -875,29 +917,46 @@ export class OperationsController {
     @Res() response: Response,
   ) {
     const artifact = integrationArtifact(tool, variant || "default", portalUrl);
-    response.type("text/plain").attachment(artifact.filename).send(artifact.content);
+    response
+      .type("text/plain")
+      .attachment(artifact.filename)
+      .send(artifact.content);
   }
 
   @Get("integrations/:tool/test")
   async testIntegration(@Param("tool") tool: string) {
-    if (!Object.hasOwn(integrationArtifacts, tool)) throw new NotFoundException();
+    if (!Object.hasOwn(integrationArtifacts, tool))
+      throw new NotFoundException();
     const setting = await this.prisma.applicationSetting.findUnique({
       where: { key: `observability.${tool}` },
     });
     const value = setting?.value as { enabled?: boolean } | undefined;
-    const artifacts = Object.keys(integrationArtifacts[tool as keyof typeof integrationArtifacts]);
+    const artifacts = Object.keys(
+      integrationArtifacts[tool as keyof typeof integrationArtifacts],
+    );
     const checks = await Promise.allSettled([
-      fetch("http://127.0.0.1:3001/health/ready", { signal: AbortSignal.timeout(5000) }).then(async (response) => {
-        const body = await response.json() as { status?: string };
+      fetch("http://127.0.0.1:3001/health/ready", {
+        signal: AbortSignal.timeout(5000),
+      }).then(async (response) => {
+        const body = (await response.json()) as { status?: string };
         return response.ok && body.status === "ok";
       }),
       ["prometheus", "zabbix"].includes(tool)
-        ? fetch("http://127.0.0.1:3001/metrics", { signal: AbortSignal.timeout(5000) }).then(async (response) => response.ok && (await response.text()).includes("isms_service_health"))
+        ? fetch("http://127.0.0.1:3001/metrics", {
+            signal: AbortSignal.timeout(5000),
+          }).then(
+            async (response) =>
+              response.ok &&
+              (await response.text()).includes("isms_service_health"),
+          )
         : Promise.resolve(true),
     ]);
     let artifactsAvailable = true;
-    try { for (const variant of artifacts) integrationArtifact(tool, variant); }
-    catch { artifactsAvailable = false; }
+    try {
+      for (const variant of artifacts) integrationArtifact(tool, variant);
+    } catch {
+      artifactsAvailable = false;
+    }
     return {
       tool,
       applicationHealthy: checks[0].status === "fulfilled" && checks[0].value,
@@ -1009,17 +1068,45 @@ export class OperationsController {
 
   @Post("email-deliveries/:id/retry")
   async retryEmailDelivery(@Req() req: IsmsRequest, @Param("id") id: string) {
-    try { await this.notifications.retryDelivery(id); }
-    catch (error) { throw new BadRequestException(error instanceof Error ? error.message : "Unable to retry email delivery"); }
-    await this.audit.record(req, "notification.delivery.retry", `notification:${id}`, "success");
+    try {
+      await this.notifications.retryDelivery(id);
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error
+          ? error.message
+          : "Unable to retry email delivery",
+      );
+    }
+    await this.audit.record(
+      req,
+      "notification.delivery.retry",
+      `notification:${id}`,
+      "success",
+    );
     return { queued: true };
   }
 
   @Post("email-tests/:type")
-  async testEmailTemplate(@Req() req: IsmsRequest, @Param("type") type: string, @Body() body: { recipient?: string }) {
-    if (!["document", "approval", "review", "report"].includes(type) || !body.recipient?.trim()) throw new BadRequestException("A test type and recipient are required");
-    await this.notifications.sendTypeTest(type as EmailTestType, body.recipient.trim());
-    await this.audit.record(req, "notification.template.test", `notification-template:${type}`, "success");
+  async testEmailTemplate(
+    @Req() req: IsmsRequest,
+    @Param("type") type: string,
+    @Body() body: { recipient?: string },
+  ) {
+    if (
+      !["document", "approval", "review", "report"].includes(type) ||
+      !body.recipient?.trim()
+    )
+      throw new BadRequestException("A test type and recipient are required");
+    await this.notifications.sendTypeTest(
+      type as EmailTestType,
+      body.recipient.trim(),
+    );
+    await this.audit.record(
+      req,
+      "notification.template.test",
+      `notification-template:${type}`,
+      "success",
+    );
     return { delivered: true };
   }
 }

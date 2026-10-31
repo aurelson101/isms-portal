@@ -10,11 +10,15 @@ function sessionRequiresLogin(): Promise<boolean> {
       .then(async (response) => {
         if (response.status === 401 || response.status === 403) return true;
         if (!response.ok) return false;
-        const identity = (await response.json()) as { isAdmin?: boolean } | null;
+        const identity = (await response.json()) as {
+          isAdmin?: boolean;
+        } | null;
         return identity?.isAdmin === false;
       })
       .catch(() => false)
-      .finally(() => { identityCheck = undefined; });
+      .finally(() => {
+        identityCheck = undefined;
+      });
   }
   return identityCheck;
 }

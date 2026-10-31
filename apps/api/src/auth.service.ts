@@ -262,7 +262,8 @@ export class AuthService implements OnModuleInit {
   }
 
   async enrichSsoIdentity(identity: Identity, forceDirectoryRefresh = false) {
-    if (identity.source === "trusted-proxy") await this.ssoMailboxPolicy.assertAllowed(identity.username);
+    if (identity.source === "trusted-proxy")
+      await this.ssoMailboxPolicy.assertAllowed(identity.username);
     let enrichedIdentity = identity;
     if (
       identity.source === "trusted-proxy" &&
@@ -339,17 +340,29 @@ export class AuthService implements OnModuleInit {
       ]);
     }
     const administrator =
-      account?.role !== "MODERATOR" && !!account ||
-      administratorGroup?.role !== "MODERATOR" && !!administratorGroup;
+      (account?.role !== "MODERATOR" && !!account) ||
+      (administratorGroup?.role !== "MODERATOR" && !!administratorGroup);
     const moderatorCanManage =
-      (!administrator && account?.role === "MODERATOR" && account.canManageDocuments) ||
-      (!administrator && administratorGroup?.role === "MODERATOR" && administratorGroup.canManageDocuments);
+      (!administrator &&
+        account?.role === "MODERATOR" &&
+        account.canManageDocuments) ||
+      (!administrator &&
+        administratorGroup?.role === "MODERATOR" &&
+        administratorGroup.canManageDocuments);
     const moderatorCanPublish =
-      (!administrator && account?.role === "MODERATOR" && account.canPublishDocuments) ||
-      (!administrator && administratorGroup?.role === "MODERATOR" && administratorGroup.canPublishDocuments);
+      (!administrator &&
+        account?.role === "MODERATOR" &&
+        account.canPublishDocuments) ||
+      (!administrator &&
+        administratorGroup?.role === "MODERATOR" &&
+        administratorGroup.canPublishDocuments);
     const moderatorCanDelete =
-      (!administrator && account?.role === "MODERATOR" && account.canDeleteDocuments) ||
-      (!administrator && administratorGroup?.role === "MODERATOR" && administratorGroup.canDeleteDocuments);
+      (!administrator &&
+        account?.role === "MODERATOR" &&
+        account.canDeleteDocuments) ||
+      (!administrator &&
+        administratorGroup?.role === "MODERATOR" &&
+        administratorGroup.canDeleteDocuments);
     return account || administratorGroup
       ? {
           ...enrichedIdentity,

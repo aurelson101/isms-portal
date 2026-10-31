@@ -348,7 +348,8 @@ const adminBaseEnglishCatalog = {
   "Identifiants et secret": "IDs and secret",
   "À configurer sur le serveur ISMS": "Configure on the ISMS server",
   "Permissions demandées": "Requested permissions",
-  "Aucun accès aux données Microsoft Graph": "No access to Microsoft Graph data",
+  "Aucun accès aux données Microsoft Graph":
+    "No access to Microsoft Graph data",
   "Authentification du client": "Client authentication",
   "Secret client actuellement. Certificat non pris en charge par le proxy SSO actuel.":
     "Client secret currently. Certificates are not supported by the current SSO proxy.",
@@ -800,9 +801,9 @@ const adminBaseEnglishCatalog = {
   "Annuler la modification": "Cancel editing",
   "Éditer / nouvelle version": "Edit / new version",
   "Pagination des documents": "Document pagination",
-  "Précédent": "Previous",
-  "sur": "of",
-  "Suivant": "Next",
+  Précédent: "Previous",
+  sur: "of",
+  Suivant: "Next",
   "Corbeille documentaire": "Document trash",
   "Les documents supprimés peuvent être restaurés ou supprimés définitivement.":
     "Deleted documents can be restored or permanently deleted.",
@@ -812,4 +813,7 @@ const adminBaseEnglishCatalog = {
   "Supprimer définitivement": "Delete permanently",
 } as const;
 
-export const adminEnglishCatalog: Readonly<Record<string, string>> = { ...adminBaseEnglishCatalog, ...additionalEnglishMessages };
+export const adminEnglishCatalog: Readonly<Record<string, string>> = {
+  ...adminBaseEnglishCatalog,
+  ...additionalEnglishMessages,
+};

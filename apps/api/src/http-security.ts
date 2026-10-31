@@ -26,7 +26,8 @@ export const sameOriginMutationGuard = (
       origin === parsed.origin &&
       parsed.host === request.get("host") &&
       (!publicUrl || parsed.origin === new URL(publicUrl).origin)
-    ) return next();
+    )
+      return next();
   } catch {
     // A malformed Origin is never a valid same-origin browser request.
   }

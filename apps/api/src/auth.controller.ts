@@ -51,8 +51,12 @@ export class AuthController {
         // Keep AD login available while the optional SSO proxy is down.
       }
     }
-    const ssoLoginUrl = ssoReady ? safeSsoPath(process.env.SSO_LOGIN_URL) : null;
-    const ssoPilotUrl = ssoReady ? safeSsoPath(process.env.SSO_PILOT_URL) : null;
+    const ssoLoginUrl = ssoReady
+      ? safeSsoPath(process.env.SSO_LOGIN_URL)
+      : null;
+    const ssoPilotUrl = ssoReady
+      ? safeSsoPath(process.env.SSO_PILOT_URL)
+      : null;
     return {
       ssoEnabled: Boolean(ssoLoginUrl || ssoPilotUrl),
       ssoLoginUrl,
@@ -71,7 +75,12 @@ export class AuthController {
     if (target !== "entra" && target !== "proxy") {
       throw new BadRequestException("Unknown SSO test target");
     }
-    if (target === "entra" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenant || "")) {
+    if (
+      target === "entra" &&
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        tenant || "",
+      )
+    ) {
       throw new BadRequestException("Invalid Entra tenant ID");
     }
 
@@ -84,9 +93,12 @@ export class AuthController {
       }
 
       const issuer = `https://login.microsoftonline.com/${tenant}/v2.0`;
-      const response = await fetch(`${issuer}/.well-known/openid-configuration`, {
-        signal: AbortSignal.timeout(5000),
-      });
+      const response = await fetch(
+        `${issuer}/.well-known/openid-configuration`,
+        {
+          signal: AbortSignal.timeout(5000),
+        },
+      );
       if (!response.ok) return { target, ok: false };
       const metadata = (await response.json()) as { issuer?: string };
       return { target, ok: metadata.issuer === issuer };
@@ -280,13 +292,36 @@ export class AdminAccountsController {
   }
 
   @Put("groups/:id/permissions")
-  async updateModeratorGroupPermissions(@Req() request: IsmsRequest, @Param("id") id: string, @Body() body: ModeratorPermissionsDto) {
-    if (!body.canManageDocuments && (body.canPublishDocuments || body.canDeleteDocuments))
-      throw new BadRequestException("Document management is required to publish, archive or delete");
-    const existing = await this.prisma.adminDirectoryGroup.findUnique({ where: { id }, select: { role: true } });
-    if (existing?.role !== "MODERATOR") throw new BadRequestException("Only moderator permissions can be edited here");
-    const group = await this.prisma.adminDirectoryGroup.update({ where: { id }, data: body });
-    await this.audit.record(request, "moderator-directory-group.permissions", `moderator-group:${id}`, "success");
+  async updateModeratorGroupPermissions(
+    @Req() request: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: ModeratorPermissionsDto,
+  ) {
+    if (
+      !body.canManageDocuments &&
+      (body.canPublishDocuments || body.canDeleteDocuments)
+    )
+      throw new BadRequestException(
+        "Document management is required to publish, archive or delete",
+      );
+    const existing = await this.prisma.adminDirectoryGroup.findUnique({
+      where: { id },
+      select: { role: true },
+    });
+    if (existing?.role !== "MODERATOR")
+      throw new BadRequestException(
+        "Only moderator permissions can be edited here",
+      );
+    const group = await this.prisma.adminDirectoryGroup.update({
+      where: { id },
+      data: body,
+    });
+    await this.audit.record(
+      request,
+      "moderator-directory-group.permissions",
+      `moderator-group:${id}`,
+      "success",
+    );
     return group;
   }
 
@@ -383,13 +418,36 @@ export class AdminAccountsController {
   }
 
   @Put(":id/permissions")
-  async updateModeratorPermissions(@Req() request: IsmsRequest, @Param("id") id: string, @Body() body: ModeratorPermissionsDto) {
-    if (!body.canManageDocuments && (body.canPublishDocuments || body.canDeleteDocuments))
-      throw new BadRequestException("Document management is required to publish, archive or delete");
-    const existing = await this.prisma.adminAccount.findUnique({ where: { id }, select: { role: true } });
-    if (existing?.role !== "MODERATOR") throw new BadRequestException("Only moderator permissions can be edited here");
-    const account = await this.prisma.adminAccount.update({ where: { id }, data: body });
-    await this.audit.record(request, "moderator.permissions", `moderator:${id}`, "success");
+  async updateModeratorPermissions(
+    @Req() request: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: ModeratorPermissionsDto,
+  ) {
+    if (
+      !body.canManageDocuments &&
+      (body.canPublishDocuments || body.canDeleteDocuments)
+    )
+      throw new BadRequestException(
+        "Document management is required to publish, archive or delete",
+      );
+    const existing = await this.prisma.adminAccount.findUnique({
+      where: { id },
+      select: { role: true },
+    });
+    if (existing?.role !== "MODERATOR")
+      throw new BadRequestException(
+        "Only moderator permissions can be edited here",
+      );
+    const account = await this.prisma.adminAccount.update({
+      where: { id },
+      data: body,
+    });
+    await this.audit.record(
+      request,
+      "moderator.permissions",
+      `moderator:${id}`,
+      "success",
+    );
     return account;
   }
 

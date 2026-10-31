@@ -34,18 +34,25 @@ function fetchIdentity(timeoutMs: number, version: number) {
           end: performance.now(),
           detail: { status: response.status },
         });
-      } catch { /* Optional browser metrics must never prevent authentication. */ }
+      } catch {
+        /* Optional browser metrics must never prevent authentication. */
+      }
       if (response.status === 401) throw new SessionError("unauthorized");
       if (response.status === 403) throw new SessionError("forbidden");
       if (!response.ok) throw new SessionError("unavailable");
       return response.json().then((value) => {
         if (version !== identityVersion) throw new SessionError("unavailable");
         if (
-          !value || Array.isArray(value) || typeof value !== "object" ||
-          typeof value.username !== "string" || !value.username.trim() ||
-          value.username.length > 255 || typeof value.isAdmin !== "boolean" ||
+          !value ||
+          Array.isArray(value) ||
+          typeof value !== "object" ||
+          typeof value.username !== "string" ||
+          !value.username.trim() ||
+          value.username.length > 255 ||
+          typeof value.isAdmin !== "boolean" ||
           typeof value.isModerator !== "boolean"
-        ) throw new SessionError("unavailable");
+        )
+          throw new SessionError("unavailable");
         cachedIdentity = { value, expiresAt: Date.now() + 60_000 };
         return value;
       });
@@ -97,7 +104,10 @@ export function getPortalIdentity<T>(options?: {
   if (!pendingIdentity || (options?.force && !pendingForced)) {
     cachedIdentity = null;
     pendingForced = Boolean(options?.force);
-    const request = fetchIdentity(requestTimeout(options?.timeoutMs, 8_000), ++identityVersion);
+    const request = fetchIdentity(
+      requestTimeout(options?.timeoutMs, 8_000),
+      ++identityVersion,
+    );
     pendingIdentity = request;
     const clearPending = () => {
       if (pendingIdentity === request) {
@@ -111,7 +121,8 @@ export function getPortalIdentity<T>(options?: {
 }
 
 export function getCachedPortalIdentity<T>() {
-  if (cachedIdentity && cachedIdentity.expiresAt <= Date.now()) cachedIdentity = null;
+  if (cachedIdentity && cachedIdentity.expiresAt <= Date.now())
+    cachedIdentity = null;
   return cachedIdentity?.expiresAt && cachedIdentity.expiresAt > Date.now()
     ? (cachedIdentity.value as T)
     : null;

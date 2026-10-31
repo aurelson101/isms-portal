@@ -159,10 +159,28 @@ spec:
           envFrom:
             - { configMapRef: { name: isms-portal } }
             - { secretRef: { name: isms-portal-secrets } }
-          volumeMounts: [{ name: documents, mountPath: /data/documents }, { name: worker-health, mountPath: /tmp }]
-          startupProbe: { exec: { command: ["node", "dist/worker-health.js"] }, periodSeconds: 15, failureThreshold: 12 }
-          readinessProbe: { exec: { command: ["node", "dist/worker-health.js"] }, periodSeconds: 15 }
-          livenessProbe: { exec: { command: ["node", "dist/worker-health.js"] }, periodSeconds: 15, failureThreshold: 3 }
+          volumeMounts:
+            [
+              { name: documents, mountPath: /data/documents },
+              { name: worker-health, mountPath: /tmp },
+            ]
+          startupProbe:
+            {
+              exec: { command: ["node", "dist/worker-health.js"] },
+              periodSeconds: 15,
+              failureThreshold: 12,
+            }
+          readinessProbe:
+            {
+              exec: { command: ["node", "dist/worker-health.js"] },
+              periodSeconds: 15,
+            }
+          livenessProbe:
+            {
+              exec: { command: ["node", "dist/worker-health.js"] },
+              periodSeconds: 15,
+              failureThreshold: 3,
+            }
           resources:
             requests: { cpu: 100m, memory: 256Mi }
             limits: { cpu: "1", memory: 1Gi }
@@ -178,7 +196,10 @@ spec:
             name: documents,
             persistentVolumeClaim: { claimName: isms-documents },
           },
-          { name: worker-health, emptyDir: { medium: Memory, sizeLimit: 16Mi } },
+          {
+            name: worker-health,
+            emptyDir: { medium: Memory, sizeLimit: 16Mi },
+          },
         ]
 ---
 apiVersion: policy/v1

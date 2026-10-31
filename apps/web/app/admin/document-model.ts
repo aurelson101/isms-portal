@@ -23,7 +23,11 @@ export type AdminDocument = {
   status: string;
   sensitive: boolean;
   watermarkPosition: "HEADER" | "CENTER" | "FOOTER";
-  translations: Array<{ locale: string; title: string; description?: string | null }>;
+  translations: Array<{
+    locale: string;
+    title: string;
+    description?: string | null;
+  }>;
   space: Space;
   category?: Category;
   createdAt: string;
@@ -64,8 +68,7 @@ export const paginationItems = (
   current: number,
   total: number,
 ): Array<number | "ellipsis"> => {
-  if (total <= 7)
-    return Array.from({ length: total }, (_, index) => index + 1);
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
   const pages = new Set([1, total, current - 1, current, current + 1]);
   return [...pages]
     .filter((item) => item >= 1 && item <= total)

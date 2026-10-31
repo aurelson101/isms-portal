@@ -84,10 +84,19 @@ test("verified SSO offers a prominent sign-in link without replacing AD login", 
   await expect(page.getByLabel("Identifier", { exact: true })).toBeVisible();
 });
 
-test("admin SSO targets the admin workspace and keeps recovery login available", async ({ page }) => {
-  await page.route("**/api/auth/config", (route) => route.fulfill({
-    json: { directoryLoginEnabled: true, ssoEnabled: true, ssoPilotUrl: "/oauth2/start?rd=/", ssoLoginUrl: null },
-  }));
+test("admin SSO targets the admin workspace and keeps recovery login available", async ({
+  page,
+}) => {
+  await page.route("**/api/auth/config", (route) =>
+    route.fulfill({
+      json: {
+        directoryLoginEnabled: true,
+        ssoEnabled: true,
+        ssoPilotUrl: "/oauth2/start?rd=/",
+        ssoLoginUrl: null,
+      },
+    }),
+  );
   await page.goto("/admin/login");
   await page.getByRole("button", { name: "EN", exact: true }).click();
 
@@ -99,9 +108,20 @@ test("admin SSO targets the admin workspace and keeps recovery login available",
   await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
   await sso.click({ trial: true });
   await expect(page).toHaveURL(/\/admin\/login$/);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.route("**/oauth2/start**", (route) => route.fulfill({ contentType: "text/html", body: "<title>SSO redirect test</title>" }));
-  const request = page.waitForRequest((request) => new URL(request.url()).pathname === "/oauth2/start");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.route("**/oauth2/start**", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body: "<title>SSO redirect test</title>",
+    }),
+  );
+  const request = page.waitForRequest(
+    (request) => new URL(request.url()).pathname === "/oauth2/start",
+  );
   await sso.click();
   expect(new URL((await request).url()).searchParams.get("rd")).toBe("/admin");
 });
@@ -110,12 +130,18 @@ for (const config of [
   { ssoEnabled: false, ssoPilotUrl: "/oauth2/start?rd=/" },
   { ssoEnabled: true, ssoPilotUrl: "https://untrusted.example/oauth2/start" },
 ]) {
-  test(`admin login hides ${config.ssoEnabled ? "unsafe" : "unverified"} SSO links`, async ({ page }) => {
-    await page.route("**/api/auth/config", (route) => route.fulfill({
-      json: { directoryLoginEnabled: true, ssoLoginUrl: null, ...config },
-    }));
+  test(`admin login hides ${config.ssoEnabled ? "unsafe" : "unverified"} SSO links`, async ({
+    page,
+  }) => {
+    await page.route("**/api/auth/config", (route) =>
+      route.fulfill({
+        json: { directoryLoginEnabled: true, ssoLoginUrl: null, ...config },
+      }),
+    );
     await page.goto("/admin/login");
-    await expect(page.getByLabel(/Mot de passe|Password/, { exact: true })).toBeVisible();
+    await expect(
+      page.getByLabel(/Mot de passe|Password/, { exact: true }),
+    ).toBeVisible();
     await expect(page.locator(".login-sso")).toHaveCount(0);
   });
 }

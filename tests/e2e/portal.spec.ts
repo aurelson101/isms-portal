@@ -568,11 +568,17 @@ test("document explorer paginates fifteen documents with numbered controls", asy
 
   await page.goto("/explorer?space=general");
   await expect(page.locator(".documents > .document")).toHaveCount(15);
-  await page.locator(".document-pagination").getByRole("button", { name: "2", exact: true }).click();
+  await page
+    .locator(".document-pagination")
+    .getByRole("button", { name: "2", exact: true })
+    .click();
   await expect(page).toHaveURL(/page=2/);
   await expect(page.getByText("Document pagination 16")).toBeVisible();
   await expect(page.locator(".documents > .document")).toHaveCount(1);
-  await page.locator(".document-pagination").getByRole("button", { name: "1", exact: true }).click();
+  await page
+    .locator(".document-pagination")
+    .getByRole("button", { name: "1", exact: true })
+    .click();
   await expect(page).not.toHaveURL(/page=2/);
   await page.getByRole("button", { name: /Suivant/ }).click();
   await expect(page).toHaveURL(/page=2/);
@@ -585,9 +591,18 @@ test("document explorer paginates fifteen documents with numbered controls", asy
   ).toBeVisible();
 });
 
-test("menu subcategories paginate after fifteen items", async ({ page, request }) => {
+test("menu subcategories paginate after fifteen items", async ({
+  page,
+  request,
+}) => {
   const identity = (await (await request.get("/api/me?refresh=1")).json()) as {
-    spaces: Array<{ id: string; slug: string; nameFr: string; nameEn: string; categories: unknown[] }>;
+    spaces: Array<{
+      id: string;
+      slug: string;
+      nameFr: string;
+      nameEn: string;
+      categories: unknown[];
+    }>;
   };
   const firstSpace = identity.spaces[0];
   expect(firstSpace).toBeTruthy();
@@ -599,14 +614,22 @@ test("menu subcategories paginate after fifteen items", async ({ page, request }
     spaceId: firstSpace.id,
     parentId: null,
   }));
-  await page.route("**/api/me?refresh=1", async (route) => route.fulfill({ json: identity }));
+  await page.route("**/api/me?refresh=1", async (route) =>
+    route.fulfill({ json: identity }),
+  );
   await page.goto("/explorer");
   await page.locator("aside .space-menu[aria-controls]").first().click();
-  await expect(page.getByText("Catégorie pagination 15", { exact: true })).toBeVisible();
-  await expect(page.getByText("Catégorie pagination 16", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByText("Catégorie pagination 15", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Catégorie pagination 16", { exact: true }),
+  ).toHaveCount(0);
   const pagination = page.locator("aside .category-pagination").first();
   await pagination.getByRole("button", { name: "2", exact: true }).click();
-  await expect(page.getByText("Catégorie pagination 16", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Catégorie pagination 16", { exact: true }),
+  ).toBeVisible();
 });
 
 test("administration uses live APIs and every menu opens a section", async ({
@@ -870,7 +893,11 @@ test("administration is fully switchable between French and English", async ({
   await page.getByRole("button", { name: "Content and access" }).click();
 
   for (const [menu, heading, group] of [
-    ["Active Directory groups", "Active Directory groups", "Content and access"],
+    [
+      "Active Directory groups",
+      "Active Directory groups",
+      "Content and access",
+    ],
     ["Access rules", "Access rights management", "Content and access"],
     ["Document spaces", "Document spaces", "Content and access"],
     ["Documents", "Documents", "Content and access"],
@@ -966,9 +993,8 @@ test("successful asynchronous forms reset without losing their element", async (
       .filter({ hasText: "Configuration" });
     if ((await configurationGroup.getAttribute("aria-expanded")) !== "true")
       await configurationGroup.click();
-    const configurationGroupId = await configurationGroup.getAttribute(
-      "aria-controls",
-    );
+    const configurationGroupId =
+      await configurationGroup.getAttribute("aria-controls");
     await page
       .locator(`#${configurationGroupId}`)
       .getByRole("button", { name: "Configuration" })
@@ -2259,7 +2285,10 @@ test("personal tools persist searches, preferences, access requests and reports"
     (candidate) =>
       candidate.status === "PUBLISHED" && candidate.versions.length > 0,
   );
-  if (!document) throw new Error("A published document is required for acknowledgement testing.");
+  if (!document)
+    throw new Error(
+      "A published document is required for acknowledgement testing.",
+    );
 
   expect(
     (
