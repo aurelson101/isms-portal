@@ -25,6 +25,16 @@ if [ ! -f "$project_root/.env" ]; then
   exit 1
 fi
 
+playwright_version=$(docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --user node \
+  -v "$project_root/package-lock.json:/package-lock.json:ro" node:22.23.4-alpine node -e '
+    const lock = require("/package-lock.json");
+    const version = lock.packages["node_modules/@playwright/test"]?.version;
+    if (!/^\d+\.\d+\.\d+$/.test(version || "") || lock.packages["node_modules/playwright"]?.version !== version) {
+      throw new Error("The lockfile must contain matching stable Playwright versions");
+    }
+    process.stdout.write(version);
+  ')
+
 # Browser tests exercise the portal through the API. The background worker is
 # intentionally excluded so this disposable stack remains viable beside a
 # production deployment on a small host.
@@ -41,5 +51,5 @@ docker run --rm \
   -v "$project_root:/workspace" \
   -v "$node_modules_volume:/workspace/node_modules" \
   -w /workspace \
-  mcr.microsoft.com/playwright:v1.55.1-noble \
+  "mcr.microsoft.com/playwright:v${playwright_version}-noble" \
   sh -c "npm ci --include=dev && npm run test:e2e -- ${PLAYWRIGHT_ARGS:-}"
