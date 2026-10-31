@@ -21,7 +21,7 @@ export const notificationLabels: Record<string, string> = {
   "risk-exception.create": "Risk exception submitted", "risk-exception.decision": "Risk exception decision",
   "incident-case.create": "Incident assigned", "corrective-action.create": "Corrective action assigned",
 };
-export type NotificationJob = { action: string; resource: string; actor: string; at: string; accepted?: string[]; documentVersionId?: string; reviewIds?: string[]; documentIds?: string[] };
+export type NotificationJob = { action: string; resource: string; actor: string; at: string; accepted?: string[]; documentVersionId?: string; reviewIds?: string[]; reviewReminderBefore?: string; documentIds?: string[] };
 type PreparedNotification = { recipients: string[]; subject: string; text: string; link: string; recipientMessages?: Map<string, { subject: string; text: string }> };
 export type EmailTestType = "document" | "approval" | "review" | "report";
 const emailTemplate = (action: string): EmailTemplate => action.startsWith("document-report") || action.startsWith("security-report") ? "report" : action.startsWith("access-request") ? "access" : action.startsWith("sensitive-approval") || action.startsWith("document-review") ? "approval" : action.startsWith("document") ? "document" : action.startsWith("risk-") || action.startsWith("incident-") || action.startsWith("corrective-") ? "governance" : "service";
@@ -164,7 +164,7 @@ export class NotificationService {
     if (action === "document-review.overdue") {
       if (!event.reviewIds?.length) return null;
       const reviews = await this.prisma.documentReview.findMany({
-        where: { id: { in: event.reviewIds }, automaticPublication: true, status: { in: ["PENDING", "IN_REVIEW"] }, overdueNotifiedAt: null, dueAt: { lte: new Date() }, document: { status: "PUBLISHED", deletedAt: null } },
+        where: { id: { in: event.reviewIds }, automaticPublication: true, status: { in: ["PENDING", "IN_REVIEW"] }, OR: [{ overdueNotifiedAt: null }, ...(event.reviewReminderBefore ? [{ overdueNotifiedAt: { lte: new Date(event.reviewReminderBefore) } }] : [])], dueAt: { lte: new Date() }, document: { status: "PUBLISHED", deletedAt: null } },
         include: { document: { include: { translations: true } } },
         orderBy: { dueAt: "asc" },
       });
@@ -305,7 +305,7 @@ export class NotificationService {
     }
     if (job.data.action === "document-review.overdue" && job.data.reviewIds?.length)
       await this.prisma.documentReview.updateMany({
-        where: { id: { in: job.data.reviewIds }, automaticPublication: true, status: { in: ["PENDING", "IN_REVIEW"] }, overdueNotifiedAt: null, document: { status: "PUBLISHED", deletedAt: null } },
+        where: { id: { in: job.data.reviewIds }, automaticPublication: true, status: { in: ["PENDING", "IN_REVIEW"] }, OR: [{ overdueNotifiedAt: null }, ...(job.data.reviewReminderBefore ? [{ overdueNotifiedAt: { lte: new Date(job.data.reviewReminderBefore) } }] : [])], document: { status: "PUBLISHED", deletedAt: null } },
         data: { overdueNotifiedAt: new Date() },
       });
     if (job.data.documentVersionId && ["document.review.reminder", "document.review.annual", "document.review.overdue"].includes(job.data.action)) {

@@ -19,6 +19,7 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { createHash, createHmac, randomUUID } from "crypto";
 import { findUploadReceipt, uploadReceipt } from "./upload-receipt";
+import { metadataWhere, rejectDuplicate, type DocumentFilters } from "./document-management";
 import { basename, extname } from "path";
 import { createConnection } from "net";
 import { ApiConsumes, ApiTags } from "@nestjs/swagger";
@@ -377,7 +378,9 @@ export class DocumentsController {
     @Query("sensitive") sensitive = "",
     @Query("managed") managed = "false",
     @Query("status") status = "",
+    @Query() filters: DocumentFilters = {},
   ) {
+    const metadataFilters = metadataWhere(filters);
     const q = query.trim().slice(0, 200);
     const selectedStatus = Object.values(DocumentStatus).find(value => value === status);
     if (status && !selectedStatus) throw new BadRequestException("Invalid document status");
@@ -396,7 +399,8 @@ export class DocumentsController {
     const emptyResult = paginated
       ? { items: [], page: 1, limit, total: 0, totalPages: 0 }
       : [];
-    const listingPermission = q ? "search" : "read";
+    const searching = Boolean(q || metadataFilters.length);
+    const listingPermission = searching ? "search" : "read";
     const permissionNames = [
       "preview",
       "download",
@@ -442,7 +446,7 @@ export class DocumentsController {
     const managedSpaceIds = [...manageableSpaceIds].filter(
       (spaceId) =>
         requestedSpaceIds.has(spaceId) &&
-        (!q || readableSpaceIds.includes(spaceId)),
+        (!searching || readableSpaceIds.includes(spaceId)),
     );
     const visibleSpaceIds = [
       ...new Set([...readableSpaceIds, ...managedSpaceIds]),
@@ -528,12 +532,13 @@ export class DocumentsController {
     if (q && fullTextMatches.length === 0) return emptyResult;
     const where: Prisma.DocumentWhereInput = {
       deletedAt: null,
+      ...(metadataFilters.length ? { AND: metadataFilters } : {}),
       ...(selectedStatus ? { status: selectedStatus } : {}),
       OR: managed === "true"
         ? [{ spaceId: { in: managedSpaceIds }, AND: [{ OR: permissionEntries.filter(([permission]) => ["edit", "publish", "archive"].includes(permission)).map(([, records]) => categoryDocumentWhere(records)) }] }]
         : [
             { status: "PUBLISHED", spaceId: { in: readableSpaceIds }, AND: [categoryDocumentWhere(spaces)] },
-            { spaceId: { in: managedSpaceIds }, AND: [{ OR: permissionEntries.filter(([permission]) => ["edit", "publish", "archive"].includes(permission)).map(([, records]) => categoryDocumentWhere(records)) }, ...(q ? [categoryDocumentWhere(spaces)] : [])] },
+            { spaceId: { in: managedSpaceIds }, AND: [{ OR: permissionEntries.filter(([permission]) => ["edit", "publish", "archive"].includes(permission)).map(([, records]) => categoryDocumentWhere(records)) }, ...(searching ? [categoryDocumentWhere(spaces)] : [])] },
           ],
       ...(q
         ? { id: { in: fullTextMatches.map((match) => match.documentId) } }
@@ -792,13 +797,17 @@ export class DocumentsController {
     const receipt = uploadReceipt(req.identity.username, body, file);
     const previousUpload = await findUploadReceipt(this.prisma, receipt);
     if (previousUpload) return previousUpload.document;
+    const sha256 = createHash("sha256").update(file.buffer).digest("hex");
+    if (!existing) {
+      const scopes = await this.authorization.permittedSpaces(req.identity.groups, "edit");
+      await rejectDuplicate(this.prisma, sha256, categoryDocumentWhere(scopes));
+    }
     let replayed = false;
     const scan = protectedOffice
       ? await scanMipUpload(req, file.buffer, extension, sensitive || !!existing?.sensitive, this.antivirus)
       : await this.antivirus.scan(file.buffer);
     const documentId = existing?.id || randomUUID();
     const objectKey = await this.storage.uploadKey(`${scan.status === "CLEAN" ? "documents" : "quarantine"}/${documentId}/${body.locale}/${protectedOffice ? "mip-" : ""}${randomUUID()}${extension}`, body.storageTargetId);
-    const sha256 = createHash("sha256").update(file.buffer).digest("hex");
     const comparison = await prepareVersionComparison(this.prisma, this.storage, documentId, body.locale, file.buffer, extension, scan.status === "CLEAN" && !protectedOffice);
     await this.storage.putObject(objectKey, file.buffer, {
       "Content-Type": file.mimetype,
@@ -954,6 +963,7 @@ export class DocumentsController {
       "success",
       {
         locale: body.locale,
+        fields: [existing?.title !== title ? "title" : "", existing?.description !== description ? "description" : "", version && version.locale !== body.locale ? "language" : "", categoryChanged ? "category" : ""].filter(Boolean),
         versionId: version?.id,
         previousLocale: version?.locale,
         categoryId: body.categoryId,
@@ -2842,16 +2852,19 @@ export class DocumentAdminController {
     @Query("sort") sort = "updatedAt",
     @Query("order") order: "asc" | "desc" = "desc",
     @Query("summary") summary?: string,
+    @Query() filters: DocumentFilters = {},
   ) {
     if (typeof query !== "string") throw new BadRequestException("q must be a string");
     if (order !== "asc" && order !== "desc") throw new BadRequestException("order must be asc or desc");
     const q = query.trim().slice(0, 200);
+    const metadataFilters = metadataWhere(filters);
     const metadataMatches = q ? await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
       SELECT id FROM "Document" WHERE "deletedAt" IS NULL
       AND EXISTS (SELECT 1 FROM jsonb_each_text(metadata) AS field WHERE field.key ILIKE ${`%${q}%`} OR field.value ILIKE ${`%${q}%`})
     `) : [];
     const where: Prisma.DocumentWhereInput = {
       deletedAt: null,
+      ...(metadataFilters.length ? { AND: metadataFilters } : {}),
       ...(q
         ? {
             OR: [
@@ -2986,6 +2999,7 @@ export class DocumentAdminController {
     const receipt = uploadReceipt(req.identity.username, body, file);
     const previousUpload = await findUploadReceipt(this.prisma, receipt);
     if (previousUpload) return previousUpload.document;
+    if (!existing) await rejectDuplicate(this.prisma, createHash("sha256").update(file.buffer).digest("hex"), {});
     let replayed = false;
     const scan = protectedOffice
       ? await scanMipUpload(req, file.buffer, extension, sensitive || !!existing?.sensitive, this.antivirus)

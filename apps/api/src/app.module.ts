@@ -11,6 +11,7 @@ import {
   IncidentReportsController,
 } from "./controllers";
 import { IdentityMiddleware } from "./identity.middleware";
+import { DocumentManagementController } from "./document-management.controller";
 import { AdminGuard } from "./security";
 import { PrismaService } from "./prisma.service";
 import { AuthorizationService } from "./authorization.service";
@@ -44,6 +45,7 @@ import { NotificationService } from "./notification.service";
     HealthController,
     IdentityController,
     DocumentsController,
+    DocumentManagementController,
     IncidentReportsController,
     AdminController,
     DocumentAdminController,

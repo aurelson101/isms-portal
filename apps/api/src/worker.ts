@@ -12,6 +12,7 @@ import { AuthorizationService } from "./authorization.service";
 import { exclusiveScheduler } from "./scheduler-lock";
 import { dispatchOutbox, maintainHistory } from "./notification-outbox";
 import { collectHealthSnapshot } from "./health-alerts";
+import { readReminderSettings } from "./document-management";
 
 const connection = notificationConnection();
 const prisma = new PrismaService();
@@ -75,14 +76,17 @@ worker.on("failed", (job, error) => {
 
 async function schedule(db: Prisma.TransactionClient) {
   const now = Date.now();
-  const overduePublicationReviews = await db.documentReview.findMany({
-    where: { automaticPublication: true, status: { in: ["PENDING", "IN_REVIEW"] }, overdueNotifiedAt: null, dueAt: { lte: new Date(now) }, document: { status: "PUBLISHED", deletedAt: null } },
+  const reminderSettings = readReminderSettings((await db.applicationSetting.findUnique({ where: { key: "documents.reminders" } }))?.value);
+  const reminderBefore = reminderSettings.publicationRepeatDays > 0 ? new Date(now - reminderSettings.publicationRepeatDays * 86400000) : undefined;
+  const overduePublicationReviews = reminderSettings.enabled ? await db.documentReview.findMany({
+    where: { automaticPublication: true, status: { in: ["PENDING", "IN_REVIEW"] }, OR: [{ overdueNotifiedAt: null }, ...(reminderBefore ? [{ overdueNotifiedAt: { lte: reminderBefore } }] : [])], dueAt: { lte: new Date(now) }, document: { status: "PUBLISHED", deletedAt: null } },
     select: { id: true }, orderBy: { dueAt: "asc" }, take: 100,
-  });
+  }) : [];
   if (overduePublicationReviews.length) {
     const reviewIds = overduePublicationReviews.map((review) => review.id);
     const batchId = createHash("sha256").update(reviewIds.slice().sort().join(",")).digest("hex").slice(0, 24);
-    await notifications.enqueue({ action: "document-review.overdue", resource: `review-overdue:${batchId}`, reviewIds, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `publication-review-overdue-${batchId}`);
+    const period = reminderBefore ? `-${Math.floor(now / (reminderSettings.publicationRepeatDays * 86400000))}` : "";
+    await notifications.enqueue({ action: "document-review.overdue", resource: `review-overdue:${batchId}`, reviewIds, ...(reminderBefore ? { reviewReminderBefore: reminderBefore.toISOString() } : {}), actor: "ISMS scheduler", at: new Date(now).toISOString() }, `publication-review-overdue-${batchId}${period}`);
   }
   const reviewAt = new Date(now + 30 * 86400000);
   const dueExceptions = await db.riskException.findMany({
@@ -118,8 +122,8 @@ async function schedule(db: Prisma.TransactionClient) {
     where: { validUntil: { lte: new Date(now) } },
   });
   const annualReviewScope = { document: { deletedAt: null, status: "PUBLISHED" as const } };
-  const reminderAt = new Date(now + 30 * 86400000);
-  const reviewReminders = await db.documentVersion.findMany({ where: { ...annualReviewScope, annualReviewReminderAt: null, annualReviewDueAt: { gt: new Date(now), lte: reminderAt } }, select: { id: true, documentId: true }, take: 100 });
+  const reminderAt = new Date(now + reminderSettings.leadDays * 86400000);
+  const reviewReminders = reminderSettings.enabled ? await db.documentVersion.findMany({ where: { ...annualReviewScope, annualReviewReminderAt: null, annualReviewDueAt: { gt: new Date(now), lte: reminderAt } }, select: { id: true, documentId: true }, take: 100 }) : [];
   for (const version of reviewReminders)
     await notifications.enqueue({ action: "document.review.reminder", resource: `document:${version.documentId}`, documentVersionId: version.id, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `annual-review-reminder-${version.id}`);
   const annualReviewVersions = await db.documentVersion.findMany({ where: { ...annualReviewScope, annualReviewNotifiedAt: null, annualReviewDueAt: { lte: new Date(now) } }, select: { id: true, documentId: true }, orderBy: { annualReviewDueAt: "asc" }, take: 100 });
@@ -147,7 +151,7 @@ async function schedule(db: Prisma.TransactionClient) {
       });
     await notifications.enqueue({ action: "document.review.annual", resource: `document:${version.documentId}`, documentVersionId: version.id, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `annual-review-${version.documentId}-${version.id}-${new Date(now).toISOString().slice(0, 10)}`);
   }
-  const reviewOverdues = await db.documentVersion.findMany({ where: { ...annualReviewScope, annualReviewOverdueAt: null, annualReviewDueAt: { lte: new Date(now - 7 * 86400000) } }, select: { id: true, documentId: true }, take: 100 });
+  const reviewOverdues = reminderSettings.enabled ? await db.documentVersion.findMany({ where: { ...annualReviewScope, annualReviewOverdueAt: null, annualReviewDueAt: { lte: new Date(now - reminderSettings.overdueDays * 86400000) } }, select: { id: true, documentId: true }, take: 100 }) : [];
   for (const version of reviewOverdues)
     await notifications.enqueue({ action: "document.review.overdue", resource: `document:${version.documentId}`, documentVersionId: version.id, actor: "ISMS scheduler", at: new Date(now).toISOString() }, `annual-review-overdue-${version.id}`);
   const connections = await db.directoryConnection.findMany({

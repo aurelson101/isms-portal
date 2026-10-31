@@ -8,6 +8,8 @@ import { Icon } from "../icons";
 import { StorageSelect } from "../storage-select";
 import { BatchImport } from "../batch-import";
 import { DocumentMetadataFields } from "../document-metadata-fields";
+import { DocumentBulkEditor, DocumentHistory, DocumentQuality, DocumentSearchForm } from "../document-management";
+import { readMetadataFilters, type MetadataFilters } from "../document-management-copy";
 import { uploadAttempt, type UploadAttempt } from "../upload-attempt";
 import { translationFields, latestVersion, validateUpload } from "../moderator/document-model";
 import { api } from "./api-client";
@@ -37,6 +39,7 @@ export function DocumentsPanel({
   onError: (message: string) => void;
 }) {
   const [spaceId, setSpaceId] = useState("");
+  const [metadataSearch, setMetadataSearch] = useState<MetadataFilters>({});
   const [versionUploadDocument, setVersionUploadDocument] =
     useState<AdminDocument | null>(null);
   const [editingMetadataDocument, setEditingMetadataDocument] = useState<AdminDocument | null>(null);
@@ -69,6 +72,7 @@ export function DocumentsPanel({
   useEffect(() => {
     const restore = () => {
       const query = new URLSearchParams(window.location.search);
+      setMetadataSearch(readMetadataFilters(query));
       const page = Number(query.get("docPage") || 1);
       setDocumentPage(Number.isSafeInteger(page) && page > 0 ? Math.min(page, 1000000) : 1);
       const sort = query.get("docSort") || "updatedAt";
@@ -86,11 +90,12 @@ export function DocumentsPanel({
   useEffect(() => {
     if (!viewReady) return;
     const url = new URL(window.location.href);
+    for (const key of ["reference", "owner", "documentType", "keywords", "reviewFrom", "reviewTo"] as const) { if (metadataSearch[key]) url.searchParams.set(key, metadataSearch[key]!); else url.searchParams.delete(key); }
     for (const [key, value] of [["docPage", documentPage > 1 ? String(documentPage) : ""], ["docSort", documentSort !== "updatedAt" ? documentSort : ""], ["docQ", documentQuery]]) {
       if (value) url.searchParams.set(key, value); else url.searchParams.delete(key);
     }
     window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
-  }, [viewReady, documentPage, documentSort, documentQuery]);
+  }, [viewReady, documentPage, documentSort, documentQuery, metadataSearch]);
   useEffect(() => {
     const query = search.trim().slice(0, 200);
     if (query === documentQuery) return;
@@ -111,7 +116,7 @@ export function DocumentsPanel({
     setPageDocuments([]);
     try {
       const result = await api<{ items: AdminDocument[]; total: number }>(
-        `/api/admin/documents?${new URLSearchParams({ page: String(documentPage), limit: String(documentPageSize), q: documentQuery, sort: documentSort, order: "desc" })}`,
+        `/api/admin/documents?${new URLSearchParams({ ...metadataSearch, page: String(documentPage), limit: String(documentPageSize), q: documentQuery, sort: documentSort, order: "desc" })}`,
         { signal: controller.signal },
       );
       if (request !== documentRequest.current) return;
@@ -123,7 +128,7 @@ export function DocumentsPanel({
     } finally {
       if (request === documentRequest.current) setDocumentsLoading(false);
     }
-  }, [documentPage, documentQuery, documentSort, onError]);
+  }, [documentPage, documentQuery, documentSort, onError, metadataSearch]);
   useEffect(() => {
     if (refreshing || !viewReady) return;
     const requests = documentRequest;
@@ -164,6 +169,8 @@ export function DocumentsPanel({
   return (
     <>
       <h1>{metadataOnly ? t("Métadonnées GED", "GED metadata") : t("Documents")}</h1>
+      <DocumentSearchForm locale={locale} value={metadataSearch} onApply={value => { setMetadataSearch(value); setDocumentPage(1); }} />
+      <DocumentQuality locale={locale} admin />
       <div className="admin-management-tools">
         <label>{t("Rechercher un document", "Search documents")}<input type="search" maxLength={200} value={search} onChange={(event) => onSearch(event.target.value)} /></label>
         <label>{t("Trier par", "Sort by")}<select value={documentSort} onChange={(event) => { setDocumentPage(1); setDocumentSort(event.target.value); }}>
@@ -365,6 +372,8 @@ export function DocumentsPanel({
           </div>
         </form>
       )}
+      <DocumentBulkEditor key={pageDocuments.map(document => document.id + document.updatedAt).join(",")} documents={pageDocuments} locale={locale} admin onComplete={async () => { await loadDocuments(); await onChanged(); }} />
+      {editingMetadataDocument && <DocumentHistory key={editingMetadataDocument.id} id={editingMetadataDocument.id} locale={locale} />}
       <div className="admin-table-wrap">
         <table className="admin-actions-table" aria-busy={documentsLoading}>
           <thead>

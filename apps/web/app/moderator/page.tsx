@@ -14,6 +14,8 @@ import { useBranding } from "../branding";
 import { responseMessage } from "../request-errors";
 
 import { MetadataForm, VersionForm } from "./document-forms";
+import { DocumentBulkEditor, DocumentHistory, DocumentQuality, DocumentSearchForm } from "../document-management";
+import { metadataFilterKeys, readMetadataFilters, type MetadataFilters } from "../document-management-copy";
 import { BatchImport } from "../batch-import";
 import { documentFilters, documentPage as parseDocumentPage, latestVersion, translationFields, validateUpload, type Space, type Category, type ModeratorDocument as Document, type MetadataValues } from "./document-model";
 
@@ -43,6 +45,8 @@ export default function ModeratorPage() {
   const [loading, setLoading] = useState(true);
   const [mutationBusy, setMutationBusy] = useState(false);
   const [search, setSearch] = useState("");
+  const [metadataSearch, setMetadataSearch] = useState<MetadataFilters>({});
+  const metadataSearchRef = useRef<MetadataFilters>({});
   const [hasActiveSearch, setHasActiveSearch] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState("");
   const spaceFilter = useRef("");
@@ -74,6 +78,7 @@ export default function ModeratorPage() {
     setLoading(true);
     try {
     const query = new URLSearchParams({ page: String(page), limit: "20", managed: "true", q: searchQuery.current });
+    for (const [key, value] of Object.entries(metadataSearchRef.current)) if (value) query.set(key, value);
     if (spaceFilter.current) query.set("space", spaceFilter.current);
     if (statusFilter.current) query.set("status", statusFilter.current);
     const [me, list] = await Promise.all([fetch("/api/me", { cache: "no-store", signal: controller.signal }), fetch(`/api/documents?${query}`, { cache: "no-store", signal: controller.signal })]);
@@ -92,7 +97,7 @@ export default function ModeratorPage() {
     setDocuments(result.items);
     setDocumentTotalPages(result.totalPages);
     const url = new URL(window.location.href);
-    for (const key of ["q", "space", "status", "page"]) {
+    for (const key of ["q", "space", "status", "page", ...metadataFilterKeys]) {
       const value = key === "page" ? result.page > 1 ? String(result.page) : "" : query.get(key);
       if (value) url.searchParams.set(key, value);
       else url.searchParams.delete(key);
@@ -107,6 +112,8 @@ export default function ModeratorPage() {
   }, []);
   useEffect(() => {
     const filters = documentFilters(new URLSearchParams(window.location.search));
+    metadataSearchRef.current = readMetadataFilters(new URLSearchParams(window.location.search));
+    setMetadataSearch(metadataSearchRef.current);
     spaceFilter.current = filters.space;
     statusFilter.current = filters.status;
     searchQuery.current = filters.q;
@@ -326,6 +333,10 @@ export default function ModeratorPage() {
     <details id="moderator-permissions" hidden={activeSection !== "permissions"} tabIndex={-1} className="moderator-permissions"><summary>{t("Mes droits documentaires", "My document permissions")} <span>{permissionsSpaces.length}</span></summary><div className="admin-account-list">{permissionsSpaces.map((space) => <div key={space.id}><span><strong>{locale === "fr" ? space.nameFr : space.nameEn || space.nameFr}</strong><small>{[space.permissions.upload && t("Déposer", "Upload"), space.permissions.edit && t("modifier", "edit"), space.permissions.publish && t("publier", "publish"), space.permissions.archive && t("archiver / supprimer", "archive / delete")].filter(Boolean).join(" · ")}</small></span></div>)}{!permissionsSpaces.length && <p className="admin-empty compact">{t("Aucun droit de gestion documentaire n’est attribué.", "No document management right is assigned.")}</p>}</div></details>
     <section id="moderator-import" hidden={activeSection !== "import"} tabIndex={-1}><BatchImport locale={locale} disabled={busy || Boolean(editing || metadataEditing)} onComplete={() => load(documentPage)} onBusyChange={setMutationBusy} onPendingChange={(pending) => { importPending.current = pending; }} /></section>
     <div className="moderator-document-view" hidden={!documentView}>
+    <DocumentSearchForm locale={locale} value={metadataSearch} onApply={value => { metadataSearchRef.current = value; setMetadataSearch(value); void load(1).catch(reason => setError(reason.message)); }} />
+    <DocumentQuality locale={locale} />
+    <DocumentBulkEditor key={documents.map(document => document.id + document.updatedAt).join(",")} documents={documents} locale={locale} onComplete={() => load(documentPage)} />
+    {metadataEditing && <DocumentHistory key={metadataEditing.id} id={metadataEditing.id} locale={locale} />}
     {metadataEditing && <MetadataForm document={metadataEditing} categories={metadataCategories} value={metadata} onChange={setMetadata} onSave={saveMetadata} busy={busy} locale={locale} onCancel={() => closeEditor()} onDirty={() => { dirty.current = true; }} />}
     <div hidden={metadataOnly}>{editing && <VersionForm key={editing.id} document={editing} versionLocale={versionLocale} onLocaleChange={setVersionLocale} onUpload={uploadVersion} busy={busy} locale={locale} onCancel={() => closeEditor()} onDirty={() => { dirty.current = true; }} />}</div>
     <section id={metadataOnly ? "moderator-metadata" : "moderator-documents"} tabIndex={-1} className="moderator-section">

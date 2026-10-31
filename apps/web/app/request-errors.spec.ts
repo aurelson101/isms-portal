@@ -5,6 +5,16 @@ import { prepareBrandLogo, updateBrandingCache } from "./branding";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("safe errors and branding", () => {
+  it("exposes authorized duplicate actions and a localized error instead of raw server text", async () => {
+    vi.stubGlobal("localStorage", { getItem: () => "en" });
+    const target = new EventTarget();
+    vi.stubGlobal("window", target);
+    let detail: unknown;
+    target.addEventListener("isms:duplicate-upload", event => { detail = (event as CustomEvent).detail; });
+    const body = { code: "DOCUMENT_DUPLICATE", slug: "existing-policy", title: "Policy", message: "Internal diagnostic" };
+    expect(await responseMessage(Response.json(body, { status: 409 }), "Fallback")).toBe("This file already exists. The upload was stopped.");
+    expect(detail).toEqual(body);
+  });
   it("explains stale edits without exposing backend details", async () => {
     vi.stubGlobal("localStorage", { getItem: () => "en" });
     expect(await responseMessage(Response.json({ code: "DOCUMENT_CHANGED", message: "internal" }, { status: 409 }), "Fallback")).toContain("Your fields are preserved");

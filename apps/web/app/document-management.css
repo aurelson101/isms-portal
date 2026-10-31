@@ -1,0 +1,93 @@
+.document-management {
+  border: 1px solid var(--border, #d2def4);
+  border-radius: 10px;
+  padding: 12px;
+  margin-block: 12px;
+  min-width: 0;
+}
+.document-management > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px;
+}
+.document-management form {
+  margin-top: 12px;
+}
+.document-management-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 12px;
+}
+.document-management label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.document-management :is(input:not([type="checkbox"]), select) {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid #b7caec;
+  border-radius: 6px;
+  font: inherit;
+  background: var(--surface, #fff);
+  color: inherit;
+  box-sizing: border-box;
+}
+.document-management fieldset {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+.document-bulk-selection {
+  max-height: 220px;
+  overflow-y: auto;
+  display: grid;
+  gap: 6px;
+  padding-block: 8px;
+}
+.document-bulk-selection label,
+.document-management label:has(> input[type="checkbox"]) {
+  flex-direction: row;
+  align-items: center;
+}
+.document-management input[type="checkbox"] {
+  flex: 0 0 auto;
+}
+.document-management-grid .button-row {
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+}
+.document-bulk-preview {
+  max-height: 300px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  margin-block: 12px;
+}
+.document-management li {
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+.document-management dd {
+  margin: 6px 0;
+  font-size: 1.3em;
+  font-weight: 600;
+}
+.duplicate-upload-notice {
+  position: fixed;
+  inset: auto 16px 24px;
+  max-width: 700px;
+  margin-inline: auto;
+  z-index: 2000;
+  background: #fff;
+  color: #0b2450;
+  border: 2px solid #c37b00;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 8px 32px #0003;
+}
+.duplicate-upload-notice .button-row {
+  flex-wrap: wrap;
+}

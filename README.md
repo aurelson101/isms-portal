@@ -49,6 +49,40 @@ fait foi.
 
 ### Métadonnées GED et gestion documentaire (30 octobre 2026)
 
+Nouveautés du 31 octobre : recherche GED par référence, responsable, type, mots-clés
+et plage de dates de revue, combinable aux langues, catégories et favoris. Les recherches
+enregistrées conservent ces critères. Les recherches textuelles sur un champ précis
+respectent sa casse ; la recherche générale reste insensible à la casse.
+
+Les menus Documents et Métadonnées des administrateurs et modérateurs proposent
+un **traitement par lot** de la page courante : sélection de 50 documents maximum,
+changement de catégorie et ajout/remplacement de valeurs de métadonnées, aperçu avant
+confirmation. Les autres champs restent conservés. Les ACL source et destination
+sont vérifiées pour chaque document ; toute modification concurrente annule le lot.
+**Aucune métadonnée n'est obligatoire.** Les modèles restent facultatifs.
+
+L'**historique des modifications**, accessible aux éditeurs depuis une fiche en cours
+d'édition, affiche auteur, date, action et noms des champs modifiés, séparément des
+versions du fichier. Il ne restitue pas les anciennes valeurs sensibles.
+La détection SHA-256 d'un dépôt initial retrouve les fichiers identiques parmi les
+documents que le déposant peut modifier et propose d'ouvrir l'existant ou de gérer
+une nouvelle version ; aucun document inaccessible n'est dévoilé.
+
+**Suivi documentaire** affiche les responsables manquants, les champs conseillés non
+renseignés et les revues en retard dans le périmètre d'édition. L'administrateur peut
+configurer les rappels annuels (avant échéance et délai de retard) et la répétition des
+rappels de revues de publication. La répétition vaut `0` par défaut (un seul rappel).
+La date de métadonnée reste descriptive : elle ne crée pas de revue automatique.
+Les rappels utilisent les canaux documentaires existants ; aucune campagne de mail
+n'est déclenchée par l'affichage de ces compteurs.
+
+Le workflow **Validated release** doit être lancé sur `main` avec un nouveau tag :
+qualité, build, recette Docker isolée des rôles, performance et contrôle des images
+doivent tous réussir avant la création de la release, de son ZIP et des empreintes.
+Il publie le SHA testé et refuse de remplacer un tag existant. Un contrôle en échec
+bloque la publication. La migration additive `20261031120000_document_lookup_indexes`
+indexe les empreintes et l'historique ; sauvegarder PostgreSQL avant migration.
+
 - **[Métadonnées documentaires](#métadonnées-documentaires)** : modèles de fiche,
   champs personnalisés, recherche et édition sans nouvelle version du fichier.
 - **[ACL par catégorie](#acl-des-catégories-et-sous-catégories)** : héritage avec

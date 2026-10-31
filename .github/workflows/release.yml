@@ -1,0 +1,71 @@
+name: Validated release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: New immutable version tag (v1.2.3 or v1.2.3-rc.1)
+        required: true
+        type: string
+      prerelease:
+        description: Publish as a prerelease
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  security-events: write
+
+concurrency:
+  group: validated-release
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate the branch and new tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]
+          test "${#RELEASE_TAG}" -le 80
+          python3 -c 'import json,os; assert os.environ["RELEASE_TAG"].split("-",1)[0][1:] == json.load(open("package.json"))["version"], "Tag version must match package.json"'
+          existing=$(git ls-remote --tags origin "refs/tags/$RELEASE_TAG")
+          test -z "$existing"
+  acceptance:
+    needs: preflight
+    uses: ./.github/workflows/ci.yml
+  images:
+    needs: acceptance
+    uses: ./.github/workflows/supply-chain.yml
+  publish:
+    needs: [acceptance, images]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Package and publish the exact validated commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          existing=$(git ls-remote --tags origin "refs/tags/$RELEASE_TAG")
+          test -z "$existing"
+          mkdir -p "$RUNNER_TEMP/isms-release"
+          asset="isms-portal-$RELEASE_TAG-source.zip"
+          git archive --format=zip --prefix="isms-portal-$RELEASE_TAG/" -o "$RUNNER_TEMP/isms-release/$asset" "$GITHUB_SHA"
+          cd "$RUNNER_TEMP/isms-release"
+          sha256sum "$asset" > SHA256SUMS.txt
+          args=()
+          if test "$PRERELEASE" = true; then args+=(--prerelease); fi
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$RELEASE_TAG" -f sha="$GITHUB_SHA" > /dev/null
+          gh release create "$RELEASE_TAG" "$asset" SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --verify-tag --title "ISMS Portal $RELEASE_TAG" --generate-notes "${args[@]}"

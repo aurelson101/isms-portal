@@ -6,6 +6,8 @@ import { CustomMetadataFields, metadataLabel, metadataDisplayValue, metadataKeyw
 import { uploadAttempt, type UploadAttempt } from "./upload-attempt";
 import { normalizePdfPage, parsePdfProgress, type PdfZoom } from "./pdf-progress";
 import { copyDocumentLink, documentShareUrl } from "./document-share";
+import { DocumentSearchForm } from "./document-management";
+import { readMetadataFilters, type MetadataFilters } from "./document-management-copy";
 
 import { localizedPair, translate } from "./i18n/translate";
 
@@ -602,6 +604,7 @@ export function Portal({
   const [space, setSpace] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [documentFormat, setDocumentFormat] = useState("");
+  const [metadataSearch, setMetadataSearch] = useState<MetadataFilters>({});
   const [documentLanguage, setDocumentLanguage] = useState("");
   const [documentSensitivity, setDocumentSensitivity] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -808,6 +811,7 @@ export function Portal({
       else setLoading(true);
       setLoadError(false);
       const parameters = new URLSearchParams();
+      for (const [key, value] of Object.entries(metadataSearch)) if (value) parameters.set(key, value);
       if (query.trim()) parameters.set("q", query.trim());
       if (category) parameters.set("categoryId", category);
       if (space) parameters.set("space", space);
@@ -855,6 +859,7 @@ export function Portal({
       space,
       favoritesOnly,
       documentFormat,
+      metadataSearch,
       documentLanguage,
       documentSensitivity,
       page,
@@ -864,6 +869,7 @@ export function Portal({
 
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search);
+    setMetadataSearch(readMetadataFilters(parameters));
     const requestedCategory = parameters.get("categoryId");
     const legacyCategory = parameters.get("category");
     const requestedSpace = parameters.get("space");
@@ -887,8 +893,6 @@ export function Portal({
     }
     if (requestedQuery) {
       setQuery(requestedQuery);
-      setCategory("");
-      setSpace("");
     }
     if (requestedSort === "popular") setDocumentSort("popular");
     setFavoritesOnly(requestedFavorites);
@@ -1086,6 +1090,7 @@ export function Portal({
     setQuery("");
     setCategory(categoryId);
     setSpace(spaceSlug);
+    setMetadataSearch({});
     setFavoritesOnly(false);
     setDocumentFormat("");
     setDocumentLanguage("");
@@ -1206,6 +1211,7 @@ export function Portal({
     }
     setQuery("");
     setSpace(next);
+    setMetadataSearch({});
     setCategory("");
     setFavoritesOnly(false);
     setDocumentFormat("");
@@ -1233,6 +1239,7 @@ export function Portal({
     setCategory("");
     setSpace("");
     setFavoritesOnly(true);
+    setMetadataSearch({});
     setDocumentFormat("");
     setDocumentLanguage("");
     setDocumentSensitivity("");
@@ -1240,6 +1247,7 @@ export function Portal({
     window.history.replaceState(null, "", "/explorer?favorites=true");
   };
   const clearFilters = () => {
+    setMetadataSearch({});
     setQuery("");
     setCategory("");
     setSpace("");
@@ -1255,6 +1263,7 @@ export function Portal({
     const target = Math.min(Math.max(1, next), Math.max(1, totalPages));
     setPage(target);
     const parameters = new URLSearchParams();
+    for (const [key, value] of Object.entries(metadataSearch)) if (value) parameters.set(key, value);
     if (query.trim()) parameters.set("q", query.trim());
     if (category) {
       const selected = identity?.spaces
@@ -1854,7 +1863,10 @@ export function Portal({
               event.preventDefault();
               if (explorerMode) {
                 const parameters = new URLSearchParams();
+                for (const [key, value] of Object.entries(metadataSearch)) if (value) parameters.set(key, value);
                 if (query.trim()) parameters.set("q", query.trim());
+                if (space) parameters.set("space", space);
+                if (category) parameters.set("categoryId", category);
                 if (documentSort === "popular") {
                   parameters.set("sort", documentSort);
                 }
@@ -2267,7 +2279,13 @@ export function Portal({
                     </div>
                   </div>
                 </section>
-                {(query || category || space || documentFormat || documentLanguage || documentSensitivity || documentSort !== "recent") && (
+                <DocumentSearchForm locale={locale} value={metadataSearch} onApply={value => {
+                  setMetadataSearch(value); setPage(1);
+                  const parameters = new URLSearchParams(window.location.search);
+                  for (const key of ["reference", "owner", "documentType", "keywords", "reviewFrom", "reviewTo"] as const) { if (value[key]) parameters.set(key, value[key]!); else parameters.delete(key); }
+                  parameters.delete("page"); window.history.replaceState(null, "", `/explorer?${parameters}`);
+                }} />
+                {(query || category || space || documentFormat || documentLanguage || documentSensitivity || Object.keys(metadataSearch).length > 0 || documentSort !== "recent") && (
                   <div className="active-document-filters" aria-label={translate(locale, "Filtres actifs", "Active filters")}>
                     {query && <button type="button" onClick={() => setQuery("")}>{query} <span aria-hidden="true">×</span></button>}
                     {space && <button type="button" onClick={() => setSpace("")}>{selectedSpace ? (locale === "fr" ? selectedSpace.nameFr : selectedSpace.nameEn) : space} <span aria-hidden="true">×</span></button>}
@@ -3670,7 +3688,7 @@ export function Portal({
                   return;
                 } finally { uploadInFlight.current = false; }
                 if (!response.ok) {
-                  setActionError(t.depositError);
+                  setActionError(await responseMessage(response, t.depositError));
                   return;
                 }
                 setDepositOpen(false);

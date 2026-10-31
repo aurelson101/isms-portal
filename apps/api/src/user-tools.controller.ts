@@ -55,6 +55,7 @@ const allowedFilterKeys = new Set([
   "sensitive",
   "sort",
   "favorites",
+  "reference", "owner", "documentType", "keywords", "reviewFrom", "reviewTo",
 ]);
 
 const securityAttachmentTypes: Record<string, string[]> = {

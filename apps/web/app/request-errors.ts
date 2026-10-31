@@ -1,8 +1,13 @@
 import { readLocale } from "./i18n/locale";
+import { documentLabel } from "./document-management-copy";
 
 export async function responseMessage(response: Response, fallback: string) {
   const body: unknown = await response.json().catch(() => null);
   const code = body && typeof body === "object" && "code" in body ? body.code : null;
+  if (code === "DOCUMENT_DUPLICATE") {
+    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("isms:duplicate-upload", { detail: body }));
+    return documentLabel(readLocale(), "duplicate");
+  }
   if (code === "DOCUMENT_CHANGED") return {
     fr: "Le document a changé. Vos champs sont conservés ; rouvrez l'éditeur pour comparer avant d'enregistrer.",
     en: "The document changed. Your fields are preserved; reopen the editor to compare before saving.",

@@ -67,6 +67,7 @@ it.each(["files/guide.pdf", "files/earlier.pdf"])("recovers a transaction result
   const record = vi.fn();
   const controller = Object.assign(Object.create(DocumentsController.prototype), {
     prisma: {
+      document: { findFirst: vi.fn().mockResolvedValue(null) },
       documentSpace: { findFirst: vi.fn().mockResolvedValue({ id: "space" }) },
       documentVersion: {
         findFirst: vi.fn().mockResolvedValue(null),
@@ -74,7 +75,7 @@ it.each(["files/guide.pdf", "files/earlier.pdf"])("recovers a transaction result
       },
       $transaction: vi.fn().mockRejectedValue(new Error("Transaction response lost")),
     },
-    authorization: { can: vi.fn().mockResolvedValue(true) },
+    authorization: { can: vi.fn().mockResolvedValue(true), permittedSpaces: vi.fn().mockResolvedValue([{ id: "space" }]) },
     antivirus: { scan: vi.fn().mockResolvedValue({ status: "CLEAN" }) },
     storage: { uploadKey: vi.fn().mockResolvedValue("files/guide.pdf"), putObject: vi.fn().mockResolvedValue(undefined), removeObject },
     audit: { record },

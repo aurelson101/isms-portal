@@ -27,6 +27,19 @@ function setup() {
 }
 const event = { action: "document.publish", resource: "document:doc", actor: "publisher", at: "2026-09-11T12:00:00Z" };
 describe("Notification routing", () => {
+  it("repeats only eligible overdue reviews and never marks a failed delivery", async () => {
+    const h = setup();
+    h.prisma.documentReview.findMany.mockResolvedValue([{ id: "review", documentId: "doc", dueAt: new Date("2026-08-01T00:00:00Z"), document: { translations: [{ locale: "en", title: "Policy" }] } }]);
+    vi.spyOn(h.service, "staff").mockResolvedValue(["editor@example.test"]);
+    const cutoff = "2026-10-24T00:00:00.000Z";
+    const data = { ...event, action: "document-review.overdue", reviewIds: ["review"], reviewReminderBefore: cutoff };
+    h.alerts.sendPreferredTo.mockResolvedValueOnce({ delivered: false });
+    await expect(h.service.process({ data, updateData: vi.fn() } as never)).rejects.toThrow();
+    expect(h.prisma.documentReview.updateMany).not.toHaveBeenCalled();
+    expect(h.prisma.documentReview.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: { in: ["PENDING", "IN_REVIEW"] }, document: { status: "PUBLISHED", deletedAt: null }, OR: [{ overdueNotifiedAt: null }, { overdueNotifiedAt: { lte: new Date(cutoff) } }] }) }));
+    await h.service.process({ data, updateData: vi.fn() } as never);
+    expect(h.prisma.documentReview.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { overdueNotifiedAt: expect.any(Date) } }));
+  });
   it("groups publication summaries by recipient without revealing another reader's documents", async () => {
     const h = setup();
     const document = (id: string, spaceId: string) => ({ id, slug: id, spaceId, translations: [{ locale: "en", title: id }], space: { nameEn: spaceId }, category: null, versions: [{ version: 1 }] });

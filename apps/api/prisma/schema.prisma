@@ -434,6 +434,8 @@ model StoredFile {
   distributedVersions DocumentVersion[] @relation("DistributedDocumentVersion")
   scans               AntivirusScan[]
   createdAt           DateTime          @default(now())
+
+  @@index([sha256])
 }
 
 model AccessRule {
@@ -611,6 +613,7 @@ model AuditEvent {
   @@index([occurredAt])
   @@index([action, occurredAt])
   @@index([identity, occurredAt])
+  @@index([resource, occurredAt])
 }
 
 model ApplicationSetting {

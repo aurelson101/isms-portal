@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { filterHelpTopics, normalizeHelpText } from "./help-search";
 import { Icon } from "../icons";
 import type { Locale } from "../i18n/locale";
+import { documentManagementHelp } from "../document-management-help";
 
 type HelpTarget = "dashboard" | "documents" | "groups" | "rules" | "spaces" | "governance" | "requests" | "directory" | "sso" | "certificates" | "storage" | "integrations" | "alert-channels" | "alert-policy" | "health" | "observability" | "audit" | "settings" | "languages" | "profile" | "administrators" | "moderators" | "trash" | "incidents" | "advanced-settings";
 type Text = [string, string];
@@ -464,6 +465,7 @@ export function HelpPanel({ locale, onNavigate }: { locale: Locale; onNavigate: 
         {selected && <article id="help-topic-content" aria-labelledby="help-topic-title">
           <h2 id="help-topic-title">{localizedPair(locale, selected.title)}</h2>
           {selected.paragraphs.map((text, index) => <p key={index}>{localizedPair(locale, text)}</p>)}
+          {selected.target === "documents" && documentManagementHelp(locale).map((text, index) => <p key={`ged-${index}`}>{text}</p>)}
           <h3>{translate(locale, "Configuration et utilisation", "Configuration and use")}</h3>
           <ol className="admin-help-overview-steps">{configuration[selected.target].steps.map((text, index) => <li key={index}>{localizedPair(locale, text)}</li>)}</ol>
           <div className="admin-help-check"><h3>{translate(locale, "Points à vérifier", "What to check")}</h3><p>{localizedPair(locale, configuration[selected.target].check)}</p></div>
