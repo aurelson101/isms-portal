@@ -11,6 +11,7 @@ export default defineConfig({
     "{testDir}/{testFilePath}-snapshots/{arg}-{platform}{ext}",
   fullyParallel: false,
   workers: 1,
+  maxFailures: process.env.CI ? 5 : undefined,
   retries: 1,
   reporter: [
     ["list"],

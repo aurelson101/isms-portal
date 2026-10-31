@@ -2,6 +2,13 @@ name: CI
 
 on:
   workflow_call:
+  workflow_dispatch:
+    inputs:
+      e2e_scope:
+        description: Browser tests to diagnose
+        type: choice
+        default: all
+        options: [all, portal]
   push:
     branches: [main]
   pull_request:
@@ -38,6 +45,9 @@ jobs:
       - run: npm ci
       - run: ./scripts/generate-secrets.sh
       - run: ./scripts/test-e2e-isolated.sh
+        timeout-minutes: 15
+        env:
+          PLAYWRIGHT_ARGS: ${{ github.event_name == 'workflow_dispatch' && inputs.e2e_scope == 'portal' && 'portal.spec.ts --project=functional --no-deps' || '' }}
       - name: Upload browser diagnostics
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

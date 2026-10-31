@@ -125,7 +125,7 @@ for (const width of [320, 768, 1280]) {
         downloadedTools.push(artifact[1]);
         expect(
           new URL(route.request().url()).searchParams.get("portalUrl"),
-        ).toBe("http://127.0.0.1:3100");
+        ).toBe(new URL(page.url()).origin);
         if (downloadFailure === "http")
           return route.fulfill({ status: 503, body: "Unavailable" });
         return route.fulfill({
@@ -250,7 +250,20 @@ for (const width of [320, 768, 1280]) {
       .getByRole("button", { name: "Suivant", exact: true })
       .click();
     await expect(workSection.locator("tbody tr")).toHaveCount(5);
-    await panel.locator("summary").click();
+    await workSection
+      .getByRole("button", { name: "Approuver", exact: true })
+      .first()
+      .click();
+    await expect(
+      workSection.getByRole("button", { name: "Refuser", exact: true }).first(),
+    ).toBeDisabled();
+    expect(decisions).toBe(1);
+    releaseDecision();
+    await expect(panel.getByRole("alert").first()).toContainText(
+      "L’opération a échoué",
+    );
+    await expect(workSection.locator("tbody tr")).toHaveCount(5);
+    await page.goto("/admin#integrations");
     const wazuh = panel.locator(".integration-card").filter({
       has: page.getByRole("heading", { name: "Wazuh", exact: true }),
     });
@@ -362,6 +375,7 @@ for (const width of [320, 768, 1280]) {
     await expect(wazuh.getByRole("status")).toContainText(
       "Collecte externe non vérifiée",
     );
+    await page.goto("/admin#alert-channels");
     const host = panel.getByLabel("Serveur SMTP", { exact: true });
     await host.fill("unsaved.example.test");
     const requestsBefore = settingsRequests;
@@ -369,19 +383,6 @@ for (const width of [320, 768, 1280]) {
     await expect(refresh).toBeEnabled();
     await expect(host).toHaveValue("unsaved.example.test");
     expect(settingsRequests).toBe(requestsBefore);
-    await workSection
-      .getByRole("button", { name: "Approuver", exact: true })
-      .first()
-      .click();
-    await expect(
-      workSection.getByRole("button", { name: "Refuser", exact: true }).first(),
-    ).toBeDisabled();
-    expect(decisions).toBe(1);
-    releaseDecision();
-    await expect(panel.getByRole("alert").first()).toContainText(
-      "L’opération a échoué",
-    );
-    await expect(workSection.locator("tbody tr")).toHaveCount(5);
     expect(errors).toEqual([]);
     await page.screenshot({
       path: info.outputPath("observability-expanded.png"),
@@ -392,7 +393,7 @@ for (const width of [320, 768, 1280]) {
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
-    await panel.locator("summary").click();
+    await page.goto("/admin#observability");
     await refresh.scrollIntoViewIfNeeded();
     await page.screenshot({
       path: info.outputPath("observability.png"),
