@@ -457,7 +457,7 @@ textarea:focus-visible {
   padding: 0 48px 48px;
   min-width: 0;
 }
-.shell header {
+.shell main > header {
   height: 106px;
   display: flex;
   align-items: center;
@@ -1874,10 +1874,6 @@ h1 {
   border: 1px solid #d5deeb;
   border-radius: 9px;
   background: white;
-}
-.admin-table-wrap tbody tr {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 52px;
 }
 .admin-table-wrap td small {
   display: block;
@@ -3434,7 +3430,7 @@ h1 {
   .shell main {
     padding: 0 16px;
   }
-  .shell header {
+  .shell main > header {
     height: 70px;
   }
   .account-button > span:last-child {
@@ -3706,7 +3702,7 @@ svg {
   .admin-shell main {
     padding: 0 22px 36px;
   }
-  .shell header {
+  .shell main > header {
     height: 78px;
   }
   .admin-shell main header {
@@ -4063,7 +4059,7 @@ svg {
   .admin-shell main {
     padding: 0 16px 28px;
   }
-  .shell header {
+  .shell main > header {
     height: 68px;
     gap: 10px;
   }

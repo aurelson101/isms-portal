@@ -20,9 +20,6 @@ export default defineConfig({
     {
       name: "visual-regression",
       testMatch: /visual\.spec\.ts/,
-      expect: {
-        toHaveScreenshot: { stylePath: "tests/e2e/visual.css" },
-      },
     },
     {
       name: "functional",

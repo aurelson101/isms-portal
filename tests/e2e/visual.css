@@ -1,4 +1,0 @@
-/* Full-page captures must render rows outside the current viewport too. */
-.admin-table-wrap tbody tr {
-  content-visibility: visible !important;
-}
