@@ -26,7 +26,7 @@ describe("safe errors and branding", () => {
     let branding: unknown;
     target.addEventListener("isms-branding", (event) => { branding = (event as CustomEvent).detail; });
     updateBrandingCache({ title: " ", logoDataUrl: "javascript:alert(1)" });
-    expect(branding).toEqual({ title: "ISMS Portal", logoDataUrl: null });
+    expect(branding).toEqual({ title: "ISMS Portal", logoDataUrl: null, languages: { enabled: ["fr", "en", "es", "sk"], defaultLocale: "fr" } });
     expect(document.title).toBe("ISMS Portal");
   });
   it("rejects unsupported and oversized logo sources before decoding", async () => {

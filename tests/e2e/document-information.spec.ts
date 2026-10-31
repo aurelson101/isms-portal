@@ -15,7 +15,7 @@ for (const width of [390, 768, 1440, 2560, 3840]) {
       if (path === "/api/me") return route.fulfill({ json: { username: "reader@example.test", displayName: "Reader", locale: "en", isAdmin: false, isModerator: false, spaces: [space], authentication: { source: "local" } } });
       if (path === "/api/documents") return route.fulfill({ json: { items: [document], page: 1, total: 1, totalPages: 1 } });
       if (path === "/api/documents/document") return route.fulfill({ json: document });
-      if (path.includes("/preview")) return route.fulfill({ body: preview, contentType: "application/pdf" });
+      if (path.includes("/preview") || path.endsWith("/content")) return route.fulfill({ body: preview, contentType: "application/pdf" });
       return route.fulfill({ json: path === "/api/branding" ? {} : [] });
     });
     await page.goto("/explorer");

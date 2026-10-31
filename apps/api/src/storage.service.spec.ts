@@ -96,12 +96,12 @@ describe("optional document storage", () => {
   });
   it("requires upload or edit permission to list optional storage", async () => {
     const available = vi.fn().mockResolvedValue([{ id }]);
-    const can = vi.fn().mockResolvedValue(false);
-    const controller = new StorageOptionsController({ available } as never, { can } as never);
+    const permittedSpacesFor = vi.fn().mockResolvedValue(new Map([["upload", []], ["edit", []]]));
+    const controller = new StorageOptionsController({ available } as never, { permittedSpacesFor } as never);
     const req = { identity: { groups: [] } } as never;
     await expect(controller.list(req, "space")).rejects.toThrow();
     expect(available).not.toHaveBeenCalled();
-    can.mockResolvedValue(true);
+    permittedSpacesFor.mockResolvedValue(new Map([["upload", []], ["edit", [{ id: "space", aclRoot: false, aclCategories: ["category"] }]]]));
     expect(await controller.list(req, "space")).toEqual([{ id }]);
   });
 });

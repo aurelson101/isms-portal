@@ -14,6 +14,7 @@ import { api } from "./api-client";
 import { flattenCategories, paginationItems, type AdminDocument, type Space } from "./document-model";
 
 export function DocumentsPanel({
+  metadataOnly = false,
   locale, t, confirmAction, EmptyState, statusLabel,
   spaces,
   search,
@@ -22,6 +23,7 @@ export function DocumentsPanel({
   onChanged,
   onError,
 }: {
+  metadataOnly?: boolean;
   locale: Locale;
   t: (fr: string, en?: string) => string;
   confirmAction: (message: string) => Promise<boolean>;
@@ -161,7 +163,7 @@ export function DocumentsPanel({
   };
   return (
     <>
-      <h1>{t("Documents")}</h1>
+      <h1>{metadataOnly ? t("Métadonnées GED", "GED metadata") : t("Documents")}</h1>
       <div className="admin-management-tools">
         <label>{t("Rechercher un document", "Search documents")}<input type="search" maxLength={200} value={search} onChange={(event) => onSearch(event.target.value)} /></label>
         <label>{t("Trier par", "Sort by")}<select value={documentSort} onChange={(event) => { setDocumentPage(1); setDocumentSort(event.target.value); }}>
@@ -171,6 +173,7 @@ export function DocumentsPanel({
         </select></label>
         <span role="status">{documentsLoading ? t("Chargement…") : `${documentTotal} ${t("documents", "documents")}`}</span>
       </div>
+      <div hidden={metadataOnly}>
       <BatchImport locale={locale} disabled={refreshing || uploading} onComplete={async () => { await loadDocuments(); await onChanged(); }} />
       <form
         key={versionUploadDocument?.id || "new-document"}
@@ -320,6 +323,7 @@ export function DocumentsPanel({
           {versionUploadDocument && <button type="button" disabled={uploading} onClick={() => { setVersionUploadDocument(null); setSpaceId(""); setSensitive(false); setWatermarkPosition("CENTER"); }}>{t("Annuler la modification")}</button>}
         </div>
       </form>
+      </div>
       {metadataSaved && <p role="status">{t("Métadonnées enregistrées.", "Metadata saved.")}</p>}
       {editingMetadataDocument && (
         <form id="document-metadata-form" className="admin-form upload-form" onSubmit={async (event) => {
@@ -369,7 +373,7 @@ export function DocumentsPanel({
               <th>{t("Espace")}</th>
               <th>{t("Catégorie")}</th>
               <th>{t("Langue du document")}</th>
-              <th>{t("État")}</th>
+              <th>{metadataOnly ? t("Métadonnées GED", "GED metadata") : t("État")}</th>
               <th>{t("Actions")}</th>
             </tr>
           </thead>
@@ -454,8 +458,8 @@ export function DocumentsPanel({
                     ))}
                   </div>
                 </td>
-                <td data-label={t("État")}>
-                  <select
+                <td data-label={metadataOnly ? t("Métadonnées GED", "GED metadata") : t("État")}>
+                  {metadataOnly ? <span>{Object.values(document.metadata || {}).filter(value => value.trim()).length}/{Object.keys(document.metadata || {}).length} {t("champs renseignés", "fields completed")}</span> : <select
                     className="document-status-select"
                     aria-label={`${t("État")} : ${document.translations[0]?.title || document.id}`}
                     value={document.status}
@@ -466,7 +470,7 @@ export function DocumentsPanel({
                     {["DRAFT", "PUBLISHED", "ARCHIVED", ...(document.status === "QUARANTINED" ? ["QUARANTINED"] : [])].map(status => (
                       <option key={status} value={status}>{statusLabel(status)}</option>
                     ))}
-                  </select>
+                  </select>}
                 </td>
                 <td data-label={t("Actions")}>
                   <div className="document-actions">
@@ -486,7 +490,7 @@ export function DocumentsPanel({
                       <Icon name="documents" />
                       {t("Éditer les métadonnées")}
                     </button>
-                    <button
+                    {!metadataOnly && <button
                       type="button"
                       className="document-action"
                       onClick={() => {
@@ -501,8 +505,8 @@ export function DocumentsPanel({
                     >
                       <Icon name="upload" />
                       {t("Nouvelle version")}
-                    </button>
-                    <button
+                    </button>}
+                    {!metadataOnly && <button
                       className="document-action delete"
                       onClick={async () => {
                         if (
@@ -522,7 +526,7 @@ export function DocumentsPanel({
                     >
                       <Icon name="delete" />
                       {t("Supprimer")}
-                    </button>
+                    </button>}
                   </div>
                 </td>
               </tr>

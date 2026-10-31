@@ -205,9 +205,9 @@ for (const width of [320, 1440]) {
     await expect(next).toBeDisabled();
     if (width <= 900) await page.locator(".navigation-toggle").click();
     const documentMenu = page.locator("#moderator-navigation > details").first();
-    await documentMenu.locator("summary").click();
+    await documentMenu.locator(":scope > summary").click();
     await expect(documentMenu.getByRole("link", { name: "HR", exact: true })).toBeHidden();
-    await documentMenu.locator("summary").click();
+    await documentMenu.locator(":scope > summary").click();
     await page.locator("#moderator-navigation").getByRole("link", { name: "HR", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Managed documents : HR", exact: true })).toBeVisible();
     await expect(page.getByRole("article")).toHaveCount(20);
@@ -293,7 +293,7 @@ for (const width of [320, 768, 1440, 1920, 2560, 3440, 3840, 5120]) {
         await expect(navigation).toBeVisible();
         await expect(toggle).toBeHidden();
       }
-      await expect(navigation.locator("a")).toHaveCount(3);
+      await expect(navigation.locator("a")).toHaveCount(4);
       const back = page.locator(".moderator-shell > aside .back-link");
       await expect(back).toHaveAttribute("href", "/explorer");
       await expect(back).toHaveCSS("text-decoration-line", "none");

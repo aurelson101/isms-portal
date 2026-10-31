@@ -26,6 +26,8 @@ export default function ApprovalsPage() {
   const [year, setYear] = useState(() => String(new Date().getFullYear()));
   const [month, setMonth] = useState("ALL");
   const [page, setPage] = useState(1);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 60000); return () => window.clearInterval(timer); }, []);
   const request = useRef(0);
   const controller = useRef<AbortController | null>(null);
   const deciding = useRef(false);
@@ -54,7 +56,7 @@ export default function ApprovalsPage() {
       if (current === request.current) setLoading(false);
     }
   }, [locale, month, t.error, t.review, t.document, year]);
-  useEffect(() => { void reload(); return () => { request.current++; controller.current?.abort(); }; }, [reload]);
+  useEffect(() => { const requests = request; const active = controller; void reload(); return () => { requests.current++; active.current?.abort(); }; }, [reload]);
   useEffect(() => { setPage(1); }, [month, year]);
   const changeFilter = (status: string) => { setFilter(status); setPage(1); };
   const decide = async (item: Item, status: "APPROVED" | "REJECTED") => {
@@ -106,7 +108,7 @@ export default function ApprovalsPage() {
         <span className="approval-target">{item.targetType}: {item.targetId}</span><p>{item.reason}</p>
         <dl className="approval-details"><div><dt>{t.requested}</dt><dd>{item.requestedBy}</dd></div><div><dt>{item.review ? t.due : t.history}</dt><dd>{date(item.review && item.dueAt ? item.dueAt : item.createdAt)}</dd></div>{item.review && <><div><dt>{t.reviewer}</dt><dd>{item.reviewer || "-"}</dd></div><div><dt>{t.approver}</dt><dd>{item.approver || "-"}</dd></div></>}</dl>
         {item.approvedBy && <p className="approval-decision"><strong>{t.decided}:</strong> {item.approvedBy}{item.approvedAt && ` · ${date(item.approvedAt)}`}</p>}
-        {isPending(item.status) && item.dueAt && new Date(item.dueAt).getTime() < Date.now() && <p className="approval-overdue">{translate(locale, "En retard", "Overdue")}</p>}
+        {isPending(item.status) && item.dueAt && new Date(item.dueAt).getTime() < now && <p className="approval-overdue">{translate(locale, "En retard", "Overdue")}</p>}
         {item.slug && <p><a className="approval-document-link" href={`/documents/${encodeURIComponent(item.slug)}`}>{t.open}</a></p>}
         {["PENDING", "IN_REVIEW"].includes(item.status) && item.canDecide && <>
           <p className="approval-action-note">{t.pendingAction}</p>{item.review && <label>{t.comment}<textarea disabled={!!busy} placeholder={t.commentHint} maxLength={1000} value={comments[itemKey(item)] || ""} onChange={(e) => setComments((current) => ({ ...current, [itemKey(item)]: e.target.value }))} /></label>}

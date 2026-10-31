@@ -99,6 +99,7 @@ type Tab =
   | "rules"
   | "spaces"
   | "documents"
+  | "metadata"
   | "trash"
   | "incidents"
   | "requests"
@@ -327,6 +328,7 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["rules", "rules", "Règles d’accès", "Access rules"],
   ["spaces", "folder", "Espaces documentaires", "Document spaces"],
   ["documents", "documents", "Documents", "Documents"],
+  ["metadata", "documents", "Métadonnées GED", "GED metadata"],
   ["trash", "archive", "Corbeille", "Document trash"],
   ["incidents", "audit", "Rapports d’incidents", "Incident reports"],
   ["requests", "rules", "Demandes utilisateurs", "User requests"],
@@ -350,7 +352,7 @@ const tabs: Array<[Tab, IconName, string, string]> = [
 ];
 const navigationGroups: Array<[string, string, typeof tabs]> = [
   ["overview", "Vue d’ensemble", tabs.filter(([key]) => ["dashboard", "help"].includes(key))],
-  ["content", "Contenu et accès", tabs.filter(([key]) => ["groups", "rules", "spaces", "documents", "trash", "incidents", "requests"].includes(key))],
+  ["content", "Contenu et accès", tabs.filter(([key]) => ["groups", "rules", "spaces", "documents", "metadata", "trash", "incidents", "requests"].includes(key))],
   ["infrastructure", "Infrastructure", tabs.filter(([key]) => ["governance", "directory", "sso", "certificates"].includes(key))],
   ["system", "Supervision", tabs.filter(([key]) => ["health", "observability", "audit"].includes(key))],
   ["configuration", "Configuration", tabs.filter(([key]) => ["settings", "languages", "profile", "administrators", "advanced-settings", "integrations", "alert-channels", "alert-policy", "moderators", "storage"].includes(key))],
@@ -1057,8 +1059,9 @@ export default function Admin() {
                     onError={setError}
                   />
                 )}
-                {tab === "documents" && (
+                {(tab === "documents" || tab === "metadata") && (
                   <DocumentsPanel
+                    metadataOnly={tab === "metadata"}
                     locale={locale}
                     t={t}
                     confirmAction={confirmAction}

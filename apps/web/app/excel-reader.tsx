@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { fetchWithTimeout as fetch } from "./http-client";
 import { Icon } from "./icons";
 import { portalCatalog } from "./i18n/catalogs";
 import type { Locale } from "./i18n/locale";
-import { excelGroupValues, readExcelBook, type ExcelBook, type ExcelRow } from "./excel-reader-model";
+import { excelFilterOptions, excelGroupValues, readExcelBook, type ExcelBook, type ExcelRow } from "./excel-reader-model";
 import { matchesSavedExcelFilter } from "./excel-saved-filters";
 
 const labels = {
@@ -27,6 +27,7 @@ export function ExcelReader({ url, locale }: { url: string; locale: Locale }) {
   const [book, setBook] = useState<ExcelBook | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [sheetId, setSheetId] = useState(0);
+  const [options, setOptions] = useState<Record<number, string[]>>({});
   const [filters, setFilters] = useState<Record<number, string | null>>({});
   const [useSaved, setUseSaved] = useState(true);
   const [query, setQuery] = useState("");
@@ -40,12 +41,12 @@ export function ExcelReader({ url, locale }: { url: string; locale: Locale }) {
   const [viewportWidth, setViewportWidth] = useState(0);
   useEffect(() => {
     const abort = new AbortController();
-    setState("loading"); setBook(null); setFilters({}); setUseSaved(true); setQuery(""); setPage(0); setShowHidden(false); setIncludeFollowing(false);
+    setState("loading"); setBook(null); setOptions({}); setFilters({}); setUseSaved(true); setQuery(""); setPage(0); setShowHidden(false); setIncludeFollowing(false);
     void fetch(url, { signal: abort.signal }).then(async (response) => {
       if (!response.ok) throw new Error("preview");
       const value = await readExcelBook(await response.arrayBuffer(), locale);
       if (abort.signal.aborted) return;
-      setBook(value); setSheetId(value.activeId); setState("ready");
+      setBook(value); setSheetId(value.activeId); setOptions(excelFilterOptions(value.sheets.find(sheet => sheet.id === value.activeId), locale)); setState("ready");
     }).catch(() => { if (!abort.signal.aborted) setState("error"); });
     return () => abort.abort();
   }, [url, locale]);
@@ -58,11 +59,8 @@ export function ExcelReader({ url, locale }: { url: string; locale: Locale }) {
     return () => resize.disconnect();
   }, [sheet]);
   const header = sheet?.filter ? sheet.rows.find((row) => row.number === sheet.filter!.headerRow) : undefined;
-  const dataRows = useMemo(() => sheet?.rows.filter((row) => !sheet.filter || row.number > sheet.filter.headerRow && row.number <= sheet.filter.lastRow) || [], [sheet]);
+  const dataRows = sheet?.rows.filter((row) => !sheet.filter || row.number > sheet.filter.headerRow && row.number <= sheet.filter.lastRow) || [];
   const groupValues = includeFollowing ? excelGroupValues(dataRows, Object.keys(filters).map(Number)) : null;
-  const options = useMemo(() => Object.fromEntries((sheet?.columns || []).filter((column) => sheet?.filter && column.index >= sheet.filter.firstColumn && column.index <= sheet.filter.lastColumn).map((column) => [column.index,
-    [...new Set(dataRows.map((row) => row.cells[column.index]?.text || ""))].sort((a, b) => a.localeCompare(b, locale, { numeric: true })),
-  ])), [sheet, dataRows, locale]);
   const saved = sheet?.savedFilters || [];
   const activeFilters = Object.entries(filters).map(([column, text]) => [Number(column), text === null ? null : text.toLowerCase()] as const);
   const changed = !useSaved || activeFilters.length > 0;
@@ -168,7 +166,7 @@ export function ExcelReader({ url, locale }: { url: string; locale: Locale }) {
       {!filtered.length && <p role="status">{t.empty}</p>}
     </div>
     <div className="excel-footer">
-      <div className="excel-sheet-tabs" role="tablist" aria-label={t.sheets}>{book.sheets.map((entry) => <button type="button" key={entry.id} role="tab" aria-selected={entry.id === sheet.id} onClick={() => { setSheetId(entry.id); setFilters({}); setUseSaved(true); setQuery(""); setPage(0); setShowHidden(false); setIncludeFollowing(false); }}>{entry.name}</button>)}</div>
+      <div className="excel-sheet-tabs" role="tablist" aria-label={t.sheets}>{book.sheets.map((entry) => <button type="button" key={entry.id} role="tab" aria-selected={entry.id === sheet.id} onClick={() => { setSheetId(entry.id); setOptions(excelFilterOptions(entry, locale)); setFilters({}); setUseSaved(true); setQuery(""); setPage(0); setShowHidden(false); setIncludeFollowing(false); }}>{entry.name}</button>)}</div>
       <div className="excel-pagination"><span aria-live="polite">{filtered.length} {t.rows} · {current + 1} / {pages}</span><button type="button" className="secondary" title={t.previous} aria-label={t.previous} disabled={current === 0} onClick={() => setPage(current - 1)}><Icon name="chevron" transform="rotate(180)" /></button><button type="button" className="secondary" title={t.next} aria-label={t.next} disabled={current + 1 >= pages} onClick={() => setPage(current + 1)}><Icon name="chevron" /></button></div>
     </div>
     {sheet.truncated && <small>{copy.truncated}</small>}

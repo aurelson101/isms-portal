@@ -1,9 +1,25 @@
 import { describe, expect, it } from "vitest";
 import ExcelJS from "exceljs";
 import { zipSync, strToU8 } from "fflate";
-import { excelCellText, excelColor, excelGroupValues, excelSheetModel, readExcelBook } from "./excel-reader-model";
+import { excelCellText, excelColor, excelFilterOptions, excelGroupValues, excelSheetModel, readExcelBook } from "./excel-reader-model";
 
 describe("formatted read-only Excel reader", () => {
+  it("builds numeric-sorted filter options only from the filter data range", () => {
+    const book = new ExcelJS.Workbook(); const sheet = book.addWorksheet("Filters");
+    sheet.addRows([["Title", ""], ["Item", "Owner"], ["Item 10", "B"], ["Item 2", "A"], ["Outside", "Z"]]);
+    sheet.autoFilter = "A2:B4";
+    const model = excelSheetModel(sheet, book);
+    const before = JSON.stringify(model);
+    const options = excelFilterOptions(model, "en");
+    expect(options[model.columns[0].index]).toEqual(["Item 2", "Item 10"]);
+    expect(options[model.columns[1].index]).toEqual(["A", "B"]);
+    expect(JSON.stringify(model)).toBe(before);
+  });
+  it("has no filter options for missing sheets or sheets without filters", () => {
+    const book = new ExcelJS.Workbook(); const sheet = book.addWorksheet("Plain"); sheet.addRow(["Value"]);
+    expect(excelFilterOptions(undefined, "fr")).toEqual({});
+    expect(excelFilterOptions(excelSheetModel(sheet, book), "fr")).toEqual({});
+  });
   it("reports truncation even when the only value is beyond the preview row limit", () => {
     const book = new ExcelJS.Workbook(); const sheet = book.addWorksheet("Long");
     sheet.getCell("A5001").value = "Outside preview";

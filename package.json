@@ -11,7 +11,7 @@
     "i18n:check": "node --test scripts/check-i18n.test.mjs && node scripts/check-i18n.mjs",
     "lint": "npm run i18n:check && npm run lint -w @isms/api && npm run lint -w @isms/web",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,yml,yaml,css}\"",
-    "test": "npm run test -w @isms/api && npm run test -w @isms/web",
+    "test": "node --test scripts/archive-compatibility.test.mjs && npm run test -w @isms/api && npm run test -w @isms/web",
     "test:e2e": "playwright test",
     "test:e2e:isolated": "./scripts/test-e2e-isolated.sh",
     "test:performance": "./scripts/test-performance-functional.sh",
@@ -41,7 +41,8 @@
     "fflate": "0.8.3",
     "multer": "2.5.0",
     "body-parser": "2.4.0",
-    "qs": "6.16.0"
+    "qs": "6.16.1",
+    "readdir-glob": { "minimatch": "11.0.1" }
   },
   "knip": {
     "workspaces": {

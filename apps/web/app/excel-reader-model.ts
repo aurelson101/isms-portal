@@ -15,6 +15,15 @@ export type ExcelSheet = {
 };
 export type ExcelBook = { sheets: ExcelSheet[]; activeId: number };
 
+export function excelFilterOptions(sheet: ExcelSheet | undefined, locale: Locale): Record<number, string[]> {
+  if (!sheet?.filter) return {};
+  const range = sheet.filter;
+  const rows = sheet.rows.filter(row => row.number > range.headerRow && row.number <= range.lastRow);
+  return Object.fromEntries(sheet.columns.filter(column => column.index >= range.firstColumn && column.index <= range.lastColumn).map(column => [column.index,
+    [...new Set(rows.map(row => row.cells[column.index]?.text || ""))].sort((a, b) => a.localeCompare(b, locale, { numeric: true })),
+  ]));
+}
+
 export function excelGroupValues(rows: ExcelRow[], columns: number[]): Map<number, Record<number, string>> {
   const values = new Map<number, Record<number, string>>();
   let previous: Record<number, string> = {};

@@ -5,7 +5,7 @@ import { DocumentPublicationDigestDto } from "./document-digest.dto";
 
 const ids = ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"];
 function setup(groups = ["ISMS-LOCAL-ADMINS"]) {
-  const document = { findMany: vi.fn().mockResolvedValue(ids.map((id) => ({ id, spaceId: "space" }))) };
+  const document = { findMany: vi.fn().mockResolvedValue(ids.map((id) => ({ id, spaceId: "space", categoryId: null }))) };
   const can = vi.fn().mockResolvedValue(true);
   const enqueue = vi.fn().mockResolvedValue(undefined);
   const record = vi.fn();
@@ -23,7 +23,7 @@ describe("Publication digest", () => {
     await h.controller.publicationDigest(h.request, { documentIds: [...ids].reverse() });
     expect(h.enqueue.mock.calls[0][1]).toBe(h.enqueue.mock.calls[1][1]);
     expect(h.enqueue.mock.calls[0][0]).toMatchObject({ documentIds: ids, action: "document.publication.digest" });
-    expect(h.can).toHaveBeenCalledWith(["ISMS-LOCAL-ADMINS"], "space", "publish");
+    expect(h.can).toHaveBeenCalledWith(["ISMS-LOCAL-ADMINS"], "space", "publish", null);
     expect(h.record.mock.calls[0][5]).toEqual({ notify: false });
     expect(h.document.findMany.mock.calls[0][0].where).toMatchObject({ suppressEmailNotifications: true, status: "PUBLISHED", deletedAt: null });
   });

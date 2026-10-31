@@ -31,6 +31,16 @@ fait foi.
 
 ## Dernières nouveautés
 
+### Préversion v0.9.63-rc.2 (31 octobre 2026)
+
+- Menus **Métadonnées GED** dédiés aux administrateurs et modérateurs, avec
+  l'éditeur partagé, la recherche, la pagination et les capacités par document.
+- Correctif `qs` 6.16.1 et tests de compatibilité des archives intégrés à `npm test`.
+- Point restant : `npm audit --omit=dev` signale sept entrées modérées transitives
+  liées à l'[avis minimatch](https://github.com/advisories/GHSA-g3hv-75wg-m249)
+  via l'ancien `glob`. La substitution majeure incompatible n'est pas appliquée ;
+  cette préversion ne constitue pas une validation de sécurité exhaustive.
+
 - **SSO sans groupe (option)** : limiter l'acces aux comptes internes actifs
   disposant d'une boite Exchange personnelle dans les domaines autorises.
   Les boites partagees et invites sont refuses ; les ACL restent appliquees.
@@ -502,6 +512,12 @@ n’est pas accordé. Les fichiers sont conservés dans le volume Docker
 `document-storage`, monté dans `/data/documents`.
 
 ### Métadonnées documentaires
+
+Les menus dédiés **Métadonnées GED** sont accessibles dans l'administration
+(`/admin#metadata`) et dans l'espace modérateur (`/moderator#moderator-metadata`).
+Ils réutilisent la recherche, la pagination et l'éditeur existants, avec un compteur
+de champs renseignés et les actions de métadonnées. Les droits restent contrôlés
+par l'API ; l'interface modérateur suit les capacités propres à chaque document.
 
 Les administrateurs utilisent **Documents → Éditer les métadonnées** ; les
 modérateurs utilisent **Documents gérés → Éditer**. Le portail propose aussi

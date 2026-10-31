@@ -4,7 +4,6 @@ import { translate } from "../i18n/translate";
 import { DocumentMetadataFields } from "../document-metadata-fields";
 import { LanguageSelect } from "../language-controls";
 
-import { useMemo } from "react";
 import type { Locale, DocumentLocale } from "../i18n/locale";
 import { categoryOptions, translationFields, type Category, type MetadataValues, type ModeratorDocument } from "./document-model";
 
@@ -15,7 +14,7 @@ export function MetadataForm({ document, categories, value, onChange, onSave, ..
   onChange: (value: MetadataValues) => void; onSave: () => Promise<void>;
 }) {
   const t = (fr: string, en: string) => translate(actions.locale, fr, en);
-  const options = useMemo(() => categoryOptions(categories, actions.locale), [categories, actions.locale]);
+  const options = categoryOptions(categories, actions.locale);
   const updateMetadata = (next: MetadataValues) => { actions.onDirty(); onChange(next); };
   return <section className="admin-card" id="moderator-metadata-form">
     <h2>{t("Éditer les métadonnées", "Edit metadata")}</h2>
