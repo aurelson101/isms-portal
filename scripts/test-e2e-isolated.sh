@@ -47,6 +47,7 @@ docker compose $compose_args exec -T api node prisma/seed.js
 docker run --rm \
   --network host \
   --env-file "$project_root/.env" \
+  -e CI \
   -e PLAYWRIGHT_BASE_URL=http://127.0.0.1:18080 \
   -v "$project_root:/workspace" \
   -v "$node_modules_volume:/workspace/node_modules" \
