@@ -38,6 +38,16 @@ jobs:
       - run: npm ci
       - run: ./scripts/generate-secrets.sh
       - run: ./scripts/test-e2e-isolated.sh
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: browser-diagnostics
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: warn
 
   performance:
     timeout-minutes: 20

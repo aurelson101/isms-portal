@@ -98,7 +98,9 @@ for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     await page.addInitScript(() => localStorage.setItem("isms-locale", "fr"));
     await page.goto("/admin#documents");
-    await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Documents", exact: true, level: 1 }),
+    ).toBeVisible();
     await expect(page).toHaveScreenshot(`admin-documents-${viewport.name}.png`, {
       animations: "disabled",
       fullPage: true,
