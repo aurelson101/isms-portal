@@ -2,7 +2,7 @@ export const interfaceLocales = ["fr", "en", "es", "sk"] as const;
 export type Locale = typeof interfaceLocales[number];
 export type DocumentLocale = Locale;
 export type LanguageSettings = { enabled: Locale[]; defaultLocale: Locale };
-export const defaultLanguageSettings: LanguageSettings = { enabled: [...interfaceLocales], defaultLocale: "fr" };
+const defaultLanguageSettings: LanguageSettings = { enabled: [...interfaceLocales], defaultLocale: "fr" };
 export const normalizeLanguageSettings = (value?: Partial<LanguageSettings> | null): LanguageSettings => {
   const enabled = interfaceLocales.filter(locale => Array.isArray(value?.enabled) && value.enabled.includes(locale));
   return enabled.length ? { enabled, defaultLocale: enabled.includes(value?.defaultLocale as Locale) ? value!.defaultLocale! : enabled[0] } : defaultLanguageSettings;

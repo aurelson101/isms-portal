@@ -6,8 +6,8 @@ import { sheetFilterRange, type SheetRange } from "./sheet-filters";
 import type { Locale } from "./i18n/locale";
 import { worksheetSavedFilters, type SavedExcelFilter } from "./excel-saved-filters";
 
-export type ExcelCell = { text: string; raw?: string; date?: string; style: CSSProperties };
-export type ExcelImage = { id: string; src: string; top: number; left: number; bottom?: number; right?: number; width?: number; height?: number };
+type ExcelCell = { text: string; raw?: string; date?: string; style: CSSProperties };
+type ExcelImage = { id: string; src: string; top: number; left: number; bottom?: number; right?: number; width?: number; height?: number };
 export type ExcelRow = { number: number; hidden: boolean; height: number; cells: Record<number, ExcelCell> };
 export type ExcelSheet = {
   id: number; name: string; columns: Array<{ index: number; letter: string; width: number }>;
@@ -58,7 +58,7 @@ export function excelColor(color: (Partial<Color> & { indexed?: number; tint?: n
   }).join("");
 }
 
-export function excelCellStyle(style: Partial<Style>, theme?: string[]): CSSProperties {
+function excelCellStyle(style: Partial<Style>, theme?: string[]): CSSProperties {
   const { font, alignment, fill, border } = style;
   const result: CSSProperties = {
     color: excelColor(font?.color, theme), fontWeight: font?.bold ? 700 : undefined,

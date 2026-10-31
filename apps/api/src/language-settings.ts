@@ -1,9 +1,9 @@
 import { BadRequestException } from "@nestjs/common";
 
 export const supportedLanguages = ["fr", "en", "es", "sk"] as const;
-export type Language = (typeof supportedLanguages)[number];
+type Language = (typeof supportedLanguages)[number];
 export type LanguageSettings = { enabled: Language[]; defaultLocale: Language };
-export const defaultLanguageSettings: LanguageSettings = {
+const defaultLanguageSettings: LanguageSettings = {
   enabled: [...supportedLanguages],
   defaultLocale: "fr",
 };

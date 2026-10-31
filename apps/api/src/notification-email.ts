@@ -1,4 +1,4 @@
-export const escapeHtml = (value: string) => value.replace(/[&<>"']/gu, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
+const escapeHtml = (value: string) => value.replace(/[&<>"']/gu, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
 
 export function portalLink(path = "/") {
   if (!process.env.PUBLIC_URL) throw new Error("PUBLIC_URL is required for notification links");

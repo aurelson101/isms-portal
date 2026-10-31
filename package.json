@@ -11,7 +11,8 @@
     "i18n:check": "node --test scripts/check-i18n.test.mjs && node scripts/check-i18n.mjs",
     "lint": "npm run i18n:check && npm run lint -w @isms/api && npm run lint -w @isms/web",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,yml,yaml,css}\"",
-    "test": "node --test scripts/archive-compatibility.test.mjs && npm run test -w @isms/api && npm run test -w @isms/web",
+    "test": "node --test scripts/archive-compatibility.test.mjs && npm run test -w @isms/api && npm run test -w @isms/web && npm run test:mip",
+    "test:mip": "vitest run integrations/mip-reader/boundary.spec.ts --maxWorkers=2",
     "test:e2e": "playwright test",
     "test:e2e:isolated": "./scripts/test-e2e-isolated.sh",
     "test:performance": "./scripts/test-performance-functional.sh",
@@ -53,8 +54,8 @@
     "workspaces": {
       ".": {
         "entry": [
-          "scripts/performance-test.mjs",
-          "tests/readme-screenshots.config.ts"
+          "tests/readme-screenshots.config.ts",
+          "tests/storage-ui.config.ts"
         ]
       },
       "apps/api": {
@@ -65,13 +66,16 @@
           "prisma/performance-seed.js",
           "prisma/verify-storage.js"
         ],
-        "ignoreDependencies": [
-          "@types/multer"
+        "ignoreBinaries": [
+          "openssl"
         ]
       },
       "apps/web": {
         "entry": [
           "app/**/*.tsx"
+        ],
+        "ignoreDependencies": [
+          "sharp"
         ]
       }
     }
@@ -82,10 +86,14 @@
     "@playwright/test": "^1.55.1",
     "eslint": "10.8.0",
     "eslint-plugin-react-hooks": "7.1.1",
+    "exceljs": "4.4.0",
     "fflate": "0.8.3",
     "knip": "^6.29.0",
+    "pdf-lib": "1.17.1",
     "prettier": "3.6.2",
     "prisma": "6.3.1",
-    "typescript-eslint": "8.65.0"
+    "qs": "6.16.1",
+    "typescript-eslint": "8.65.0",
+    "vitest": "4.1.12"
   }
 }
