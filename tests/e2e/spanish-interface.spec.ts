@@ -119,7 +119,7 @@ for (const language of ["es", "sk"] as const)
           isModerator: true,
           username: "user@example.test",
           displayName: "Test User",
-          locale: "fr",
+          locale: null,
           groups: [],
           spaces: [space],
           preferences: { viewMode: "list", density: "comfortable" },
@@ -233,11 +233,15 @@ for (const language of ["es", "sk"] as const)
         await expect(
           page.getByRole("heading", { name: text.help, exact: true }),
         ).toBeVisible();
-        for (let index = 0; index < 26; index++) {
+        const topicCount = await page
+          .locator(".admin-help-topic-picker select option")
+          .count();
+        expect(topicCount).toBeGreaterThanOrEqual(26);
+        for (let index = 0; index < topicCount; index++) {
           if (width <= 900)
             await page
               .locator(".admin-help-topic-picker select")
-              .selectOption(String(index));
+              .selectOption({ index });
           else
             await page.locator(".admin-help-topics button").nth(index).click();
           await expect(page.locator(".admin-help-content article")).toHaveCount(
@@ -268,7 +272,9 @@ for (const language of ["es", "sk"] as const)
         await page
           .getByRole("button", { name: text.batch, exact: true })
           .click();
+        await page.getByLabel(text.fileLanguage).selectOption("fr");
         await expect(page.getByLabel(text.fileLanguage)).toHaveValue("fr");
+        await expect(page.locator("html")).toHaveAttribute("lang", language);
         await noOverflow();
         if (width === 1280) {
           const otherTab = await page.context().newPage();

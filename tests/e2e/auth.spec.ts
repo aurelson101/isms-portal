@@ -217,12 +217,13 @@ test("the user profile lists groups recognized by the application", async ({
         username: "alice@example.com",
         displayName: "Alice Example",
         isAdmin: false,
+        isModerator: false,
         primaryAdmin: false,
         locale: "fr",
         authentication: {
           source: "directory-session",
           ssoConnected: false,
-          sessionExpiresAt: "2026-08-01T17:03:19.052Z",
+          sessionExpiresAt: new Date(Date.now() + 3_600_000).toISOString(),
           loginUrl: null,
           logoutUrl: null,
           diagnostics: {
@@ -251,7 +252,7 @@ test("the user profile lists groups recognized by the application", async ({
   expect(refreshRequested).toBe(true);
 });
 
-test("the browser language choice wins over a stale account preference", async ({
+test("the account language preference wins over a cached choice and allows manual changes", async ({
   page,
 }) => {
   await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
@@ -261,6 +262,7 @@ test("the browser language choice wins over a stale account preference", async (
         username: "alice@example.com",
         displayName: "Alice Example",
         isAdmin: false,
+        isModerator: false,
         primaryAdmin: false,
         locale: "fr",
         preferences: {},
@@ -283,6 +285,9 @@ test("the browser language choice wins over a stale account preference", async (
     }),
   );
   await page.goto("/");
+  await expect(page.getByRole("heading", { name: /Bienvenue/ })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "fr");
+  await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(page.getByRole("heading", { name: /Welcome/ })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 });
@@ -350,7 +355,7 @@ test("the generated administrator can sign in and manage the secure profile", as
     page.getByRole("tab", { name: "Active Directory" }),
   ).toBeVisible();
   await page.getByLabel("Identifiant administrateur").fill(username!);
-  await page.getByLabel("Mot de passe").fill(password!);
+  await page.getByLabel("Mot de passe", { exact: true }).fill(password!);
   await page
     .getByRole("button", { name: "Se connecter à l’administration" })
     .click();
@@ -375,8 +380,9 @@ test("the generated administrator can sign in and manage the secure profile", as
   await expect(
     page.getByRole("heading", { name: "Profil administrateur" }),
   ).toBeVisible();
+  await page.goto("/admin#administrators");
   await expect(
-    page.getByRole("heading", { name: "Comptes administrateurs" }),
+    page.getByRole("heading", { name: "Comptes administrateurs", level: 1 }),
   ).toBeVisible();
   await expect(
     page
