@@ -1,5 +1,6 @@
 import { expect, test } from "./test";
 import AxeBuilder from "@axe-core/playwright";
+import ExcelJS from "exceljs";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 
 test.beforeEach(async ({ page }) => {
@@ -2220,6 +2221,11 @@ test("governance workflows support lifetime access, reviews, SoA, retention, ide
   await decisionDialog
     .getByRole("button", { name: "Confirmer l’approbation" })
     .click();
+  await expect(decisionDialog).toBeHidden();
+  await page
+    .getByRole("group", { name: "Filtrer les revues" })
+    .getByRole("button", { name: /^Terminées/ })
+    .click();
   await expect(createdReview.getByText("Preuve de décision")).toBeVisible();
   await expect(
     createdReview.getByText(
@@ -2811,14 +2817,9 @@ test("Word and Excel documents open in a read-only viewer", async ({
       '<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Contenu Word sécurisé en lecture seule</w:t></w:r></w:p></w:body></w:document>',
     ),
   });
-  const xlsx = zipSync({
-    "xl/sharedStrings.xml": strToU8(
-      '<?xml version="1.0"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>Contrôle</t></si><si><t>Conforme</t></si></sst>',
-    ),
-    "xl/worksheets/sheet1.xml": strToU8(
-      '<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row></sheetData></worksheet>',
-    ),
-  });
+  const workbook = new ExcelJS.Workbook();
+  workbook.addWorksheet("Contrôles").addRow(["Contrôle", "Conforme"]);
+  const xlsx = new Uint8Array(await workbook.xlsx.writeBuffer());
   const createdIds: string[] = [];
 
   try {
@@ -2886,7 +2887,11 @@ test("Word and Excel documents open in a read-only viewer", async ({
       "Rechercher une politique, une procédure ou un guide…",
     );
     await search.fill(wordTitle);
-    await page.getByText(wordTitle, { exact: true }).first().click();
+    await page
+      .locator(".document")
+      .filter({ hasText: wordTitle })
+      .getByRole("button", { name: "Ouvrir" })
+      .click();
     await expect(page.getByText("Consultation en lecture seule")).toBeVisible();
     await expect(
       page.getByText("Contenu Word sécurisé en lecture seule"),
@@ -2897,7 +2902,11 @@ test("Word and Excel documents open in a read-only viewer", async ({
     await page.getByRole("button", { name: "Fermer" }).click();
 
     await search.fill(excelTitle);
-    await page.getByText(excelTitle, { exact: true }).first().click();
+    await page
+      .locator(".document")
+      .filter({ hasText: excelTitle })
+      .getByRole("button", { name: "Ouvrir" })
+      .click();
     await expect(page.getByText("Consultation en lecture seule")).toBeVisible();
     await expect(page.getByRole("cell", { name: "Contrôle" })).toBeVisible();
     await expect(page.getByRole("cell", { name: "Conforme" })).toBeVisible();
@@ -2911,16 +2920,14 @@ test("Word and Excel documents open in a read-only viewer", async ({
       .getByRole("button", { name: "FR", exact: true })
       .click();
     let row = page.getByRole("row").filter({ hasText: wordTitle });
-    await row.getByRole("button", { name: "Archiver" }).click();
+    await row.getByRole("combobox").selectOption("ARCHIVED");
+    await page.getByRole("button", { name: "Confirmer", exact: true }).click();
     row = page.getByRole("row").filter({ hasText: wordTitle });
-    await expect(row.getByRole("button", { name: "Restaurer" })).toHaveClass(
-      /restore/,
-    );
-    await row.getByRole("button", { name: "Restaurer" }).click();
+    await expect(row.getByRole("combobox")).toHaveValue("ARCHIVED");
+    await row.getByRole("combobox").selectOption("DRAFT");
+    await page.getByRole("button", { name: "Confirmer", exact: true }).click();
     row = page.getByRole("row").filter({ hasText: wordTitle });
-    await expect(row.getByRole("button", { name: "Publier" })).toHaveClass(
-      /publish/,
-    );
+    await expect(row.getByRole("combobox")).toHaveValue("DRAFT");
     await row.getByRole("button", { name: "Supprimer" }).click();
     await page.getByRole("button", { name: "Confirmer" }).click();
     await expect(row).toHaveCount(0);
@@ -2934,17 +2941,26 @@ test("Word and Excel documents open in a read-only viewer", async ({
   }
 });
 
-test("the audit journal automatically retains at most 50 events", async ({
+test("the audit journal returns bounded pages without overlapping events", async ({
   request,
 }) => {
-  const response = await request.get("/api/admin/audit?limit=200");
+  const response = await request.get("/api/admin/audit?page=1&limit=50");
   expect(response.status()).toBe(200);
   const audit = (await response.json()) as {
-    items: unknown[];
+    items: Array<{ id: string }>;
     total: number;
+    limit: number;
   };
-  expect(audit.total).toBeLessThanOrEqual(50);
-  expect(audit.items).toHaveLength(audit.total);
+  expect(audit.limit).toBe(50);
+  expect(audit.items).toHaveLength(Math.min(50, audit.total));
+  if (audit.total > 50) {
+    const next = await request.get("/api/admin/audit?page=2&limit=50");
+    expect(next.ok()).toBe(true);
+    const second = (await next.json()) as typeof audit;
+    expect(second.items).toHaveLength(Math.min(50, second.total - 50));
+    const firstIds = new Set(audit.items.map((event) => event.id));
+    expect(second.items.every((event) => !firstIds.has(event.id))).toBe(true);
+  }
 });
 
 test("portal and administration have no serious accessibility violations", async ({
