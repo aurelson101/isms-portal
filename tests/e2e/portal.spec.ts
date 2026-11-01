@@ -281,8 +281,8 @@ test("document preview and binary download work", async ({ page, request }) => {
   dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.locator(".document-reader-meta")).toBeVisible();
-  await expect(dialog.locator("iframe")).toBeVisible();
-  const download = dialog.getByRole("link", { name: "Télécharger" });
+  await expect(dialog.locator(".pdf-readonly canvas")).toBeVisible();
+  const download = dialog.locator(".document-download-link");
   const href = await download.getAttribute("href");
   expect(href).toBeTruthy();
   const response = await request.get(href!);
@@ -334,13 +334,18 @@ test("download actions stay hidden when the ACL denies download", async ({
   await expect(dialog.getByRole("link", { name: "Télécharger" })).toHaveCount(
     0,
   );
-  await expect(dialog.locator("iframe")).toHaveAttribute("src", /#toolbar=0&/);
+  await expect(dialog.locator(".pdf-readonly canvas")).toBeVisible();
+  await expect(dialog.locator("iframe")).toHaveCount(0);
   const openInNewTab = dialog.getByRole("link", {
     name: "Ouvrir dans un nouvel onglet",
   });
-  await expect(openInNewTab).toHaveAttribute("target", "_blank");
-  await expect(openInNewTab).toHaveAttribute("href", /\/content\?locale=fr$/);
-  await expect(dialog.getByText("Lecture seule")).toBeVisible();
+  await expect(openInNewTab).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: /Imprimer|Télécharger/ }),
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByText("Consultation en lecture seule", { exact: true }),
+  ).toBeVisible();
 });
 
 test("account menu remains fully visible at every supported viewport", async ({
@@ -430,30 +435,34 @@ test("PDF reader provides responsive zoom and dedicated viewing controls", async
     .click();
 
   const dialog = page.getByRole("dialog");
-  const frame = dialog.locator("iframe");
+  const canvas = dialog.locator(".pdf-readonly canvas");
   const toolbar = dialog.getByRole("toolbar", {
     name: "Commandes du lecteur PDF",
   });
   await expect(toolbar).toBeVisible();
-  await expect(frame).toHaveAttribute("src", /zoom=page-width/);
+  await expect(canvas).toBeVisible();
+  await expect(
+    toolbar.getByRole("button", { name: "Ajuster à la largeur" }),
+  ).toHaveAttribute("aria-pressed", "true");
 
   await toolbar.getByRole("button", { name: "Augmenter le zoom" }).click();
   await expect(toolbar.getByLabel("Niveau de zoom")).toHaveText("125%");
-  await expect(frame).toHaveAttribute("src", /zoom=125/);
+  await expect(canvas).toBeVisible();
 
   await toolbar
     .getByRole("button", { name: "Afficher la page entière" })
     .click();
-  await expect(frame).toHaveAttribute("src", /zoom=page-fit/);
-  await toolbar.getByRole("button", { name: "Ajuster à la largeur" }).click();
-  await expect(frame).toHaveAttribute("src", /zoom=page-width/);
-  const outline = toolbar.getByRole("button", { name: "Signets / sommaire" });
-  await outline.click();
-  await expect(outline).toHaveAttribute("aria-pressed", "true");
-  await expect(frame).toHaveAttribute("src", /navpanes=1/);
   await expect(
-    toolbar.getByRole("link", { name: "Ouvrir dans un nouvel onglet" }),
-  ).toHaveAttribute("target", "_blank");
+    toolbar.getByRole("button", { name: "Afficher la page entière" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await toolbar.getByRole("button", { name: "Ajuster à la largeur" }).click();
+  await expect(
+    toolbar.getByRole("button", { name: "Ajuster à la largeur" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(toolbar.getByLabel("Page", { exact: true })).toHaveValue("1");
+  await expect(
+    toolbar.getByRole("button", { name: "Précédent", exact: true }),
+  ).toBeDisabled();
 });
 
 test("PDF reader controls are fully translated in English", async ({
@@ -479,7 +488,7 @@ test("PDF reader controls are fully translated in English", async ({
     toolbar.getByRole("button", { name: "Fit whole page" }),
   ).toBeVisible();
   await expect(
-    toolbar.getByRole("link", { name: "Open in a new tab" }),
+    toolbar.getByRole("button", { name: "Previous", exact: true }),
   ).toBeVisible();
   await expect(toolbar.getByText("Ajuster à la largeur")).toHaveCount(0);
 });
@@ -651,7 +660,7 @@ test("administration uses live APIs and every menu opens a section", async ({
     ["Certificats CA", "Infrastructure"],
     ["Journal d’audit", "Supervision"],
     ["Santé des services", "Supervision"],
-    ["Configuration", "Configuration"],
+    ["Identité visuelle du portail", "Configuration"],
   ] as const) {
     const groupButton = page
       .locator(".admin-navigation-heading")
@@ -660,11 +669,13 @@ test("administration uses live APIs and every menu opens a section", async ({
       await groupButton.click();
     const groupId = await groupButton.getAttribute("aria-controls");
     const menuLabel =
-      heading === "Gestion des droits d’accès"
-        ? "Règles d’accès"
-        : heading === "Synchronisation LDAP/LDAPS"
-          ? "Synchronisation LDAP"
-          : heading;
+      heading === "Identité visuelle du portail"
+        ? "Identité visuelle"
+        : heading === "Gestion des droits d’accès"
+          ? "Règles d’accès"
+          : heading === "Synchronisation LDAP/LDAPS"
+            ? "Synchronisation LDAP"
+            : heading;
     await page
       .locator(`#${groupId}`)
       .getByRole("button", { name: new RegExp(`${menuLabel}$`) })
@@ -686,9 +697,9 @@ test("administration uses live APIs and every menu opens a section", async ({
 test("administrator rights actions use the shared button styling", async ({
   page,
 }) => {
-  await page.goto("/admin#settings");
+  await page.goto("/admin#administrators");
   await expect(
-    page.getByRole("heading", { name: "Comptes administrateurs" }),
+    page.getByRole("heading", { name: "Comptes administrateurs", level: 1 }),
   ).toBeVisible();
 
   const buttons = page.locator(
@@ -903,9 +914,9 @@ test("administration is fully switchable between French and English", async ({
     ["Documents", "Documents", "Content and access"],
     ["LDAP synchronization", "LDAP/LDAPS synchronization", "Infrastructure"],
     ["CA certificates", "CA certificates", "Infrastructure"],
-    ["Audit log", "Audit log", "System"],
-    ["Service health", "Service health", "Settings"],
-    ["Settings", "Settings", "Settings"],
+    ["Audit log", "Audit log", "Monitoring"],
+    ["Service health", "Service health", "Monitoring"],
+    ["Branding", "Portal visual identity", "Settings"],
   ] as const) {
     const groupButton = page
       .locator(".admin-navigation-heading")
@@ -925,9 +936,8 @@ test("administration is fully switchable between French and English", async ({
         name: "Document language",
       });
       await expect(documentLanguage).toBeVisible();
-      await expect(
-        documentLanguage.getByRole("radio", { name: "FR" }),
-      ).toBeChecked();
+      await expect(documentLanguage.getByRole("combobox")).toHaveValue("en");
+      await expect(documentLanguage.locator("option")).toHaveCount(4);
       await expect(
         page.getByText("Only identifies the language of the file."),
       ).toBeVisible();
@@ -949,7 +959,10 @@ test("administration is fully switchable between French and English", async ({
 
   await page.getByRole("button", { name: "FR", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Configuration" }),
+    page.getByRole("heading", {
+      name: "Identité visuelle du portail",
+      level: 1,
+    }),
   ).toBeVisible();
   await expect(
     page.getByText("Administrateur ISMS", { exact: true }).last(),
@@ -997,7 +1010,7 @@ test("successful asynchronous forms reset without losing their element", async (
       await configurationGroup.getAttribute("aria-controls");
     await page
       .locator(`#${configurationGroupId}`)
-      .getByRole("button", { name: "Configuration" })
+      .getByRole("button", { name: "Comptes administrateurs", exact: true })
       .click();
     const accountForm = page.locator("form").filter({
       has: page.getByRole("heading", {
@@ -1873,6 +1886,11 @@ test("observability center proposes private integrations without exposing metric
   await expect(
     page.getByRole("heading", { name: "Observabilité", exact: true }),
   ).toBeVisible();
+  await expect(page.getByText("espace documentaire disponible")).toBeVisible();
+  await expect(
+    page.getByText("stockage utilisé", { exact: false }),
+  ).toBeVisible();
+  await page.goto("/admin#integrations");
   for (const integration of [
     "Prometheus / Grafana",
     "Syslog / rsyslog",
@@ -1885,10 +1903,6 @@ test("observability center proposes private integrations without exposing metric
   await expect(page.getByText(/réseau privé de l’API/)).toBeVisible();
   await expect(page.locator('a[href="/api/metrics"]')).toHaveCount(0);
   await expect(page.getByText(/isms-portal_observability/)).toBeVisible();
-  await expect(page.getByText("espace documentaire disponible")).toBeVisible();
-  await expect(
-    page.getByText("stockage utilisé", { exact: false }),
-  ).toBeVisible();
   await expect(
     page.getByText("Adresse du portail détectée automatiquement", {
       exact: false,
@@ -1897,6 +1911,10 @@ test("observability center proposes private integrations without exposing metric
   await expect(
     page.getByText(new URL(page.url()).origin).first(),
   ).toBeVisible();
+  await expect(
+    page.getByText("Activer cette intégration optionnelle").first(),
+  ).toBeVisible();
+  await page.goto("/admin#alert-channels");
   await expect(
     page.getByRole("heading", { name: "Configuration des canaux d’alerte" }),
   ).toBeVisible();
@@ -1924,9 +1942,6 @@ test("observability center proposes private integrations without exposing metric
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Enregistrer et tester le webhook" }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Activer cette intégration optionnelle").first(),
   ).toBeVisible();
 });
 
