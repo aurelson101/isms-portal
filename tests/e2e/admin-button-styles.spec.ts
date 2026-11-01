@@ -14,6 +14,7 @@ for (const width of [320, 768, 1280]) {
         <button id="admin-action">Test integration</button>
         <button id="disabled" disabled>Unavailable</button>
         <button id="primary" class="primary">Save</button>
+        <section class="admin-card"><form class="upload-form"><button id="upload-action" class="primary">Upload and scan</button></form></section>
       </main></div>
       <main class="admin-main moderator-workspace">
         <form class="moderator-search"><label>Search documents<input type="search"></label>
@@ -49,6 +50,11 @@ for (const width of [320, 768, 1280]) {
         .locator("#primary")
         .evaluate((element) => getComputedStyle(element).backgroundColor),
     ).not.toBe("rgb(255, 255, 255)");
+    expect(
+      await page
+        .locator("#upload-action")
+        .evaluate((element) => element.getBoundingClientRect().height),
+    ).toBeGreaterThanOrEqual(44);
     expect(
       await page
         .locator("input")

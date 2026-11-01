@@ -282,7 +282,9 @@ test("document preview and binary download work", async ({ page, request }) => {
   await expect(dialog).toBeVisible();
   await expect(dialog.locator(".document-reader-meta")).toBeVisible();
   await expect(dialog.locator(".pdf-readonly canvas")).toBeVisible();
-  const download = dialog.locator(".document-download-link");
+  const download = dialog
+    .locator(".document-viewer-footer")
+    .getByRole("link", { name: "Télécharger" });
   const href = await download.getAttribute("href");
   expect(href).toBeTruthy();
   const response = await request.get(href!);
@@ -459,7 +461,9 @@ test("PDF reader provides responsive zoom and dedicated viewing controls", async
   await expect(
     toolbar.getByRole("button", { name: "Ajuster à la largeur" }),
   ).toHaveAttribute("aria-pressed", "true");
-  await expect(toolbar.getByLabel("Page", { exact: true })).toHaveValue("1");
+  await expect(
+    toolbar.getByRole("spinbutton", { name: /^Page\b/ }),
+  ).toHaveValue("1");
   await expect(
     toolbar.getByRole("button", { name: "Précédent", exact: true }),
   ).toBeDisabled();
@@ -783,7 +787,7 @@ test("an administrator can customize the portal title and logo", async ({
     expect(
       (
         await request.put("/api/branding", {
-          data: original,
+          data: { title: original.title, logoDataUrl: original.logoDataUrl },
         })
       ).ok(),
     ).toBeTruthy();
@@ -1912,7 +1916,7 @@ test("observability center proposes private integrations without exposing metric
     page.getByText(new URL(page.url()).origin).first(),
   ).toBeVisible();
   await expect(
-    page.getByText("Activer cette intégration optionnelle").first(),
+    page.getByRole("heading", { name: "Intégrations", exact: true, level: 1 }),
   ).toBeVisible();
   await page.goto("/admin#alert-channels");
   await expect(
@@ -1942,6 +1946,10 @@ test("observability center proposes private integrations without exposing metric
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Enregistrer et tester le webhook" }),
+  ).toBeVisible();
+  await page.goto("/admin#alert-policy");
+  await expect(
+    page.getByRole("checkbox", { name: "Activer les alertes externes" }),
   ).toBeVisible();
 });
 
