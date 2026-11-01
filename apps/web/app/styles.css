@@ -2674,6 +2674,7 @@ h1 {
   font: inherit;
 }
 .access-governance .button-row button,
+.admin-shell .button-row button,
 .space-category-row .button-row button {
   min-width: 0;
   white-space: normal;

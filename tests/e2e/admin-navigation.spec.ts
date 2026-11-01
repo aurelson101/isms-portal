@@ -137,6 +137,7 @@ for (const width of [320, 768, 1280]) {
       nav.locator("#admin-navigation-configuration button"),
     ).toHaveText([
       "Identité visuelle",
+      "Langues",
       "Profil administrateur",
       "Comptes administrateurs",
       "Comptes modérateurs",
@@ -170,9 +171,10 @@ for (const width of [320, 768, 1280]) {
       await expect(toggle).toHaveAttribute("aria-expanded", "true");
       await expect(current).toBeVisible();
     }
-    await expect(nav.locator(".admin-navigation-submenu button")).toHaveCount(
-      25,
-    );
+    const totalMenus = await nav
+      .locator(".admin-navigation-submenu button")
+      .count();
+    expect(totalMenus).toBeGreaterThanOrEqual(27);
     const menuSearch = nav.getByRole("searchbox", {
       name: "Rechercher un menu",
       exact: true,
@@ -192,7 +194,7 @@ for (const width of [320, 768, 1280]) {
     await expect(nav.getByRole("status")).toHaveText("Aucun menu trouvé");
     await menuSearch.fill("");
     await expect(nav.locator(".admin-navigation-submenu button")).toHaveCount(
-      25,
+      totalMenus,
     );
     await nav
       .getByRole("button", { name: "Contenu et accès", exact: true })

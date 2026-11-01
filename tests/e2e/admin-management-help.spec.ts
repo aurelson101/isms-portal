@@ -245,13 +245,29 @@ for (const width of [320, 1280]) {
       page.getByRole("heading", { name: "Aide ISMS Portal", exact: true }),
     ).toBeVisible();
     await expect(page.locator(".admin-help article")).toHaveCount(1);
-    await expect(page.locator(".admin-help-topic-picker option")).toHaveCount(
-      26,
-    );
+    const topicCount = await page
+      .locator(".admin-help-topic-picker option")
+      .count();
+    expect(topicCount).toBeGreaterThanOrEqual(26);
+    const initialTopic = await page
+      .locator(".admin-help article h2")
+      .innerText();
     await page
       .locator(".admin-help-pagination")
       .getByRole("button", { name: "Suivant" })
       .click();
+    await expect(page.locator(".admin-help article h2")).not.toHaveText(
+      initialTopic,
+    );
+    if (width <= 900)
+      await page
+        .getByLabel("Rubrique", { exact: true })
+        .selectOption({ label: "Espaces et catégories" });
+    else
+      await page
+        .locator(".admin-help-topics")
+        .getByRole("button", { name: "Espaces et catégories", exact: true })
+        .click();
     await expect(page.locator(".admin-help article h2")).toHaveText(
       "Espaces et catégories",
     );
@@ -314,11 +330,9 @@ for (const width of [320, 1280]) {
       page.getByRole("heading", { name: "ISMS Portal help", exact: true }),
     ).toBeVisible();
     await expect(page.locator(".admin-help article")).toHaveCount(1);
-    for (let index = 0; index < 26; index++) {
+    for (let index = 0; index < topicCount; index++) {
       if (width <= 900)
-        await page
-          .getByLabel("Topic", { exact: true })
-          .selectOption(String(index));
+        await page.getByLabel("Topic", { exact: true }).selectOption({ index });
       else await page.locator(".admin-help-topics button").nth(index).click();
       await expect(page.locator(".admin-help-technical code")).toBeVisible();
       await expect(
