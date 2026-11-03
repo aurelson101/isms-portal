@@ -35,4 +35,26 @@ describe("document version comparison", () => {
       compareDocumentVersions(before, after, ".pdf").details.modified,
     ).toEqual([{ before: "Old control", after: "New control" }]);
   });
+
+  it("extracts escaped strings and TJ arrays", () => {
+    const pdf = Buffer.from(
+      "%PDF-1.4\nstream\nBT (Hello \\(world\\)) Tj [(Pass) -20 (bolt]) 5 (guide)] TJ ET\nendstream",
+    );
+    expect(extractDocumentParagraphs(pdf, ".pdf")).toEqual([
+      "Hello (world)",
+      "Pass",
+      "bolt]",
+      "guide",
+    ]);
+  });
+
+  it("stays linear on binary data full of parentheses and backslashes", () => {
+    const binary = Buffer.from(
+      `%PDF-1.4\n(${"\\a".repeat(20_000)}${"[(x".repeat(20_000)}`,
+      "latin1",
+    );
+    const started = Date.now();
+    extractDocumentParagraphs(binary, ".pdf");
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
 });

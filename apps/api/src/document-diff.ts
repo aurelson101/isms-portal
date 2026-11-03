@@ -59,6 +59,14 @@ const pdfString = (value: string) =>
     .replace(/\\n|\\r/g, " ")
     .replace(/\\[0-7]{1,3}/g, " ");
 
+// Unambiguous alternatives keep matching linear on binary PDF data (no ReDoS).
+const PDF_LITERAL = String.raw`\((?:[^()\\]|\\[\s\S])*\)`;
+const PDF_TEXT_OPERATOR = new RegExp(
+  String.raw`\(((?:[^()\\]|\\[\s\S])*)\)\s*Tj|\[((?:[^\]()\\]|\\[\s\S]|${PDF_LITERAL})*)\]\s*TJ`,
+  "g",
+);
+const PDF_ARRAY_LITERAL = /\(((?:[^()\\]|\\[\s\S])*)\)/g;
+
 const pdfText = (buffer: Buffer) => {
   const source = buffer.toString("latin1");
   const streams: string[] = [source];
@@ -73,13 +81,11 @@ const pdfText = (buffer: Buffer) => {
   }
   return normalize(
     streams.flatMap((stream) =>
-      [
-        ...stream.matchAll(/\(([^()]*(?:\\.[^()]*)*)\)\s*Tj|\[(.*?)\]\s*TJ/gs),
-      ].flatMap((match) => {
+      [...stream.matchAll(PDF_TEXT_OPERATOR)].flatMap((match) => {
         if (match[1]) return [pdfString(match[1])];
-        return [
-          ...(match[2] || "").matchAll(/\(([^()]*(?:\\.[^()]*)*)\)/g),
-        ].map((part) => pdfString(part[1]));
+        return [...(match[2] || "").matchAll(PDF_ARRAY_LITERAL)].map((part) =>
+          pdfString(part[1]),
+        );
       }),
     ),
   );
