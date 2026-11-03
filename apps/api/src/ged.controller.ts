@@ -30,6 +30,11 @@ import { notifySubscribers, persistAudit } from "./audit-event";
 import { isAdminIdentity } from "./security";
 import type { IsmsRequest } from "./types";
 import { versionLabel } from "./version-label";
+import {
+  gedFeatures,
+  requireGedFeature,
+  sharingSettings,
+} from "./ged-settings";
 
 const DOCUMENT_LINK_TYPES = ["SUPERSEDES", "ANNEX", "RELATED"] as const;
 const LOCK_HOURS = 8;
@@ -160,6 +165,10 @@ export class GedDocumentsController {
   async panel(@Req() req: IsmsRequest, @Param("id") id: string) {
     const document = await this.requireVisible(req, id);
     const canEdit = await this.can(req, document, "edit");
+    const [features, sharing] = await Promise.all([
+      gedFeatures(this.prisma),
+      sharingSettings(this.prisma),
+    ]);
     const [subscription, comments, outgoing, incoming, versions] =
       await Promise.all([
         this.prisma.documentSubscription.findUnique({
@@ -170,19 +179,25 @@ export class GedDocumentsController {
             },
           },
         }),
-        this.prisma.documentComment.findMany({
-          where: { documentId: id, deletedAt: null },
-          orderBy: { createdAt: "desc" },
-          take: 200,
-        }),
-        this.prisma.documentLink.findMany({
-          where: { sourceId: id },
-          include: { target: { include: { translations: true } } },
-        }),
-        this.prisma.documentLink.findMany({
-          where: { targetId: id },
-          include: { source: { include: { translations: true } } },
-        }),
+        features.comments
+          ? this.prisma.documentComment.findMany({
+              where: { documentId: id, deletedAt: null },
+              orderBy: { createdAt: "desc" },
+              take: 200,
+            })
+          : Promise.resolve([]),
+        features.links
+          ? this.prisma.documentLink.findMany({
+              where: { sourceId: id },
+              include: { target: { include: { translations: true } } },
+            })
+          : Promise.resolve([]),
+        features.links
+          ? this.prisma.documentLink.findMany({
+              where: { targetId: id },
+              include: { source: { include: { translations: true } } },
+            })
+          : Promise.resolve([]),
         canEdit
           ? this.prisma.documentVersion.findMany({
               where: { documentId: id },
@@ -253,6 +268,7 @@ export class GedDocumentsController {
     );
     const admin = isAdminIdentity(req.identity.groups);
     return {
+      features: { ...features, sharing: sharing.enabled },
       subscribed: Boolean(subscription),
       canEdit,
       isAdmin: admin,
@@ -311,6 +327,7 @@ export class GedDocumentsController {
     @Param("id") id: string,
     @Body() body: CommentDto,
   ) {
+    await requireGedFeature(this.prisma, "comments");
     await this.requireVisible(req, id);
     if (
       body.versionId &&
@@ -360,6 +377,7 @@ export class GedDocumentsController {
     @Param("id") id: string,
     @Param("commentId") commentId: string,
   ) {
+    await requireGedFeature(this.prisma, "comments");
     await this.requireVisible(req, id);
     const comment = await this.prisma.documentComment.findFirst({
       where: { id: commentId, documentId: id, deletedAt: null },
@@ -408,6 +426,7 @@ export class GedDocumentsController {
     @Param("id") id: string,
     @Body() body: LinkDto,
   ) {
+    await requireGedFeature(this.prisma, "links");
     await this.requireEditable(req, id);
     const target = await this.resolveTarget(body.target);
     if (!target || !(await this.visible(req, target.id)))
@@ -449,6 +468,7 @@ export class GedDocumentsController {
     @Param("id") id: string,
     @Param("linkId") linkId: string,
   ) {
+    await requireGedFeature(this.prisma, "links");
     await this.requireEditable(req, id);
     const removed = await this.prisma.documentLink.deleteMany({
       where: { id: linkId, sourceId: id },

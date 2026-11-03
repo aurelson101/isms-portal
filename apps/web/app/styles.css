@@ -7599,23 +7599,55 @@ svg {
 }
 
 /* GED panel: follow, check-out, links, comments, version history */
+/* Collapsed by default: the document viewer keeps the vertical space. */
 .document-ged-panel {
-  display: grid;
-  gap: 0.75rem;
-  margin: 0 1rem 1rem;
-}
-
-.document-ged-panel details {
-  padding: 0.8rem;
+  margin: 0 1rem 0.75rem;
+  padding: 0.45rem 0.8rem;
   border: 1px solid #b8c9df;
   border-radius: 0.65rem;
   background: #f8fafc;
+}
+
+.document-ged-panel > summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  min-height: 32px;
+}
+
+.document-ged-body {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.document-ged-panel details {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d6e0ee;
+  border-radius: 0.5rem;
+  background: #ffffff;
 }
 
 .document-ged-panel summary {
   color: #071a38;
   font-weight: 800;
   cursor: pointer;
+}
+
+.document-ged-panel button:not(.primary):not(.document-ged-link) {
+  padding: 0.35rem 0.8rem;
+  border: 1px solid #b8c9df;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  color: #071a38;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.document-ged-panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .document-ged-actions,
@@ -7642,11 +7674,11 @@ svg {
 
 .document-ged-actions button,
 .document-ged-form button {
-  min-height: 44px;
+  min-height: 40px;
 }
 
 .document-ged-lock {
-  padding: 0.35rem 0.6rem;
+  padding: 0.2rem 0.6rem;
   border-radius: 999px;
   background: #fff4d6;
   color: #5c3b00;
@@ -7677,7 +7709,7 @@ svg {
 .document-ged-comment {
   padding: 0.6rem;
   border-radius: 0.5rem;
-  background: #ffffff;
+  background: #f8fafc;
 }
 
 .document-ged-comment p {
@@ -7720,7 +7752,9 @@ svg {
   white-space: nowrap;
 }
 
+.shell.high-contrast .document-ged-panel,
 .shell.high-contrast .document-ged-panel details,
+.shell.high-contrast .document-ged-panel button,
 .shell.high-contrast .document-ged-comment {
   border-color: currentColor;
   background: transparent;

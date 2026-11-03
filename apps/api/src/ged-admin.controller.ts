@@ -39,7 +39,9 @@ import { verifyAuditChain } from "./audit-chain";
 import { requestTimestamp } from "./timestamp";
 import { CryptoService } from "./crypto.service";
 import {
+  FEATURES_SETTING,
   SHARING_SETTING,
+  gedFeatures,
   loadTimestampConfig,
   saveTimestampSettings,
   sharingSettings,
@@ -78,6 +80,11 @@ class TimestampSettingsDto {
 class SharingSettingsDto {
   @IsBoolean() enabled!: boolean;
   @IsInt() @Min(1) @Max(90) maxDays!: number;
+}
+class GedFeaturesDto {
+  @IsBoolean() links!: boolean;
+  @IsBoolean() comments!: boolean;
+  @IsBoolean() signatures!: boolean;
 }
 
 const safeName = (value: string) =>
@@ -214,6 +221,34 @@ export class GedAdminController {
       { notify: false },
     );
     return sharingSettings(this.prisma);
+  }
+
+  @Get("features")
+  features() {
+    return gedFeatures(this.prisma);
+  }
+
+  @Put("features")
+  async saveFeatures(@Req() req: IsmsRequest, @Body() body: GedFeaturesDto) {
+    const value = {
+      links: body.links,
+      comments: body.comments,
+      signatures: body.signatures,
+    };
+    await this.prisma.applicationSetting.upsert({
+      where: { key: FEATURES_SETTING },
+      create: { key: FEATURES_SETTING, value },
+      update: { value },
+    });
+    await this.audit.record(
+      req,
+      "ged.features.update",
+      `settings:${FEATURES_SETTING}`,
+      "success",
+      value,
+      { notify: false },
+    );
+    return gedFeatures(this.prisma);
   }
 
   @Post("document-types")

@@ -119,6 +119,19 @@ Teams/disque/services constituent une configuration distincte.
 
 ## Fonctions GED (novembre 2026)
 
+**Affichage dans le lecteur** — les fonctions GED sont regroupées dans un bloc
+**Gestion documentaire**, replié par défaut au-dessus du lecteur pour lui laisser
+la place. Il s'ouvre automatiquement lorsqu'une signature attend le lecteur et
+affiche un badge quand le document est réservé.
+
+**Modules activables** — dans **Administration → GED → Options GED → Modules du
+lecteur de documents**, un administrateur active ou désactive _Documents liés_,
+_Commentaires_ et _Signatures électroniques_ (activés par défaut) ; le _Partage
+externe_ se règle dans son propre bloc (désactivé par défaut). Un module
+désactivé disparaît du lecteur pour tous et ses routes API répondent `404`. Les
+données existantes sont conservées et réapparaissent à la réactivation. Chaque
+changement est audité (`ged.features.update`).
+
 **Recherche plein texte** — le worker extrait le texte de chaque version (PDF,
 DOCX, XLSX) dans `DocumentVersionContent`, indexé en français (GIN `tsvector`).
 La recherche générale couvre ce contenu, uniquement pour la dernière version de
@@ -235,6 +248,10 @@ preserves other fields and applies atomically after checking source/destination
 ACLs and preview timestamps. Editors can inspect change history; SHA-256 duplicate
 detection only reveals editable existing documents. Administrators configure
 annual and publication-review reminders separately from technical alerts.
+GED tools sit in a collapsed **Document management** block above the viewer.
+Administrators can disable linked documents, comments and electronic signatures
+in **GED options** (external sharing has its own switch); disabled modules are
+hidden and their API answers `404`, while existing data is kept.
 
 See [administration](administration.md), [API routes](routes.md),
 [versioning](VERSIONING.md) and [anonymized screenshots](screenshots/README.md).

@@ -71,6 +71,7 @@ de ne jamais mélanger deux espaces.
 | GET/PUT         | `/api/admin/ged/timestamp`                             | Option d'horodatage (mot de passe jamais renvoyé)                                      |
 | POST            | `/api/admin/ged/timestamp/test`                        | Demande un jeton de test à l'autorité                                                  |
 | GET/PUT         | `/api/admin/ged/sharing`                               | Activation et durée maximale du partage externe                                        |
+| GET/PUT         | `/api/admin/ged/features`                              | Modules du lecteur : liens, commentaires, signatures (désactivé → routes en `404`)     |
 | GET/POST        | `/api/documents/:id/signatures`                        | Demandes de signature ; création par un éditeur                                        |
 | POST            | `/api/documents/:id/signatures/:requestId/decision`    | Signer ou refuser (signataire authentifié, consentement)                               |
 | DELETE          | `/api/documents/:id/signatures/:requestId`             | Annuler (demandeur ou administrateur)                                                  |

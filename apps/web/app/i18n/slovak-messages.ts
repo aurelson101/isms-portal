@@ -1992,4 +1992,10 @@ export const slovakMessages: Readonly<Record<string, string>> = {
   "requested by": "požiadal(a)",
   "time-stamped": "s časovou pečiatkou",
   unlimited: "neobmedzene",
+  "Being edited": "Upravuje sa",
+  "Checked out by you": "Rezervované vami",
+  "Document viewer modules": "Moduly prehliadača dokumentov",
+  "Modules saved.": "Moduly uložené.",
+  "A disabled module disappears from the viewer for every user and its API is refused. Existing data is kept and reappears when the module is enabled again. External sharing is configured below.":
+    "Vypnutý modul zmizne z prehliadača pre všetkých používateľov a jeho API je odmietnuté. Existujúce údaje sa zachovajú a znovu sa zobrazia po opätovnom zapnutí. Externé zdieľanie sa nastavuje nižšie.",
 };

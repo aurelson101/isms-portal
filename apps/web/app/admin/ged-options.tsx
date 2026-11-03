@@ -14,6 +14,7 @@ type TimestampSettings = {
   hasPassword: boolean;
 };
 type SharingSettings = { enabled: boolean; maxDays: number };
+type GedFeatures = { links: boolean; comments: boolean; signatures: boolean };
 
 export function GedOptions({
   locale,
@@ -29,16 +30,19 @@ export function GedOptions({
   const [password, setPassword] = useState("");
   const [clearPassword, setClearPassword] = useState(false);
   const [sharing, setSharing] = useState<SharingSettings | null>(null);
+  const [features, setFeatures] = useState<GedFeatures | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     Promise.all([
       api<TimestampSettings>("/api/admin/ged/timestamp"),
       api<SharingSettings>("/api/admin/ged/sharing"),
+      api<GedFeatures>("/api/admin/ged/features"),
     ])
-      .then(([timestampValue, sharingValue]) => {
+      .then(([timestampValue, sharingValue, featuresValue]) => {
         setTimestamp(timestampValue);
         setSharing(sharingValue);
+        setFeatures(featuresValue);
       })
       .catch((error: Error) => onError(error.message));
   }, [onError]);
@@ -54,11 +58,58 @@ export function GedOptions({
       setBusy(false);
     }
   };
-  if (!timestamp || !sharing) return null;
+  if (!timestamp || !sharing || !features) return null;
+  const featureLabels: Array<[keyof GedFeatures, string]> = [
+    ["links", t("Documents liés", "Linked documents")],
+    ["comments", t("Commentaires", "Comments")],
+    ["signatures", t("Signatures électroniques", "Electronic signatures")],
+  ];
 
   return (
     <section className="admin-card">
       <h2>{t("Options GED", "GED options")}</h2>
+      <form
+        className="admin-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void run(async () => {
+            setFeatures(
+              await api<GedFeatures>("/api/admin/ged/features", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(features),
+              }),
+            );
+            onNotice(t("Modules enregistrés.", "Modules saved."));
+          });
+        }}
+      >
+        <h3>
+          {t("Modules du lecteur de documents", "Document viewer modules")}
+        </h3>
+        <p>
+          {t(
+            "Un module désactivé disparaît du lecteur pour tous les utilisateurs et son API est refusée. Les données existantes sont conservées et réapparaissent si le module est réactivé. Le partage externe se règle plus bas.",
+            "A disabled module disappears from the viewer for every user and its API is refused. Existing data is kept and reappears when the module is enabled again. External sharing is configured below.",
+          )}
+        </p>
+        {featureLabels.map(([key, label]) => (
+          <label className="check" key={key}>
+            <input
+              type="checkbox"
+              checked={features[key]}
+              onChange={(event) =>
+                setFeatures({ ...features, [key]: event.target.checked })
+              }
+            />
+            {label}
+          </label>
+        ))}
+        <button type="submit" className="primary" disabled={busy}>
+          {t("Enregistrer", "Save")}
+        </button>
+      </form>
+
       <form
         className="admin-form"
         onSubmit={(event) => {

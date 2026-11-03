@@ -1675,4 +1675,10 @@ export const spanishMessages: Readonly<Record<string, string>> = {
     "Vistas y lotes: prepare la selección y compruebe cada documento antes de actuar en lote. KPI/KRI: compare contadores con listas de revisiones, controles, incidentes y aprobaciones. Antes de recordar, compruebe participantes, atributos mail e historial en Observabilidad.",
   "When editing, the name and new credentials can be changed; type, bucket and location are fixed. To change location, prepare a new target and a controlled migration. Back up PostgreSQL and files together, then test an isolated restoration.":
     "Al editar, puede cambiar nombre y nuevas credenciales; tipo, bucket y ubicación son fijos. Para cambiar ubicación, prepare otro destino y una migración controlada. Respalde PostgreSQL y archivos juntos y pruebe una restauración aislada.",
+  "Being edited": "En modificación",
+  "Checked out by you": "Reservado por usted",
+  "Document viewer modules": "Módulos del lector de documentos",
+  "Modules saved.": "Módulos guardados.",
+  "A disabled module disappears from the viewer for every user and its API is refused. Existing data is kept and reappears when the module is enabled again. External sharing is configured below.":
+    "Un módulo desactivado desaparece del lector para todos los usuarios y su API se rechaza. Los datos existentes se conservan y reaparecen si se reactiva. El uso compartido externo se configura más abajo.",
 };

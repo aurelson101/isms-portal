@@ -1,3 +1,4 @@
+import { NotFoundException } from "@nestjs/common";
 import type { PrismaService } from "./prisma.service";
 import type { CryptoService } from "./crypto.service";
 import { environmentTimestampConfig, type TimestampConfig } from "./timestamp";
@@ -87,6 +88,28 @@ export async function saveTimestampSettings(
     update: { value },
   });
   return timestampSettings(prisma);
+}
+
+export const FEATURES_SETTING = "ged.features";
+export type GedFeature = "links" | "comments" | "signatures";
+export type GedFeatures = Record<GedFeature, boolean>;
+
+/** Optional GED modules: enabled unless an administrator turned them off. */
+export async function gedFeatures(prisma: SettingsStore): Promise<GedFeatures> {
+  const stored = await read<Partial<GedFeatures>>(prisma, FEATURES_SETTING);
+  return {
+    links: stored?.links !== false,
+    comments: stored?.comments !== false,
+    signatures: stored?.signatures !== false,
+  };
+}
+
+/** Disabled modules answer 404, like any resource the caller cannot use. */
+export async function requireGedFeature(
+  prisma: SettingsStore,
+  feature: GedFeature,
+) {
+  if (!(await gedFeatures(prisma))[feature]) throw new NotFoundException();
 }
 
 export type SharingSettings = { enabled: boolean; maxDays: number };

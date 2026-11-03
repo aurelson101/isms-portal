@@ -39,7 +39,11 @@ import { CryptoService } from "./crypto.service";
 import { persistAudit } from "./audit-event";
 import { isAdminIdentity } from "./security";
 import { isMipObjectKey } from "./mip-reader";
-import { loadTimestampConfig, sharingSettings } from "./ged-settings";
+import {
+  loadTimestampConfig,
+  requireGedFeature,
+  sharingSettings,
+} from "./ged-settings";
 import { requestTimestamp } from "./timestamp";
 import { visibleDocument } from "./ged.controller";
 import { versionLabel } from "./version-label";
@@ -133,6 +137,7 @@ export class GedSignShareController {
 
   @Get(":id/signatures")
   async signatures(@Req() req: IsmsRequest, @Param("id") id: string) {
+    await requireGedFeature(this.prisma, "signatures");
     await this.requireVisible(req, id);
     const me = req.identity.username.toLowerCase();
     const admin = isAdminIdentity(req.identity.groups);
@@ -188,6 +193,7 @@ export class GedSignShareController {
     @Param("id") id: string,
     @Body() body: SignatureRequestDto,
   ) {
+    await requireGedFeature(this.prisma, "signatures");
     const document = await this.requireVisible(req, id);
     if (!(await this.can(req, document, "edit"))) throw new NotFoundException();
     await this.cleanVersion(id, body.versionId);
@@ -240,6 +246,7 @@ export class GedSignShareController {
     @Param("requestId") requestId: string,
     @Body() body: SignatureDecisionDto,
   ) {
+    await requireGedFeature(this.prisma, "signatures");
     await this.requireVisible(req, id);
     if (body.decision === "SIGN" && !body.consent)
       throw new BadRequestException("Signing requires explicit consent");
@@ -343,6 +350,7 @@ export class GedSignShareController {
     @Param("id") id: string,
     @Param("requestId") requestId: string,
   ) {
+    await requireGedFeature(this.prisma, "signatures");
     await this.requireVisible(req, id);
     const request = await this.prisma.signatureRequest.findFirst({
       where: { id: requestId, documentId: id, status: "OPEN" },
@@ -377,6 +385,7 @@ export class GedSignShareController {
     @Param("id") id: string,
     @Param("requestId") requestId: string,
   ) {
+    await requireGedFeature(this.prisma, "signatures");
     await this.requireVisible(req, id);
     const request = await this.prisma.signatureRequest.findFirst({
       where: { id: requestId, documentId: id },

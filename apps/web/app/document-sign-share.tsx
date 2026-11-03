@@ -63,11 +63,17 @@ export function DocumentSignShare({
   locale,
   canEdit,
   versions,
+  signatures,
+  sharing,
+  onSignatureAwaited,
 }: {
   documentId: string;
   locale: Locale;
   canEdit: boolean;
   versions: Version[];
+  signatures: boolean;
+  sharing: boolean;
+  onSignatureAwaited: () => void;
 }) {
   const t = (fr: string, en: string) => translate(locale, fr, en);
   const base = `/api/documents/${encodeURIComponent(documentId)}`;
@@ -98,8 +104,12 @@ export function DocumentSignShare({
   const load = useCallback(async () => {
     try {
       const [signatureList, shareState] = await Promise.all([
-        call<SignatureRequest[]>(`${base}/signatures`, { cache: "no-store" }),
-        canEdit
+        signatures
+          ? call<SignatureRequest[]>(`${base}/signatures`, {
+              cache: "no-store",
+            })
+          : Promise.resolve([]),
+        canEdit && sharing
           ? call<Shares>(`${base}/shares`, { cache: "no-store" })
           : Promise.resolve(null),
       ]);
@@ -108,10 +118,16 @@ export function DocumentSignShare({
     } catch (failure) {
       setError((failure as Error).message);
     }
-  }, [base, canEdit]);
+  }, [base, canEdit, signatures, sharing]);
   useEffect(() => {
     void load();
   }, [load]);
+  const pending = requests.some((request) =>
+    request.entries.some((entry) => entry.canDecide),
+  );
+  useEffect(() => {
+    if (pending) onSignatureAwaited();
+  }, [pending, onSignatureAwaited]);
 
   const run = async (action: () => Promise<unknown>) => {
     if (busy) return;
@@ -153,9 +169,6 @@ export function DocumentSignShare({
       ))}
     </select>
   );
-  const pending = requests.some((request) =>
-    request.entries.some((entry) => entry.canDecide),
-  );
 
   return (
     <>
@@ -164,7 +177,7 @@ export function DocumentSignShare({
           {error}
         </p>
       )}
-      {(requests.length > 0 || canEdit) && (
+      {signatures && (requests.length > 0 || canEdit) && (
         <details open={pending}>
           <summary>
             {t("Signatures électroniques", "Electronic signatures")} (
@@ -330,7 +343,7 @@ export function DocumentSignShare({
         </details>
       )}
 
-      {canEdit && shares && (
+      {canEdit && sharing && shares && (
         <details>
           <summary>
             {t("Partage externe", "External sharing")} (

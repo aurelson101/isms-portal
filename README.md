@@ -47,6 +47,17 @@ fait foi.
   Validation Graph en lecture seule, certificat et refus en cas d'indisponibilite.
   Voir [configuration et activation progressive](docs/sso.md).
 
+### Lecteur de documents : bloc GED et modules activables (3 novembre 2026)
+
+Dans le lecteur, suivi, réservation, liens, commentaires, versions, signatures et
+partage sont regroupés dans un bloc **Gestion documentaire** replié par défaut :
+le document garde toute la place. Dans **Administration → GED → Options GED**,
+un administrateur peut désactiver _Documents liés_, _Commentaires_ et
+_Signatures électroniques_ ; le _Partage externe_ reste désactivé tant qu'il
+n'est pas autorisé. Un module désactivé est masqué pour tous et son API répond
+`404` ; les données sont conservées. Voir
+[Gestion documentaire](docs/document-management.md#fonctions-ged-novembre-2026).
+
 ### Métadonnées GED et gestion documentaire (30 octobre 2026)
 
 **Documents admin et modérateur : Liste ou Fenêtres, 20 documents par page avec

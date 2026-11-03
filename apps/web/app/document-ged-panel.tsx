@@ -9,6 +9,12 @@ import { DocumentSignShare } from "./document-sign-share";
 
 type LinkType = "SUPERSEDES" | "ANNEX" | "RELATED";
 type GedPanel = {
+  features: {
+    links: boolean;
+    comments: boolean;
+    signatures: boolean;
+    sharing: boolean;
+  };
   subscribed: boolean;
   canEdit: boolean;
   isAdmin: boolean;
@@ -77,6 +83,10 @@ export function DocumentGedPanel({
   const [panel, setPanel] = useState<GedPanel | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // Collapsed by default so the document viewer keeps the space.
+  const [open, setOpen] = useState(false);
+  // Stable callback: the panel opens once when a signature awaits the reader.
+  const openPanel = useCallback(() => setOpen(true), []);
   const [comment, setComment] = useState("");
   const [commentPage, setCommentPage] = useState("");
   const [linkTarget, setLinkTarget] = useState("");
@@ -135,329 +145,360 @@ export function DocumentGedPanel({
       Math.max(latest.get(version.locale) || 0, version.version),
     );
 
+  const { features } = panel;
+
   return (
-    <section
+    <details
       className="document-ged-panel"
-      aria-label={t("Gestion documentaire", "Document management")}
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      {error && (
-        <p className="error-state" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="document-ged-actions">
-        <button
-          type="button"
-          disabled={busy}
-          aria-pressed={panel.subscribed}
-          onClick={() =>
-            run(() =>
-              request(`${base}/subscription`, {
-                method: "PUT",
-                body: JSON.stringify({ subscribed: !panel.subscribed }),
-              }),
-            )
-          }
-        >
-          {panel.subscribed
-            ? t("Ne plus suivre", "Unfollow")
-            : t("Suivre ce document", "Follow this document")}
-        </button>
-        {panel.lock ? (
-          <span className="document-ged-lock" role="status">
+      <summary>
+        {t("Gestion documentaire", "Document management")}
+        {panel.lock && (
+          <span className="document-ged-lock">
             {panel.lock.mine
-              ? t("Réservé par vous jusqu’au", "Checked out by you until")
-              : t("En cours de modification par", "Being edited by")}{" "}
-            {panel.lock.mine ? "" : `${panel.lock.lockedBy} · `}
-            {date(panel.lock.lockExpiresAt)}
+              ? t("Réservé par vous", "Checked out by you")
+              : t("En cours de modification", "Being edited")}
           </span>
-        ) : null}
-        {panel.canEdit &&
-          (!panel.lock || panel.lock.mine ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() =>
-                run(() => request(`${base}/lock`, { method: "POST" }))
-              }
-            >
-              {panel.lock
-                ? t("Prolonger la réservation", "Extend check-out")
-                : t("Réserver pour modification", "Check out for editing")}
-            </button>
-          ) : null)}
-        {panel.canEdit && panel.lock && (panel.lock.mine || panel.isAdmin) && (
+        )}
+      </summary>
+      <div className="document-ged-body">
+        {error && (
+          <p className="error-state" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="document-ged-actions">
           <button
             type="button"
             disabled={busy}
+            aria-pressed={panel.subscribed}
             onClick={() =>
-              run(() => request(`${base}/lock`, { method: "DELETE" }))
+              run(() =>
+                request(`${base}/subscription`, {
+                  method: "PUT",
+                  body: JSON.stringify({ subscribed: !panel.subscribed }),
+                }),
+              )
             }
           >
-            {t("Libérer", "Release")}
+            {panel.subscribed
+              ? t("Ne plus suivre", "Unfollow")
+              : t("Suivre ce document", "Follow this document")}
           </button>
-        )}
-      </div>
+          {panel.lock ? (
+            <span className="document-ged-lock" role="status">
+              {panel.lock.mine
+                ? t("Réservé par vous jusqu’au", "Checked out by you until")
+                : t("En cours de modification par", "Being edited by")}{" "}
+              {panel.lock.mine ? "" : `${panel.lock.lockedBy} · `}
+              {date(panel.lock.lockExpiresAt)}
+            </span>
+          ) : null}
+          {panel.canEdit &&
+            (!panel.lock || panel.lock.mine ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  run(() => request(`${base}/lock`, { method: "POST" }))
+                }
+              >
+                {panel.lock
+                  ? t("Prolonger la réservation", "Extend check-out")
+                  : t("Réserver pour modification", "Check out for editing")}
+              </button>
+            ) : null)}
+          {panel.canEdit &&
+            panel.lock &&
+            (panel.lock.mine || panel.isAdmin) && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  run(() => request(`${base}/lock`, { method: "DELETE" }))
+                }
+              >
+                {t("Libérer", "Release")}
+              </button>
+            )}
+        </div>
 
-      <details open={panel.links.length > 0}>
-        <summary>
-          {t("Documents liés", "Linked documents")} ({panel.links.length})
-        </summary>
-        {panel.links.length ? (
-          <ul className="document-ged-list">
-            {panel.links.map((link) => (
-              <li key={`${link.direction}-${link.id}`}>
-                <span className="document-ged-tag">
-                  {linkLabel(link.type, link.direction)}
-                </span>{" "}
-                <a
-                  href={`/documents/${encodeURIComponent(link.document.slug)}`}
-                >
-                  {link.document.translations.find(
-                    (item) => item.locale === locale,
-                  )?.title ||
-                    link.document.translations[0]?.title ||
-                    link.document.slug}
-                </a>
-                {panel.canEdit && link.direction === "outgoing" && (
-                  <button
-                    type="button"
-                    className="document-ged-link"
-                    disabled={busy}
-                    onClick={() =>
-                      run(() =>
-                        request(`${base}/links/${link.id}`, {
-                          method: "DELETE",
-                        }),
-                      )
-                    }
-                  >
-                    {t("Retirer", "Remove")}
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>{t("Aucun document lié.", "No linked document.")}</p>
-        )}
-        {panel.canEdit && (
-          <form
-            className="document-ged-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!linkTarget.trim()) return;
-              void run(async () => {
-                await request(`${base}/links`, {
-                  method: "POST",
-                  body: JSON.stringify({ target: linkTarget, type: linkType }),
-                });
-                setLinkTarget("");
-              });
-            }}
-          >
-            <select
-              value={linkType}
-              aria-label={t("Type de lien", "Link type")}
-              onChange={(event) => setLinkType(event.target.value as LinkType)}
-            >
-              <option value="RELATED">{t("Voir aussi", "See also")}</option>
-              <option value="SUPERSEDES">{t("Remplace", "Supersedes")}</option>
-              <option value="ANNEX">{t("Annexe de", "Annex of")}</option>
-            </select>
-            <input
-              value={linkTarget}
-              maxLength={500}
-              aria-label={t("Document cible", "Target document")}
-              placeholder={t(
-                "Lien copié, référence ou identifiant",
-                "Copied link, reference or identifier",
-              )}
-              onChange={(event) => setLinkTarget(event.target.value)}
-            />
-            <button type="submit" disabled={busy || !linkTarget.trim()}>
-              {t("Lier", "Link")}
-            </button>
-          </form>
-        )}
-      </details>
-
-      <details open={panel.comments.length > 0}>
-        <summary>
-          {t("Commentaires", "Comments")} ({panel.comments.length})
-        </summary>
-        <form
-          className="document-ged-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!comment.trim()) return;
-            void run(async () => {
-              await request(`${base}/comments`, {
-                method: "POST",
-                body: JSON.stringify({
-                  body: comment,
-                  ...(Number(commentPage) > 0
-                    ? { page: Number(commentPage) }
-                    : {}),
-                }),
-              });
-              setComment("");
-              setCommentPage("");
-            });
-          }}
-        >
-          <textarea
-            value={comment}
-            maxLength={2000}
-            rows={3}
-            aria-label={t("Votre commentaire", "Your comment")}
-            placeholder={t("Votre commentaire", "Your comment")}
-            onChange={(event) => setComment(event.target.value)}
-          />
-          <input
-            type="number"
-            min={1}
-            value={commentPage}
-            aria-label={t("Page concernée (facultatif)", "Page (optional)")}
-            placeholder={t("Page", "Page")}
-            onChange={(event) => setCommentPage(event.target.value)}
-          />
-          <button type="submit" disabled={busy || !comment.trim()}>
-            {t("Publier le commentaire", "Post comment")}
-          </button>
-        </form>
-        <ul className="document-ged-list">
-          {panel.comments.map((item) => (
-            <li key={item.id} className="document-ged-comment">
-              <strong>{item.author}</strong>{" "}
-              <small>
-                {date(item.createdAt)}
-                {item.page ? ` · ${t("page", "page")} ${item.page}` : ""}
-              </small>
-              <p>{item.body}</p>
-              {item.canDelete && (
-                <button
-                  type="button"
-                  className="document-ged-link"
-                  disabled={busy}
-                  onClick={() =>
-                    run(() =>
-                      request(`${base}/comments/${item.id}`, {
-                        method: "DELETE",
+        {features.links && (
+          <details open={panel.links.length > 0}>
+            <summary>
+              {t("Documents liés", "Linked documents")} ({panel.links.length})
+            </summary>
+            {panel.links.length ? (
+              <ul className="document-ged-list">
+                {panel.links.map((link) => (
+                  <li key={`${link.direction}-${link.id}`}>
+                    <span className="document-ged-tag">
+                      {linkLabel(link.type, link.direction)}
+                    </span>{" "}
+                    <a
+                      href={`/documents/${encodeURIComponent(link.document.slug)}`}
+                    >
+                      {link.document.translations.find(
+                        (item) => item.locale === locale,
+                      )?.title ||
+                        link.document.translations[0]?.title ||
+                        link.document.slug}
+                    </a>
+                    {panel.canEdit && link.direction === "outgoing" && (
+                      <button
+                        type="button"
+                        className="document-ged-link"
+                        disabled={busy}
+                        onClick={() =>
+                          run(() =>
+                            request(`${base}/links/${link.id}`, {
+                              method: "DELETE",
+                            }),
+                          )
+                        }
+                      >
+                        {t("Retirer", "Remove")}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>{t("Aucun document lié.", "No linked document.")}</p>
+            )}
+            {panel.canEdit && (
+              <form
+                className="document-ged-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!linkTarget.trim()) return;
+                  void run(async () => {
+                    await request(`${base}/links`, {
+                      method: "POST",
+                      body: JSON.stringify({
+                        target: linkTarget,
+                        type: linkType,
                       }),
-                    )
+                    });
+                    setLinkTarget("");
+                  });
+                }}
+              >
+                <select
+                  value={linkType}
+                  aria-label={t("Type de lien", "Link type")}
+                  onChange={(event) =>
+                    setLinkType(event.target.value as LinkType)
                   }
                 >
-                  {t("Supprimer", "Delete")}
+                  <option value="RELATED">{t("Voir aussi", "See also")}</option>
+                  <option value="SUPERSEDES">
+                    {t("Remplace", "Supersedes")}
+                  </option>
+                  <option value="ANNEX">{t("Annexe de", "Annex of")}</option>
+                </select>
+                <input
+                  value={linkTarget}
+                  maxLength={500}
+                  aria-label={t("Document cible", "Target document")}
+                  placeholder={t(
+                    "Lien copié, référence ou identifiant",
+                    "Copied link, reference or identifier",
+                  )}
+                  onChange={(event) => setLinkTarget(event.target.value)}
+                />
+                <button type="submit" disabled={busy || !linkTarget.trim()}>
+                  {t("Lier", "Link")}
                 </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      </details>
+              </form>
+            )}
+          </details>
+        )}
 
-      {panel.canEdit && panel.versions.length > 0 && (
-        <details>
-          <summary>
-            {t("Historique des versions", "Version history")} (
-            {panel.versions.length})
-          </summary>
-          <div className="document-ged-table">
-            <table className="document-ged-versions">
-              <thead>
-                <tr>
-                  <th>{t("Version", "Version")}</th>
-                  <th>{t("Date", "Date")}</th>
-                  <th>{t("Résumé", "Summary")}</th>
-                  <th>{t("Recherche", "Search")}</th>
-                  <th>{t("Horodatage", "Time-stamp")}</th>
-                  <th>
-                    <span className="document-ged-sr">
-                      {t("Actions", "Actions")}
-                    </span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {panel.versions.map((version) => (
-                  <tr key={version.id}>
-                    <td>
-                      {version.locale.toUpperCase()} v{version.label}
-                    </td>
-                    <td>{date(version.createdAt)}</td>
-                    <td>{version.changeSummary || "—"}</td>
-                    <td>
-                      {version.indexed === "DONE"
-                        ? version.ocr
-                          ? t("Indexé (OCR)", "Indexed (OCR)")
-                          : t("Indexé", "Indexed")
-                        : version.indexed === "FAILED"
-                          ? t("Échec", "Failed")
-                          : version.indexed === "SKIPPED"
-                            ? t("Non indexable", "Not indexable")
-                            : t("En attente", "Pending")}
-                    </td>
-                    <td>
-                      {version.timestampedAt ? (
-                        panel.isAdmin ? (
-                          <a
-                            href={`/api/admin/ged/versions/${version.id}/timestamp`}
-                            title={version.sha256}
-                          >
-                            {date(version.timestampedAt)}
-                          </a>
-                        ) : (
-                          date(version.timestampedAt)
+        {features.comments && (
+          <details open={panel.comments.length > 0}>
+            <summary>
+              {t("Commentaires", "Comments")} ({panel.comments.length})
+            </summary>
+            <form
+              className="document-ged-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!comment.trim()) return;
+                void run(async () => {
+                  await request(`${base}/comments`, {
+                    method: "POST",
+                    body: JSON.stringify({
+                      body: comment,
+                      ...(Number(commentPage) > 0
+                        ? { page: Number(commentPage) }
+                        : {}),
+                    }),
+                  });
+                  setComment("");
+                  setCommentPage("");
+                });
+              }}
+            >
+              <textarea
+                value={comment}
+                maxLength={2000}
+                rows={3}
+                aria-label={t("Votre commentaire", "Your comment")}
+                placeholder={t("Votre commentaire", "Your comment")}
+                onChange={(event) => setComment(event.target.value)}
+              />
+              <input
+                type="number"
+                min={1}
+                value={commentPage}
+                aria-label={t("Page concernée (facultatif)", "Page (optional)")}
+                placeholder={t("Page", "Page")}
+                onChange={(event) => setCommentPage(event.target.value)}
+              />
+              <button type="submit" disabled={busy || !comment.trim()}>
+                {t("Publier le commentaire", "Post comment")}
+              </button>
+            </form>
+            <ul className="document-ged-list">
+              {panel.comments.map((item) => (
+                <li key={item.id} className="document-ged-comment">
+                  <strong>{item.author}</strong>{" "}
+                  <small>
+                    {date(item.createdAt)}
+                    {item.page ? ` · ${t("page", "page")} ${item.page}` : ""}
+                  </small>
+                  <p>{item.body}</p>
+                  {item.canDelete && (
+                    <button
+                      type="button"
+                      className="document-ged-link"
+                      disabled={busy}
+                      onClick={() =>
+                        run(() =>
+                          request(`${base}/comments/${item.id}`, {
+                            method: "DELETE",
+                          }),
                         )
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td>
-                      {version.version !== latest.get(version.locale) &&
-                        version.clean &&
-                        !version.purged && (
-                          <button
-                            type="button"
-                            disabled={
-                              busy || Boolean(panel.lock && !panel.lock.mine)
-                            }
-                            onClick={() => {
-                              if (
-                                !window.confirm(
-                                  t(
-                                    "Restaurer cette version ? Elle deviendra la nouvelle version courante, à republier.",
-                                    "Restore this version? It becomes the new current version and must be published again.",
-                                  ),
-                                )
-                              )
-                                return;
-                              void run(async () => {
-                                await request(
-                                  `${base}/versions/${version.id}/restore`,
-                                  { method: "POST", body: "{}" },
-                                );
-                                onVersionRestored?.();
-                              });
-                            }}
-                          >
-                            {t("Restaurer", "Restore")}
-                          </button>
-                        )}
-                    </td>
+                      }
+                    >
+                      {t("Supprimer", "Delete")}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+
+        {panel.canEdit && panel.versions.length > 0 && (
+          <details>
+            <summary>
+              {t("Historique des versions", "Version history")} (
+              {panel.versions.length})
+            </summary>
+            <div className="document-ged-table">
+              <table className="document-ged-versions">
+                <thead>
+                  <tr>
+                    <th>{t("Version", "Version")}</th>
+                    <th>{t("Date", "Date")}</th>
+                    <th>{t("Résumé", "Summary")}</th>
+                    <th>{t("Recherche", "Search")}</th>
+                    <th>{t("Horodatage", "Time-stamp")}</th>
+                    <th>
+                      <span className="document-ged-sr">
+                        {t("Actions", "Actions")}
+                      </span>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </details>
-      )}
-      <DocumentSignShare
-        documentId={documentId}
-        locale={locale}
-        canEdit={panel.canEdit}
-        versions={panel.versions}
-      />
-    </section>
+                </thead>
+                <tbody>
+                  {panel.versions.map((version) => (
+                    <tr key={version.id}>
+                      <td>
+                        {version.locale.toUpperCase()} v{version.label}
+                      </td>
+                      <td>{date(version.createdAt)}</td>
+                      <td>{version.changeSummary || "—"}</td>
+                      <td>
+                        {version.indexed === "DONE"
+                          ? version.ocr
+                            ? t("Indexé (OCR)", "Indexed (OCR)")
+                            : t("Indexé", "Indexed")
+                          : version.indexed === "FAILED"
+                            ? t("Échec", "Failed")
+                            : version.indexed === "SKIPPED"
+                              ? t("Non indexable", "Not indexable")
+                              : t("En attente", "Pending")}
+                      </td>
+                      <td>
+                        {version.timestampedAt ? (
+                          panel.isAdmin ? (
+                            <a
+                              href={`/api/admin/ged/versions/${version.id}/timestamp`}
+                              title={version.sha256}
+                            >
+                              {date(version.timestampedAt)}
+                            </a>
+                          ) : (
+                            date(version.timestampedAt)
+                          )
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td>
+                        {version.version !== latest.get(version.locale) &&
+                          version.clean &&
+                          !version.purged && (
+                            <button
+                              type="button"
+                              disabled={
+                                busy || Boolean(panel.lock && !panel.lock.mine)
+                              }
+                              onClick={() => {
+                                if (
+                                  !window.confirm(
+                                    t(
+                                      "Restaurer cette version ? Elle deviendra la nouvelle version courante, à republier.",
+                                      "Restore this version? It becomes the new current version and must be published again.",
+                                    ),
+                                  )
+                                )
+                                  return;
+                                void run(async () => {
+                                  await request(
+                                    `${base}/versions/${version.id}/restore`,
+                                    { method: "POST", body: "{}" },
+                                  );
+                                  onVersionRestored?.();
+                                });
+                              }}
+                            >
+                              {t("Restaurer", "Restore")}
+                            </button>
+                          )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        )}
+        <DocumentSignShare
+          documentId={documentId}
+          locale={locale}
+          canEdit={panel.canEdit}
+          versions={panel.versions}
+          signatures={features.signatures}
+          sharing={features.sharing}
+          onSignatureAwaited={openPanel}
+        />
+      </div>
+    </details>
   );
 }
