@@ -5,6 +5,7 @@ import { fetchWithTimeout as fetch } from "./http-client";
 import { responseMessage } from "./request-errors";
 import { translate } from "./i18n/translate";
 import type { Locale } from "./i18n/locale";
+import { DocumentSignShare } from "./document-sign-share";
 
 type LinkType = "SUPERSEDES" | "ANNEX" | "RELATED";
 type GedPanel = {
@@ -38,6 +39,7 @@ type GedPanel = {
     id: string;
     locale: string;
     version: number;
+    label: string;
     createdAt: string;
     changeSummary: string | null;
     fileName: string;
@@ -380,7 +382,7 @@ export function DocumentGedPanel({
                 {panel.versions.map((version) => (
                   <tr key={version.id}>
                     <td>
-                      {version.locale.toUpperCase()} v{version.version}
+                      {version.locale.toUpperCase()} v{version.label}
                     </td>
                     <td>{date(version.createdAt)}</td>
                     <td>{version.changeSummary || "—"}</td>
@@ -450,6 +452,12 @@ export function DocumentGedPanel({
           </div>
         </details>
       )}
+      <DocumentSignShare
+        documentId={documentId}
+        locale={locale}
+        canEdit={panel.canEdit}
+        versions={panel.versions}
+      />
     </section>
   );
 }

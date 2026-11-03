@@ -101,33 +101,50 @@ export function parseTimestampResponse(
   return { token, genTime: generalizedTime(token) };
 }
 
-export const timestampAuthorityUrl = () => process.env.TSA_URL?.trim() || "";
+export type TimestampConfig = {
+  url: string;
+  username?: string;
+  password?: string;
+  policyOid?: string;
+};
+
+/** Fallback when no administrator setting exists (TSA_* variables). */
+export const environmentTimestampConfig = (): TimestampConfig | null => {
+  const url = process.env.TSA_URL?.trim();
+  return url
+    ? {
+        url,
+        username: process.env.TSA_USERNAME || undefined,
+        password: process.env.TSA_PASSWORD || undefined,
+        policyOid: process.env.TSA_POLICY_OID || undefined,
+      }
+    : null;
+};
 
 /**
- * Requests a time-stamp token from the configured authority (TSA_URL), for
- * instance a qualified eIDAS provider. Returns null when no authority is set.
+ * Requests a time-stamp token from the configured authority, for instance a
+ * qualified eIDAS provider. Returns null when time-stamping is disabled.
  */
-export async function requestTimestamp(sha256Hex: string) {
-  const url = timestampAuthorityUrl();
-  if (!url) return null;
+export async function requestTimestamp(
+  sha256Hex: string,
+  config: TimestampConfig | null,
+) {
+  if (!config) return null;
+  const url = config.url;
   const nonce = randomBytes(8);
   nonce[0] &= 0x7f;
   const headers: Record<string, string> = {
     "Content-Type": "application/timestamp-query",
     Accept: "application/timestamp-reply",
   };
-  if (process.env.TSA_USERNAME)
+  if (config.username)
     headers.Authorization = `Basic ${Buffer.from(
-      `${process.env.TSA_USERNAME}:${process.env.TSA_PASSWORD || ""}`,
+      `${config.username}:${config.password || ""}`,
     ).toString("base64")}`;
   const response = await fetch(url, {
     method: "POST",
     headers,
-    body: timestampRequest(
-      sha256Hex,
-      nonce,
-      process.env.TSA_POLICY_OID || undefined,
-    ),
+    body: timestampRequest(sha256Hex, nonce, config.policyOid),
     signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok)

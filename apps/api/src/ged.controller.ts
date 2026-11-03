@@ -29,6 +29,7 @@ import { AuditService } from "./audit.service";
 import { notifySubscribers, persistAudit } from "./audit-event";
 import { isAdminIdentity } from "./security";
 import type { IsmsRequest } from "./types";
+import { versionLabel } from "./version-label";
 
 const DOCUMENT_LINK_TYPES = ["SUPERSEDES", "ANNEX", "RELATED"] as const;
 const LOCK_HOURS = 8;
@@ -81,6 +82,43 @@ export async function assertNotLockedByOther(
     );
 }
 
+/** Same visibility rule as the reader: published needs read, others need management. */
+export async function visibleDocument(
+  prisma: PrismaService,
+  authorization: AuthorizationService,
+  req: IsmsRequest,
+  id: string,
+) {
+  const document = await prisma.document.findFirst({
+    where: { id, deletedAt: null },
+    select: {
+      id: true,
+      spaceId: true,
+      categoryId: true,
+      status: true,
+      sensitive: true,
+      lockedBy: true,
+      lockedAt: true,
+      lockExpiresAt: true,
+    },
+  });
+  if (!document) return null;
+  const can = (permission: Permission) =>
+    authorization.can(
+      req.identity.groups,
+      document.spaceId,
+      permission,
+      document.categoryId,
+    );
+  const allowed =
+    document.status === "PUBLISHED"
+      ? await can("read")
+      : (
+          await Promise.all((["edit", "publish", "archive"] as const).map(can))
+        ).some(Boolean);
+  return allowed ? document : null;
+}
+
 @Controller("documents")
 export class GedDocumentsController {
   constructor(
@@ -102,32 +140,8 @@ export class GedDocumentsController {
     );
   }
 
-  /** Same visibility rule as the reader: published needs read, others need management. */
-  private async visible(req: IsmsRequest, id: string) {
-    const document = await this.prisma.document.findFirst({
-      where: { id, deletedAt: null },
-      select: {
-        id: true,
-        spaceId: true,
-        categoryId: true,
-        status: true,
-        lockedBy: true,
-        lockedAt: true,
-        lockExpiresAt: true,
-      },
-    });
-    if (!document) return null;
-    const allowed =
-      document.status === "PUBLISHED"
-        ? await this.can(req, document, "read")
-        : (
-            await Promise.all(
-              (["edit", "publish", "archive"] as const).map((permission) =>
-                this.can(req, document, permission),
-              ),
-            )
-          ).some(Boolean);
-    return allowed ? document : null;
+  private visible(req: IsmsRequest, id: string) {
+    return visibleDocument(this.prisma, this.authorization, req, id);
   }
 
   private async requireVisible(req: IsmsRequest, id: string) {
@@ -177,6 +191,8 @@ export class GedDocumentsController {
                 id: true,
                 locale: true,
                 version: true,
+                versionMajor: true,
+                versionMinor: true,
                 createdAt: true,
                 changeSummary: true,
                 content: { select: { status: true, ocr: true } },
@@ -257,6 +273,7 @@ export class GedDocumentsController {
         id: version.id,
         locale: version.locale,
         version: version.version,
+        label: versionLabel(version),
         createdAt: version.createdAt,
         changeSummary: version.changeSummary,
         fileName: version.storedFile.originalName,
@@ -537,7 +554,7 @@ export class GedDocumentsController {
       const latest = await tx.documentVersion.findFirst({
         where: { documentId: id, locale: source.locale },
         orderBy: { version: "desc" },
-        select: { version: true },
+        select: { version: true, versionMajor: true, versionMinor: true },
       });
       if (latest?.version === source.version)
         throw new ConflictException("This version is already the current one");
@@ -546,10 +563,12 @@ export class GedDocumentsController {
           documentId: id,
           locale: source.locale,
           version: (latest?.version || 0) + 1,
+          versionMajor: latest?.versionMajor ?? 0,
+          versionMinor: (latest?.versionMinor ?? 0) + 1,
           storedFileId: source.storedFileId,
           changeSummary:
             body.changeSummary?.trim() ||
-            `Restauration de la version ${source.version}`,
+            `Restauration de la version ${source.versionMajor}.${source.versionMinor}`,
           changeDetails: {
             added: [],
             removed: [],

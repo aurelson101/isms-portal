@@ -140,7 +140,7 @@ export const portalCatalog = withLocales({
     description: "Description",
     file: "Fichier",
     acceptedFiles:
-      "Formats acceptés : PDF, Word (.docx) et Excel (.xlsx), 50 Mo maximum.",
+      "Formats acceptés : PDF, Word, Excel, PowerPoint, images PNG/JPEG, TXT et CSV, 50 Mo maximum (documents sensibles : PDF, DOCX ou XLSX).",
     incidentReports: "Rapports d’incidents",
     annualIncidentReports: "Rapports annuels d’incidents",
     incidentReportsIntro:
@@ -300,7 +300,7 @@ export const portalCatalog = withLocales({
     description: "Description",
     file: "File",
     acceptedFiles:
-      "Accepted formats: PDF, Word (.docx), and Excel (.xlsx), up to 50 MB.",
+      "Accepted formats: PDF, Word, Excel, PowerPoint, PNG/JPEG images, TXT and CSV, up to 50 MB (sensitive documents: PDF, DOCX or XLSX).",
     incidentReports: "Incident reports",
     annualIncidentReports: "Annual incident reports",
     incidentReportsIntro:

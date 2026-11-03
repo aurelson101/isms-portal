@@ -199,6 +199,8 @@ model Document {
   incomingLinks     DocumentLink[]         @relation("DocumentLinkTarget")
   comments          DocumentComment[]
   subscriptions     DocumentSubscription[]
+  signatureRequests SignatureRequest[]
+  shareLinks        ShareLink[]
   lockedBy          String?
   lockedAt          DateTime?
   lockExpiresAt     DateTime?
@@ -335,6 +337,9 @@ model DocumentVersion {
   changeDetails           Json?
   reviews                 DocumentReview[]
   content                 DocumentVersionContent?
+  // Displayed as major.minor: drafts bump the minor, publication makes a major.
+  versionMajor            Int              @default(0)
+  versionMinor            Int              @default(0)
 
   @@unique([documentId, locale, version])
   @@index([storedFileId])
@@ -514,6 +519,58 @@ model DocumentSubscription {
 
   @@id([identity, documentId])
   @@index([documentId])
+}
+
+// Simple electronic signature (eIDAS SES) of one document version.
+model SignatureRequest {
+  id          String           @id @default(uuid())
+  documentId  String
+  document    Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  versionId   String
+  requestedBy String
+  message     String?
+  status      String           @default("OPEN")
+  createdAt   DateTime         @default(now())
+  completedAt DateTime?
+  entries     SignatureEntry[]
+
+  @@index([documentId, createdAt])
+}
+
+model SignatureEntry {
+  id           String           @id @default(uuid())
+  requestId    String
+  request      SignatureRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  signer       String
+  position     Int
+  status       String           @default("PENDING")
+  decidedAt    DateTime?
+  comment      String?
+  ipAddress    String?
+  evidenceHash String?
+  token        Bytes?
+  genTime      DateTime?
+
+  @@unique([requestId, signer])
+  @@index([signer, status])
+}
+
+// Time-limited external download link; only the token hash is stored.
+model ShareLink {
+  id            String    @id @default(uuid())
+  documentId    String
+  document      Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  versionId     String
+  tokenHash     String    @unique
+  createdBy     String
+  createdAt     DateTime  @default(now())
+  expiresAt     DateTime
+  maxDownloads  Int?
+  downloadCount Int       @default(0)
+  lastAccessAt  DateTime?
+  revokedAt     DateTime?
+
+  @@index([documentId, createdAt])
 }
 
 model DocumentType {

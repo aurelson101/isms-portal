@@ -5,8 +5,8 @@ import type { PrismaService } from "./prisma.service";
 import type { StorageService } from "./storage.service";
 import type { IsmsRequest } from "./types";
 import { extractDocumentText } from "./document-diff";
-import { OcrUnavailableError, ocrPdf } from "./ocr";
-import { requestTimestamp, timestampAuthorityUrl } from "./timestamp";
+import { OcrUnavailableError, ocrImage, ocrPdf } from "./ocr";
+import { requestTimestamp, type TimestampConfig } from "./timestamp";
 import { persistAudit } from "./audit-event";
 
 const MAX_TEXT = 1_000_000;
@@ -92,12 +92,16 @@ export async function indexDocumentContents(
       const pages = extracted.pages;
       let ocr = false;
       let error: string | null = null;
+      const image = [".png", ".jpg", ".jpeg"].includes(extension);
       if (
-        extension === ".pdf" &&
-        text.length < Math.max(1, pages) * SCANNED_CHARS_PER_PAGE
+        image ||
+        (extension === ".pdf" &&
+          text.length < Math.max(1, pages) * SCANNED_CHARS_PER_PAGE)
       ) {
         try {
-          const recognised = (await ocrPdf(buffer))
+          const recognised = (
+            image ? await ocrImage(buffer, extension) : await ocrPdf(buffer)
+          )
             .split("\n")
             .map((line) => line.replace(/\s+/g, " ").trim())
             .filter(Boolean)
@@ -142,8 +146,12 @@ export async function indexDocumentContents(
 }
 
 /** Requests RFC 3161 tokens for stored files when a TSA is configured. */
-export async function timestampStoredFiles(prisma: PrismaService, limit = 20) {
-  if (!timestampAuthorityUrl()) return 0;
+export async function timestampStoredFiles(
+  prisma: PrismaService,
+  config: TimestampConfig | null,
+  limit = 20,
+) {
+  if (!config) return 0;
   const files = await prisma.storedFile.findMany({
     where: { timestamp: null, purgedAt: null },
     orderBy: { createdAt: "desc" },
@@ -152,7 +160,7 @@ export async function timestampStoredFiles(prisma: PrismaService, limit = 20) {
   });
   let stamped = 0;
   for (const file of files) {
-    const result = await requestTimestamp(file.sha256);
+    const result = await requestTimestamp(file.sha256, config);
     if (!result) break;
     await prisma.fileTimestamp.upsert({
       where: { storedFileId: file.id },

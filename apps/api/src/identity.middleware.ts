@@ -42,7 +42,10 @@ export class IdentityMiddleware implements NestMiddleware {
     if (
       route === "/auth/login" ||
       route === "/auth/directory-login" ||
-      route === "/auth/config"
+      route === "/auth/config" ||
+      // External share links authenticate with their own random token.
+      (req.method === "GET" &&
+        /^\/public\/share\/[A-Za-z0-9_-]{32,64}$/u.test(route))
     ) {
       req.identity = {
         username: "anonymous",

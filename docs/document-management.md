@@ -165,8 +165,12 @@ définitive est refusée sous gel légal ou avant la fin de la rétention.
 
 **Valeur probante** — chaque événement d'audit est chaîné au précédent (SHA-256,
 `chainIndex`/`prevHash`/`chainHash`) et la chaîne est scellée toutes les
-`AUDIT_SEAL_INTERVAL_MINUTES`. Avec `TSA_URL` (autorité RFC 3161, idéalement
-qualifiée eIDAS), chaque sceau et chaque fichier reçoit un jeton d'horodatage.
+`AUDIT_SEAL_INTERVAL_MINUTES`. L'horodatage RFC 3161 est **facultatif** :
+`/admin#ged` > **Options GED** l'active, définit l'URL de l'autorité (idéalement
+qualifiée eIDAS), l'identifiant, le mot de passe (chiffré, jamais réaffiché) et
+l'OID de politique, et **Tester l'autorité** demande un jeton réel. Sans réglage
+enregistré, les variables `TSA_*` servent de repli. Une fois actif, chaque sceau,
+chaque fichier et chaque signature reçoit un jeton d'horodatage.
 **Vérifier l'intégrité** recalcule toute la chaîne. Les jetons `.tsr` se
 vérifient hors ligne :
 
@@ -177,6 +181,33 @@ openssl ts -verify -token_in -in jeton.tsr -digest <sha256> -CAfile chaine-tsa.p
 Cette chaîne apporte l'intégrité et l'horodatage attendus par la NF Z42-013 ; la
 conformité complète dépend aussi de l'organisation (procédures, stockage WORM,
 audit de l'archive), hors du périmètre de l'application.
+
+**Formats** — PDF, DOCX, XLSX, PPTX, PNG, JPEG, TXT et CSV (50 Mo). Le contenu
+réel est contrôlé (signature binaire, UTF-8 pour le texte). Les documents
+sensibles restent limités à PDF, DOCX et XLSX, seuls formats filigranables. Le
+texte des PPTX/TXT/CSV est indexé ; les images passent par l'OCR.
+
+**Versions majeures et mineures** — chaque dépôt ou restauration crée une version
+mineure (`0.1`, `1.1`…) ; la publication transforme la dernière version de chaque
+langue en version majeure (`1.0`, `2.0`…). Les versions existantes ont été
+reprises comme majeures (`vN` → `N.0`).
+
+**Signature électronique simple** — un éditeur demande la signature d'une version
+à une liste d'e-mails. Chaque signataire, authentifié par le SSO, signe ou refuse
+depuis la fiche après un consentement explicite. Une empreinte de preuve
+(demande, version, SHA-256 du fichier, signataire, date, adresse IP) est
+enregistrée, horodatée si l'option est active, et chaînée dans le journal. Le
+**Certificat de signature (PDF)** récapitule ces preuves. Il s'agit d'une
+signature électronique simple (eIDAS art. 3.10), pas d'une signature qualifiée.
+
+**Partage externe** — désactivé par défaut ; un administrateur l'autorise dans
+**Options GED** (durée maximale 1 à 90 jours). Un éditeur disposant du droit de
+téléchargement crée un lien temporaire pour un document publié et non sensible
+(hors fichiers MIP), avec durée et nombre de téléchargements maximum. Le jeton
+n'est affiché qu'une fois, seul son hash est stocké. `/api/public/share/<jeton>`
+est servi sans SSO par nginx (GET uniquement, 20 requêtes/minute par IP, en-têtes
+d'identité effacés). Chaque accès est audité. Révoquer, dépublier, rendre
+indisponible le fichier ou désactiver l'option invalide immédiatement les liens.
 
 ## Exploitation et vérification
 

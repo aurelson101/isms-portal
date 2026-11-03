@@ -5,6 +5,10 @@ describe("publication review", () => {
   it("persists publication, review, audit and both outbox events in one transaction", async () => {
     const tx = {
       documentType: { findFirst: vi.fn().mockResolvedValue(null) },
+      documentVersion: {
+        findMany: vi.fn().mockResolvedValue([]),
+        update: vi.fn(),
+      },
       document: {
         findUnique: vi.fn().mockResolvedValue({ metadata: {} }),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -74,6 +78,10 @@ describe("publication review", () => {
     const publishedAt = new Date("2026-09-28T10:00:00Z");
     const tx = {
       documentType: { findFirst: vi.fn().mockResolvedValue(null) },
+      documentVersion: {
+        findMany: vi.fn().mockResolvedValue([]),
+        update: vi.fn(),
+      },
       document: {
         findUnique: vi.fn().mockResolvedValue({ metadata: {} }),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -113,6 +121,10 @@ describe("publication review", () => {
   it("does not create a second review when publication already won", async () => {
     const tx = {
       documentType: { findFirst: vi.fn().mockResolvedValue(null) },
+      documentVersion: {
+        findMany: vi.fn().mockResolvedValue([]),
+        update: vi.fn(),
+      },
       document: {
         findUnique: vi.fn().mockResolvedValue({ metadata: {} }),
         updateMany: vi.fn().mockResolvedValue({ count: 0 }),

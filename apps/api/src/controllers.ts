@@ -697,6 +697,8 @@ export class DocumentsController {
             id: true,
             locale: true,
             version: true,
+            versionMajor: true,
+            versionMinor: true,
             createdAt: true,
             changeSummary: true,
             changeDetails: true,
@@ -940,6 +942,7 @@ export class DocumentsController {
       throw new NotFoundException();
     const extension = extname(file.originalname).toLowerCase();
     const protectedOffice = isProtectedOffice(file.buffer, extension);
+    assertSensitiveFormat(sensitive || !!existing?.sensitive, extension);
     if (
       !allowedExtensions[extension]?.includes(file.mimetype) ||
       (!magicMatches(file.buffer, extension) && !protectedOffice)
@@ -1058,6 +1061,9 @@ export class DocumentsController {
             documentId,
             locale: body.locale,
             version: (latest?.version || 0) + 1,
+            // Drafts are minor versions until publication makes them major.
+            versionMajor: latest?.versionMajor ?? 0,
+            versionMinor: (latest?.versionMinor ?? 0) + 1,
             storedFileId: storedFile.id,
             changeSummary:
               body.changeSummary?.trim() || automatedChange.summary,
@@ -1561,6 +1567,8 @@ export class DocumentsController {
             id: true,
             locale: true,
             version: true,
+            versionMajor: true,
+            versionMinor: true,
             createdAt: true,
             changeSummary: true,
             changeDetails: true,
@@ -3378,6 +3386,32 @@ const allowedExtensions: Record<string, string[]> = {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/zip",
   ],
+  ".pptx": [
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/zip",
+  ],
+  ".png": ["image/png"],
+  ".jpg": ["image/jpeg"],
+  ".jpeg": ["image/jpeg"],
+  ".txt": ["text/plain"],
+  ".csv": ["text/csv", "text/plain", "application/vnd.ms-excel"],
+};
+// Permanent watermarking (sensitive documents) only supports these formats.
+const watermarkableExtensions = [".pdf", ".docx", ".xlsx"];
+const assertSensitiveFormat = (sensitive: boolean, extension: string) => {
+  if (sensitive && !watermarkableExtensions.includes(extension))
+    throw new BadRequestException(
+      "Sensitive documents must be PDF, DOCX or XLSX (watermarking)",
+    );
+};
+const isUtf8Text = (content: Buffer) => {
+  if (content.subarray(0, 8192).includes(0)) return false;
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(content);
+    return true;
+  } catch {
+    return false;
+  }
 };
 const canonicalDocumentSlug = (title: string, id: string) => {
   const normalized = title
@@ -3393,8 +3427,15 @@ const canonicalDocumentSlug = (title: string, id: string) => {
 const magicMatches = (content: Buffer, extension: string) => {
   if (extension === ".pdf")
     return content.subarray(0, 5).toString() === "%PDF-";
-  if ([".docx", ".xlsx"].includes(extension))
+  if ([".docx", ".xlsx", ".pptx"].includes(extension))
     return content[0] === 0x50 && content[1] === 0x4b;
+  if (extension === ".png")
+    return content
+      .subarray(0, 8)
+      .equals(Buffer.from("89504e470d0a1a0a", "hex"));
+  if ([".jpg", ".jpeg"].includes(extension))
+    return content[0] === 0xff && content[1] === 0xd8 && content[2] === 0xff;
+  if ([".txt", ".csv"].includes(extension)) return isUtf8Text(content);
   return false;
 };
 
@@ -3615,6 +3656,7 @@ export class DocumentAdminController {
       );
     const extension = extname(file.originalname).toLowerCase();
     const protectedOffice = isProtectedOffice(file.buffer, extension);
+    assertSensitiveFormat(sensitive || !!existing?.sensitive, extension);
     if (
       !allowedExtensions[extension]?.includes(file.mimetype) ||
       (!magicMatches(file.buffer, extension) && !protectedOffice)
@@ -3735,6 +3777,9 @@ export class DocumentAdminController {
             documentId,
             locale: body.locale,
             version: (latest?.version || 0) + 1,
+            // Drafts are minor versions until publication makes them major.
+            versionMajor: latest?.versionMajor ?? 0,
+            versionMinor: (latest?.versionMinor ?? 0) + 1,
             storedFileId: storedFile.id,
             changeSummary:
               body.changeSummary?.trim() || automatedChange.summary,

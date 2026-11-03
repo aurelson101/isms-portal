@@ -18,6 +18,7 @@ import { dispatchOutbox, maintainHistory } from "./notification-outbox";
 import { collectHealthSnapshot } from "./health-alerts";
 import { readReminderSettings } from "./document-management";
 import { StorageService } from "./storage.service";
+import { loadTimestampConfig } from "./ged-settings";
 import { StorageTargetsService } from "./storage-targets.service";
 import {
   executeApprovedDestructions,
@@ -346,11 +347,23 @@ async function schedule(db: Prisma.TransactionClient) {
 // Storage, OCR and time-stamp calls run outside the scheduler transaction;
 // each task claims its rows, so several workers cannot process them twice.
 async function runGedTasks() {
+  // Re-read each run so the administrator option applies without redeploying.
+  const timestampConfig = await loadTimestampConfig(prisma, crypto).catch(
+    (error: Error) => {
+      process.stderr.write(
+        `${JSON.stringify({ level: "error", service: "worker", event: "ged.timestamp.config.failed", message: error.message })}\n`,
+      );
+      return null;
+    },
+  );
   const tasks: Array<[string, () => Promise<number>]> = [
     ["ged.destruction", () => executeApprovedDestructions(prisma, storage)],
     ["ged.content-index", () => indexDocumentContents(prisma, storage)],
-    ["ged.file-timestamp", () => timestampStoredFiles(prisma)],
-    ["ged.audit-seal-timestamp", () => timestampAuditSeals(prisma)],
+    ["ged.file-timestamp", () => timestampStoredFiles(prisma, timestampConfig)],
+    [
+      "ged.audit-seal-timestamp",
+      () => timestampAuditSeals(prisma, timestampConfig),
+    ],
   ];
   for (const [event, task] of tasks) {
     try {

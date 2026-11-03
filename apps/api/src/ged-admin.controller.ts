@@ -20,19 +20,33 @@ import { extname } from "node:path";
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
+  IsInt,
   IsOptional,
   IsString,
   Matches,
+  Max,
   MaxLength,
+  Min,
   MinLength,
+  ValidateIf,
 } from "class-validator";
 import { PrismaService } from "./prisma.service";
 import { StorageService } from "./storage.service";
 import { AuditService } from "./audit.service";
 import { AdminOnly } from "./security";
 import { verifyAuditChain } from "./audit-chain";
-import { timestampAuthorityUrl } from "./timestamp";
+import { requestTimestamp } from "./timestamp";
+import { CryptoService } from "./crypto.service";
+import {
+  SHARING_SETTING,
+  loadTimestampConfig,
+  saveTimestampSettings,
+  sharingSettings,
+  timestampSettings,
+} from "./ged-settings";
 import type { IsmsRequest } from "./types";
+import { createHash } from "node:crypto";
 
 const EXPORT_MAX_DOCUMENTS = 1000;
 const EXPORT_MAX_BYTES = 2 * 1024 * 1024 * 1024;
@@ -48,6 +62,22 @@ class DocumentTypeDto {
   @IsOptional() @Matches(/^[A-Z0-9][A-Z0-9-]{0,19}$/u) referencePrefix?:
     | string
     | null;
+}
+
+class TimestampSettingsDto {
+  @IsBoolean() enabled!: boolean;
+  // http(s) only; tokens are signed by the authority, HTTPS is recommended.
+  @ValidateIf((body: TimestampSettingsDto) => body.enabled)
+  @Matches(/^https?:\/\/[^\s]{3,500}$/u)
+  url!: string;
+  @IsOptional() @IsString() @MaxLength(200) username?: string;
+  @IsOptional() @IsString() @MaxLength(500) password?: string;
+  @IsOptional() @IsBoolean() clearPassword?: boolean;
+  @IsOptional() @Matches(/^(\d+\.)+\d+$|^$/u) policyOid?: string;
+}
+class SharingSettingsDto {
+  @IsBoolean() enabled!: boolean;
+  @IsInt() @Min(1) @Max(90) maxDays!: number;
 }
 
 const safeName = (value: string) =>
@@ -85,7 +115,106 @@ export class GedAdminController {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
+    private readonly crypto: CryptoService,
   ) {}
+
+  @Get("timestamp")
+  timestamp() {
+    return timestampSettings(this.prisma);
+  }
+
+  @Put("timestamp")
+  async saveTimestamp(
+    @Req() req: IsmsRequest,
+    @Body() body: TimestampSettingsDto,
+  ) {
+    const settings = await saveTimestampSettings(this.prisma, this.crypto, {
+      ...body,
+      url: body.url || "",
+    });
+    await this.audit.record(
+      req,
+      "ged.timestamp.update",
+      "settings:ged.timestamp",
+      "success",
+      {
+        enabled: settings.enabled,
+        url: settings.url,
+        username: settings.username,
+        policyOid: settings.policyOid,
+        passwordChanged: Boolean(body.password) || Boolean(body.clearPassword),
+      },
+      { notify: false },
+    );
+    return settings;
+  }
+
+  /** Requests a real token for a test digest to validate the configuration. */
+  @Post("timestamp/test")
+  async testTimestamp(@Req() req: IsmsRequest) {
+    const config = await loadTimestampConfig(this.prisma, this.crypto);
+    if (!config)
+      throw new BadRequestException(
+        "Time-stamping is disabled or not configured",
+      );
+    const digest = createHash("sha256")
+      .update(`isms-timestamp-test:${new Date().toISOString()}`)
+      .digest("hex");
+    try {
+      const result = await requestTimestamp(digest, config);
+      await this.audit.record(
+        req,
+        "ged.timestamp.test",
+        "settings:ged.timestamp",
+        "success",
+        { url: config.url },
+        { notify: false },
+      );
+      return { ok: true, genTime: result?.genTime ?? null, url: config.url };
+    } catch (error) {
+      await this.audit.record(
+        req,
+        "ged.timestamp.test",
+        "settings:ged.timestamp",
+        "failure",
+        { url: config.url },
+        { notify: false },
+      );
+      throw new BadRequestException(
+        `Time-stamp authority test failed: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  @Get("sharing")
+  sharing() {
+    return sharingSettings(this.prisma);
+  }
+
+  @Put("sharing")
+  async saveSharing(@Req() req: IsmsRequest, @Body() body: SharingSettingsDto) {
+    const value = { enabled: body.enabled, maxDays: body.maxDays };
+    await this.prisma.applicationSetting.upsert({
+      where: { key: SHARING_SETTING },
+      create: { key: SHARING_SETTING, value },
+      update: { value },
+    });
+    if (!body.enabled)
+      // Disabling the feature immediately invalidates every active link.
+      await this.prisma.shareLink.updateMany({
+        where: { revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    await this.audit.record(
+      req,
+      "ged.sharing.update",
+      "settings:ged.externalSharing",
+      "success",
+      value,
+      { notify: false },
+    );
+    return sharingSettings(this.prisma);
+  }
 
   @Post("document-types")
   async createType(@Req() req: IsmsRequest, @Body() body: DocumentTypeDto) {
@@ -367,8 +496,11 @@ export class GedAdminController {
   }
 
   @Get("audit/integrity")
-  integrity() {
-    return verifyAuditChain(this.prisma);
+  async integrity() {
+    return verifyAuditChain(
+      this.prisma,
+      (await timestampSettings(this.prisma)).enabled,
+    );
   }
 
   @Get("audit/seals")
@@ -387,7 +519,8 @@ export class GedAdminController {
       },
     });
     return {
-      timestampAuthorityConfigured: Boolean(timestampAuthorityUrl()),
+      timestampAuthorityConfigured: (await timestampSettings(this.prisma))
+        .enabled,
       seals: seals.map((seal) => ({
         ...seal,
         lastChainIndex: seal.lastChainIndex.toString(),

@@ -3,6 +3,7 @@ import type { PrismaService } from "./prisma.service";
 import type { IsmsRequest } from "./types";
 import { persistAudit } from "./audit-event";
 import { assertDocumentTypeComplete } from "./document-types";
+import { promoteLatestToMajor } from "./version-label";
 
 export async function publishWithReview(
   prisma: PrismaService,
@@ -25,6 +26,7 @@ export async function publishWithReview(
     });
     if (changed.count !== 1)
       throw new ConflictException("Document is already published");
+    await promoteLatestToMajor(tx, documentId);
     const review = firstPublication
       ? await tx.documentReview.create({
           data: {

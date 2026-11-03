@@ -31,6 +31,7 @@ import {
   translationFields,
   latestVersion,
   validateUpload,
+  documentFileAccept,
 } from "../moderator/document-model";
 import { api } from "./api-client";
 import {
@@ -369,8 +370,8 @@ export function DocumentsPanel({
           )}
           <p>
             {t(
-              "Formats acceptés : PDF, Word DOCX et Excel XLSX. Les utilisateurs les consultent en lecture seule.",
-              "Accepted formats: PDF, Word DOCX and Excel XLSX. Users view them in read-only mode.",
+              "Formats acceptés : PDF, Word, Excel, PowerPoint, images PNG/JPEG, TXT et CSV (documents sensibles : PDF, DOCX ou XLSX). Les utilisateurs les consultent en lecture seule.",
+              "Accepted formats: PDF, Word, Excel, PowerPoint, PNG/JPEG images, TXT and CSV (sensitive documents: PDF, DOCX or XLSX). Users view them in read-only mode.",
             )}
           </p>
           <label>
@@ -444,7 +445,12 @@ export function DocumentsPanel({
           </label>
           <label>
             {t("Fichier")}
-            <input name="file" type="file" required accept=".pdf,.docx,.xlsx" />
+            <input
+              name="file"
+              type="file"
+              required
+              accept={documentFileAccept}
+            />
           </label>
           <StorageSelect spaceId={spaceId} locale={locale} admin />
           <label className="check">

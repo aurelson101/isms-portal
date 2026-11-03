@@ -1,7 +1,10 @@
 "use client";
 import { fetchWithTimeout as fetch } from "./http-client";
 import { responseMessage } from "./request-errors";
-import { translationFields } from "./moderator/document-model";
+import {
+  documentFileAccept,
+  translationFields,
+} from "./moderator/document-model";
 import {
   CustomMetadataFields,
   metadataLabel,
@@ -202,6 +205,8 @@ type Version = {
   id: string;
   locale: string;
   version: number;
+  versionMajor?: number;
+  versionMinor?: number;
   createdAt: string;
   changeSummary?: string | null;
   changeDetails?: {
@@ -360,11 +365,17 @@ const wordMime =
 const excelMime =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
+const pptMime =
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
 function fileLabel(mimeType?: string) {
   if (mimeType === "application/pdf") return "PDF";
   if (mimeType === wordMime) return "DOCX";
   if (mimeType === excelMime) return "XLSX";
   if (mimeType?.startsWith("image/")) return "IMG";
+  if (mimeType === pptMime) return "PPTX";
+  if (mimeType === "text/plain") return "TXT";
+  if (mimeType === "text/csv") return "CSV";
   return "FILE";
 }
 
@@ -3754,7 +3765,11 @@ export function Portal({
                 </div>
                 <div>
                   <dt>{translate(locale, "Version", "Version")}</dt>
-                  <dd>{openedVersion?.version ?? "—"}</dd>
+                  <dd>
+                    {openedVersion
+                      ? `${openedVersion.versionMajor ?? openedVersion.version}.${openedVersion.versionMinor ?? 0}`
+                      : "—"}
+                  </dd>
                 </div>
                 <div>
                   <dt>{translate(locale, "Langue", "Language")}</dt>
@@ -3981,7 +3996,8 @@ export function Portal({
                       locale={locale}
                       onPageCount={handlePdfPageCount}
                     />
-                  ) : openedVersion.storedFile.mimeType.startsWith("image/") ? (
+                  ) : openedVersion.storedFile.mimeType.startsWith("image/") ||
+                    openedVersion.storedFile.mimeType === "text/plain" ? (
                     <iframe
                       title={titleFor(opened, openedLocale || locale)}
                       key={openedContentUrl}
@@ -4561,7 +4577,7 @@ export function Portal({
                   name="file"
                   type="file"
                   required
-                  accept=".pdf,.docx,.xlsx"
+                  accept={documentFileAccept}
                 />
               </label>
               <small>{t.acceptedFiles}</small>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "./api-client";
 import { translate } from "../i18n/translate";
 import type { Locale } from "../i18n/locale";
+import { GedOptions } from "./ged-options";
 
 type DocumentType = {
   id: string;
@@ -147,6 +148,8 @@ export function GedPanel({
       <h1>
         {t("GED : export, types et preuves", "GED: export, types and evidence")}
       </h1>
+
+      <GedOptions locale={locale} onError={onError} onNotice={onNotice} />
 
       <section className="admin-card">
         <h2>{t("Export en masse", "Bulk export")}</h2>

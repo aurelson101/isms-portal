@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { AuditEvent, Prisma } from "@prisma/client";
 import type { PrismaService } from "./prisma.service";
-import { requestTimestamp, timestampAuthorityUrl } from "./timestamp";
+import { requestTimestamp, type TimestampConfig } from "./timestamp";
 
 export const GENESIS_HASH = "0".repeat(64);
 // Events younger than this may belong to a transaction that has not committed.
@@ -114,8 +114,11 @@ export async function sealAuditChain(
 }
 
 /** Time-stamps recent seals that have no token yet (outside transactions). */
-export async function timestampAuditSeals(prisma: PrismaService) {
-  if (!timestampAuthorityUrl()) return 0;
+export async function timestampAuditSeals(
+  prisma: PrismaService,
+  config: TimestampConfig | null,
+) {
+  if (!config) return 0;
   const seals = await prisma.auditSeal.findMany({
     where: {
       token: null,
@@ -126,7 +129,7 @@ export async function timestampAuditSeals(prisma: PrismaService) {
   });
   let stamped = 0;
   for (const seal of seals) {
-    const result = await requestTimestamp(seal.chainHash);
+    const result = await requestTimestamp(seal.chainHash, config);
     if (!result) break;
     await prisma.auditSeal.update({
       where: { id: seal.id },
@@ -142,7 +145,10 @@ export async function timestampAuditSeals(prisma: PrismaService) {
 }
 
 /** Recomputes the whole remaining chain and checks every seal against it. */
-export async function verifyAuditChain(prisma: PrismaService) {
+export async function verifyAuditChain(
+  prisma: PrismaService,
+  timestampAuthorityConfigured = false,
+) {
   const broken: Array<{ chainIndex: string; reason: string }> = [];
   let previous: { index: bigint; hash: string } | null = null;
   let checked = 0;
@@ -209,6 +215,6 @@ export async function verifyAuditChain(prisma: PrismaService) {
       lastSealAt: seals[0]?.createdAt ?? null,
       lastTimestampAt: seals.find((seal) => seal.genTime)?.genTime ?? null,
     },
-    timestampAuthorityConfigured: Boolean(timestampAuthorityUrl()),
+    timestampAuthorityConfigured,
   };
 }

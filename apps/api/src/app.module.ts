@@ -14,6 +14,10 @@ import { IdentityMiddleware } from "./identity.middleware";
 import { DocumentManagementController } from "./document-management.controller";
 import { GedDocumentsController } from "./ged.controller";
 import {
+  GedSignShareController,
+  PublicShareController,
+} from "./ged-sign-share.controller";
+import {
   DocumentTypesController,
   GedAdminController,
 } from "./ged-admin.controller";
@@ -58,6 +62,8 @@ import { NotificationService } from "./notification.service";
     DocumentsController,
     DocumentManagementController,
     GedDocumentsController,
+    GedSignShareController,
+    PublicShareController,
     DocumentTypesController,
     GedAdminController,
     IncidentReportsController,

@@ -6,6 +6,10 @@ import {
   assertDocumentTypeComplete,
 } from "./document-types";
 import { lockedByOther } from "./ged.controller";
+import { promoteLatestToMajor, versionLabel } from "./version-label";
+import { loadTimestampConfig, timestampSettings } from "./ged-settings";
+import { extractDocumentText } from "./document-diff";
+import { strToU8, zipSync } from "fflate";
 
 const hash = "ab".repeat(32);
 const nonce = Buffer.from([0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
@@ -182,5 +186,122 @@ describe("edit lock", () => {
     expect(
       lockedByOther({ lockedBy: null, lockExpiresAt: null }, "bob", now),
     ).toBe(false);
+  });
+});
+
+describe("major and minor versions", () => {
+  it("promotes the latest draft of each language to the next major", async () => {
+    const update = vi.fn();
+    const tx = {
+      documentVersion: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "fr1",
+            locale: "fr",
+            version: 1,
+            versionMajor: 1,
+            versionMinor: 0,
+          },
+          {
+            id: "fr2",
+            locale: "fr",
+            version: 2,
+            versionMajor: 1,
+            versionMinor: 1,
+          },
+          {
+            id: "en1",
+            locale: "en",
+            version: 1,
+            versionMajor: 1,
+            versionMinor: 0,
+          },
+        ]),
+        update,
+      },
+    };
+    await promoteLatestToMajor(tx as never, "doc");
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "fr2" },
+      data: { versionMajor: 2, versionMinor: 0 },
+    });
+    expect(versionLabel({ versionMajor: 0, versionMinor: 2 })).toBe("0.2");
+  });
+});
+
+describe("time-stamping option", () => {
+  const crypto = { decrypt: (value: string) => `plain:${value}` };
+  const store = (value: unknown) => ({
+    applicationSetting: {
+      findUnique: vi
+        .fn()
+        .mockResolvedValue(value === undefined ? null : { value }),
+    },
+  });
+
+  it("uses the administrator setting before TSA_* variables", async () => {
+    vi.stubEnv("TSA_URL", "https://env.example/tsa");
+    await expect(
+      loadTimestampConfig(store(undefined) as never, crypto as never),
+    ).resolves.toMatchObject({
+      url: "https://env.example/tsa",
+    });
+    await expect(
+      loadTimestampConfig(
+        store({ enabled: false, url: "https://tsa.example" }) as never,
+        crypto as never,
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      loadTimestampConfig(
+        store({
+          enabled: true,
+          url: "https://tsa.example",
+          username: "u",
+          password: "x",
+        }) as never,
+        crypto as never,
+      ),
+    ).resolves.toEqual({
+      url: "https://tsa.example",
+      username: "u",
+      password: "plain:x",
+      policyOid: undefined,
+    });
+    vi.unstubAllEnvs();
+  });
+
+  it("never exposes the stored password", async () => {
+    const view = await timestampSettings(
+      store({
+        enabled: true,
+        url: "https://tsa.example",
+        password: "secret",
+      }) as never,
+    );
+    expect(view).toMatchObject({ source: "settings", hasPassword: true });
+    expect(JSON.stringify(view)).not.toContain("secret");
+  });
+});
+
+describe("additional formats", () => {
+  it("extracts text from TXT/CSV and PowerPoint slides", async () => {
+    await expect(
+      extractDocumentText(Buffer.from("﻿ligne 1\r\nligne 2"), ".txt"),
+    ).resolves.toMatchObject({ text: "ligne 1\nligne 2" });
+    const pptx = Buffer.from(
+      zipSync({
+        "ppt/slides/slide2.xml": strToU8(
+          "<p:sld><a:p><a:r><a:t>Second</a:t></a:r></a:p></p:sld>",
+        ),
+        "ppt/slides/slide1.xml": strToU8(
+          "<p:sld><a:p><a:r><a:t>First &amp; title</a:t></a:r></a:p></p:sld>",
+        ),
+      }),
+    );
+    await expect(extractDocumentText(pptx, ".pptx")).resolves.toMatchObject({
+      text: "First & title\nSecond",
+    });
   });
 });

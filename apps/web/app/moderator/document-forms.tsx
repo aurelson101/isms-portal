@@ -11,6 +11,7 @@ import {
   type Category,
   type MetadataValues,
   type ModeratorDocument,
+  documentFileAccept,
 } from "./document-model";
 
 type FormActions = {
@@ -158,7 +159,12 @@ export function VersionForm({
           </label>
           <label>
             {t("Fichier", "File")}
-            <input name="file" type="file" required accept=".pdf,.docx,.xlsx" />
+            <input
+              name="file"
+              type="file"
+              required
+              accept={documentFileAccept}
+            />
           </label>
           <label className="check">
             <input

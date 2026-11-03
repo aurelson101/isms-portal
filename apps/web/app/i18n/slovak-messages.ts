@@ -1930,4 +1930,66 @@ export const slovakMessages: Readonly<Record<string, string>> = {
   "ZIP archive of the latest clean version of each document, with manifest.csv and manifest.json (metadata, SHA-256, time-stamp). Limit: 1,000 documents and 2 GB.":
     "Archív ZIP s poslednou čistou verziou každého dokumentu, s manifest.csv a manifest.json (metadáta, SHA-256, časová pečiatka). Limit: 1 000 dokumentov a 2 GB.",
   page: "strana",
+  "Accepted formats: PDF, Word, Excel, PowerPoint, PNG/JPEG images, TXT and CSV (sensitive documents: PDF, DOCX or XLSX). Users view them in read-only mode.":
+    "Podporované formáty: PDF, Word, Excel, PowerPoint, obrázky PNG/JPEG, TXT a CSV (citlivé dokumenty: PDF, DOCX alebo XLSX). Používatelia ich vidia iba na čítanie.",
+  "Accepted formats: PDF, Word, Excel, PowerPoint, PNG/JPEG images, TXT and CSV, up to 50 MB (sensitive documents: PDF, DOCX or XLSX).":
+    "Podporované formáty: PDF, Word, Excel, PowerPoint, obrázky PNG/JPEG, TXT a CSV, najviac 50 MB (citlivé dokumenty: PDF, DOCX alebo XLSX).",
+  "Allow external sharing": "Povoliť externé zdieľanie",
+  "Authority URL (TSA)": "URL autority (TSA)",
+  "Cancel request": "Zrušiť žiadosť",
+  Copy: "Kopírovať",
+  "Create link": "Vytvoriť odkaz",
+  "Current configuration comes from the server TSA_* variables; saving here replaces it.":
+    "Aktuálna konfigurácia pochádza z premenných TSA_* servera; uloženie tu ju nahradí.",
+  Decline: "Odmietnuť",
+  Declined: "Odmietnutá",
+  "Duration (days)": "Trvanie (dni)",
+  "Electronic signatures": "Elektronické podpisy",
+  "Enable time-stamping": "Zapnúť časové pečiatky",
+  "External sharing": "Externé zdieľanie",
+  "External sharing is disabled by the administrator.":
+    "Externé zdieľanie vypol správca.",
+  "External sharing saved.": "Externé zdieľanie uložené.",
+  "GED options": "Možnosti GED",
+  "I confirm that I electronically sign this version of the document, which I have read.":
+    "Potvrdzujem, že elektronicky podpisujem túto verziu dokumentu, ktorú som si prečítal(a).",
+  "Max. downloads": "Max. stiahnutí",
+  "Maximum link duration (days)": "Maximálna platnosť odkazu (dni)",
+  "Message (optional)": "Správa (voliteľné)",
+  "Only published documents can be shared.":
+    "Zdieľať možno iba zverejnené dokumenty.",
+  "Optional. Once enabled, the worker time-stamps every file, audit seal and signature with the chosen authority (a qualified eIDAS provider is recommended).":
+    "Voliteľné. Po zapnutí worker opatrí časovou pečiatkou každý súbor, pečať auditu a podpis u zvolenej autority (odporúča sa kvalifikovaný poskytovateľ eIDAS).",
+  "Password (optional)": "Heslo (voliteľné)",
+  "Policy OID (optional)": "OID politiky (voliteľné)",
+  "RFC 3161 time-stamping": "Časové pečiatky RFC 3161",
+  "Reason for declining": "Dôvod odmietnutia",
+  "Remove the stored password": "Odstrániť uložené heslo",
+  "Request signatures": "Požiadať o podpisy",
+  Revoked: "Zrušený",
+  "Sensitive documents cannot be shared externally.":
+    "Citlivé dokumenty nemožno zdieľať externe.",
+  "Share link": "Odkaz na zdieľanie",
+  Sign: "Podpísať",
+  "Signature certificate (PDF)": "Certifikát podpisu (PDF)",
+  Signed: "Podpísané",
+  "Signer e-mails, comma-separated": "E-maily podpisujúcich oddelené čiarkami",
+  Signers: "Podpisujúci",
+  "Temporary download links for people without an account. Limited to published, non-sensitive documents; every access is audited. Disabling revokes every active link.":
+    "Dočasné odkazy na stiahnutie pre osoby bez účtu. Iba pre zverejnené necitlivé dokumenty; každý prístup sa audituje. Vypnutím sa zrušia všetky aktívne odkazy.",
+  "Test the authority": "Otestovať autoritu",
+  "This link is shown only once.": "Tento odkaz sa zobrazí iba raz.",
+  "Time-stamping saved.": "Časové pečiatky uložené.",
+  "Token received": "Token prijatý",
+  "Unchanged when empty": "Bez zmeny, ak je prázdne",
+  "Unsupported format: PDF, DOCX, XLSX, PPTX, PNG, JPEG, TXT or CSV required.":
+    "Nepodporovaný formát: vyžaduje sa PDF, DOCX, XLSX, PPTX, PNG, JPEG, TXT alebo CSV.",
+  "Username (optional)": "Používateľské meno (voliteľné)",
+  "You are not allowed to share this document.":
+    "Nemáte oprávnenie zdieľať tento dokument.",
+  "download(s)": "stiahnutí",
+  "expires on": "platí do",
+  "requested by": "požiadal(a)",
+  "time-stamped": "s časovou pečiatkou",
+  unlimited: "neobmedzene",
 };

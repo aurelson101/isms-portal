@@ -32,6 +32,15 @@ const xmlText = (xml: string, paragraphTag: string) =>
 
 const officeText = (buffer: Buffer, extension: string) => {
   const archive = unzipSync(new Uint8Array(buffer));
+  if (extension === ".pptx")
+    return Object.entries(archive)
+      .filter(([name]) => /^ppt\/slides\/slide\d+\.xml$/u.test(name))
+      .sort(([left], [right]) =>
+        left.localeCompare(right, "en", { numeric: true }),
+      )
+      .flatMap(([, content]) =>
+        xmlText(Buffer.from(content).toString("utf8"), "a:p"),
+      );
   if (extension === ".docx") {
     const document = archive["word/document.xml"];
     return document
@@ -89,8 +98,14 @@ const pdfText = async (buffer: Buffer) => {
 };
 
 const documentLines = async (buffer: Buffer, extension: string) => {
-  if ([".docx", ".xlsx"].includes(extension))
+  if ([".docx", ".xlsx", ".pptx"].includes(extension))
     return { lines: officeText(buffer, extension), pages: 0 };
+  if ([".txt", ".csv"].includes(extension)) {
+    const text = buffer.toString("utf8");
+    // Drop a UTF-8 byte order mark (U+FEFF) if present.
+    const body = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+    return { lines: body.split(/\r?\n/u), pages: 0 };
+  }
   if (extension === ".pdf") return pdfText(buffer);
   return { lines: [], pages: 0 };
 };

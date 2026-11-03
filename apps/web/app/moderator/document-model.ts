@@ -140,6 +140,10 @@ export function categoryOptions(categories: Category[], locale: Locale) {
   });
 }
 
+/** File types accepted by document uploads (sensitive ones: PDF, DOCX, XLSX). */
+export const documentFileAccept =
+  ".pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,.txt,.csv";
+
 export function validateUpload(
   data: FormData,
   locale: Locale,
@@ -149,11 +153,11 @@ export function validateUpload(
   const file = data.get("file");
   if (!(file instanceof File) || !file.size)
     throw new Error(t("Le fichier est vide.", "The file is empty."));
-  if (!/\.(pdf|docx|xlsx)$/i.test(file.name))
+  if (!/\.(pdf|docx|xlsx|pptx|png|jpe?g|txt|csv)$/i.test(file.name))
     throw new Error(
       t(
-        "Format non autorisé : PDF, DOCX ou XLSX.",
-        "Unsupported format: PDF, DOCX or XLSX required.",
+        "Format non autorisé : PDF, DOCX, XLSX, PPTX, PNG, JPEG, TXT ou CSV.",
+        "Unsupported format: PDF, DOCX, XLSX, PPTX, PNG, JPEG, TXT or CSV required.",
       ),
     );
   if (file.size > 50 * 1024 * 1024)

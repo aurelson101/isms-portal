@@ -18,6 +18,28 @@ const run = (command: string, args: string[], timeout: number) =>
 
 export class OcrUnavailableError extends Error {}
 
+/** Recognises the text of a PNG or JPEG image. */
+export async function ocrImage(buffer: Buffer, extension: string) {
+  const directory = await mkdtemp(join(tmpdir(), "isms-ocr-"));
+  try {
+    const input = join(directory, `input${extension}`);
+    await writeFile(input, buffer, { mode: 0o600 });
+    try {
+      return await run(
+        "tesseract",
+        [input, "stdout", "-l", OCR_LANGUAGES],
+        120_000,
+      );
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT")
+        throw new OcrUnavailableError("tesseract is not installed");
+      throw error;
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
 /**
  * Renders scanned PDF pages (pdftoppm) and recognises their text (tesseract).
  * Files only live in a private temporary directory that is always removed.

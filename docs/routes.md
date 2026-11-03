@@ -47,27 +47,37 @@ de ne jamais mélanger deux espaces.
 
 ## Gestion documentaire commune aux administrateurs et modérateurs
 
-| Méthode         | Route                                            | Fonction et contrôle                                                                   |
-| --------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| PUT             | `/api/documents/:id/metadata`                    | Métadonnées facultatives et champs usuels ; droit `edit`, contrôle de concurrence      |
-| GET             | `/api/documents/:id/categories`                  | Catégories cibles autorisées à l'éditeur                                               |
-| POST            | `/api/documents/bulk/preview`                    | Aperçu de 1 à 50 documents, ACL source et destination                                  |
-| POST            | `/api/documents/bulk/apply`                      | Application transactionnelle avec les dates exactes de l'aperçu                        |
-| GET             | `/api/documents/:id/history?page=1`              | Auteur, date, action et noms de champs ; réservé aux éditeurs, 20 événements par page  |
-| GET             | `/api/documents/quality/summary`                 | Compteurs limités aux documents modifiables                                            |
-| GET/PUT         | `/api/documents/quality/reminders`               | Lecture/configuration des rappels, administrateurs uniquement                          |
-| GET             | `/api/documents/:id/ged`                         | Suivi, réservation, liens, commentaires et versions (lecteurs ; versions aux éditeurs) |
-| PUT             | `/api/documents/:id/subscription`                | Suivre / ne plus suivre un document visible                                            |
-| POST/DELETE     | `/api/documents/:id/comments[/:commentId]`       | Commenter (lecteur) ; suppression par l'auteur ou un administrateur                    |
-| POST/DELETE     | `/api/documents/:id/links[/:linkId]`             | Liens Remplace / Annexe de / Voir aussi ; droit `edit`                                 |
-| POST/DELETE     | `/api/documents/:id/lock`                        | Réserver 8 h / libérer ; droit `edit`                                                  |
-| POST            | `/api/documents/:id/versions/:versionId/restore` | Restaurer une version saine comme nouvelle version (brouillon)                         |
-| GET             | `/api/document-types`                            | Types documentaires actifs                                                             |
-| POST/PUT/DELETE | `/api/admin/ged/document-types[/:id]`            | Gestion des types, administrateurs                                                     |
-| GET             | `/api/admin/ged/export?spaceId=&status=`         | Export ZIP + manifestes, administrateurs, audité                                       |
-| GET             | `/api/admin/ged/audit/integrity`                 | Recalcul de la chaîne d'audit et contrôle des sceaux                                   |
-| GET             | `/api/admin/ged/audit/seals[/:id/token]`         | Sceaux et jetons RFC 3161 (`.tsr`)                                                     |
-| GET             | `/api/admin/ged/versions/:versionId/timestamp`   | Jeton RFC 3161 du fichier d'une version                                                |
+| Méthode         | Route                                                  | Fonction et contrôle                                                                   |
+| --------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| PUT             | `/api/documents/:id/metadata`                          | Métadonnées facultatives et champs usuels ; droit `edit`, contrôle de concurrence      |
+| GET             | `/api/documents/:id/categories`                        | Catégories cibles autorisées à l'éditeur                                               |
+| POST            | `/api/documents/bulk/preview`                          | Aperçu de 1 à 50 documents, ACL source et destination                                  |
+| POST            | `/api/documents/bulk/apply`                            | Application transactionnelle avec les dates exactes de l'aperçu                        |
+| GET             | `/api/documents/:id/history?page=1`                    | Auteur, date, action et noms de champs ; réservé aux éditeurs, 20 événements par page  |
+| GET             | `/api/documents/quality/summary`                       | Compteurs limités aux documents modifiables                                            |
+| GET/PUT         | `/api/documents/quality/reminders`                     | Lecture/configuration des rappels, administrateurs uniquement                          |
+| GET             | `/api/documents/:id/ged`                               | Suivi, réservation, liens, commentaires et versions (lecteurs ; versions aux éditeurs) |
+| PUT             | `/api/documents/:id/subscription`                      | Suivre / ne plus suivre un document visible                                            |
+| POST/DELETE     | `/api/documents/:id/comments[/:commentId]`             | Commenter (lecteur) ; suppression par l'auteur ou un administrateur                    |
+| POST/DELETE     | `/api/documents/:id/links[/:linkId]`                   | Liens Remplace / Annexe de / Voir aussi ; droit `edit`                                 |
+| POST/DELETE     | `/api/documents/:id/lock`                              | Réserver 8 h / libérer ; droit `edit`                                                  |
+| POST            | `/api/documents/:id/versions/:versionId/restore`       | Restaurer une version saine comme nouvelle version (brouillon)                         |
+| GET             | `/api/document-types`                                  | Types documentaires actifs                                                             |
+| POST/PUT/DELETE | `/api/admin/ged/document-types[/:id]`                  | Gestion des types, administrateurs                                                     |
+| GET             | `/api/admin/ged/export?spaceId=&status=`               | Export ZIP + manifestes, administrateurs, audité                                       |
+| GET             | `/api/admin/ged/audit/integrity`                       | Recalcul de la chaîne d'audit et contrôle des sceaux                                   |
+| GET             | `/api/admin/ged/audit/seals[/:id/token]`               | Sceaux et jetons RFC 3161 (`.tsr`)                                                     |
+| GET             | `/api/admin/ged/versions/:versionId/timestamp`         | Jeton RFC 3161 du fichier d'une version                                                |
+| GET/PUT         | `/api/admin/ged/timestamp`                             | Option d'horodatage (mot de passe jamais renvoyé)                                      |
+| POST            | `/api/admin/ged/timestamp/test`                        | Demande un jeton de test à l'autorité                                                  |
+| GET/PUT         | `/api/admin/ged/sharing`                               | Activation et durée maximale du partage externe                                        |
+| GET/POST        | `/api/documents/:id/signatures`                        | Demandes de signature ; création par un éditeur                                        |
+| POST            | `/api/documents/:id/signatures/:requestId/decision`    | Signer ou refuser (signataire authentifié, consentement)                               |
+| DELETE          | `/api/documents/:id/signatures/:requestId`             | Annuler (demandeur ou administrateur)                                                  |
+| GET             | `/api/documents/:id/signatures/:requestId/certificate` | Certificat de signature PDF                                                            |
+| GET/POST        | `/api/documents/:id/shares`                            | Liens externes d'un document ; création par un éditeur                                 |
+| DELETE          | `/api/documents/:id/shares/:shareId`                   | Révoquer un lien externe                                                               |
+| GET             | `/api/public/share/:token`                             | Téléchargement externe sans SSO, limité et audité                                      |
 
 `GET /api/documents` et `GET /api/admin/documents` acceptent `reference`, `owner`,
 `documentType`, `keywords`, `reviewFrom` et `reviewTo`. Les interfaces demandent
