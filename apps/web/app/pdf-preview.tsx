@@ -29,6 +29,7 @@ export function PdfPreview({
   const canvas = useRef<HTMLCanvasElement>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const shown = useRef<{ pdf: PDFDocumentProxy; page: number } | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [text, setText] = useState("");
   const copy = portalCatalog[locale];
@@ -76,8 +77,15 @@ export function PdfPreview({
   useEffect(() => {
     const element = frame.current;
     if (!element) return;
+    // Keep the previous object when nothing changed: a new one would re-render
+    // the page (and hide the canvas) for nothing.
     const measure = () =>
-      setSize({ width: element.clientWidth, height: element.clientHeight });
+      setSize((previous) =>
+        previous.width === element.clientWidth &&
+        previous.height === element.clientHeight
+          ? previous
+          : { width: element.clientWidth, height: element.clientHeight },
+      );
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     measure();
@@ -89,8 +97,13 @@ export function PdfPreview({
     let stopped = false;
     let render: RenderTask | undefined;
     const surface = canvas.current;
-    setState("loading");
-    setText("");
+    // Only a new document or page hides the canvas; a resize or zoom keeps the
+    // current image until the new one is ready (no flicker).
+    const newPage = shown.current?.pdf !== pdf || shown.current?.page !== page;
+    if (newPage) {
+      setState("loading");
+      setText("");
+    }
     void pdf
       .getPage(Math.min(Math.max(1, page), pdf.numPages))
       .then(async (sheet) => {
@@ -112,18 +125,25 @@ export function PdfPreview({
           2,
           Math.sqrt(8_000_000 / (viewport.width * viewport.height)),
         );
-        surface.width = Math.max(1, Math.floor(viewport.width * ratio));
-        surface.height = Math.max(1, Math.floor(viewport.height * ratio));
-        surface.style.width = `${viewport.width}px`;
-        surface.style.height = `${viewport.height}px`;
+        // Render off-screen, then swap in one step.
+        const buffer = window.document.createElement("canvas");
+        buffer.width = Math.max(1, Math.floor(viewport.width * ratio));
+        buffer.height = Math.max(1, Math.floor(viewport.height * ratio));
         render = sheet.render({
-          canvas: surface,
+          canvas: buffer,
           viewport,
           transform: [ratio, 0, 0, ratio, 0, 0],
         });
         await render.promise;
         if (stopped) return;
+        surface.width = buffer.width;
+        surface.height = buffer.height;
+        surface.style.width = `${viewport.width}px`;
+        surface.style.height = `${viewport.height}px`;
+        surface.getContext("2d")?.drawImage(buffer, 0, 0);
+        shown.current = { pdf, page };
         setState("ready");
+        if (!newPage) return;
         const content = await sheet.getTextContent().catch(() => null);
         if (!stopped && content)
           setText(

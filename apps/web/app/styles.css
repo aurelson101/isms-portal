@@ -1376,6 +1376,8 @@ h1 {
   height: 65vh;
   min-width: 0;
   overflow: auto;
+  /* A scrollbar appearing must not change the measured width (re-render loop). */
+  scrollbar-gutter: stable;
   padding: 8px;
 }
 .pdf-readonly canvas {
@@ -1396,11 +1398,34 @@ h1 {
     flex-direction: column;
     height: 94dvh;
   }
-  .document-modal:has(.pdf-readonly) > :not(.document-preview-frame) {
+  .document-modal:has(.pdf-readonly) > :not(.document-reader-layout) {
+    flex-shrink: 0;
+  }
+  /* The reader layout fills the modal height; the PDF frame fills the
+     viewer column. A content-sized frame would loop measure/re-render. */
+  .document-modal:has(.pdf-readonly) .document-reader-layout {
+    flex: 1 0 240px;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .document-modal:has(.pdf-readonly) .document-reader-main {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .document-modal:has(.pdf-readonly)
+    .document-reader-main
+    > :not(.document-preview-frame) {
     flex-shrink: 0;
   }
   .document-modal:has(.pdf-readonly) .document-preview-frame {
     flex: 1 0 240px;
+    min-height: 0;
+  }
+  .document-modal:has(.pdf-readonly) .document-ged-panel {
+    align-self: start;
+    max-height: 100%;
   }
   .document-modal:has(.pdf-readonly) .pdf-readonly {
     height: 100%;
