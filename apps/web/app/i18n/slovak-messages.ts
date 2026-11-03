@@ -1668,8 +1668,8 @@ export const slovakMessages: Readonly<Record<string, string>> = {
     "Kôš nenahrádza zálohy. Nezamieňajte archiváciu s odstránením.",
   "The web frontend communicates with an API that enforces business rules. PostgreSQL stores data and audit records; Redis transports asynchronous tasks; a worker processes jobs; ClamAV scans files. The proxy exposes the portal over HTTPS.":
     "Webové rozhranie komunikuje s API vynucujúcim pravidlá. PostgreSQL uchováva údaje a audit, Redis prenáša asynchrónne úlohy, worker ich spracúva a ClamAV kontroluje súbory. Proxy sprístupňuje portál cez HTTPS.",
-  "This SSO requests openid profile email scopes. Do not add Mail.Send or Directory.Read.All just to sign a user in. Follow the tenant's consent policy. Microsoft Graph email delivery is a separate integration.":
-    "SSO vyžaduje rozsahy openid profile email. Pre prihlásenie nepridávajte Mail.Send ani Directory.Read.All. Dodržte politiku súhlasu nájomníka. Odosielanie pošty cez Graph je samostatná integrácia.",
+  "This SSO requests openid profile email offline_access scopes, with admin consent. Do not add Mail.Send or Directory.Read.All just to sign a user in. Microsoft Graph email delivery is a separate integration.":
+    "SSO vyžaduje rozsahy openid profile email offline_access so súhlasom správcu. Pre prihlásenie nepridávajte Mail.Send ani Directory.Read.All. Odosielanie pošty cez Graph je samostatná integrácia.",
   "This area contains your profile settings and the security options available for your account.":
     "Táto oblasť obsahuje nastavenia profilu a bezpečnostné možnosti vášho účtu.",
   "This file cannot be displayed.": "Tento súbor nemožno zobraziť.",

@@ -3895,7 +3895,7 @@ function SsoPanel({
           <dd>{t("À configurer sur le serveur ISMS")}</dd>
           <dt>{t("Permissions demandées")}</dt>
           <dd>
-            <code>openid profile email</code> ·{" "}
+            <code>openid profile email offline_access</code> ·{" "}
             {t("Aucun accès aux données Microsoft Graph")}
           </dd>
           <dt>{t("Authentification du client")}</dt>

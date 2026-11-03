@@ -88,10 +88,13 @@ l'affectation Entra, ni la correspondance des groupes AD ; un essai avec un
 compte pilote reste nécessaire. Les tests sont réservés aux administrateurs.
 
 L'application SSO demande uniquement les scopes OIDC délégués `openid`,
-`profile` et `email`, visibles sous Microsoft Graph dans Entra. Dans
-**Inscriptions d'applications → Autorisations API**, retirer `User.Read` s'il
-a été ajouté par défaut et ne conserver que ces scopes pour le SSO. Consentir
-selon la politique du locataire. Aucun accès aux données Graph n'est nécessaire :
+`profile`, `email` et `offline_access`, visibles sous Microsoft Graph dans
+Entra. Dans **Inscriptions d'applications → Autorisations API**, retirer
+`User.Read` s'il a été ajouté par défaut et ne conserver que ces scopes pour le
+SSO, puis **accorder le consentement administrateur** avant de déployer le
+scope. `offline_access` permet à oauth2-proxy de renouveler la session toutes
+les 30 minutes (`OAUTH2_PROXY_COOKIE_REFRESH`) au lieu de la perdre à
+l'expiration du jeton d'identité (environ 1 h). Aucun accès aux données Graph n'est nécessaire :
 les groupes sont résolus via le connecteur AD de l'ISMS. Ne pas ajouter `User.Read`, `Mail.Send`
 ou des permissions d'application Graph au seul motif d'activer le SSO.
 Les e-mails de notification constituent une intégration **distincte** : créer
@@ -117,7 +120,8 @@ PRT du poste pilote avec `dsregcmd /status` (`AzureAdPrt : YES`) et tester Edge.
    exiger une affectation et n'affecter d'abord qu'un groupe pilote.
    Le modèle de revendication se trouve dans
    `deploy/entra-optional-claims.json`. Les scopes OIDC délégués `openid`,
-   `profile` et `email` suffisent ; aucun accès aux données Graph n'est requis.
+   `profile`, `email` et `offline_access` suffisent ; aucun accès aux données
+   Graph n'est requis.
 2. Placer le Tenant ID, le Client ID et le secret client dans `.env` sur le
    serveur, jamais dans Git. Vérifier aussi
    `OAUTH2_PROXY_REDIRECT_URL=https://isms.example.com/oauth2/callback` et

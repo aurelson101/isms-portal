@@ -1626,8 +1626,8 @@ const technicalExamples: Record<
         "In Certificates & secrets, create a client secret and capture its value once, not its ID. An operator sets the variables below in the server's private .env, configures the proxy cookie/Redis secrets and deploys the configuration including docker-compose.sso.yml. Do not paste these secrets into Git or help content.",
       ],
       [
-        "Pour ce SSO, les scopes demandés sont openid profile email. N'ajoutez pas Mail.Send ou Directory.Read.All pour simplement connecter un utilisateur. Respectez la politique de consentement du tenant. Microsoft Graph pour l'envoi d'e-mails est une intégration distincte.",
-        "This SSO requests openid profile email scopes. Do not add Mail.Send or Directory.Read.All just to sign a user in. Follow the tenant's consent policy. Microsoft Graph email delivery is a separate integration.",
+        "Pour ce SSO, les scopes demandés sont openid profile email offline_access, avec consentement administrateur. N'ajoutez pas Mail.Send ou Directory.Read.All pour simplement connecter un utilisateur. Microsoft Graph pour l'envoi d'e-mails est une intégration distincte.",
+        "This SSO requests openid profile email offline_access scopes, with admin consent. Do not add Mail.Send or Directory.Read.All just to sign a user in. Microsoft Graph email delivery is a separate integration.",
       ],
       [
         "Dans Applications d'entreprise, exigez une affectation et affectez d'abord un utilisateur pilote. Dans ISMS > Connexion SSO, lancez les diagnostics Entra et proxy. Testez ensuite les liens /oauth2/start?rd=/, /oauth2/start?rd=/admin et /oauth2/start?rd=/moderator avec une identité autorisée pour chaque rôle.",

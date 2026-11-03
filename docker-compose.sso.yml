@@ -20,7 +20,9 @@ services:
       OAUTH2_PROXY_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:?ENTRA_CLIENT_SECRET must be set}
       OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET:?OAUTH2_PROXY_COOKIE_SECRET must be set}
       OAUTH2_PROXY_REDIRECT_URL: ${OAUTH2_PROXY_REDIRECT_URL:?OAUTH2_PROXY_REDIRECT_URL must be set}
-      OAUTH2_PROXY_SCOPE: openid profile email
+      # offline_access: Entra issues a refresh token, so sessions survive the
+      # ~1 h ID token lifetime without a forced redirect to Microsoft.
+      OAUTH2_PROXY_SCOPE: openid profile email offline_access
       OAUTH2_PROXY_OIDC_EMAIL_CLAIM: email
       OAUTH2_PROXY_CODE_CHALLENGE_METHOD: S256
       OAUTH2_PROXY_EMAIL_DOMAINS: "*"
@@ -34,7 +36,7 @@ services:
       OAUTH2_PROXY_COOKIE_SAMESITE: lax
       OAUTH2_PROXY_COOKIE_NAME: __Host-isms_sso
       OAUTH2_PROXY_COOKIE_EXPIRE: 8h
-      OAUTH2_PROXY_COOKIE_REFRESH: 1h
+      OAUTH2_PROXY_COOKIE_REFRESH: 30m
       OAUTH2_PROXY_COOKIE_CSRF_PER_REQUEST: "true"
       OAUTH2_PROXY_COOKIE_CSRF_EXPIRE: 10m
       OAUTH2_PROXY_SESSION_STORE_TYPE: redis

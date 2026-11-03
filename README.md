@@ -808,6 +808,20 @@ docker compose up -d --build --wait
 ./scripts/diagnose.sh
 ```
 
+Pour une mise à jour **sans coupure**, construire les images puis remplacer les
+services exposés un par un : chaque nouveau conteneur doit être `healthy` avant
+l'arrêt propre de l'ancien. Le worker n'est pas exposé aux utilisateurs.
+
+```bash
+docker compose build api worker frontend
+docker compose run --rm migrate
+./scripts/rolling-update.sh api frontend
+docker compose up -d --no-deps worker
+```
+
+Les jobs BullMQ en échec sont conservés 30 jours au plus, puis purgés chaque
+jour par le worker.
+
 Ne jamais lancer `docker compose down -v` : l’option `-v` supprimerait les volumes
 PostgreSQL, Redis, ClamAV et documentaires.
 
@@ -1043,8 +1057,13 @@ rester exclusivement dans `.env` ou dans le gestionnaire de secrets ; ne
 jamais les placer dans Git, le README ou `credentials.txt`.
 
 Dans **Autorisations API**, le SSO n'a besoin que des scopes OIDC délégués
-`openid`, `profile` et `email` ; supprimer `User.Read` s'il a été ajouté par
-défaut. Le portail résout les groupes via AD/LDAPS, sans lecture des données
+`openid`, `profile`, `email` et `offline_access`, avec **consentement
+administrateur** ; supprimer `User.Read` s'il a été ajouté par défaut.
+`offline_access` fournit le jeton de renouvellement : sans lui, la session
+expire avec le jeton d'identité (environ 1 h) et l'utilisateur est renvoyé vers
+Microsoft (« La vérification de session prend trop de temps »). L'ajouter au
+consentement **avant** de déployer le scope, sinon la connexion peut être
+bloquée. Le portail résout les groupes via AD/LDAPS, sans lecture des données
 Microsoft Graph. L'envoi des notifications est un **autre flux** : utiliser
 une inscription dédiée avec `Mail.Send` applicatif et une restriction Exchange
 sur la boîte expéditrice (voir [Configuration Microsoft Graph avec certificat](#configuration-microsoft-graph-avec-certificat)).
