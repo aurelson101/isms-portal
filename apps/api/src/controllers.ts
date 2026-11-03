@@ -111,7 +111,7 @@ async function prepareVersionComparison(
     compare &&
     !isMipObjectKey(previous.storedFile.objectKey) &&
     previous.storedFile.scans[0]?.status === "CLEAN"
-      ? compareDocumentVersions(
+      ? await compareDocumentVersions(
           await storage.getBuffer(previous.storedFile.objectKey),
           content,
           extension,

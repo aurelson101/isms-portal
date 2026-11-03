@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { PassThrough, Readable } from "node:stream";
 import { DocumentAdminController, DocumentsController } from "./controllers";
 import type { IsmsRequest } from "./types";
@@ -9,6 +9,9 @@ const request = {
 } as IsmsRequest;
 
 describe("Document antivirus distribution", () => {
+  // Version uploads compare PDFs; load pdfjs once outside per-test timeouts.
+  beforeAll(() => import("pdfjs-dist/legacy/build/pdf.mjs"), 30_000);
+
   it.each(["INFECTED", "ERROR", "PENDING", undefined])(
     "blocks preview and download with latest scan %s",
     async (status) => {

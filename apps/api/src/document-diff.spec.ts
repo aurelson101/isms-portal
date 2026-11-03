@@ -1,5 +1,5 @@
 import { zipSync, strToU8 } from "fflate";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
   compareDocumentVersions,
   extractDocumentParagraphs,
@@ -14,47 +14,90 @@ const docx = (...paragraphs: string[]) =>
     }),
   );
 
+// Minimal one-page PDF; like ReportLab, no end-of-line precedes "endstream".
+const pdf = (content: string) => {
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+    `<< /Length ${content.length} >>\nstream\n${content}endstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  let body = "%PDF-1.4\n";
+  const offsets = objects.map((object, index) => {
+    const offset = body.length;
+    body += `${index + 1} 0 obj\n${object}\nendobj\n`;
+    return offset;
+  });
+  const xref = body.length;
+  body += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("")}`;
+  body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(body, "latin1");
+};
+
+const lines = (...values: string[]) =>
+  `BT /F1 12 Tf ${values.map((value, index) => `1 0 0 1 50 ${700 - index * 20} Tm ${value}`).join(" ")} ET`;
+
 describe("document version comparison", () => {
-  it("extracts DOCX paragraphs and reports visible changes", () => {
+  // The first PDF parse loads pdfjs and its worker; keep it out of test timeouts.
+  beforeAll(() => extractDocumentParagraphs(pdf("BT ET"), ".pdf"), 30_000);
+
+  it("extracts DOCX paragraphs and reports visible changes", async () => {
     const before = docx("Stable policy", "Old requirement");
     const after = docx("Stable policy", "New requirement", "Added evidence");
-    expect(extractDocumentParagraphs(after, ".docx")).toContain(
+    expect(await extractDocumentParagraphs(after, ".docx")).toContain(
       "Added evidence",
     );
-    const result = compareDocumentVersions(before, after, ".docx");
+    const result = await compareDocumentVersions(before, after, ".docx");
     expect(result.details.modified).toEqual([
       { before: "Old requirement", after: "New requirement" },
     ]);
     expect(result.details.added).toEqual(["Added evidence"]);
   });
 
-  it("extracts text operators from a PDF content stream", () => {
-    const before = Buffer.from("%PDF-1.4\nstream\n(Old control) Tj\nendstream");
-    const after = Buffer.from("%PDF-1.4\nstream\n(New control) Tj\nendstream");
-    expect(
-      compareDocumentVersions(before, after, ".pdf").details.modified,
-    ).toEqual([{ before: "Old control", after: "New control" }]);
+  it("pairs changes where they happen and ignores moved lines", async () => {
+    const before = docx("Intro", "Old step", "Middle", "Removed note", "Tail");
+    const after = docx("Tail", "Intro", "New step", "Middle", "Added note");
+    const result = await compareDocumentVersions(before, after, ".docx");
+    expect(result.details).toEqual({
+      modified: [
+        { before: "Old step", after: "New step" },
+        { before: "Removed note", after: "Added note" },
+      ],
+      added: [],
+      removed: [],
+    });
   });
 
-  it("extracts escaped strings and TJ arrays", () => {
-    const pdf = Buffer.from(
-      "%PDF-1.4\nstream\nBT (Hello \\(world\\)) Tj [(Pass) -20 (bolt]) 5 (guide)] TJ ET\nendstream",
+  it("compares PDF text line by line", async () => {
+    const before = pdf(lines("(Stable control) Tj", "(Old control) Tj"));
+    const after = pdf(lines("(Stable control) Tj", "(New control) Tj"));
+    const result = await compareDocumentVersions(before, after, ".pdf");
+    expect(result.details.modified).toEqual([
+      { before: "Old control", after: "New control" },
+    ]);
+    expect(result.details.added).toEqual([]);
+    expect(result.details.removed).toEqual([]);
+  });
+
+  it("joins kerned TJ fragments into whole lines", async () => {
+    const document = pdf(
+      lines(
+        "[(Pass) -20 (bolt Us) 15 (er Gui) (de)] TJ",
+        "(Hello \\(world\\)) Tj",
+      ),
     );
-    expect(extractDocumentParagraphs(pdf, ".pdf")).toEqual([
+    expect(await extractDocumentParagraphs(document, ".pdf")).toEqual([
+      "Passbolt User Guide",
       "Hello (world)",
-      "Pass",
-      "bolt]",
-      "guide",
     ]);
   });
 
-  it("stays linear on binary data full of parentheses and backslashes", () => {
+  it("returns no text for an unreadable PDF instead of failing", async () => {
     const binary = Buffer.from(
       `%PDF-1.4\n(${"\\a".repeat(20_000)}${"[(x".repeat(20_000)}`,
       "latin1",
     );
-    const started = Date.now();
-    extractDocumentParagraphs(binary, ".pdf");
-    expect(Date.now() - started).toBeLessThan(2_000);
+    expect(await extractDocumentParagraphs(binary, ".pdf")).toEqual([]);
   });
 });

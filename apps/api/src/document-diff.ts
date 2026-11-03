@@ -1,5 +1,4 @@
 import { unzipSync } from "fflate";
-import { inflateSync } from "zlib";
 
 type DocumentChangeDetails = {
   added: string[];
@@ -53,76 +52,119 @@ const officeText = (buffer: Buffer, extension: string) => {
   ]);
 };
 
-const pdfString = (value: string) =>
-  value
-    .replace(/\\([()\\])/g, "$1")
-    .replace(/\\n|\\r/g, " ")
-    .replace(/\\[0-7]{1,3}/g, " ");
+const PDF_MAX_PAGES = 300;
+const PDF_TIME_BUDGET_MS = 20_000;
 
-// Unambiguous alternatives keep matching linear on binary PDF data (no ReDoS).
-const PDF_LITERAL = String.raw`\((?:[^()\\]|\\[\s\S])*\)`;
-const PDF_TEXT_OPERATOR = new RegExp(
-  String.raw`\(((?:[^()\\]|\\[\s\S])*)\)\s*Tj|\[((?:[^\]()\\]|\\[\s\S]|${PDF_LITERAL})*)\]\s*TJ`,
-  "g",
-);
-const PDF_ARRAY_LITERAL = /\(((?:[^()\\]|\\[\s\S])*)\)/g;
-
-const pdfText = (buffer: Buffer) => {
-  const source = buffer.toString("latin1");
-  const streams: string[] = [source];
-  for (const match of source.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
-    try {
-      streams.push(
-        inflateSync(Buffer.from(match[1], "latin1")).toString("latin1"),
-      );
-    } catch {
-      streams.push(match[1]);
+// pdfjs decodes fonts (ToUnicode, CID, kerning) and yields between pages, so
+// large files cannot pin the event loop and text comes out as readable lines.
+const pdfText = async (buffer: Buffer) => {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const task = pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    disableFontFace: true,
+    useSystemFonts: false,
+    verbosity: pdfjs.VerbosityLevel.ERRORS,
+  });
+  const deadline = Date.now() + PDF_TIME_BUDGET_MS;
+  const lines: string[] = [];
+  try {
+    const document = await task.promise;
+    const pages = Math.min(document.numPages, PDF_MAX_PAGES);
+    for (let number = 1; number <= pages && Date.now() < deadline; number++) {
+      const page = await document.getPage(number);
+      let line = "";
+      for (const item of (await page.getTextContent()).items) {
+        if (!("str" in item)) continue;
+        line += item.str;
+        if (item.hasEOL) {
+          lines.push(line);
+          line = "";
+        }
+      }
+      if (line) lines.push(line);
+      page.cleanup();
     }
+  } finally {
+    await task.destroy();
   }
-  return normalize(
-    streams.flatMap((stream) =>
-      [...stream.matchAll(PDF_TEXT_OPERATOR)].flatMap((match) => {
-        if (match[1]) return [pdfString(match[1])];
-        return [...(match[2] || "").matchAll(PDF_ARRAY_LITERAL)].map((part) =>
-          pdfString(part[1]),
-        );
-      }),
-    ),
-  );
+  return normalize(lines);
 };
 
-export const extractDocumentParagraphs = (
+export const extractDocumentParagraphs = async (
   buffer: Buffer,
   extension: string,
-) => {
+): Promise<string[]> => {
   try {
     if ([".docx", ".xlsx"].includes(extension))
       return officeText(buffer, extension);
-    if (extension === ".pdf") return pdfText(buffer);
+    if (extension === ".pdf") return await pdfText(buffer);
   } catch {
     return [];
   }
   return [];
 };
 
-export const compareDocumentVersions = (
+// Ordered diff (LCS): a line is "modified" only when a removal and an addition
+// happen at the same place; lines that merely moved are not reported.
+const diffLines = (before: string[], after: string[]) => {
+  const beforeSet = new Set(before);
+  const afterSet = new Set(after);
+  const common = before.map(() => new Uint16Array(after.length + 1));
+  common.push(new Uint16Array(after.length + 1));
+  for (let i = before.length - 1; i >= 0; i--)
+    for (let j = after.length - 1; j >= 0; j--)
+      common[i][j] =
+        before[i] === after[j]
+          ? common[i + 1][j + 1] + 1
+          : Math.max(common[i + 1][j], common[i][j + 1]);
+  const result: DocumentChangeDetails = {
+    added: [],
+    removed: [],
+    modified: [],
+  };
+  let removedRun: string[] = [];
+  let addedRun: string[] = [];
+  const flush = () => {
+    const removed = removedRun.filter((line) => !afterSet.has(line));
+    const added = addedRun.filter((line) => !beforeSet.has(line));
+    const pairs = Math.min(removed.length, added.length);
+    for (let k = 0; k < pairs; k++)
+      result.modified.push({ before: removed[k], after: added[k] });
+    result.removed.push(...removed.slice(pairs));
+    result.added.push(...added.slice(pairs));
+    removedRun = [];
+    addedRun = [];
+  };
+  let i = 0;
+  let j = 0;
+  while (i < before.length || j < after.length) {
+    if (i < before.length && j < after.length && before[i] === after[j]) {
+      flush();
+      i++;
+      j++;
+    } else if (
+      j < after.length &&
+      (i === before.length || common[i][j + 1] >= common[i + 1][j])
+    )
+      addedRun.push(after[j++]);
+    else removedRun.push(before[i++]);
+  }
+  flush();
+  return result;
+};
+
+export const compareDocumentVersions = async (
   previous: Buffer,
   current: Buffer,
   extension: string,
 ) => {
-  const before = extractDocumentParagraphs(previous, extension);
-  const after = extractDocumentParagraphs(current, extension);
-  const beforeSet = new Set(before);
-  const afterSet = new Set(after);
-  const removed = before.filter((item) => !afterSet.has(item));
-  const added = after.filter((item) => !beforeSet.has(item));
-  const modified = removed
-    .slice(0, Math.min(removed.length, added.length))
-    .map((value, index) => ({ before: value, after: added[index] }));
+  const before = await extractDocumentParagraphs(previous, extension);
+  const after = await extractDocumentParagraphs(current, extension);
+  const changes = diffLines(before, after);
   const details: DocumentChangeDetails = {
-    added: added.slice(modified.length, 100),
-    removed: removed.slice(modified.length, 100),
-    modified: modified.slice(0, 100),
+    added: changes.added.slice(0, 100),
+    removed: changes.removed.slice(0, 100),
+    modified: changes.modified.slice(0, 100),
   };
   return {
     details,
