@@ -76,6 +76,8 @@ mailWorker.on("error", () =>
   ),
 );
 const queue = new Queue("directory-sync", { connection });
+const mailQueue = new Queue("notification-mail", { connection });
+const FAILED_JOB_RETENTION_SECONDS = 30 * 86400;
 
 const log = (event: string, details: Record<string, unknown> = {}) => {
   process.stdout.write(
@@ -331,7 +333,7 @@ async function schedule(db: Prisma.TransactionClient) {
           attempts: directoryConnection.retries + 1,
           backoff: { type: "exponential", delay: 5000 },
           removeOnComplete: 100,
-          removeOnFail: 200,
+          removeOnFail: { age: FAILED_JOB_RETENTION_SECONDS, count: 200 },
         },
       );
     }
@@ -394,6 +396,11 @@ const startGedTasks = () => {
 
 const exclusively = exclusiveScheduler(prisma);
 let lastMaintenance = 0;
+// BullMQ only prunes failed jobs when another job fails: clean them daily.
+async function pruneFailedJobs() {
+  for (const target of [queue, mailQueue])
+    await target.clean(FAILED_JOB_RETENTION_SECONDS * 1000, 1000, "failed");
+}
 let activeTick: Promise<void> | null = null;
 async function tick() {
   const now = Date.now();
@@ -421,7 +428,10 @@ async function tick() {
         auditSealCreated: Boolean(seal),
       });
   });
-  if (ran && maintenanceDue) lastMaintenance = now;
+  if (ran && maintenanceDue) {
+    lastMaintenance = now;
+    await pruneFailedJobs();
+  }
   void startGedTasks();
   await queue.getJobCounts("waiting", "failed");
   await writeFile(
@@ -462,7 +472,7 @@ async function shutdown(signal: string) {
   log("worker.stopping", { signal });
   await worker.close();
   await mailWorker.close();
-  await queue.close();
+  await Promise.all([queue.close(), mailQueue.close()]);
   await prisma.$disconnect();
   process.exit(0);
 }

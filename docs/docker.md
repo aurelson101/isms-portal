@@ -65,3 +65,10 @@ systemctl status isms-docker-build-cache-prune.timer
 systemctl list-timers isms-docker-build-cache-prune.timer
 journalctl -u isms-docker-build-cache-prune.service
 ```
+
+## Mise à jour sans coupure
+
+Après la construction des nouvelles images, `scripts/rolling-update.sh api frontend`
+démarre un second conteneur, attend son état `healthy`, puis arrête proprement
+l'ancien. Le worker n'est pas exposé aux utilisateurs et se redémarre avec
+`docker compose up -d --no-deps worker`.

@@ -131,7 +131,7 @@ export class NotificationService {
       attempts: 4,
       backoff: { type: "exponential", delay: 30000 },
       removeOnComplete: 200,
-      removeOnFail: 200,
+      removeOnFail: { age: 30 * 86400, count: 200 },
     });
   }
   async onModuleDestroy() {
