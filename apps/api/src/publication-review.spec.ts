@@ -4,7 +4,9 @@ import { publishWithReview } from "./publication-review";
 describe("publication review", () => {
   it("persists publication, review, audit and both outbox events in one transaction", async () => {
     const tx = {
+      documentType: { findFirst: vi.fn().mockResolvedValue(null) },
       document: {
+        findUnique: vi.fn().mockResolvedValue({ metadata: {} }),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         findUniqueOrThrow: vi.fn().mockResolvedValue({ id: "doc" }),
       },
@@ -21,6 +23,13 @@ describe("publication review", () => {
         ),
       },
       notificationOutbox: { create: vi.fn() },
+      documentSubscription: {
+        findMany: vi.fn().mockResolvedValue([{ identity: "follower" }]),
+      },
+      documentTranslation: {
+        findFirst: vi.fn().mockResolvedValue({ title: "Policy" }),
+      },
+      userNotification: { createMany: vi.fn() },
     };
     const prisma = { $transaction: vi.fn((callback) => callback(tx)) };
     const result = await publishWithReview(
@@ -40,6 +49,16 @@ describe("publication review", () => {
     );
     expect(result.events).toHaveLength(2);
     expect(tx.notificationOutbox.create).toHaveBeenCalledTimes(2);
+    // Followers get an in-app notice in the same transaction.
+    expect(tx.userNotification.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          identity: "follower",
+          resourceType: "document",
+          resourceId: "doc",
+        }),
+      ],
+    });
     tx.notificationOutbox.create.mockRejectedValueOnce(
       new Error("persistence failed"),
     );
@@ -54,7 +73,9 @@ describe("publication review", () => {
   it("creates one 30-day review with the publication transaction", async () => {
     const publishedAt = new Date("2026-09-28T10:00:00Z");
     const tx = {
+      documentType: { findFirst: vi.fn().mockResolvedValue(null) },
       document: {
+        findUnique: vi.fn().mockResolvedValue({ metadata: {} }),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         findUniqueOrThrow: vi
           .fn()
@@ -91,7 +112,11 @@ describe("publication review", () => {
 
   it("does not create a second review when publication already won", async () => {
     const tx = {
-      document: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      documentType: { findFirst: vi.fn().mockResolvedValue(null) },
+      document: {
+        findUnique: vi.fn().mockResolvedValue({ metadata: {} }),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
       documentReview: { create: vi.fn() },
     };
     const prisma = { $transaction: vi.fn((callback) => callback(tx)) };

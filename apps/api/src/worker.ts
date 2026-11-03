@@ -17,10 +17,24 @@ import { exclusiveScheduler } from "./scheduler-lock";
 import { dispatchOutbox, maintainHistory } from "./notification-outbox";
 import { collectHealthSnapshot } from "./health-alerts";
 import { readReminderSettings } from "./document-management";
+import { StorageService } from "./storage.service";
+import { StorageTargetsService } from "./storage-targets.service";
+import {
+  executeApprovedDestructions,
+  flagDueRetentions,
+  indexDocumentContents,
+  timestampStoredFiles,
+} from "./ged-worker";
+import {
+  chainAuditEvents,
+  sealAuditChain,
+  timestampAuditSeals,
+} from "./audit-chain";
 
 const connection = notificationConnection();
 const prisma = new PrismaService();
 const crypto = new CryptoService();
+const storage = new StorageService(new StorageTargetsService(prisma, crypto));
 const directory = new DirectoryService(prisma, crypto);
 const alerts = new AlertDeliveryService(prisma, crypto);
 const notifications = new NotificationService(
@@ -329,6 +343,42 @@ async function schedule(db: Prisma.TransactionClient) {
   });
 }
 
+// Storage, OCR and time-stamp calls run outside the scheduler transaction;
+// each task claims its rows, so several workers cannot process them twice.
+async function runGedTasks() {
+  const tasks: Array<[string, () => Promise<number>]> = [
+    ["ged.destruction", () => executeApprovedDestructions(prisma, storage)],
+    ["ged.content-index", () => indexDocumentContents(prisma, storage)],
+    ["ged.file-timestamp", () => timestampStoredFiles(prisma)],
+    ["ged.audit-seal-timestamp", () => timestampAuditSeals(prisma)],
+  ];
+  for (const [event, task] of tasks) {
+    try {
+      const count = await task();
+      if (count) log(event, { count });
+    } catch (error) {
+      process.stderr.write(
+        `${JSON.stringify({
+          level: "error",
+          service: "worker",
+          event: `${event}.failed`,
+          time: new Date().toISOString(),
+          message: (error as Error).message,
+        })}\n`,
+      );
+    }
+  }
+}
+
+let activeGedTasks: Promise<void> | null = null;
+const startGedTasks = () => {
+  if (activeGedTasks) return activeGedTasks;
+  activeGedTasks = runGedTasks().finally(() => {
+    activeGedTasks = null;
+  });
+  return activeGedTasks;
+};
+
 const exclusively = exclusiveScheduler(prisma);
 let lastMaintenance = 0;
 let activeTick: Promise<void> | null = null;
@@ -348,8 +398,18 @@ async function tick() {
     await schedule(tx);
     await dispatchOutbox(prisma, notifications);
     if (maintenanceDue) await maintainHistory(tx);
+    const retentionsDue = await flagDueRetentions(tx);
+    const chain = await chainAuditEvents(tx);
+    const seal = await sealAuditChain(tx);
+    if (retentionsDue || chain.chained || seal)
+      log("ged.scheduler.checked", {
+        retentionsDue,
+        auditEventsChained: chain.chained,
+        auditSealCreated: Boolean(seal),
+      });
   });
   if (ran && maintenanceDue) lastMaintenance = now;
+  void startGedTasks();
   await queue.getJobCounts("waiting", "failed");
   await writeFile(
     "/tmp/isms-worker-health.next",
@@ -385,6 +445,7 @@ const timer = setInterval(() => {
 async function shutdown(signal: string) {
   clearInterval(timer);
   await activeTick?.catch(() => undefined);
+  await activeGedTasks?.catch(() => undefined);
   log("worker.stopping", { signal });
   await worker.close();
   await mailWorker.close();

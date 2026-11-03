@@ -117,6 +117,67 @@ comme envoyé. Le worker relit les réglages sans redéploiement ; les canaux
 documentaires et destinataires existants restent appliqués. Les alertes techniques
 Teams/disque/services constituent une configuration distincte.
 
+## Fonctions GED (novembre 2026)
+
+**Recherche plein texte** — le worker extrait le texte de chaque version (PDF,
+DOCX, XLSX) dans `DocumentVersionContent`, indexé en français (GIN `tsvector`).
+La recherche générale couvre ce contenu, uniquement pour la dernière version de
+chaque langue. Les fichiers MIP, en quarantaine ou purgés ne sont pas indexés.
+
+**OCR** — un PDF qui contient moins de 40 caractères par page est traité comme
+scanné : `pdftoppm` puis `tesseract` (`OCR_LANGUAGES`, `fra+eng` par défaut,
+`OCR_MAX_PAGES` = 30). Les fichiers temporaires restent dans `/tmp` du worker et
+sont toujours supprimés. L'historique des versions indique « Indexé (OCR) ».
+
+**Réservation (check-out)** — **Réserver pour modification** verrouille le
+document 8 heures. Pendant ce temps, seul le titulaire peut déposer ou restaurer
+une version (`409` pour les autres). Le titulaire ou un administrateur libère.
+
+**Restauration de version** — l'historique des versions (éditeurs) propose
+**Restaurer** : une nouvelle version est créée à partir du fichier choisi (sans
+copie), le document repasse en brouillon et doit être republié.
+
+**Liens entre documents** — _Remplace_, _Annexe de_ et _Voir aussi_. La cible se
+désigne par son lien copié, sa référence `ged.reference` ou son identifiant. Un
+lien n'est affiché qu'aux personnes autorisées à voir les deux documents.
+
+**Commentaires et suivi** — chaque lecteur peut commenter (page facultative) et
+**Suivre** un document. Les abonnés reçoivent une notification du portail à chaque
+publication et à chaque nouveau commentaire. Auteur et administrateur suppriment.
+
+**Types documentaires** — `/admin#ged`. Un type (`ged.documentType` = identifiant)
+définit des champs obligatoires, contrôlés à l'enregistrement des métadonnées et
+avant toute publication, et un préfixe facultatif qui attribue automatiquement
+`ged.reference` (`PRO-001`, `PRO-002`…). Une valeur sans type défini reste libre.
+
+**Export en masse** — `/admin#ged` (administrateurs) : ZIP de la dernière version
+saine de chaque document, avec `manifest.csv` et `manifest.json` (métadonnées,
+SHA-256, horodatage). Limites : 1 000 documents, 2 Go. Chaque export est audité.
+
+**Rétention et destruction** — le worker passe en `DUE` les rétentions échues
+sans gel légal. Après demande puis approbation par un **second** administrateur,
+le worker détruit réellement : fichiers supprimés du stockage, texte indexé,
+commentaires, liens et abonnements effacés. Il conserve une fiche minimale
+(`destroyedAt`) et un procès-verbal `document.destroyed` (titres, motif,
+demandeur, approbateur, noms et SHA-256 des fichiers) dans le journal scellé. Un
+document détruit ne peut plus être restauré depuis la corbeille. La suppression
+définitive est refusée sous gel légal ou avant la fin de la rétention.
+
+**Valeur probante** — chaque événement d'audit est chaîné au précédent (SHA-256,
+`chainIndex`/`prevHash`/`chainHash`) et la chaîne est scellée toutes les
+`AUDIT_SEAL_INTERVAL_MINUTES`. Avec `TSA_URL` (autorité RFC 3161, idéalement
+qualifiée eIDAS), chaque sceau et chaque fichier reçoit un jeton d'horodatage.
+**Vérifier l'intégrité** recalcule toute la chaîne. Les jetons `.tsr` se
+vérifient hors ligne :
+
+```sh
+openssl ts -verify -token_in -in jeton.tsr -digest <sha256> -CAfile chaine-tsa.pem
+```
+
+Cette chaîne apporte l'intégrité et l'horodatage attendus par la NF Z42-013 ; la
+conformité complète dépend aussi de l'organisation (procédures, stockage WORM,
+audit de l'archive), hors du périmètre de l'application.
+
 ## Exploitation et vérification
 
 La migration additive `20261031120000_document_lookup_indexes` crée des index sur

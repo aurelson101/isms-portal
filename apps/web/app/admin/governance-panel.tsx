@@ -169,6 +169,9 @@ const statusLabels: Record<string, [string, string]> = {
   DONE: ["Terminée", "Done"],
   NONE: ["Aucune demande", "No request"],
   REQUESTED: ["Destruction demandée", "Destruction requested"],
+  DUE: ["Rétention échue", "Retention ended"],
+  DESTROYING: ["Destruction en cours", "Destruction in progress"],
+  DESTROYED: ["Détruit", "Destroyed"],
 };
 
 const statusLabel = (locale: Locale, value: string) =>
@@ -1816,67 +1819,73 @@ function RetentionSection({
                   ? new Date(policy.retentionUntil).toLocaleDateString(locale)
                   : t("Sans échéance", "No deadline")}
               </small>
-              {!policy.legalHold && (
-                <div className="actions">
-                  {policy.destructionStatus !== "REQUESTED" ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void submit(
-                          `/api/admin/governance/retention/${policy.id}/destruction`,
-                          {
-                            action: "REQUEST",
-                            reason: t(
-                              "Demande de destruction après rétention",
-                              "Destruction request after retention",
-                            ),
-                          },
-                          "PUT",
-                        )
-                      }
-                    >
-                      {t("Demander la destruction", "Request destruction")}
-                    </button>
-                  ) : (
-                    <>
+              {!policy.legalHold &&
+                !["APPROVED", "DESTROYING", "DESTROYED"].includes(
+                  policy.destructionStatus,
+                ) && (
+                  <div className="actions">
+                    {policy.destructionStatus !== "REQUESTED" ? (
                       <button
                         type="button"
                         onClick={() =>
                           void submit(
                             `/api/admin/governance/retention/${policy.id}/destruction`,
                             {
-                              action: "APPROVE",
+                              action: "REQUEST",
                               reason: t(
-                                "Seconde approbation",
-                                "Second approval",
+                                "Demande de destruction après rétention",
+                                "Destruction request after retention",
                               ),
                             },
                             "PUT",
                           )
                         }
                       >
-                        {t("Approuver", "Approve")}
+                        {t("Demander la destruction", "Request destruction")}
                       </button>
-                      <button
-                        className="danger"
-                        type="button"
-                        onClick={() =>
-                          void submit(
-                            `/api/admin/governance/retention/${policy.id}/destruction`,
-                            {
-                              action: "REJECT",
-                              reason: t("Demande refusée", "Request rejected"),
-                            },
-                            "PUT",
-                          )
-                        }
-                      >
-                        {t("Refuser", "Reject")}
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void submit(
+                              `/api/admin/governance/retention/${policy.id}/destruction`,
+                              {
+                                action: "APPROVE",
+                                reason: t(
+                                  "Seconde approbation",
+                                  "Second approval",
+                                ),
+                              },
+                              "PUT",
+                            )
+                          }
+                        >
+                          {t("Approuver", "Approve")}
+                        </button>
+                        <button
+                          className="danger"
+                          type="button"
+                          onClick={() =>
+                            void submit(
+                              `/api/admin/governance/retention/${policy.id}/destruction`,
+                              {
+                                action: "REJECT",
+                                reason: t(
+                                  "Demande refusée",
+                                  "Request rejected",
+                                ),
+                              },
+                              "PUT",
+                            )
+                          }
+                        >
+                          {t("Refuser", "Reject")}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
             </article>
           ))}
         <GovernancePagination

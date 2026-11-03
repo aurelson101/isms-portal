@@ -3,6 +3,7 @@ import { fetchWithTimeout as fetch } from "../http-client";
 import { api } from "./api-client";
 import { DocumentsPanel } from "./documents-panel";
 import { LanguagesPanel } from "./languages-panel";
+import { GedPanel } from "./ged-panel";
 import { LanguageButtons, ProfileLanguage } from "../language-controls";
 import {
   flattenCategories,
@@ -109,6 +110,7 @@ type Tab =
   | "documents"
   | "metadata"
   | "trash"
+  | "ged"
   | "incidents"
   | "requests"
   | "governance"
@@ -761,6 +763,7 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["documents", "documents", "Documents", "Documents"],
   ["metadata", "documents", "Métadonnées GED", "GED metadata"],
   ["trash", "archive", "Corbeille", "Document trash"],
+  ["ged", "archive", "GED : export et preuves", "GED: export and evidence"],
   ["incidents", "audit", "Rapports d’incidents", "Incident reports"],
   ["requests", "rules", "Demandes utilisateurs", "User requests"],
   ["governance", "shield", "Gouvernance ISMS", "ISMS governance"],
@@ -803,6 +806,7 @@ const navigationGroups: Array<[string, string, typeof tabs]> = [
         "documents",
         "metadata",
         "trash",
+        "ged",
         "incidents",
         "requests",
       ].includes(key),
@@ -1650,6 +1654,14 @@ export default function Admin() {
                     refreshing={refreshing}
                     onChanged={refresh}
                     onError={setError}
+                  />
+                )}
+                {tab === "ged" && (
+                  <GedPanel
+                    locale={locale}
+                    spaces={spaces}
+                    onError={setError}
+                    onNotice={setNotice}
                   />
                 )}
                 {tab === "trash" && (

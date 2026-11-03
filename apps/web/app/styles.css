@@ -7597,3 +7597,131 @@ svg {
     width: 100%;
   }
 }
+
+/* GED panel: follow, check-out, links, comments, version history */
+.document-ged-panel {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 1rem 1rem;
+}
+
+.document-ged-panel details {
+  padding: 0.8rem;
+  border: 1px solid #b8c9df;
+  border-radius: 0.65rem;
+  background: #f8fafc;
+}
+
+.document-ged-panel summary {
+  color: #071a38;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.document-ged-actions,
+.document-ged-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.document-ged-form {
+  margin-top: 0.6rem;
+}
+
+.document-ged-form input,
+.document-ged-form textarea {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.document-ged-form input[type="number"] {
+  flex: 0 0 6rem;
+}
+
+.document-ged-actions button,
+.document-ged-form button {
+  min-height: 44px;
+}
+
+.document-ged-lock {
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  background: #fff4d6;
+  color: #5c3b00;
+  font-weight: 700;
+}
+
+.document-ged-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.document-ged-list li {
+  overflow-wrap: anywhere;
+}
+
+.document-ged-tag {
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.4rem;
+  background: #e3ecf8;
+  color: #071a38;
+  font-size: 0.85em;
+  font-weight: 700;
+}
+
+.document-ged-comment {
+  padding: 0.6rem;
+  border-radius: 0.5rem;
+  background: #ffffff;
+}
+
+.document-ged-comment p {
+  margin: 0.3rem 0;
+  white-space: pre-wrap;
+}
+
+.document-ged-link {
+  border: 0;
+  background: none;
+  color: #0b5cad;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.document-ged-table {
+  overflow-x: auto;
+}
+
+.document-ged-versions {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.document-ged-versions th,
+.document-ged-versions td {
+  padding: 0.4rem;
+  border-bottom: 1px solid #d6e0ee;
+  text-align: left;
+  vertical-align: top;
+}
+
+.document-ged-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.shell.high-contrast .document-ged-panel details,
+.shell.high-contrast .document-ged-comment {
+  border-color: currentColor;
+  background: transparent;
+}

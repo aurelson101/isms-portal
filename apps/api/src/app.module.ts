@@ -12,6 +12,11 @@ import {
 } from "./controllers";
 import { IdentityMiddleware } from "./identity.middleware";
 import { DocumentManagementController } from "./document-management.controller";
+import { GedDocumentsController } from "./ged.controller";
+import {
+  DocumentTypesController,
+  GedAdminController,
+} from "./ged-admin.controller";
 import { AdminGuard } from "./security";
 import { PrismaService } from "./prisma.service";
 import { AuthorizationService } from "./authorization.service";
@@ -52,6 +57,9 @@ import { NotificationService } from "./notification.service";
     IdentityController,
     DocumentsController,
     DocumentManagementController,
+    GedDocumentsController,
+    DocumentTypesController,
+    GedAdminController,
     IncidentReportsController,
     AdminController,
     DocumentAdminController,

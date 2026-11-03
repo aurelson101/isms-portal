@@ -34,6 +34,7 @@ import { persistAudit } from "./audit-event";
 import { categoryDocumentWhere } from "./category-permissions";
 import { AdminOnly } from "./security";
 import { mergeMetadata, readReminderSettings } from "./document-management";
+import { applyDocumentType } from "./document-types";
 import type { IsmsRequest } from "./types";
 
 class BulkDocument {
@@ -170,7 +171,7 @@ export class DocumentManagementController {
             updatedAt: new Date(change.expectedUpdatedAt),
           },
           data: {
-            metadata: change.metadataAfter,
+            metadata: await applyDocumentType(tx, change.metadataAfter),
             categoryId: change.categoryAfter,
             updatedAt: new Date(
               Math.max(Date.now(), Date.parse(change.expectedUpdatedAt) + 1),
@@ -240,6 +241,11 @@ export class DocumentManagementController {
           "document.restore",
           "document.upload",
           "document.version.upload",
+          "document.version.restore",
+          "document.lock",
+          "document.unlock",
+          "document.link.create",
+          "document.link.delete",
         ],
       },
     };

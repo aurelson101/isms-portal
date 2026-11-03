@@ -22,6 +22,7 @@ import {
 } from "./document-management-copy";
 
 import { localizedPair, translate } from "./i18n/translate";
+import { DocumentGedPanel } from "./document-ged-panel";
 
 import {
   useCallback,
@@ -3831,6 +3832,29 @@ export function Portal({
                   ))}
                 </details>
               )}
+            <DocumentGedPanel
+              key={`ged-${opened.id}`}
+              documentId={opened.id}
+              locale={locale}
+              onVersionRestored={() => {
+                const id = opened.id;
+                void fetch(`/api/documents/${encodeURIComponent(id)}`, {
+                  cache: "no-store",
+                })
+                  .then((response) =>
+                    response.ok
+                      ? (response.json() as Promise<PortalDocument>)
+                      : null,
+                  )
+                  .then((document) => {
+                    if (document)
+                      setOpened((current) =>
+                        current?.id === id ? document : current,
+                      );
+                  })
+                  .catch(() => undefined);
+              }}
+            />
             {openedPdf && opened?.permissions.preview && (
               <div
                 className="pdf-toolbar"

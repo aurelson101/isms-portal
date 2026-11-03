@@ -15,7 +15,9 @@ RUN npx prisma generate --schema apps/api/prisma/schema.prisma \
 FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
 ENV NODE_ENV=production
 WORKDIR /app
-RUN apk add --no-cache openssl \
+# poppler-utils + tesseract: OCR of scanned PDFs by the worker (French, English).
+RUN apk add --no-cache openssl poppler-utils tesseract-ocr \
+        tesseract-ocr-data-fra tesseract-ocr-data-eng \
     && apk upgrade --no-cache \
     && addgroup -S isms && adduser -S isms -G isms
 COPY --from=build --chown=isms:isms /app/node_modules ./node_modules

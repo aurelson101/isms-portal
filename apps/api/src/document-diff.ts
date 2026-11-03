@@ -24,13 +24,11 @@ const normalize = (values: string[]) =>
   ].slice(0, 500);
 
 const xmlText = (xml: string, paragraphTag: string) =>
-  normalize(
-    xml
-      .replace(new RegExp(`</${paragraphTag}>`, "g"), "\n")
-      .replace(/<[^>]+>/g, "")
-      .split("\n")
-      .map(decodeXml),
-  );
+  xml
+    .replace(new RegExp(`</${paragraphTag}>`, "g"), "\n")
+    .replace(/<[^>]+>/g, "")
+    .split("\n")
+    .map(decodeXml);
 
 const officeText = (buffer: Buffer, extension: string) => {
   const archive = unzipSync(new Uint8Array(buffer));
@@ -46,10 +44,10 @@ const officeText = (buffer: Buffer, extension: string) => {
     .flatMap(([, content]) =>
       xmlText(Buffer.from(content).toString("utf8"), "row"),
     );
-  return normalize([
+  return [
     ...(shared ? xmlText(Buffer.from(shared).toString("utf8"), "si") : []),
     ...sheets,
-  ]);
+  ];
 };
 
 const PDF_MAX_PAGES = 300;
@@ -84,10 +82,17 @@ const pdfText = async (buffer: Buffer) => {
       if (line) lines.push(line);
       page.cleanup();
     }
+    return { lines, pages };
   } finally {
     await task.destroy();
   }
-  return normalize(lines);
+};
+
+const documentLines = async (buffer: Buffer, extension: string) => {
+  if ([".docx", ".xlsx"].includes(extension))
+    return { lines: officeText(buffer, extension), pages: 0 };
+  if (extension === ".pdf") return pdfText(buffer);
+  return { lines: [], pages: 0 };
 };
 
 export const extractDocumentParagraphs = async (
@@ -95,13 +100,25 @@ export const extractDocumentParagraphs = async (
   extension: string,
 ): Promise<string[]> => {
   try {
-    if ([".docx", ".xlsx"].includes(extension))
-      return officeText(buffer, extension);
-    if (extension === ".pdf") return await pdfText(buffer);
+    return normalize((await documentLines(buffer, extension)).lines);
   } catch {
     return [];
   }
-  return [];
+};
+
+/** Full readable text for indexing; `pages` is the PDF page count (0 otherwise). */
+export const extractDocumentText = async (
+  buffer: Buffer,
+  extension: string,
+) => {
+  const { lines, pages } = await documentLines(buffer, extension);
+  return {
+    text: lines
+      .map((line) => line.replace(/\s+/g, " ").trim())
+      .filter(Boolean)
+      .join("\n"),
+    pages,
+  };
 };
 
 // Ordered diff (LCS): a line is "modified" only when a removal and an addition

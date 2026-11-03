@@ -83,7 +83,7 @@ describe("document trash restoration", () => {
     tx.document.findUnique.mockResolvedValueOnce(document);
     await expect(controller.restoreFromTrash(req, id)).resolves.toBe(document);
     expect(tx.document.updateMany).toHaveBeenCalledWith({
-      where: { id, deletedAt: { not: null } },
+      where: { id, deletedAt: { not: null }, destroyedAt: null },
       data: { deletedAt: null, status: "ARCHIVED" },
     });
     expect(tx.document.findUnique).toHaveBeenCalledWith({ where: { id } });
@@ -104,7 +104,9 @@ describe("document trash restoration", () => {
         NotFoundException,
       );
       expect(tx.document.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id, deletedAt: { not: null } } }),
+        expect.objectContaining({
+          where: { id, deletedAt: { not: null }, destroyedAt: null },
+        }),
       );
       expect(tx.document.findUnique).not.toHaveBeenCalled();
       expect(audit.record).not.toHaveBeenCalled();

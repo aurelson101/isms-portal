@@ -195,6 +195,14 @@ model Document {
   reviews           DocumentReview[]
   retentionPolicy   RetentionPolicy?
   evidenceControls  ComplianceControl[]
+  outgoingLinks     DocumentLink[]         @relation("DocumentLinkSource")
+  incomingLinks     DocumentLink[]         @relation("DocumentLinkTarget")
+  comments          DocumentComment[]
+  subscriptions     DocumentSubscription[]
+  lockedBy          String?
+  lockedAt          DateTime?
+  lockExpiresAt     DateTime?
+  destroyedAt       DateTime?
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
   deletedAt         DateTime?
@@ -326,6 +334,7 @@ model DocumentVersion {
   changeSummary           String?
   changeDetails           Json?
   reviews                 DocumentReview[]
+  content                 DocumentVersionContent?
 
   @@unique([documentId, locale, version])
   @@index([storedFileId])
@@ -433,9 +442,91 @@ model StoredFile {
   sourceVersions      DocumentVersion[] @relation("SourceDocumentVersion")
   distributedVersions DocumentVersion[] @relation("DistributedDocumentVersion")
   scans               AntivirusScan[]
+  timestamp           FileTimestamp?
+  purgedAt            DateTime?
   createdAt           DateTime          @default(now())
 
   @@index([sha256])
+}
+
+// Searchable text of a version (extracted or OCR), filled by the worker.
+model DocumentVersionContent {
+  versionId    String                   @id
+  version      DocumentVersion          @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  status       String                   @default("PENDING")
+  text         String?
+  ocr          Boolean                  @default(false)
+  attempts     Int                      @default(0)
+  error        String?
+  extractedAt  DateTime?
+  searchVector Unsupported("tsvector")?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  @@index([status, createdAt])
+}
+
+// RFC 3161 time-stamp token proving a file hash existed at genTime.
+model FileTimestamp {
+  storedFileId String     @id
+  storedFile   StoredFile @relation(fields: [storedFileId], references: [id], onDelete: Cascade)
+  sha256       String
+  token        Bytes
+  genTime      DateTime?
+  tsaUrl       String
+  createdAt    DateTime   @default(now())
+}
+
+model DocumentLink {
+  id        String   @id @default(uuid())
+  sourceId  String
+  source    Document @relation("DocumentLinkSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  targetId  String
+  target    Document @relation("DocumentLinkTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  type      String
+  createdBy String
+  createdAt DateTime @default(now())
+
+  @@unique([sourceId, targetId, type])
+  @@index([targetId])
+}
+
+model DocumentComment {
+  id         String    @id @default(uuid())
+  documentId String
+  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  versionId  String?
+  page       Int?
+  author     String
+  body       String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  @@index([documentId, createdAt])
+}
+
+model DocumentSubscription {
+  identity   String
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([identity, documentId])
+  @@index([documentId])
+}
+
+model DocumentType {
+  id              String    @id @default(uuid())
+  slug            String    @unique
+  nameFr          String
+  nameEn          String
+  requiredFields  String[]  @default([])
+  referencePrefix String?
+  nextNumber      Int       @default(1)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
 }
 
 model AccessRule {
@@ -534,6 +625,7 @@ model RetentionPolicy {
   requestedAt       DateTime?
   approvedBy        String?
   approvedAt        DateTime?
+  destroyedAt       DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -609,11 +701,29 @@ model AuditEvent {
   result        String
   correlationId String
   details       Json?
+  // Hash chain written by the worker (tamper evidence).
+  chainIndex    BigInt?  @unique
+  prevHash      String?
+  chainHash     String?
 
   @@index([occurredAt])
   @@index([action, occurredAt])
   @@index([identity, occurredAt])
   @@index([resource, occurredAt])
+}
+
+// Periodic seal of the audit hash chain, optionally RFC 3161 time-stamped.
+model AuditSeal {
+  id             String    @id @default(uuid())
+  lastChainIndex BigInt
+  chainHash      String
+  eventCount     Int
+  token          Bytes?
+  genTime        DateTime?
+  tsaUrl         String?
+  createdAt      DateTime  @default(now())
+
+  @@index([createdAt])
 }
 
 model ApplicationSetting {

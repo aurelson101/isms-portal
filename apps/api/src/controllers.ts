@@ -66,6 +66,8 @@ import { parseCaCertificates } from "./certificate.parser";
 import { validateDirectoryHosts } from "./directory-host";
 import { WatermarkService } from "./watermark.service";
 import { compareDocumentVersions } from "./document-diff";
+import { applyDocumentType } from "./document-types";
+import { assertNotLockedByOther } from "./ged.controller";
 import { SensitiveApprovalService } from "./sensitive-approval.service";
 import { ObservabilityService } from "./observability.service";
 import { safeSsoPath } from "./http-security";
@@ -583,6 +585,18 @@ export class DocumentsController {
             OR translation."title" ILIKE ${`%${q}%`}
             OR coalesce(translation."description", '') ILIKE ${`%${q}%`}
             OR document.slug ILIKE ${`%${q}%`}
+            OR EXISTS (
+              SELECT 1
+              FROM "DocumentVersion" version
+              JOIN "DocumentVersionContent" content ON content."versionId" = version.id
+              WHERE version."documentId" = document.id
+                AND content."searchVector" @@ websearch_to_tsquery('french', ${q})
+                AND version.version = (
+                  SELECT max(latest.version) FROM "DocumentVersion" latest
+                  WHERE latest."documentId" = version."documentId"
+                    AND latest.locale = version.locale
+                )
+            )
             OR EXISTS (SELECT 1 FROM jsonb_each_text(document.metadata) AS field WHERE field.key ILIKE ${`%${q}%`} OR field.value ILIKE ${`%${q}%`})
           LIMIT 500
         `)
@@ -908,6 +922,12 @@ export class DocumentsController {
       throw new BadRequestException(
         "A version must remain in its document space",
       );
+    if (existing)
+      await assertNotLockedByOther(
+        this.prisma,
+        existing.id,
+        req.identity.username,
+      );
     const requiredPermission: Permission = existing ? "edit" : "upload";
     if (
       !(await this.authorization.can(
@@ -1209,6 +1229,10 @@ export class DocumentsController {
     const categoryChanged =
       body.categoryId !== undefined && body.categoryId !== document.categoryId;
     const translation = await this.prisma.$transaction(async (tx) => {
+      const metadata =
+        body.metadata !== undefined
+          ? await applyDocumentType(tx, body.metadata)
+          : undefined;
       const changed = await tx.document.updateMany({
         where: {
           id,
@@ -1222,7 +1246,7 @@ export class DocumentsController {
             Math.max(Date.now(), document.updatedAt.getTime() + 1),
           ),
           ...(categoryChanged ? { categoryId: body.categoryId || null } : {}),
-          ...(body.metadata !== undefined ? { metadata: body.metadata } : {}),
+          ...(metadata !== undefined ? { metadata } : {}),
         },
       });
       if (changed.count !== 1)
@@ -3518,7 +3542,7 @@ export class DocumentAdminController {
   @Get("trash")
   async trash() {
     return this.prisma.document.findMany({
-      where: { deletedAt: { not: null } },
+      where: { deletedAt: { not: null }, destroyedAt: null },
       select: {
         id: true,
         slug: true,
@@ -3533,8 +3557,9 @@ export class DocumentAdminController {
   @Post(":id/trash/restore")
   async restoreFromTrash(@Req() req: IsmsRequest, @Param("id") id: string) {
     const document = await this.prisma.$transaction(async (tx) => {
+      // Destroyed documents keep a tombstone but can never come back.
       const restored = await tx.document.updateMany({
-        where: { id, deletedAt: { not: null } },
+        where: { id, deletedAt: { not: null }, destroyedAt: null },
         data: { deletedAt: null, status: "ARCHIVED" },
       });
       if (restored.count !== 1)
@@ -3581,6 +3606,12 @@ export class DocumentAdminController {
     if (existing && existing.spaceId !== body.spaceId)
       throw new BadRequestException(
         "A version must remain in its document space",
+      );
+    if (existing)
+      await assertNotLockedByOther(
+        this.prisma,
+        existing.id,
+        req.identity.username,
       );
     const extension = extname(file.originalname).toLowerCase();
     const protectedOffice = isProtectedOffice(file.buffer, extension);
@@ -3884,9 +3915,21 @@ export class DocumentAdminController {
           },
         },
         reviews: { select: { id: true, evidenceObjectKey: true } },
+        retentionPolicy: {
+          select: { legalHold: true, retentionUntil: true },
+        },
       },
     });
     if (!document) throw new NotFoundException();
+    const retention = document.retentionPolicy;
+    if (
+      retention &&
+      (retention.legalHold ||
+        (retention.retentionUntil && retention.retentionUntil > new Date()))
+    )
+      throw new ConflictException(
+        "Legal hold or retention period: use the retention destruction workflow",
+      );
     const storedFiles = Array.from(
       new Map(
         document.versions.flatMap((version) =>

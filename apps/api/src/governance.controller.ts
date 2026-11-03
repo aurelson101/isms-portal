@@ -888,6 +888,12 @@ export class GovernanceController {
         "Legal hold blocks every destruction request",
       );
     if (body.action === "REQUEST") {
+      if (
+        ["APPROVED", "DESTROYING", "DESTROYED"].includes(
+          policy.destructionStatus,
+        )
+      )
+        throw new ConflictException("Destruction already approved or executed");
       if (policy.retentionUntil && policy.retentionUntil > new Date())
         throw new ConflictException("Retention period has not ended");
       const updated = await this.prisma.retentionPolicy.update({

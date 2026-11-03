@@ -2,6 +2,7 @@ import { ConflictException } from "@nestjs/common";
 import type { PrismaService } from "./prisma.service";
 import type { IsmsRequest } from "./types";
 import { persistAudit } from "./audit-event";
+import { assertDocumentTypeComplete } from "./document-types";
 
 export async function publishWithReview(
   prisma: PrismaService,
@@ -17,6 +18,7 @@ export async function publishWithReview(
   },
 ) {
   return prisma.$transaction(async (tx) => {
+    await assertDocumentTypeComplete(tx, documentId);
     const changed = await tx.document.updateMany({
       where: { id: documentId, deletedAt: null, status: { not: "PUBLISHED" } },
       data: { status: "PUBLISHED", publishedAt },
