@@ -3847,218 +3847,229 @@ export function Portal({
                   ))}
                 </details>
               )}
-            <DocumentGedPanel
-              key={`ged-${opened.id}`}
-              documentId={opened.id}
-              locale={locale}
-              onVersionRestored={() => {
-                const id = opened.id;
-                void fetch(`/api/documents/${encodeURIComponent(id)}`, {
-                  cache: "no-store",
-                })
-                  .then((response) =>
-                    response.ok
-                      ? (response.json() as Promise<PortalDocument>)
-                      : null,
-                  )
-                  .then((document) => {
-                    if (document)
-                      setOpened((current) =>
-                        current?.id === id ? document : current,
-                      );
-                  })
-                  .catch(() => undefined);
-              }}
-            />
-            {openedPdf && opened?.permissions.preview && (
-              <div
-                className="pdf-toolbar"
-                role="toolbar"
-                aria-label={t.pdfControls}
-              >
-                <div className="pdf-zoom-controls">
-                  <button
-                    type="button"
-                    onClick={() => changePdfZoom(-1)}
-                    disabled={pdfZoom === 50}
-                    aria-label={t.zoomOut}
-                    title={`${t.zoomOut} (-)`}
+            {/* Viewer on the left, GED tools in a collapsible side column. */}
+            <div className="document-reader-layout">
+              <div className="document-reader-main">
+                {openedPdf && opened?.permissions.preview && (
+                  <div
+                    className="pdf-toolbar"
+                    role="toolbar"
+                    aria-label={t.pdfControls}
                   >
-                    −
-                  </button>
-                  <output aria-label={t.zoomLevel}>
-                    {typeof pdfZoom === "number"
-                      ? `${pdfZoom}%`
-                      : t.automaticZoom}
-                  </output>
-                  <button
-                    type="button"
-                    onClick={() => changePdfZoom(1)}
-                    disabled={pdfZoom === 200}
-                    aria-label={t.zoomIn}
-                    title={`${t.zoomIn} (+)`}
-                  >
-                    +
-                  </button>
-                </div>
-                <div className="pdf-page-controls">
-                  <button
-                    type="button"
-                    disabled={pdfPage <= 1}
-                    aria-label={translate(locale, "Précédent", "Previous")}
-                    onClick={() =>
-                      setPdfPage((current) => Math.max(1, current - 1))
-                    }
-                  >
-                    <Icon name="chevron" transform="rotate(180)" />
-                  </button>
-                  <label>
-                    <span>{translate(locale, "Page", "Page")}</span>
-                    <input
-                      type="number"
-                      min="1"
-                      max={pdfPageCount ?? undefined}
-                      value={pdfPage}
-                      onChange={(event) =>
-                        setPdfPage(
-                          Math.min(
-                            normalizePdfPage(Number(event.target.value)),
-                            pdfPageCount ?? Number.MAX_SAFE_INTEGER,
-                          ),
-                        )
-                      }
-                    />
-                    <output aria-live="polite">
-                      {pdfPageCount !== null ? `/ ${pdfPageCount}` : ""}
-                    </output>
-                  </label>
-                  <button
-                    type="button"
-                    disabled={pdfPageCount !== null && pdfPage >= pdfPageCount}
-                    aria-label={translate(locale, "Suivant", "Next")}
-                    onClick={() =>
-                      setPdfPage((current) =>
-                        Math.min(
-                          current + 1,
-                          pdfPageCount ?? Number.MAX_SAFE_INTEGER,
-                        ),
-                      )
-                    }
-                  >
-                    <Icon name="chevron" />
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  className={pdfZoom === "page-width" ? "selected" : ""}
-                  onClick={() => setPdfZoom("page-width")}
-                  aria-pressed={pdfZoom === "page-width"}
-                >
-                  {t.fitWidth}
-                </button>
-                <button
-                  type="button"
-                  className={pdfZoom === "page-fit" ? "selected" : ""}
-                  onClick={() => setPdfZoom("page-fit")}
-                  aria-pressed={pdfZoom === "page-fit"}
-                >
-                  {t.fitPage}
-                </button>
-                {opened.permissions.download && (
-                  <a
-                    className="pdf-mobile-action"
-                    href={`/api/documents/${opened.id}/download?locale=${openedLocale}`}
-                    title={t.download}
-                    aria-label={t.download}
-                  >
-                    <Icon name="download" />
-                  </a>
-                )}
-                <button
-                  type="button"
-                  className="pdf-mobile-action"
-                  onClick={closeDocument}
-                  aria-label={t.close}
-                >
-                  ×
-                </button>
-              </div>
-            )}
-            {openedVersion && opened.permissions.preview ? (
-              <>
-                <div className="document-preview-frame">
-                  {openedPdf ? (
-                    <PdfPreview
-                      url={openedContentUrl}
-                      title={titleFor(opened, openedLocale || locale)}
-                      page={pdfPage}
-                      zoom={pdfZoom}
-                      locale={locale}
-                      onPageCount={handlePdfPageCount}
-                    />
-                  ) : openedVersion.storedFile.mimeType.startsWith("image/") ||
-                    openedVersion.storedFile.mimeType === "text/plain" ? (
-                    <iframe
-                      title={titleFor(opened, openedLocale || locale)}
-                      key={openedContentUrl}
-                      src={openedContentUrl}
-                    />
-                  ) : [wordMime, excelMime].includes(
-                      openedVersion.storedFile.mimeType,
-                    ) ? (
-                    <OfficePreview
-                      url={`/api/documents/${opened.id}/content?locale=${openedLocale}`}
-                      mimeType={openedVersion.storedFile.mimeType}
-                      locale={locale}
-                    />
-                  ) : (
-                    <p>{t.previewError}</p>
-                  )}
-                  {opened.sensitive && (
-                    <SensitiveWatermark position={opened.watermarkPosition} />
-                  )}
-                </div>
-                <div className="document-viewer-footer">
-                  {opened.permissions.download ? (
-                    <a
-                      className="primary-link"
-                      href={`/api/documents/${opened.id}/download?locale=${openedLocale}`}
+                    <div className="pdf-zoom-controls">
+                      <button
+                        type="button"
+                        onClick={() => changePdfZoom(-1)}
+                        disabled={pdfZoom === 50}
+                        aria-label={t.zoomOut}
+                        title={`${t.zoomOut} (-)`}
+                      >
+                        −
+                      </button>
+                      <output aria-label={t.zoomLevel}>
+                        {typeof pdfZoom === "number"
+                          ? `${pdfZoom}%`
+                          : t.automaticZoom}
+                      </output>
+                      <button
+                        type="button"
+                        onClick={() => changePdfZoom(1)}
+                        disabled={pdfZoom === 200}
+                        aria-label={t.zoomIn}
+                        title={`${t.zoomIn} (+)`}
+                      >
+                        +
+                      </button>
+                    </div>
+                    <div className="pdf-page-controls">
+                      <button
+                        type="button"
+                        disabled={pdfPage <= 1}
+                        aria-label={translate(locale, "Précédent", "Previous")}
+                        onClick={() =>
+                          setPdfPage((current) => Math.max(1, current - 1))
+                        }
+                      >
+                        <Icon name="chevron" transform="rotate(180)" />
+                      </button>
+                      <label>
+                        <span>{translate(locale, "Page", "Page")}</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max={pdfPageCount ?? undefined}
+                          value={pdfPage}
+                          onChange={(event) =>
+                            setPdfPage(
+                              Math.min(
+                                normalizePdfPage(Number(event.target.value)),
+                                pdfPageCount ?? Number.MAX_SAFE_INTEGER,
+                              ),
+                            )
+                          }
+                        />
+                        <output aria-live="polite">
+                          {pdfPageCount !== null ? `/ ${pdfPageCount}` : ""}
+                        </output>
+                      </label>
+                      <button
+                        type="button"
+                        disabled={
+                          pdfPageCount !== null && pdfPage >= pdfPageCount
+                        }
+                        aria-label={translate(locale, "Suivant", "Next")}
+                        onClick={() =>
+                          setPdfPage((current) =>
+                            Math.min(
+                              current + 1,
+                              pdfPageCount ?? Number.MAX_SAFE_INTEGER,
+                            ),
+                          )
+                        }
+                      >
+                        <Icon name="chevron" />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      className={pdfZoom === "page-width" ? "selected" : ""}
+                      onClick={() => setPdfZoom("page-width")}
+                      aria-pressed={pdfZoom === "page-width"}
                     >
-                      <Icon name="download" /> {t.download}
-                    </a>
-                  ) : (
-                    <strong className="readonly-label">{t.readonly}</strong>
-                  )}
-                  <button
-                    className="report-document-button"
-                    type="button"
-                    onClick={() => {
-                      setReportReason("OUTDATED");
-                      setReportMessage("");
-                      setReportFeedback("");
-                      setActionError("");
-                      setReporting(opened);
-                    }}
-                  >
-                    <Icon name="audit" />
-                    {translate(
-                      locale,
-                      "Signaler un problème",
-                      "Report an issue",
+                      {t.fitWidth}
+                    </button>
+                    <button
+                      type="button"
+                      className={pdfZoom === "page-fit" ? "selected" : ""}
+                      onClick={() => setPdfZoom("page-fit")}
+                      aria-pressed={pdfZoom === "page-fit"}
+                    >
+                      {t.fitPage}
+                    </button>
+                    {opened.permissions.download && (
+                      <a
+                        className="pdf-mobile-action"
+                        href={`/api/documents/${opened.id}/download?locale=${openedLocale}`}
+                        title={t.download}
+                        aria-label={t.download}
+                      >
+                        <Icon name="download" />
+                      </a>
                     )}
-                  </button>
-                </div>
-                {reportFeedback && (
-                  <p className="success-text" role="status">
-                    {reportFeedback}
-                  </p>
+                    <button
+                      type="button"
+                      className="pdf-mobile-action"
+                      onClick={closeDocument}
+                      aria-label={t.close}
+                    >
+                      ×
+                    </button>
+                  </div>
                 )}
-              </>
-            ) : openedVersion ? (
-              <p>{t.previewUnavailable}</p>
-            ) : (
-              <p>{t.fileUnavailable}</p>
-            )}
+                {openedVersion && opened.permissions.preview ? (
+                  <>
+                    <div className="document-preview-frame">
+                      {openedPdf ? (
+                        <PdfPreview
+                          url={openedContentUrl}
+                          title={titleFor(opened, openedLocale || locale)}
+                          page={pdfPage}
+                          zoom={pdfZoom}
+                          locale={locale}
+                          onPageCount={handlePdfPageCount}
+                        />
+                      ) : openedVersion.storedFile.mimeType.startsWith(
+                          "image/",
+                        ) ||
+                        openedVersion.storedFile.mimeType === "text/plain" ? (
+                        <iframe
+                          title={titleFor(opened, openedLocale || locale)}
+                          key={openedContentUrl}
+                          src={openedContentUrl}
+                        />
+                      ) : [wordMime, excelMime].includes(
+                          openedVersion.storedFile.mimeType,
+                        ) ? (
+                        <OfficePreview
+                          url={`/api/documents/${opened.id}/content?locale=${openedLocale}`}
+                          mimeType={openedVersion.storedFile.mimeType}
+                          locale={locale}
+                        />
+                      ) : (
+                        <p>{t.previewError}</p>
+                      )}
+                      {opened.sensitive && (
+                        <SensitiveWatermark
+                          position={opened.watermarkPosition}
+                        />
+                      )}
+                    </div>
+                    <div className="document-viewer-footer">
+                      {opened.permissions.download ? (
+                        <a
+                          className="primary-link"
+                          href={`/api/documents/${opened.id}/download?locale=${openedLocale}`}
+                        >
+                          <Icon name="download" /> {t.download}
+                        </a>
+                      ) : (
+                        <strong className="readonly-label">{t.readonly}</strong>
+                      )}
+                      <button
+                        className="report-document-button"
+                        type="button"
+                        onClick={() => {
+                          setReportReason("OUTDATED");
+                          setReportMessage("");
+                          setReportFeedback("");
+                          setActionError("");
+                          setReporting(opened);
+                        }}
+                      >
+                        <Icon name="audit" />
+                        {translate(
+                          locale,
+                          "Signaler un problème",
+                          "Report an issue",
+                        )}
+                      </button>
+                    </div>
+                    {reportFeedback && (
+                      <p className="success-text" role="status">
+                        {reportFeedback}
+                      </p>
+                    )}
+                  </>
+                ) : openedVersion ? (
+                  <p>{t.previewUnavailable}</p>
+                ) : (
+                  <p>{t.fileUnavailable}</p>
+                )}
+              </div>
+              <DocumentGedPanel
+                key={`ged-${opened.id}`}
+                documentId={opened.id}
+                locale={locale}
+                onVersionRestored={() => {
+                  const id = opened.id;
+                  void fetch(`/api/documents/${encodeURIComponent(id)}`, {
+                    cache: "no-store",
+                  })
+                    .then((response) =>
+                      response.ok
+                        ? (response.json() as Promise<PortalDocument>)
+                        : null,
+                    )
+                    .then((document) => {
+                      if (document)
+                        setOpened((current) =>
+                          current?.id === id ? document : current,
+                        );
+                    })
+                    .catch(() => undefined);
+                }}
+              />
+            </div>
           </section>
         </div>
       )}

@@ -8,6 +8,7 @@ import type { Locale } from "./i18n/locale";
 import { DocumentSignShare } from "./document-sign-share";
 
 type LinkType = "SUPERSEDES" | "ANNEX" | "RELATED";
+const PANEL_STORAGE_KEY = "isms.documentGedPanel";
 type GedPanel = {
   features: {
     links: boolean;
@@ -83,8 +84,25 @@ export function DocumentGedPanel({
   const [panel, setPanel] = useState<GedPanel | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  // Collapsed by default so the document viewer keeps the space.
+  // Side column, collapsed by default so the viewer keeps the width; the
+  // reader's last choice is remembered in this browser.
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(PANEL_STORAGE_KEY) === "open")
+        setOpen(true);
+    } catch {
+      // Storage unavailable (private mode): keep the default.
+    }
+  }, []);
+  const toggle = (next: boolean) => {
+    setOpen(next);
+    try {
+      window.localStorage.setItem(PANEL_STORAGE_KEY, next ? "open" : "closed");
+    } catch {
+      // Storage unavailable: the choice only lasts for this page.
+    }
+  };
   // Stable callback: the panel opens once when a signature awaits the reader.
   const openPanel = useCallback(() => setOpen(true), []);
   const [comment, setComment] = useState("");
@@ -151,9 +169,14 @@ export function DocumentGedPanel({
     <details
       className="document-ged-panel"
       open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      onToggle={(event) => {
+        if (event.currentTarget.open !== open) toggle(event.currentTarget.open);
+      }}
     >
       <summary>
+        <span className="document-ged-toggle" aria-hidden="true">
+          {open ? "▸" : "◂"}
+        </span>
         {t("Gestion documentaire", "Document management")}
         {panel.lock && (
           <span className="document-ged-lock">

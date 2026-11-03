@@ -7599,9 +7599,29 @@ svg {
 }
 
 /* GED panel: follow, check-out, links, comments, version history */
-/* Collapsed by default: the document viewer keeps the vertical space. */
+/* Reader: document on the left, GED tools in a side column on the right.
+   Collapsed, the column is a thin vertical tab so the document keeps the width. */
+.document-reader-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(17rem, 22rem);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.document-reader-layout:has(> .document-ged-panel:not([open])),
+.document-reader-layout:not(:has(> .document-ged-panel)) {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.document-reader-main {
+  min-width: 0;
+}
+
 .document-ged-panel {
-  margin: 0 1rem 0.75rem;
+  position: sticky;
+  top: 62px;
+  max-height: calc(94vh - 120px);
+  overflow: auto;
   padding: 0.45rem 0.8rem;
   border: 1px solid #b8c9df;
   border-radius: 0.65rem;
@@ -7614,6 +7634,42 @@ svg {
   gap: 0.5rem;
   align-items: center;
   min-height: 32px;
+  list-style: none;
+}
+
+.document-ged-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.document-ged-toggle {
+  color: #0b5cad;
+}
+
+.document-ged-panel:not([open]) {
+  padding: 0.8rem 0.35rem;
+}
+
+.document-ged-panel:not([open]) > summary {
+  flex-wrap: nowrap;
+  writing-mode: vertical-rl;
+}
+
+@media (max-width: 1000px) {
+  .document-reader-layout,
+  .document-reader-layout:has(> .document-ged-panel:not([open])) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .document-ged-panel {
+    position: static;
+    max-height: none;
+    order: -1;
+  }
+  .document-ged-panel:not([open]) {
+    padding: 0.45rem 0.8rem;
+  }
+  .document-ged-panel:not([open]) > summary {
+    writing-mode: horizontal-tb;
+  }
 }
 
 .document-ged-body {
