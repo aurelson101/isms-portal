@@ -127,6 +127,11 @@ async function prepareVersionComparison(
   return { previousId: previous?.id, change };
 }
 
+// JSON cannot carry BigInt: expose the audit chain position as a string.
+const serializeAuditEvent = <T extends { chainIndex: bigint | null }>(
+  event: T,
+) => ({ ...event, chainIndex: event.chainIndex?.toString() ?? null });
+
 const tcpCheck = (host: string, port: number, timeout = 1200) =>
   new Promise<boolean>((resolve) => {
     const socket = createConnection({ host, port });
@@ -3270,7 +3275,7 @@ export class AdminController {
       }),
       this.prisma.auditEvent.count({ where }),
     ]);
-    return { items, page, limit, total };
+    return { items: items.map(serializeAuditEvent), page, limit, total };
   }
 
   @Get("audit/export")
@@ -3334,7 +3339,7 @@ export class AdminController {
     response
       .type("application/json")
       .attachment("isms-audit.json")
-      .send(JSON.stringify(items, null, 2));
+      .send(JSON.stringify(items.map(serializeAuditEvent), null, 2));
   }
 
   @Get("settings")
