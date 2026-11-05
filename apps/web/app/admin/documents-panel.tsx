@@ -41,6 +41,7 @@ import {
   type Space,
 } from "./document-model";
 import { prepareBrandLogo } from "../branding";
+import { ExternalLinkEditor } from "../external-link-editor";
 import {
   SensitivityToggle,
 } from "../sensitive-controls";
@@ -639,6 +640,16 @@ export function DocumentsPanel({
               .map((item) => item.title)
               .join(" / ")}
           </p>
+          <ExternalLinkEditor
+            documentId={editingMetadataDocument.id}
+            externalUrl={editingMetadataDocument.externalUrl}
+            locale={locale}
+            onChanged={async () => {
+              setEditingMetadataDocument(null);
+              await loadDocuments();
+              await onChanged();
+            }}
+          />
           <SensitivityToggle
             documentId={editingMetadataDocument.id}
             sensitive={editingMetadataDocument.sensitive}

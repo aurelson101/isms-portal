@@ -2039,4 +2039,6 @@ export const slovakMessages: Readonly<Record<string, string>> = {
   "Saved.": "Uložené.",
   "Page middle": "Stred strany",
   "Apply": "Použiť",
+  "Remove link": "Odstrániť odkaz",
+  "Link removed.": "Odkaz bol odstránený.",
 };

@@ -59,6 +59,7 @@ import { useBranding } from "./branding";
 import { ArticlesSection } from "./articles";
 import { SensitiveShare } from "./sensitive-share";
 import { SharedWithMe } from "./shared-with-me";
+import { ExternalLinkEditor } from "./external-link-editor";
 import {
   SensitiveDepositOption,
   SensitivityToggle,
@@ -239,10 +240,16 @@ type ReviewEvidence = {
   dueAt: string;
   version: { locale: string; version: number } | null;
 };
-function ExternalThumbnail({ id }: { id: string }) {
+function ExternalThumbnail({
+  id,
+  fallback = "URL",
+}: {
+  id: string;
+  fallback?: string;
+}) {
   const [failed, setFailed] = useState(false);
   return failed ? (
-    <>URL</>
+    <>{fallback}</>
   ) : (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -573,7 +580,14 @@ function DocumentRows({
           <div className="document" key={document.id}>
             <span className="file">
               {document.externalUrl ? (
-                <ExternalThumbnail id={document.id} />
+                <ExternalThumbnail
+                  id={document.id}
+                  fallback={
+                    document.versions[0]
+                      ? fileLabel(document.versions[0].storedFile.mimeType)
+                      : "URL"
+                  }
+                />
               ) : (
                 fileLabel(document.versions[0]?.storedFile.mimeType)
               )}
@@ -4004,7 +4018,7 @@ export function Portal({
                     </button>
                   </div>
                 )}
-                {opened.externalUrl && opened.permissions.preview ? (
+                {opened.externalUrl && opened.permissions.preview && (
                   <div className="document-external-link">
                     <ExternalThumbnail id={opened.id} />
                     <p>
@@ -4030,7 +4044,8 @@ export function Portal({
                     </a>
                     <small>{new URL(opened.externalUrl).host}</small>
                   </div>
-                ) : openedVersion && opened.permissions.preview ? (
+                )}
+                {openedVersion && opened.permissions.preview ? (
                   <>
                     <div className="document-preview-frame">
                       {openedPdf ? (
@@ -4106,7 +4121,7 @@ export function Portal({
                   </>
                 ) : openedVersion ? (
                   <p>{t.previewUnavailable}</p>
-                ) : (
+                ) : opened.externalUrl ? null : (
                   <p>{t.fileUnavailable}</p>
                 )}
               </div>
@@ -4552,6 +4567,15 @@ export function Portal({
                 value={editMetadata}
                 onChange={setEditMetadata}
                 t={(fr, en) => translate(locale, fr, en)}
+              />
+              <ExternalLinkEditor
+                documentId={editing.id}
+                externalUrl={editing.externalUrl}
+                locale={locale}
+                onChanged={async () => {
+                  setEditing(null);
+                  await loadDocuments();
+                }}
               />
               <SensitivityToggle
                 documentId={editing.id}
