@@ -34,6 +34,7 @@ import {
   useBranding,
   type PortalBranding,
 } from "../branding";
+import { ArticlesAdmin } from "../articles";
 import { GovernancePanel } from "./governance-panel";
 import { StoragePanel } from "./storage-panel";
 import { HelpPanel } from "./help-panel";
@@ -7610,6 +7611,9 @@ function SettingsPanel({
             </div>
           </form>
         </section>
+      )}
+      {section === "branding" && (
+        <ArticlesAdmin onError={onError} onNotice={onNotice} />
       )}
       {section === "profile" && (
         <section className="admin-card profile-settings">
