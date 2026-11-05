@@ -294,3 +294,8 @@ export class ExternalDocumentDto {
   @IsOptional() @IsString() @MaxLength(400000) thumbnail?: string | null;
   @IsOptional() @IsBoolean() suppressEmailNotifications?: boolean;
 }
+
+export class SensitivityDto {
+  @IsBoolean() sensitive!: boolean;
+  @IsOptional() @IsIn(["HEADER", "CENTER", "FOOTER"]) watermarkPosition?: string;
+}

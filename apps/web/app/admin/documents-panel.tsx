@@ -41,6 +41,9 @@ import {
   type Space,
 } from "./document-model";
 import { prepareBrandLogo } from "../branding";
+import {
+  SensitivityToggle,
+} from "../sensitive-controls";
 
 export function DocumentsPanel({
   metadataOnly = false,
@@ -635,6 +638,17 @@ export function DocumentsPanel({
               .map((item) => item.title)
               .join(" / ")}
           </p>
+          <SensitivityToggle
+            documentId={editingMetadataDocument.id}
+            sensitive={editingMetadataDocument.sensitive}
+            linkOnly={Boolean(editingMetadataDocument.externalUrl)}
+            locale={locale}
+            onChanged={async () => {
+              setEditingMetadataDocument(null);
+              await loadDocuments();
+              await onChanged();
+            }}
+          />
           <DocumentMetadataFields
             t={t}
             disabled={savingMetadata}

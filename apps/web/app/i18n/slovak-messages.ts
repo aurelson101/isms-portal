@@ -2035,4 +2035,8 @@ export const slovakMessages: Readonly<Record<string, string>> = {
   "Sensitive documents shared with me": "Citlivé dokumenty zdieľané so mnou",
   "until": "do",
   "lifetime": "doživotne",
+  "Sensitive document (watermarked, shared by name only)": "Citlivý dokument (vodoznak, zdieľanie iba menovite)",
+  "Saved.": "Uložené.",
+  "Page middle": "Stred strany",
+  "Apply": "Použiť",
 };
