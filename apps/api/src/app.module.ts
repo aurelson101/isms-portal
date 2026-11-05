@@ -46,6 +46,7 @@ import {
 import { GovernanceController } from "./governance.controller";
 import { AlertDeliveryService } from "./alert-delivery.service";
 import { BrandingController } from "./branding.controller";
+import { ArticlesController } from "./articles.controller";
 import {
   ApprovalsController,
   ReviewInboxController,
@@ -77,6 +78,7 @@ import { NotificationService } from "./notification.service";
     OperationsController,
     GovernanceController,
     BrandingController,
+    ArticlesController,
     ApprovalsController,
   ],
   providers: [

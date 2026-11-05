@@ -56,6 +56,7 @@ import {
 } from "./language-controls";
 import { useInterfaceLocale } from "./i18n/use-locale";
 import { useBranding } from "./branding";
+import { ArticlesSection } from "./articles";
 import { StorageSelect } from "./storage-select";
 import dynamic from "next/dynamic";
 
@@ -2225,6 +2226,9 @@ export function Portal({
               {t.clearFilters}
             </button>
           </div>
+        )}
+        {!explorerMode && !reportsMode && (
+          <ArticlesSection label="Articles" />
         )}
         {!explorerMode && !reportsMode && (
           <section className="cards" aria-label={t.spaces}>
