@@ -56,19 +56,29 @@ export class ArticlesController {
     private readonly audit: AuditService,
   ) {}
 
-  private async read(): Promise<Article[]> {
-    const setting = await this.prisma.applicationSetting.findUnique({
+  private async read(
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<Article[]> {
+    const setting = await client.applicationSetting.findUnique({
       where: { key: ARTICLES_KEY },
     });
     return Array.isArray(setting?.value) ? (setting.value as Article[]) : [];
   }
 
-  private async write(articles: Article[]) {
-    const value = articles as unknown as Prisma.InputJsonValue;
-    await this.prisma.applicationSetting.upsert({
-      where: { key: ARTICLES_KEY },
-      update: { value },
-      create: { key: ARTICLES_KEY, value },
+  // The list lives in a single setting: serialize read-modify-write cycles.
+  private async update<T>(
+    change: (articles: Article[]) => { articles: Article[]; result: T },
+  ): Promise<T> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ARTICLES_KEY}))`;
+      const { articles, result } = change(await this.read(tx));
+      const value = articles as unknown as Prisma.InputJsonValue;
+      await tx.applicationSetting.upsert({
+        where: { key: ARTICLES_KEY },
+        update: { value },
+        create: { key: ARTICLES_KEY, value },
+      });
+      return result;
     });
   }
 
@@ -80,9 +90,6 @@ export class ArticlesController {
   @AdminOnly()
   @Post()
   async create(@Req() req: IsmsRequest, @Body() body: ArticleDto) {
-    const articles = await this.read();
-    if (articles.length >= MAX_ARTICLES)
-      throw new BadRequestException("Too many articles");
     const title = body.title.trim();
     if (title.length < 3) throw new BadRequestException("Title is too short");
     const article: Article = {
@@ -92,7 +99,11 @@ export class ArticlesController {
       imageDataUrl: validateBrandingLogo(body.imageDataUrl),
       createdAt: new Date().toISOString(),
     };
-    await this.write([article, ...articles]);
+    await this.update((articles) => {
+      if (articles.length >= MAX_ARTICLES)
+        throw new BadRequestException("Too many articles");
+      return { articles: [article, ...articles], result: null };
+    });
     await this.audit.record(
       req,
       "article.create",
@@ -106,10 +117,14 @@ export class ArticlesController {
   @AdminOnly()
   @Delete(":id")
   async remove(@Req() req: IsmsRequest, @Param("id") id: string) {
-    const articles = await this.read();
-    if (!articles.some((item) => item.id === id))
-      throw new NotFoundException("Article not found");
-    await this.write(articles.filter((item) => item.id !== id));
+    await this.update((articles) => {
+      if (!articles.some((item) => item.id === id))
+        throw new NotFoundException("Article not found");
+      return {
+        articles: articles.filter((item) => item.id !== id),
+        result: null,
+      };
+    });
     await this.audit.record(req, "article.delete", `article:${id}`, "success");
     return { deleted: true };
   }

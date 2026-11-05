@@ -23,17 +23,21 @@ export class BrandingDto {
   @IsOptional() @IsString() @MaxLength(400000) logoDataUrl?: string | null;
 }
 
-export const validateBrandingLogo = (dataUrl?: string | null) => {
+export const validateBrandingLogo = (
+  dataUrl?: string | null,
+  label = "logo",
+) => {
+  const name = label.charAt(0).toUpperCase() + label.slice(1);
   if (!dataUrl) return null;
   const match =
     /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/u.exec(
       dataUrl,
     );
   if (!match || !allowedLogoTypes.has(match[1]))
-    throw new BadRequestException("Unsupported logo format");
+    throw new BadRequestException(`Unsupported ${label} format`);
   const buffer = Buffer.from(match[2], "base64");
   if (buffer.length === 0 || buffer.length > 256 * 1024)
-    throw new BadRequestException("Logo must be 256 KiB or smaller");
+    throw new BadRequestException(`${name} must be 256 KiB or smaller`);
   const valid =
     (match[1] === "image/png" &&
       buffer.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex"))) ||
@@ -45,7 +49,7 @@ export const validateBrandingLogo = (dataUrl?: string | null) => {
     (match[1] === "image/webp" &&
       buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
       buffer.subarray(8, 12).toString("ascii") === "WEBP");
-  if (!valid) throw new BadRequestException("Logo content is invalid");
+  if (!valid) throw new BadRequestException(`${name} content is invalid`);
   return dataUrl;
 };
 

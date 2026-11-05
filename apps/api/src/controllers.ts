@@ -3673,7 +3673,7 @@ export class DocumentAdminController {
     if (!(supportedLanguages as readonly string[]).includes(body.locale))
       throw new BadRequestException("Unsupported document language");
     const externalUrl = validateArticleUrl(body.url);
-    const thumbnail = validateBrandingLogo(body.thumbnail);
+    const thumbnail = validateBrandingLogo(body.thumbnail, "thumbnail");
     const [space, category] = await Promise.all([
       this.prisma.documentSpace.findFirst({
         where: { id: body.spaceId, deletedAt: null },
@@ -3690,6 +3690,13 @@ export class DocumentAdminController {
     ]);
     if (!space || (body.categoryId && !category))
       throw new BadRequestException("Invalid space or category");
+    if (
+      await this.prisma.document.findFirst({
+        where: { spaceId: body.spaceId, externalUrl, deletedAt: null },
+        select: { id: true },
+      })
+    )
+      throw new ConflictException("This link already exists in this space");
     const documentId = randomUUID();
     const title = body.title.trim();
     const document = await this.prisma.document.create({
