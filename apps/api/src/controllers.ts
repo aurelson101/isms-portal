@@ -54,6 +54,7 @@ import {
   DocumentStatusDto,
   ExternalDocumentDto,
   SensitivityDto,
+  ExternalLinkDto,
   ImportDirectoryGroupDto,
   LocalePreferenceDto,
   SpaceDto,
@@ -1140,6 +1141,47 @@ export class DocumentsController {
         { notify: !suppressEmailNotifications },
       );
     return result;
+  }
+
+  // Adds, changes or removes the external link (and its small image) of a document.
+  @Put(":id/external-link")
+  async setExternalLink(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: ExternalLinkDto,
+  ) {
+    const document = await this.prisma.document.findFirst({
+      where: { id, deletedAt: null },
+      select: { spaceId: true, categoryId: true, externalUrl: true, thumbnail: true },
+    });
+    const allowed =
+      document &&
+      (await this.authorization.can(
+        req.identity.groups,
+        document.spaceId,
+        "edit",
+        document.categoryId ?? null,
+      ));
+    if (!document || !allowed) throw new NotFoundException();
+    const url = body.url ? validateArticleUrl(body.url) : null;
+    // Without a link there is no image; an omitted image keeps the current one.
+    const thumbnail = !url
+      ? null
+      : body.thumbnail === undefined
+        ? document.thumbnail
+        : validateBrandingLogo(body.thumbnail, "thumbnail");
+    await this.prisma.document.update({
+      where: { id },
+      data: { externalUrl: url, thumbnail },
+    });
+    await this.audit.record(
+      req,
+      "document.external-link.update",
+      `document:${id}`,
+      "success",
+      { linked: Boolean(url) },
+    );
+    return { externalUrl: url };
   }
 
   // Marks an existing document as sensitive (or not). Only designated users may.

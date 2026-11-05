@@ -4,6 +4,7 @@ import { translate } from "../i18n/translate";
 import { DocumentMetadataFields } from "../document-metadata-fields";
 import { LanguageSelect } from "../language-controls";
 import { SensitivityToggle } from "../sensitive-controls";
+import { ExternalLinkEditor } from "../external-link-editor";
 
 import type { Locale, DocumentLocale } from "../i18n/locale";
 import {
@@ -47,6 +48,12 @@ export function MetadataForm({
   return (
     <section className="admin-card" id="moderator-metadata-form">
       <h2>{t("Éditer les métadonnées", "Edit metadata")}</h2>
+      <ExternalLinkEditor
+        documentId={document.id}
+        externalUrl={document.externalUrl}
+        locale={actions.locale}
+        onChanged={onSensitivityChanged}
+      />
       <SensitivityToggle
         documentId={document.id}
         sensitive={Boolean(document.sensitive)}

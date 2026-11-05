@@ -300,3 +300,8 @@ export class SensitivityDto {
   @IsBoolean() sensitive!: boolean;
   @IsOptional() @IsIn(["HEADER", "CENTER", "FOOTER"]) watermarkPosition?: string;
 }
+
+export class ExternalLinkDto {
+  @IsOptional() @IsString() @MaxLength(2000) url?: string | null;
+  @IsOptional() @IsString() @MaxLength(400000) thumbnail?: string | null;
+}

@@ -1722,4 +1722,6 @@ export const spanishMessages: Readonly<Record<string, string>> = {
   "Saved.": "Guardado.",
   "Page middle": "Centro de la página",
   "Apply": "Aplicar",
+  "Remove link": "Quitar el enlace",
+  "Link removed.": "Enlace quitado.",
 };
