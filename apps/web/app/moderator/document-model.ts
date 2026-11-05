@@ -15,6 +15,8 @@ export type Category = {
   nameEn: string;
 };
 export type ModeratorDocument = {
+  sensitive?: boolean;
+  externalUrl?: string | null;
   permissions?: Record<string, boolean>;
   metadata?: Record<string, string>;
   updatedAt?: string;

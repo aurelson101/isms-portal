@@ -3,6 +3,7 @@
 import { translate } from "../i18n/translate";
 import { DocumentMetadataFields } from "../document-metadata-fields";
 import { LanguageSelect } from "../language-controls";
+import { SensitivityToggle } from "../sensitive-controls";
 
 import type { Locale, DocumentLocale } from "../i18n/locale";
 import {
@@ -27,6 +28,7 @@ export function MetadataForm({
   value,
   onChange,
   onSave,
+  onSensitivityChanged,
   ...actions
 }: FormActions & {
   document: ModeratorDocument;
@@ -34,6 +36,7 @@ export function MetadataForm({
   value: MetadataValues;
   onChange: (value: MetadataValues) => void;
   onSave: () => Promise<void>;
+  onSensitivityChanged: () => void | Promise<void>;
 }) {
   const t = (fr: string, en: string) => translate(actions.locale, fr, en);
   const options = categoryOptions(categories, actions.locale);
@@ -44,6 +47,13 @@ export function MetadataForm({
   return (
     <section className="admin-card" id="moderator-metadata-form">
       <h2>{t("Éditer les métadonnées", "Edit metadata")}</h2>
+      <SensitivityToggle
+        documentId={document.id}
+        sensitive={Boolean(document.sensitive)}
+        linkOnly={Boolean(document.externalUrl)}
+        locale={actions.locale}
+        onChanged={onSensitivityChanged}
+      />
       <form
         onInput={actions.onDirty}
         onSubmit={(event) => {

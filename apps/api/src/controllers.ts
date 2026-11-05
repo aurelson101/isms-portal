@@ -63,7 +63,7 @@ import { AuditService } from "./audit.service";
 import { validateArticleUrl } from "./articles.controller";
 import {
   activeShareWhere,
-  assertSensitiveDepositor,
+  assertCanMarkSensitive,
   hasSensitiveShare,
 } from "./sensitive-sharing";
 import { validateBrandingLogo } from "./branding.controller";
@@ -961,7 +961,7 @@ export class DocumentsController {
     const extension = extname(file.originalname).toLowerCase();
     const protectedOffice = isProtectedOffice(file.buffer, extension);
     if (sensitive || existing?.sensitive)
-      await assertSensitiveDepositor(this.prisma, req.identity.username);
+      await assertCanMarkSensitive(this.prisma, req);
     assertSensitiveFormat(sensitive || !!existing?.sensitive, extension);
     if (
       !allowedExtensions[extension]?.includes(file.mimetype) ||
@@ -1149,7 +1149,7 @@ export class DocumentsController {
     @Param("id") id: string,
     @Body() body: SensitivityDto,
   ) {
-    await assertSensitiveDepositor(this.prisma, req.identity.username);
+    await assertCanMarkSensitive(this.prisma, req);
     const document = await this.prisma.document.findFirst({
       where: { id, deletedAt: null },
       select: {
@@ -3872,7 +3872,7 @@ export class DocumentAdminController {
     const extension = extname(file.originalname).toLowerCase();
     const protectedOffice = isProtectedOffice(file.buffer, extension);
     if (sensitive || existing?.sensitive)
-      await assertSensitiveDepositor(this.prisma, req.identity.username);
+      await assertCanMarkSensitive(this.prisma, req);
     assertSensitiveFormat(sensitive || !!existing?.sensitive, extension);
     if (
       !allowedExtensions[extension]?.includes(file.mimetype) ||
