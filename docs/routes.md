@@ -29,6 +29,13 @@ Les préfixes suivants couvrent les opérations réellement implémentées :
 - `/api/admin/access-rules` : CRUD des règles ;
 - `/api/admin/spaces` et `/api/admin/categories` : gestion documentaire ;
 - `/api/admin/documents` : dépôt, publication, archivage et restauration ;
+- `/api/admin/sensitive` : utilisateurs autorisés à créer des documents
+  sensibles et partages actifs (révocation) ;
+- `/api/sensitive` : `me`, `directory-users`, `shared-with-me` et partages
+  nominatifs d'un document sensible (`documents/{id}/shares`, `shares/{id}`) ;
+- `/api/documents/{id}/thumbnail` : miniature d'un document lien, avec contrôle
+  d'accès ;
+- `/api/admin/documents/external` : création d'un document lien externe ;
 - `/api/admin/directory-connections` : CRUD, test et synchronisation LDAP/LDAPS ;
 - `/api/admin/certificates` : import, test, export public et suppression ;
 - `/api/admin/audit`, `/api/admin/settings`, `/api/admin/dashboard` ;
