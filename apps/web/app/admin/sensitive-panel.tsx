@@ -12,6 +12,11 @@ type Depositor = {
   addedBy: string;
   createdAt: string;
 };
+type DirectoryUser = {
+  username: string;
+  displayName: string;
+  email: string | null;
+};
 type Share = {
   id: string;
   recipient: string;
@@ -39,6 +44,42 @@ export function SensitivePanel({
   const [depositors, setDepositors] = useState<Depositor[]>([]);
   const [shares, setShares] = useState<Share[]>([]);
   const [busy, setBusy] = useState(false);
+  const [identity, setIdentity] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [matches, setMatches] = useState<DirectoryUser[]>([]);
+  const [searchNote, setSearchNote] = useState("");
+
+  // Directory suggestions: search the connected AD while typing (2+ characters).
+  useEffect(() => {
+    const term = identity.trim();
+    if (term.length < 2 || term.includes("@")) {
+      setMatches([]);
+      setSearchNote("");
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      api<DirectoryUser[]>(
+        `/api/admin/accounts/directory-users/${encodeURIComponent(term)}`,
+        { cache: "no-store" },
+      )
+        .then((users) => {
+          if (cancelled) return;
+          setMatches(users.slice(0, 8));
+          setSearchNote(users.length ? "" : t("Aucun résultat dans l’annuaire.", "No match in the directory."));
+        })
+        .catch((error: Error) => {
+          if (cancelled) return;
+          setMatches([]);
+          setSearchNote(error.message);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identity, locale]);
 
   const load = useCallback(async () => {
     try {
@@ -60,8 +101,6 @@ export function SensitivePanel({
 
   const add = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
     setBusy(true);
     try {
       const result = await api<{ emailSent: boolean }>(
@@ -70,12 +109,14 @@ export function SensitivePanel({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            identity: data.get("identity"),
-            displayName: data.get("displayName") || undefined,
+            identity,
+            displayName: displayName || undefined,
           }),
         },
       );
-      form.reset();
+      setIdentity("");
+      setDisplayName("");
+      setMatches([]);
       onNotice(
         result.emailSent
           ? t(
@@ -118,12 +159,45 @@ export function SensitivePanel({
       </p>
       <form className="admin-form" onSubmit={(event) => void add(event)}>
         <label>
-          {t("Identifiant ou e-mail", "Sign-in name or email")}
-          <input name="identity" required minLength={3} maxLength={254} />
+          {t("Rechercher dans l’annuaire (nom, identifiant) ou saisir un e-mail", "Search the directory (name, sign-in) or type an email")}
+          <input
+            name="identity"
+            required
+            minLength={3}
+            maxLength={254}
+            autoComplete="off"
+            value={identity}
+            onChange={(event) => setIdentity(event.target.value)}
+          />
         </label>
+        {(matches.length > 0 || searchNote) && (
+          <ul className="plain-list" aria-live="polite">
+            {matches.map((user) => (
+              <li key={`${user.username}-${user.email}`}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIdentity(user.email || user.username);
+                    setDisplayName(user.displayName);
+                    setMatches([]);
+                  }}
+                >
+                  {user.displayName}{" "}
+                  <small>{user.email || user.username}</small>
+                </button>
+              </li>
+            ))}
+            {searchNote && <li><small>{searchNote}</small></li>}
+          </ul>
+        )}
         <label>
           {t("Nom affiché (facultatif)", "Display name (optional)")}
-          <input name="displayName" maxLength={160} />
+          <input
+            name="displayName"
+            maxLength={160}
+            value={displayName}
+            onChange={(event) => setDisplayName(event.target.value)}
+          />
         </label>
         <div className="button-row">
           <button className="primary" disabled={busy}>
