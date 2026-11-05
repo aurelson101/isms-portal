@@ -40,6 +40,7 @@ import {
   type AdminDocument,
   type Space,
 } from "./document-model";
+import { prepareBrandLogo } from "../branding";
 
 export function DocumentsPanel({
   metadataOnly = false,
@@ -89,6 +90,7 @@ export function DocumentsPanel({
   const uploadRetry = useRef<UploadAttempt | null>(null);
   const [uploading, setUploading] = useState(false);
   const [sensitive, setSensitive] = useState(false);
+  const [externalOnly, setExternalOnly] = useState(false);
   const [watermarkPosition, setWatermarkPosition] = useState<
     "HEADER" | "CENTER" | "FOOTER"
   >("CENTER");
@@ -323,24 +325,49 @@ export function DocumentsPanel({
             if (uploadInFlight.current) return;
             const formElement = event.currentTarget;
             const data = new FormData(formElement);
+            const external = externalOnly && !versionUploadDocument;
             try {
-              validateUpload(data, locale, { requireSummary: false });
+              if (!external)
+                validateUpload(data, locale, { requireSummary: false });
             } catch (error) {
               onError((error as Error).message);
               return;
             }
             uploadInFlight.current = true;
             setUploading(true);
-            await api("/api/admin/documents", {
-              method: "POST",
-              body: uploadAttempt(data, uploadRetry),
-            })
+            await (async () => {
+              if (!external)
+                return api("/api/admin/documents", {
+                  method: "POST",
+                  body: uploadAttempt(data, uploadRetry),
+                });
+              const image = data.get("thumbnail");
+              return api("/api/admin/documents/external", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  spaceId: data.get("spaceId"),
+                  categoryId: data.get("categoryId") || undefined,
+                  locale: data.get("locale"),
+                  title: data.get("title"),
+                  description: data.get("description") || undefined,
+                  url: data.get("url"),
+                  thumbnail:
+                    image instanceof File && image.size
+                      ? await prepareBrandLogo(image)
+                      : null,
+                  suppressEmailNotifications:
+                    data.get("suppressEmailNotifications") === "true",
+                }),
+              });
+            })()
               .then(async () => {
                 formElement.reset();
                 uploadRetry.current = null;
                 setSpaceId("");
                 setVersionUploadDocument(null);
                 setSensitive(false);
+                setExternalOnly(false);
                 setWatermarkPosition("CENTER");
                 await onChanged();
               })
@@ -443,16 +470,45 @@ export function DocumentsPanel({
               placeholder={t("Décrivez ce qui change dans cette version.")}
             />
           </label>
-          <label>
-            {t("Fichier")}
-            <input
-              name="file"
-              type="file"
-              required
-              accept={documentFileAccept}
-            />
-          </label>
-          <StorageSelect spaceId={spaceId} locale={locale} admin />
+          {!versionUploadDocument && (
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={externalOnly}
+                onChange={(event) => setExternalOnly(event.target.checked)}
+              />{" "}
+              {t("Lien externe uniquement (sans fichier)")}
+            </label>
+          )}
+          {externalOnly && !versionUploadDocument ? (
+            <>
+              <label>
+                {t("Lien externe (http ou https)")}
+                <input name="url" type="url" required maxLength={2000} />
+              </label>
+              <label>
+                {t("Petite image (facultative)")}
+                <input
+                  name="thumbnail"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                />
+              </label>
+            </>
+          ) : (
+            <>
+              <label>
+                {t("Fichier")}
+                <input
+                  name="file"
+                  type="file"
+                  required
+                  accept={documentFileAccept}
+                />
+              </label>
+              <StorageSelect spaceId={spaceId} locale={locale} admin />
+            </>
+          )}
           <label className="check">
             <input
               name="suppressEmailNotifications"
@@ -463,7 +519,7 @@ export function DocumentsPanel({
               "Ne pas envoyer d’alerte e-mail pour ce dépôt ou sa publication",
             )}
           </label>
-          <label className="check">
+          <label className="check" hidden={externalOnly}>
             <input
               name="sensitive"
               value="true"
@@ -473,7 +529,7 @@ export function DocumentsPanel({
             />{" "}
             {t("Document sensible")}
           </label>
-          {sensitive && (
+          {sensitive && !externalOnly && (
             <section className="watermark-config">
               <label>
                 {t("Position du filigrane")}

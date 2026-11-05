@@ -283,3 +283,14 @@ export class DirectoryConnectionDto {
   @IsUUID()
   caCertificateId?: string | null;
 }
+
+export class ExternalDocumentDto {
+  @IsUUID() spaceId!: string;
+  @IsOptional() @IsUUID() categoryId?: string;
+  @IsString() @MinLength(1) @MaxLength(8) locale!: string;
+  @IsString() @MinLength(1) @MaxLength(255) title!: string;
+  @IsOptional() @IsString() @MaxLength(2000) description?: string;
+  @IsString() @MaxLength(2000) url!: string;
+  @IsOptional() @IsString() @MaxLength(400000) thumbnail?: string | null;
+  @IsOptional() @IsBoolean() suppressEmailNotifications?: boolean;
+}

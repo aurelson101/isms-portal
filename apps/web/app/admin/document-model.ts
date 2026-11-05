@@ -20,6 +20,8 @@ export type Category = {
 export type AdminDocument = {
   id: string;
   metadata?: Record<string, string>;
+  externalUrl?: string | null;
+  thumbnail?: string | null;
   status: string;
   sensitive: boolean;
   watermarkPosition: "HEADER" | "CENTER" | "FOOTER";
