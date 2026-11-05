@@ -548,6 +548,22 @@ const topics: Array<{ target: HelpTarget; title: Text; paragraphs: Text[] }> = [
 ];
 
 const configuration: Record<HelpTarget, { steps: Text[]; check: Text }> = {
+  sensitive: {
+    steps: [
+      [
+        "Ajoutez les utilisateurs autorisés à créer des documents sensibles ; chacun reçoit un e-mail.",
+        "Add the users allowed to create sensitive documents; each receives an email.",
+      ],
+      [
+        "Un utilisateur désigné partage un document sensible publié avec des personnes nommées, pour une durée choisie ou à vie.",
+        "A designated user shares a published sensitive document with named people for a chosen period or for life.",
+      ],
+    ],
+    check: [
+      "Vérifiez dans Partages actifs que l'accès et l'expiration sont corrects ; révoquez en cas de doute.",
+      "Check in Active shares that access and expiry are correct; revoke if in doubt.",
+    ],
+  },
   languages: {
     steps: [languageHelp.admin, languageHelp.profile, languageHelp.upload],
     check: languageHelp.check,
@@ -1078,6 +1094,27 @@ const technicalExamples: Record<
     source?: { label: Text; url: string };
   }
 > = {
+  sensitive: {
+    steps: [
+      [
+        "Dans Documents sensibles, saisissez l'identifiant ou l'e-mail de l'utilisateur puis Ajouter et notifier. Seul cet utilisateur peut ensuite cocher « Document sensible » à l'import.",
+        "In Sensitive documents, enter the user's sign-in name or email, then Add and notify. Only this user can then tick “Sensitive document” at import.",
+      ],
+      [
+        "Pour partager : ouvrez le document publié, dépliez Partager, choisissez le destinataire et la durée (24 h, 7, 30, 90 jours, date précise ou À vie).",
+        "To share: open the published document, expand Share, choose the recipient and duration (24 h, 7, 30, 90 days, specific date or Lifetime).",
+      ],
+    ],
+    values:
+      "Depositors: GET/POST/DELETE /api/admin/sensitive/depositors
+Active shares: GET /api/admin/sensitive/shares, DELETE /api/admin/sensitive/shares/{id}
+Share: POST /api/sensitive/documents/{id}/shares
+These are protected API references, not commands to run.",
+    warning: [
+      "Un partage donne un accès personnel en lecture seule, journalisé et filigrané. Révoquez-le dès que le besoin disparaît ; un partage à vie reste actif jusqu'à révocation.",
+      "A share gives personal, logged, watermarked read-only access. Revoke it as soon as the need ends; a lifetime share stays active until revoked.",
+    ],
+  },
   languages: {
     steps: [languageHelp.admin, languageHelp.profile],
     values:
@@ -1316,8 +1353,8 @@ const technicalExamples: Record<
   moderators: {
     steps: [
       [
-        "Dans Modérateurs, sélectionnez l'utilisateur ou le groupe AD depuis la recherche, puis renseignez une justification. Contrôlez ses membres avant d'accorder le rôle MODERATOR.",
-        "In Moderators, select the AD user or group from search results and enter a justification. Check membership before granting the MODERATOR role.",
+        "Dans Modérateurs, sélectionnez l'utilisateur ou le groupe AD depuis la recherche, puis renseignez une justification. Contrôlez ses membres avant d'accorder le rôle MODERATOR. L'ajout d'un modérateur ne demande pas l'approbation d'un second administrateur (réservée aux comptes et groupes administrateurs).",
+        "In Moderators, select the AD user or group from search results and enter a justification. Check membership before granting the MODERATOR role. Adding a moderator does not require a second administrator's approval (reserved for administrator accounts and groups).",
       ],
       [
         "Définissez Gérer, Publier et Archiver/supprimer selon le besoin. Gérer est le prérequis : l'exemple ci-dessous autorise la gestion documentaire sans publication ni suppression. Vérifiez aussi les espaces accessibles à l'identité.",
