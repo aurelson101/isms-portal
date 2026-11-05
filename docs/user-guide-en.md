@@ -16,5 +16,15 @@ and can be saved. Business metadata remains optional. Administrators and
 moderators share List/Windows management views and metadata tools without
 creating file versions for metadata-only changes.
 
+## Sensitive documents
+
+A sensitive document can only be created by a user designated by an
+administrator. That user can share it with named people for a chosen period or
+for life: open the published document, expand **Share this sensitive
+document**, enter the recipient (directory suggestions) and the duration. If a
+sensitive document is shared with you, you receive an email and find it under
+**Sensitive documents shared with me** on the home page. Access is personal,
+read-only, watermarked and without download; it ends at expiry or revocation.
+
 See [Document management](document-management.md) and
 [anonymized screenshots](screenshots/README.md).
