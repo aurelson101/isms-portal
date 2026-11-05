@@ -8,6 +8,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
   Req,
 } from "@nestjs/common";
 import {
@@ -225,6 +226,47 @@ export class SensitiveController {
     return {
       depositor: await isSensitiveDepositor(this.prisma, req.identity.username),
     };
+  }
+
+  // Recipient suggestions for designated users: names and emails only.
+  @Get("directory-users")
+  async directoryUsers(@Req() req: IsmsRequest, @Query("q") q = "") {
+    await assertSensitiveDepositor(this.prisma, req.identity.username);
+    if (typeof q !== "string" || q.trim().length < 2) return [];
+    const users = await this.directory.searchUsers(q);
+    return users
+      .filter((user) => user.email)
+      .slice(0, 8)
+      .map((user) => ({ displayName: user.displayName, email: user.email }));
+  }
+
+  // Sensitive documents currently shared with the caller.
+  @Get("shared-with-me")
+  async sharedWithMe(@Req() req: IsmsRequest) {
+    const rows = await this.prisma.sensitiveShare.findMany({
+      where: {
+        ...activeShareWhere(req.identity.username),
+        document: { deletedAt: null, status: "PUBLISHED", sensitive: true },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        expiresAt: true,
+        document: {
+          select: {
+            slug: true,
+            translations: { select: { locale: true, title: true } },
+          },
+        },
+      },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      slug: row.document.slug,
+      expiresAt: row.expiresAt,
+      translations: row.document.translations,
+    }));
   }
 
   private async sharableDocument(req: IsmsRequest, id: string) {

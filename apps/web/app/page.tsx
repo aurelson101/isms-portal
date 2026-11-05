@@ -58,6 +58,7 @@ import { useInterfaceLocale } from "./i18n/use-locale";
 import { useBranding } from "./branding";
 import { ArticlesSection } from "./articles";
 import { SensitiveShare } from "./sensitive-share";
+import { SharedWithMe } from "./shared-with-me";
 import { StorageSelect } from "./storage-select";
 import dynamic from "next/dynamic";
 
@@ -2254,6 +2255,7 @@ export function Portal({
         {!explorerMode && !reportsMode && (
           <ArticlesSection label="Articles" />
         )}
+        {!explorerMode && !reportsMode && <SharedWithMe locale={locale} />}
         {!explorerMode && !reportsMode && (
           <section className="cards" aria-label={t.spaces}>
             {identity?.spaces.map((item) => {
