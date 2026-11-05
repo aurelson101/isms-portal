@@ -1106,10 +1106,7 @@ const technicalExamples: Record<
       ],
     ],
     values:
-      "Depositors: GET/POST/DELETE /api/admin/sensitive/depositors
-Active shares: GET /api/admin/sensitive/shares, DELETE /api/admin/sensitive/shares/{id}
-Share: POST /api/sensitive/documents/{id}/shares
-These are protected API references, not commands to run.",
+      "Depositors: GET/POST/DELETE /api/admin/sensitive/depositors\nActive shares: GET /api/admin/sensitive/shares, DELETE /api/admin/sensitive/shares/{id}\nShare: POST /api/sensitive/documents/{id}/shares\nThese are protected API references, not commands to run.",
     warning: [
       "Un partage donne un accès personnel en lecture seule, journalisé et filigrané. Révoquez-le dès que le besoin disparaît ; un partage à vie reste actif jusqu'à révocation.",
       "A share gives personal, logged, watermarked read-only access. Revoke it as soon as the need ends; a lifetime share stays active until revoked.",
