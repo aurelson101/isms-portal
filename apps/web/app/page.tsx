@@ -59,6 +59,10 @@ import { useBranding } from "./branding";
 import { ArticlesSection } from "./articles";
 import { SensitiveShare } from "./sensitive-share";
 import { SharedWithMe } from "./shared-with-me";
+import {
+  SensitiveDepositOption,
+  SensitivityToggle,
+} from "./sensitive-controls";
 import { StorageSelect } from "./storage-select";
 import dynamic from "next/dynamic";
 
@@ -4473,7 +4477,7 @@ export function Portal({
                         body: JSON.stringify({
                           expectedUpdatedAt: editing.updatedAt,
                           locale: editLocale,
-                          versionId: editVersionId,
+                          versionId: editVersionId || undefined,
                           title: values.title,
                           description: values.description,
                           categoryId,
@@ -4548,6 +4552,16 @@ export function Portal({
                 value={editMetadata}
                 onChange={setEditMetadata}
                 t={(fr, en) => translate(locale, fr, en)}
+              />
+              <SensitivityToggle
+                documentId={editing.id}
+                sensitive={editing.sensitive}
+                linkOnly={Boolean(editing.externalUrl)}
+                locale={locale}
+                onChanged={async () => {
+                  setEditing(null);
+                  await loadDocuments();
+                }}
               />
               <div className="button-row">
                 <button className="primary">{t.save}</button>
@@ -4660,6 +4674,7 @@ export function Portal({
               </label>
               <small>{t.acceptedFiles}</small>
               <StorageSelect spaceId={selectedSpace.id} locale={locale} />
+              <SensitiveDepositOption locale={locale} />
               <label className="check">
                 <input
                   name="suppressEmailNotifications"

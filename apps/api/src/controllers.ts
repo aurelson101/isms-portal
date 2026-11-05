@@ -53,6 +53,7 @@ import {
   DocumentMetadataDto,
   DocumentStatusDto,
   ExternalDocumentDto,
+  SensitivityDto,
   ImportDirectoryGroupDto,
   LocalePreferenceDto,
   SpaceDto,
@@ -1139,6 +1140,82 @@ export class DocumentsController {
         { notify: !suppressEmailNotifications },
       );
     return result;
+  }
+
+  // Marks an existing document as sensitive (or not). Only designated users may.
+  @Put(":id/sensitivity")
+  async setSensitivity(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: SensitivityDto,
+  ) {
+    await assertSensitiveDepositor(this.prisma, req.identity.username);
+    const document = await this.prisma.document.findFirst({
+      where: { id, deletedAt: null },
+      select: {
+        id: true,
+        spaceId: true,
+        categoryId: true,
+        sensitive: true,
+        status: true,
+        watermarkPosition: true,
+        externalUrl: true,
+        versions: { select: { storedFile: { select: { originalName: true } } } },
+      },
+    });
+    const allowed =
+      document &&
+      (await this.authorization.can(
+        req.identity.groups,
+        document.spaceId,
+        "edit",
+        document.categoryId ?? null,
+      ));
+    if (!document || !allowed) throw new NotFoundException();
+    const position = parseWatermarkPosition(body.watermarkPosition);
+    if (body.sensitive === document.sensitive) return { sensitive: body.sensitive };
+    if (body.sensitive) {
+      if (document.externalUrl)
+        throw new BadRequestException(
+          "A link-only document cannot be marked sensitive",
+        );
+      for (const version of document.versions)
+        assertSensitiveFormat(
+          true,
+          extname(version.storedFile.originalName).toLowerCase(),
+        );
+    }
+    await this.prisma.document.update({
+      where: { id },
+      data: {
+        sensitive: body.sensitive,
+        ...(body.sensitive ? { watermarkPosition: position } : {}),
+      },
+    });
+    try {
+      if (body.sensitive && document.status === "PUBLISHED")
+        await this.watermark.prepareForPublication(id);
+    } catch (error) {
+      await this.prisma.document.update({
+        where: { id },
+        data: { sensitive: document.sensitive },
+      });
+      throw error;
+    }
+    // Named shares only make sense for a sensitive document.
+    if (!body.sensitive)
+      await this.prisma.sensitiveShare.updateMany({
+        where: { documentId: id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    await this.audit.record(
+      req,
+      "document.sensitivity.update",
+      `document:${id}`,
+      "success",
+      { sensitive: body.sensitive },
+    );
+    return { sensitive: body.sensitive };
   }
 
   @Put(":id/metadata")

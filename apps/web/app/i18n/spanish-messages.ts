@@ -1718,4 +1718,8 @@ export const spanishMessages: Readonly<Record<string, string>> = {
   "Sensitive documents shared with me": "Documentos sensibles compartidos conmigo",
   "until": "hasta",
   "lifetime": "de por vida",
+  "Sensitive document (watermarked, shared by name only)": "Documento sensible (marca de agua, solo compartido por nombre)",
+  "Saved.": "Guardado.",
+  "Page middle": "Centro de la página",
+  "Apply": "Aplicar",
 };
