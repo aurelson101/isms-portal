@@ -685,7 +685,6 @@ export class DocumentsController {
         slug: true,
         metadata: true,
         externalUrl: true,
-        thumbnail: true,
         status: true,
         sensitive: true,
         watermarkPosition: true,
@@ -758,20 +757,22 @@ export class DocumentsController {
       skip: paginated ? (page - 1) * limit : undefined,
       take: paginated ? limit : 100,
     });
-    const items = documents.map((document) => ({
+    const items = documents.map((document) => {
+      const permissions = Object.fromEntries(
+        permissionEntries.map(([permission, records]) => [
+          permission,
+          categoryAllowed(
+            records.find((space) => space.id === document.space.id),
+            document.category?.id,
+          ),
+        ]),
+      );
+      return {
       ...document,
+      // The link is the content: only readers allowed to preview receive it.
+      externalUrl: permissions.preview ? document.externalUrl : null,
       favorite: document.favorites.length > 0,
-      permissions: {
-        ...Object.fromEntries(
-          permissionEntries.map(([permission, records]) => [
-            permission,
-            categoryAllowed(
-              records.find((space) => space.id === document.space.id),
-              document.category?.id,
-            ),
-          ]),
-        ),
-      },
+      permissions,
       versions: document.versions.map((version) => ({
         ...version,
         storedFile: {
@@ -780,7 +781,8 @@ export class DocumentsController {
         },
       })),
       favorites: undefined,
-    }));
+      };
+    });
     return paginated
       ? {
           items,
@@ -1667,6 +1669,8 @@ export class DocumentsController {
     );
     return {
       ...document,
+      externalUrl: permissions.preview ? document.externalUrl : null,
+      thumbnail: undefined,
       favorite: document.favorites.length > 0,
       favorites: undefined,
       permissions,
@@ -1678,6 +1682,41 @@ export class DocumentsController {
         },
       })),
     };
+  }
+
+  @Get(":id/thumbnail")
+  async thumbnail(
+    @Req() req: IsmsRequest,
+    @Res() response: Response,
+    @Param("id") id: string,
+  ) {
+    const document = await this.prisma.document.findFirst({
+      where: { id, deletedAt: null, status: "PUBLISHED" },
+      select: { spaceId: true, categoryId: true, thumbnail: true },
+    });
+    const image = document?.thumbnail
+      ? /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/u.exec(
+          document.thumbnail,
+        )
+      : null;
+    const allowed =
+      document &&
+      image &&
+      (await this.authorization.can(
+        req.identity.groups,
+        document.spaceId,
+        "preview",
+        document.categoryId ?? null,
+      ));
+    if (!allowed || !image) throw new NotFoundException();
+    response
+      .type(image[1])
+      .set({
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "private, max-age=300",
+        "Content-Security-Policy": "default-src 'none'",
+      })
+      .send(Buffer.from(image[2], "base64"));
   }
 
   @Get("by-slug/:slug")

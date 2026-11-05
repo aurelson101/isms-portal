@@ -44,6 +44,8 @@ export const validateArticleUrl = (value: string) => {
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:")
     throw new BadRequestException("Article link must be http or https");
+  if (parsed.username || parsed.password)
+    throw new BadRequestException("Article link must not embed credentials");
   return parsed.toString();
 };
 
