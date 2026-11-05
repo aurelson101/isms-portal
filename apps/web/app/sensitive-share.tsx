@@ -41,6 +41,31 @@ export function SensitiveShare({
   const [duration, setDuration] = useState("7d");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [recipient, setRecipient] = useState("");
+  const [suggestions, setSuggestions] = useState<
+    Array<{ displayName: string; email: string }>
+  >([]);
+
+  useEffect(() => {
+    const term = recipient.trim();
+    if (!allowed || term.length < 2 || term.includes("@")) {
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      request<Array<{ displayName: string; email: string }>>(
+        `/api/sensitive/directory-users?q=${encodeURIComponent(term)}`,
+        { cache: "no-store" },
+      )
+        .then((users) => !cancelled && setSuggestions(users))
+        .catch(() => !cancelled && setSuggestions([]));
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [recipient, allowed]);
 
   const load = useCallback(async () => {
     try {
@@ -89,6 +114,7 @@ export function SensitiveShare({
         },
       );
       form.reset();
+      setRecipient("");
       setMessage(
         result.emailSent
           ? t("Partagé ; e-mail envoyé.", "Shared; email sent.")
@@ -130,7 +156,23 @@ export function SensitiveShare({
             "Identifiant ou e-mail du destinataire",
             "Recipient sign-in name or email",
           )}
-          <input name="recipient" required minLength={3} maxLength={254} />
+          <input
+            name="recipient"
+            required
+            minLength={3}
+            maxLength={254}
+            autoComplete="off"
+            list="sensitive-recipient-suggestions"
+            value={recipient}
+            onChange={(event) => setRecipient(event.target.value)}
+          />
+          <datalist id="sensitive-recipient-suggestions">
+            {suggestions.map((user) => (
+              <option key={user.email} value={user.email}>
+                {user.displayName}
+              </option>
+            ))}
+          </datalist>
         </label>
         <label>
           {t("Durée d’accès", "Access duration")}
