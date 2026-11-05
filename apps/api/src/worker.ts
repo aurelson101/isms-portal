@@ -7,6 +7,7 @@ import { PrismaService } from "./prisma.service";
 import { CryptoService } from "./crypto.service";
 import { DirectoryService } from "./directory.service";
 import { AlertDeliveryService } from "./alert-delivery.service";
+import { remindExpiringSensitiveShares } from "./sensitive-sharing";
 import {
   NotificationService,
   notificationConnection,
@@ -360,6 +361,10 @@ async function runGedTasks() {
   );
   const tasks: Array<[string, () => Promise<number>]> = [
     ["ged.destruction", () => executeApprovedDestructions(prisma, storage)],
+    [
+      "sensitive.share-reminder",
+      () => remindExpiringSensitiveShares(prisma, alerts, directory),
+    ],
     ["ged.content-index", () => indexDocumentContents(prisma, storage)],
     ["ged.file-timestamp", () => timestampStoredFiles(prisma, timestampConfig)],
     [

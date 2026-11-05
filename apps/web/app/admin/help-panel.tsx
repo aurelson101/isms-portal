@@ -31,6 +31,7 @@ type HelpTarget =
   | "profile"
   | "administrators"
   | "moderators"
+  | "sensitive"
   | "trash"
   | "incidents"
   | "advanced-settings";
@@ -423,6 +424,24 @@ const topics: Array<{ target: HelpTarget; title: Text; paragraphs: Text[] }> = [
     ],
   },
   {
+    target: "sensitive",
+    title: ["Documents sensibles", "Sensitive documents"],
+    paragraphs: [
+      [
+        "Menu Contenu et accès > Documents sensibles. Ajoutez par identifiant ou e-mail les utilisateurs autorisés à créer des documents sensibles : eux seuls peuvent cocher « Document sensible » à l'import (y compris pour une nouvelle version). Chaque utilisateur ajouté reçoit un e-mail modèle « Sensitive document » ; Retirer supprime le droit sans effacer les documents.",
+        "Content and access > Sensitive documents. Add, by sign-in name or email, the users allowed to create sensitive documents: only they can tick “Sensitive document” at import (including for a new version). Each added user receives a “Sensitive document” template email; Remove withdraws the right without deleting documents.",
+      ],
+      [
+        "Un utilisateur désigné ouvre un document sensible publié, déplie « Partager ce document sensible », saisit le destinataire et choisit 24 heures, 7, 30 ou 90 jours, une date précise ou À vie. Le destinataire reçoit un e-mail, lit le document avec son propre compte (lecture seule, filigrane, sans téléchargement) et reçoit un rappel environ 48 heures avant l'expiration.",
+        "A designated user opens a published sensitive document, expands “Share this sensitive document”, enters the recipient and picks 24 hours, 7, 30 or 90 days, a specific date or Lifetime. The recipient receives an email, reads the document with their own account (read-only, watermarked, no download) and gets a reminder about 48 hours before expiry.",
+      ],
+      [
+        "La liste Partages actifs permet de révoquer un accès à tout moment. Partager de nouveau avec la même personne remplace son partage précédent. Les créations, partages et révocations sont inscrits dans le journal d'audit. Aucun lien anonyme n'existe pour les documents sensibles.",
+        "The Active shares list lets you revoke an access at any time. Sharing again with the same person replaces their previous share. Creations, shares and revocations are written to the audit log. No anonymous link exists for sensitive documents.",
+      ],
+    ],
+  },
+  {
     target: "moderators",
     title: ["Modérateurs", "Moderators"],
     paragraphs: [
@@ -433,6 +452,14 @@ const topics: Array<{ target: HelpTarget; title: Text; paragraphs: Text[] }> = [
       [
         "Vérifiez séparément les droits de modification, publication et archivage pour les espaces concernés.",
         "Check editing, publishing and archiving permissions separately for the relevant spaces.",
+      ],
+      [
+        "Périmètre d'un modérateur : le compte porte trois autorisations globales (gérer, publier, supprimer). Dans Règles d'accès, les permissions modification, publication et archivage se définissent ensuite par espace, par catégorie et par sous-catégorie ; une sous-catégorie hérite de sa catégorie sauf règle contraire. Il n'existe pas de réglage par menu : les menus affichés suivent ces droits effectifs, et l'API refuse toute action hors périmètre.",
+        "A moderator's scope: the account carries three global permissions (manage, publish, delete). In Access rules, edit, publish and archive permissions are then set per space, per category and per subcategory; a subcategory inherits from its category unless a rule says otherwise. There is no per-menu setting: displayed menus follow these effective rights, and the API refuses any action outside the scope.",
+      ],
+      [
+        "Documents sensibles : un modérateur ne peut en créer ou en partager que s'il est désigné dans Documents sensibles (administration). Sinon, la case « sensible » est refusée à l'import.",
+        "Sensitive documents: a moderator can create or share them only if designated in Sensitive documents (administration). Otherwise the “sensitive” option is refused at import.",
       ],
       [
         "Dans /moderator, Documents gérés, Import de documents et Mes droits documentaires sont des vues séparées. Les sous-menus affichent uniquement les espaces que vous pouvez gérer ; choisir un espace filtre les documents côté serveur.",
@@ -1008,6 +1035,7 @@ const topicGroups: Array<{ title: Text; targets: HelpTarget[] }> = [
       "groups",
       "rules",
       "trash",
+      "sensitive",
       "governance",
       "requests",
       "incidents",

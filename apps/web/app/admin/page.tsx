@@ -35,6 +35,7 @@ import {
   type PortalBranding,
 } from "../branding";
 import { ArticlesAdmin } from "../articles";
+import { SensitivePanel } from "./sensitive-panel";
 import { GovernancePanel } from "./governance-panel";
 import { StoragePanel } from "./storage-panel";
 import { HelpPanel } from "./help-panel";
@@ -112,6 +113,7 @@ type Tab =
   | "metadata"
   | "trash"
   | "ged"
+  | "sensitive"
   | "incidents"
   | "requests"
   | "governance"
@@ -765,6 +767,7 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["metadata", "documents", "Métadonnées GED", "GED metadata"],
   ["trash", "archive", "Corbeille", "Document trash"],
   ["ged", "archive", "GED : export et preuves", "GED: export and evidence"],
+  ["sensitive", "shield", "Documents sensibles", "Sensitive documents"],
   ["incidents", "audit", "Rapports d’incidents", "Incident reports"],
   ["requests", "rules", "Demandes utilisateurs", "User requests"],
   ["governance", "shield", "Gouvernance ISMS", "ISMS governance"],
@@ -808,6 +811,7 @@ const navigationGroups: Array<[string, string, typeof tabs]> = [
         "metadata",
         "trash",
         "ged",
+        "sensitive",
         "incidents",
         "requests",
       ].includes(key),
@@ -1661,6 +1665,13 @@ export default function Admin() {
                   <GedPanel
                     locale={locale}
                     spaces={spaces}
+                    onError={setError}
+                    onNotice={setNotice}
+                  />
+                )}
+                {tab === "sensitive" && (
+                  <SensitivePanel
+                    locale={locale}
                     onError={setError}
                     onNotice={setNotice}
                   />
