@@ -235,6 +235,8 @@ type ReviewEvidence = {
 };
 type PortalDocument = {
   metadata?: Record<string, string>;
+  externalUrl?: string | null;
+  thumbnail?: string | null;
   updatedAt?: string;
   id: string;
   slug: string;
@@ -503,6 +505,11 @@ function DocumentRows({
   viewMode?: ViewMode;
 }) {
   const t = copy[locale];
+  const openDocument = (document: PortalDocument) => {
+    if (document.externalUrl)
+      window.open(document.externalUrl, "_blank", "noopener,noreferrer");
+    else onOpen(document);
+  };
   if (documents.length === 0)
     return (
       <div className="empty-state" role="status">
@@ -547,12 +554,25 @@ function DocumentRows({
         return (
           <div className="document" key={document.id}>
             <span className="file">
-              {fileLabel(document.versions[0]?.storedFile.mimeType)}
+              {document.thumbnail ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={document.thumbnail}
+                  alt=""
+                  width={32}
+                  height={32}
+                  style={{ objectFit: "cover", borderRadius: 4 }}
+                />
+              ) : document.externalUrl ? (
+                "URL"
+              ) : (
+                fileLabel(document.versions[0]?.storedFile.mimeType)
+              )}
             </span>
             <button
               className="document-title"
               title={documentTitle}
-              onClick={() => onOpen(document)}
+              onClick={() => openDocument(document)}
             >
               {documentTitle}
             </button>
@@ -642,8 +662,8 @@ function DocumentRows({
               </button>
               <button
                 className="document-open"
-                onClick={() => onOpen(document)}
-                disabled={!document.permissions.preview}
+                onClick={() => openDocument(document)}
+                disabled={!document.permissions.preview && !document.externalUrl}
               >
                 {t.open}
               </button>

@@ -183,6 +183,8 @@ model Document {
   watermarkPosition WatermarkPosition      @default(CENTER)
   suppressEmailNotifications Boolean       @default(false)
   metadata          Json                   @default("{}")
+  externalUrl       String?
+  thumbnail         String?
   viewCount         Int                    @default(0)
   downloadCount     Int                    @default(0)
   publishedAt       DateTime?

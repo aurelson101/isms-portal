@@ -52,12 +52,15 @@ import {
   DirectoryGroupDto,
   DocumentMetadataDto,
   DocumentStatusDto,
+  ExternalDocumentDto,
   ImportDirectoryGroupDto,
   LocalePreferenceDto,
   SpaceDto,
   SpaceOwnerDto,
 } from "./admin.dto";
 import { AuditService } from "./audit.service";
+import { validateArticleUrl } from "./articles.controller";
+import { validateBrandingLogo } from "./branding.controller";
 import { StorageService } from "./storage.service";
 import { AntivirusService } from "./antivirus.service";
 import { CryptoService } from "./crypto.service";
@@ -681,6 +684,8 @@ export class DocumentsController {
         id: true,
         slug: true,
         metadata: true,
+        externalUrl: true,
+        thumbnail: true,
         status: true,
         sensitive: true,
         watermarkPosition: true,
@@ -3621,6 +3626,63 @@ export class DocumentAdminController {
     return document;
   }
 
+  @Post("external")
+  async createExternal(
+    @Req() req: IsmsRequest,
+    @Body() body: ExternalDocumentDto,
+  ) {
+    if (!(supportedLanguages as readonly string[]).includes(body.locale))
+      throw new BadRequestException("Unsupported document language");
+    const externalUrl = validateArticleUrl(body.url);
+    const thumbnail = validateBrandingLogo(body.thumbnail);
+    const [space, category] = await Promise.all([
+      this.prisma.documentSpace.findFirst({
+        where: { id: body.spaceId, deletedAt: null },
+      }),
+      body.categoryId
+        ? this.prisma.documentCategory.findFirst({
+            where: {
+              id: body.categoryId,
+              spaceId: body.spaceId,
+              deletedAt: null,
+            },
+          })
+        : Promise.resolve(null),
+    ]);
+    if (!space || (body.categoryId && !category))
+      throw new BadRequestException("Invalid space or category");
+    const documentId = randomUUID();
+    const title = body.title.trim();
+    const document = await this.prisma.document.create({
+      data: {
+        id: documentId,
+        slug: canonicalDocumentSlug(title, documentId),
+        spaceId: body.spaceId,
+        categoryId: body.categoryId || null,
+        externalUrl,
+        thumbnail,
+        suppressEmailNotifications: body.suppressEmailNotifications === true,
+        translations: {
+          create: {
+            locale: body.locale,
+            title,
+            description: body.description?.trim() || null,
+          },
+        },
+      },
+      include: { translations: true, versions: true },
+    });
+    await this.audit.record(
+      req,
+      "document.external.create",
+      `document:${documentId}`,
+      "success",
+      { locale: body.locale, host: new URL(externalUrl).host },
+      { notify: !document.suppressEmailNotifications },
+    );
+    return document;
+  }
+
   @Post()
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(
@@ -3853,7 +3915,7 @@ export class DocumentAdminController {
     });
     if (!document) throw new NotFoundException();
     if (
-      document.versions.length === 0 ||
+      (document.versions.length === 0 && !document.externalUrl) ||
       document.versions.some(
         (version) =>
           !version.storedFile.scans.some((scan) => scan.status === "CLEAN"),
