@@ -50,7 +50,6 @@ export function MetadataForm({
       <SensitivityToggle
         documentId={document.id}
         sensitive={Boolean(document.sensitive)}
-        linkOnly={Boolean(document.externalUrl)}
         locale={actions.locale}
         onChanged={onSensitivityChanged}
       />

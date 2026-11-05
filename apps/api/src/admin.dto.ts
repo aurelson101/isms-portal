@@ -293,6 +293,7 @@ export class ExternalDocumentDto {
   @IsString() @MaxLength(2000) url!: string;
   @IsOptional() @IsString() @MaxLength(400000) thumbnail?: string | null;
   @IsOptional() @IsBoolean() suppressEmailNotifications?: boolean;
+  @IsOptional() @IsBoolean() sensitive?: boolean;
 }
 
 export class SensitivityDto {

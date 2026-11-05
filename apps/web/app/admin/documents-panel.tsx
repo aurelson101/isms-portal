@@ -361,6 +361,7 @@ export function DocumentsPanel({
                       : null,
                   suppressEmailNotifications:
                     data.get("suppressEmailNotifications") === "true",
+                  sensitive: data.get("sensitive") === "true",
                 }),
               });
             })()
@@ -522,7 +523,7 @@ export function DocumentsPanel({
               "Ne pas envoyer d’alerte e-mail pour ce dépôt ou sa publication",
             )}
           </label>
-          <label className="check" hidden={externalOnly}>
+          <label className="check">
             <input
               name="sensitive"
               value="true"
@@ -641,7 +642,6 @@ export function DocumentsPanel({
           <SensitivityToggle
             documentId={editingMetadataDocument.id}
             sensitive={editingMetadataDocument.sensitive}
-            linkOnly={Boolean(editingMetadataDocument.externalUrl)}
             locale={locale}
             onChanged={async () => {
               setEditingMetadataDocument(null);
