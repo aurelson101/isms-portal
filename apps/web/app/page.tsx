@@ -4556,7 +4556,6 @@ export function Portal({
               <SensitivityToggle
                 documentId={editing.id}
                 sensitive={editing.sensitive}
-                linkOnly={Boolean(editing.externalUrl)}
                 locale={locale}
                 onChanged={async () => {
                   setEditing(null);

@@ -1175,10 +1175,6 @@ export class DocumentsController {
     const position = parseWatermarkPosition(body.watermarkPosition);
     if (body.sensitive === document.sensitive) return { sensitive: body.sensitive };
     if (body.sensitive) {
-      if (document.externalUrl)
-        throw new BadRequestException(
-          "A link-only document cannot be marked sensitive",
-        );
       for (const version of document.versions)
         assertSensitiveFormat(
           true,
@@ -3774,6 +3770,8 @@ export class DocumentAdminController {
   ) {
     if (!(supportedLanguages as readonly string[]).includes(body.locale))
       throw new BadRequestException("Unsupported document language");
+    if (body.sensitive === true)
+      await assertCanMarkSensitive(this.prisma, req);
     const externalUrl = validateArticleUrl(body.url);
     const thumbnail = validateBrandingLogo(body.thumbnail, "thumbnail");
     const [space, category] = await Promise.all([
@@ -3809,6 +3807,7 @@ export class DocumentAdminController {
         categoryId: body.categoryId || null,
         externalUrl,
         thumbnail,
+        sensitive: body.sensitive === true,
         suppressEmailNotifications: body.suppressEmailNotifications === true,
         translations: {
           create: {
