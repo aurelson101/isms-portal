@@ -233,10 +233,27 @@ type ReviewEvidence = {
   dueAt: string;
   version: { locale: string; version: number } | null;
 };
+function ExternalThumbnail({ id }: { id: string }) {
+  const [failed, setFailed] = useState(false);
+  return failed ? (
+    <>URL</>
+  ) : (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`/api/documents/${encodeURIComponent(id)}/thumbnail`}
+      alt=""
+      width={32}
+      height={32}
+      loading="lazy"
+      style={{ objectFit: "cover", borderRadius: 4 }}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 type PortalDocument = {
   metadata?: Record<string, string>;
   externalUrl?: string | null;
-  thumbnail?: string | null;
   updatedAt?: string;
   id: string;
   slug: string;
@@ -505,11 +522,6 @@ function DocumentRows({
   viewMode?: ViewMode;
 }) {
   const t = copy[locale];
-  const openDocument = (document: PortalDocument) => {
-    if (document.externalUrl)
-      window.open(document.externalUrl, "_blank", "noopener,noreferrer");
-    else onOpen(document);
-  };
   if (documents.length === 0)
     return (
       <div className="empty-state" role="status">
@@ -554,17 +566,8 @@ function DocumentRows({
         return (
           <div className="document" key={document.id}>
             <span className="file">
-              {document.thumbnail ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={document.thumbnail}
-                  alt=""
-                  width={32}
-                  height={32}
-                  style={{ objectFit: "cover", borderRadius: 4 }}
-                />
-              ) : document.externalUrl ? (
-                "URL"
+              {document.externalUrl ? (
+                <ExternalThumbnail id={document.id} />
               ) : (
                 fileLabel(document.versions[0]?.storedFile.mimeType)
               )}
@@ -572,7 +575,7 @@ function DocumentRows({
             <button
               className="document-title"
               title={documentTitle}
-              onClick={() => openDocument(document)}
+              onClick={() => onOpen(document)}
             >
               {documentTitle}
             </button>
@@ -662,8 +665,8 @@ function DocumentRows({
               </button>
               <button
                 className="document-open"
-                onClick={() => openDocument(document)}
-                disabled={!document.permissions.preview && !document.externalUrl}
+                onClick={() => onOpen(document)}
+                disabled={!document.permissions.preview}
               >
                 {t.open}
               </button>
@@ -3785,7 +3788,11 @@ export function Portal({
                 </div>
                 <div>
                   <dt>{translate(locale, "Fichier", "File")}</dt>
-                  <dd>{fileLabel(openedVersion?.storedFile.mimeType)}</dd>
+                  <dd>
+                    {opened.externalUrl
+                      ? translate(locale, "Lien externe", "External link")
+                      : fileLabel(openedVersion?.storedFile.mimeType)}
+                  </dd>
                 </div>
                 <div>
                   <dt>{translate(locale, "Version", "Version")}</dt>
@@ -3990,7 +3997,33 @@ export function Portal({
                     </button>
                   </div>
                 )}
-                {openedVersion && opened.permissions.preview ? (
+                {opened.externalUrl && opened.permissions.preview ? (
+                  <div className="document-external-link">
+                    <ExternalThumbnail id={opened.id} />
+                    <p>
+                      {
+                        (
+                          opened.translations.find(
+                            (item) => item.locale === locale,
+                          ) || opened.translations[0]
+                        )?.description
+                      }
+                    </p>
+                    <a
+                      className="primary-link"
+                      href={opened.externalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {translate(
+                        locale,
+                        "Ouvrir le lien externe",
+                        "Open external link",
+                      )}
+                    </a>
+                    <small>{new URL(opened.externalUrl).host}</small>
+                  </div>
+                ) : openedVersion && opened.permissions.preview ? (
                   <>
                     <div className="document-preview-frame">
                       {openedPdf ? (

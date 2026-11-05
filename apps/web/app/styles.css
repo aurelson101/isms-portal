@@ -7870,3 +7870,16 @@ svg {
 .article-card:focus-visible {
   border-color: #2563eb;
 }
+
+.document-external-link {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+  padding: 20px 0;
+}
+.document-external-link img {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 8px;
+}
