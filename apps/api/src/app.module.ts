@@ -48,6 +48,10 @@ import { AlertDeliveryService } from "./alert-delivery.service";
 import { BrandingController } from "./branding.controller";
 import { ArticlesController } from "./articles.controller";
 import {
+  SensitiveAdminController,
+  SensitiveController,
+} from "./sensitive-sharing";
+import {
   ApprovalsController,
   ReviewInboxController,
 } from "./approvals.controller";
@@ -79,6 +83,8 @@ import { NotificationService } from "./notification.service";
     GovernanceController,
     BrandingController,
     ArticlesController,
+    SensitiveController,
+    SensitiveAdminController,
     ApprovalsController,
   ],
   providers: [

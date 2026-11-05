@@ -32,6 +32,27 @@ utilisateurs consultent les PDF dans le navigateur et les documents Word/Excel
 dans un aperçu local en lecture seule. Le téléchargement n’est affiché que si
 la règle d’accès accorde explicitement la permission `download`.
 
+## Documents sensibles
+
+Le menu **Contenu et accès > Documents sensibles** liste les utilisateurs
+autorisés à créer des documents sensibles (import et nouvelle version). Chaque
+utilisateur ajouté reçoit un e-mail (modèle « Sensitive document »). Un
+utilisateur désigné partage un document sensible publié avec des personnes
+nommées : 24 h, 7, 30 ou 90 jours, date précise ou à vie. Le destinataire lit
+le document avec son compte, en lecture seule, avec filigrane et sans
+téléchargement, et reçoit un rappel environ 48 h avant l'expiration. Les accès
+se révoquent à tout moment ; les créations, partages et révocations sont
+journalisés. Aucun lien anonyme n'existe pour ces documents.
+
+## Périmètre des modérateurs
+
+Un compte modérateur porte trois autorisations globales (gérer, publier,
+supprimer). Les permissions de modification, publication et archivage se
+définissent ensuite dans **Règles d'accès** par espace, catégorie et
+sous-catégorie (héritage de la catégorie parente sauf règle contraire). Il n'y
+a pas de réglage par menu : l'interface suit les droits effectifs et l'API
+refuse toute action hors périmètre.
+
 ## Documents et métadonnées
 
 Administrateurs et modérateurs disposent des vues **Liste** et **Fenêtres**,

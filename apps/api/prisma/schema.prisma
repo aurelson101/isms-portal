@@ -203,6 +203,7 @@ model Document {
   subscriptions     DocumentSubscription[]
   signatureRequests SignatureRequest[]
   shareLinks        ShareLink[]
+  sensitiveShares   SensitiveShare[]
   lockedBy          String?
   lockedAt          DateTime?
   lockExpiresAt     DateTime?
@@ -920,4 +921,30 @@ model AntivirusScan {
   scannedAt    DateTime?
 
   @@index([storedFileId, status])
+}
+
+// Identities allowed to create and share sensitive documents (managed by admins).
+model SensitiveDepositor {
+  id          String    @id @default(uuid())
+  identity    String    @unique
+  displayName String?
+  addedBy     String
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+}
+
+// Named read-only access to one sensitive document; expiresAt null = lifetime.
+model SensitiveShare {
+  id             String    @id @default(uuid())
+  documentId     String
+  document       Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  recipient      String
+  createdBy      String
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  reminderSentAt DateTime?
+
+  @@index([documentId, recipient])
+  @@index([recipient, revokedAt, expiresAt])
 }

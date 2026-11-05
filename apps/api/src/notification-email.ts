@@ -22,6 +22,7 @@ export type EmailTemplate =
   | "report"
   | "access"
   | "governance"
+  | "sensitive"
   | "service";
 
 const templateCopy: Record<
@@ -62,6 +63,13 @@ const templateCopy: Record<
     footer:
       "Use ISMS Portal to review the assigned action. Do not reply to this automated message.",
     color: "#005f73",
+  },
+  sensitive: {
+    header: "Sensitive document",
+    action: "Open sensitive document",
+    footer:
+      "This sensitive document is confidential. Sign in to ISMS Portal to read it; access is personal, logged and watermarked. Do not forward this message or the content. Do not reply to this automated message.",
+    color: "#a11a1a",
   },
   service: {
     header: "ISMS service alert",

@@ -57,6 +57,7 @@ import {
 import { useInterfaceLocale } from "./i18n/use-locale";
 import { useBranding } from "./branding";
 import { ArticlesSection } from "./articles";
+import { SensitiveShare } from "./sensitive-share";
 import { StorageSelect } from "./storage-select";
 import dynamic from "next/dynamic";
 
@@ -4103,6 +4104,13 @@ export function Portal({
                   <p>{t.fileUnavailable}</p>
                 )}
               </div>
+              {opened.sensitive && opened.status === "PUBLISHED" && (
+                <SensitiveShare
+                  key={`share-${opened.id}`}
+                  documentId={opened.id}
+                  locale={locale}
+                />
+              )}
               <DocumentGedPanel
                 key={`ged-${opened.id}`}
                 documentId={opened.id}

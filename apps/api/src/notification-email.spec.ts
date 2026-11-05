@@ -7,6 +7,7 @@ const templates: EmailTemplate[] = [
   "report",
   "access",
   "governance",
+  "sensitive",
   "service",
 ];
 beforeEach(() => vi.stubEnv("PUBLIC_URL", "https://isms.example.test"));

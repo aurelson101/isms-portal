@@ -60,6 +60,11 @@ import {
 } from "./admin.dto";
 import { AuditService } from "./audit.service";
 import { validateArticleUrl } from "./articles.controller";
+import {
+  activeShareWhere,
+  assertSensitiveDepositor,
+  hasSensitiveShare,
+} from "./sensitive-sharing";
 import { validateBrandingLogo } from "./branding.controller";
 import { StorageService } from "./storage.service";
 import { AntivirusService } from "./antivirus.service";
@@ -954,6 +959,8 @@ export class DocumentsController {
       throw new NotFoundException();
     const extension = extname(file.originalname).toLowerCase();
     const protectedOffice = isProtectedOffice(file.buffer, extension);
+    if (sensitive || existing?.sensitive)
+      await assertSensitiveDepositor(this.prisma, req.identity.username);
     assertSensitiveFormat(sensitive || !!existing?.sensitive, extension);
     if (
       !allowedExtensions[extension]?.includes(file.mimetype) ||
@@ -1597,13 +1604,18 @@ export class DocumentsController {
         },
       },
     });
+    const shared =
+      document?.sensitive && document.status === "PUBLISHED"
+        ? await hasSensitiveShare(this.prisma, id, req.identity.username)
+        : false;
     const canRead = document
-      ? await this.authorization.can(
+      ? shared ||
+        (await this.authorization.can(
           req.identity.groups,
           document.spaceId,
           "read",
           document.categoryId ?? null,
-        )
+        ))
       : false;
     const canManage =
       document && document.status !== "PUBLISHED"
@@ -1661,12 +1673,20 @@ export class DocumentsController {
         ),
       ),
     );
-    const permissions = Object.fromEntries(
+    const aclPermissions = Object.fromEntries(
       permissionNames.map((permission, index) => [
         permission,
         permissionValues[index],
       ]),
     );
+    // A share alone only allows viewing; it never grants download or edit rights.
+    const permissions =
+      shared && !aclPermissions.preview
+        ? {
+            ...Object.fromEntries(permissionNames.map((name) => [name, false])),
+            preview: true,
+          }
+        : aclPermissions;
     return {
       ...document,
       externalUrl: permissions.preview ? document.externalUrl : null,
@@ -1782,12 +1802,17 @@ export class DocumentsController {
       },
     });
     const hasRequestedPermission = document
-      ? await this.authorization.can(
+      ? (await this.authorization.can(
           req.identity.groups,
           document.spaceId,
           permission,
           document.categoryId ?? null,
-        )
+        )) ||
+        // A named share grants read-only viewing of one published sensitive document.
+        (permission === "preview" &&
+          document.sensitive &&
+          document.status === "PUBLISHED" &&
+          (await hasSensitiveShare(this.prisma, id, req.identity.username)))
       : false;
     const canManage =
       document && document.status !== "PUBLISHED"
@@ -3769,6 +3794,8 @@ export class DocumentAdminController {
       );
     const extension = extname(file.originalname).toLowerCase();
     const protectedOffice = isProtectedOffice(file.buffer, extension);
+    if (sensitive || existing?.sensitive)
+      await assertSensitiveDepositor(this.prisma, req.identity.username);
     assertSensitiveFormat(sensitive || !!existing?.sensitive, extension);
     if (
       !allowedExtensions[extension]?.includes(file.mimetype) ||
