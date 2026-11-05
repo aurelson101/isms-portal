@@ -230,13 +230,17 @@ export class AdminAccountsController {
       select: { id: true },
     });
     if (existing) throw new ConflictException("AD admin group already exists");
-    const approvalId = await this.sensitiveApprovals.require(
-      request,
-      "BROAD_PRIVILEGE",
-      "ADMIN_DIRECTORY_GROUP",
-      selected.distinguishedName.toLowerCase(),
-      body.justification.trim(),
-    );
+    // Moderators carry no administrative privilege: no second approval needed.
+    const approvalId =
+      body.role === "MODERATOR"
+        ? ""
+        : await this.sensitiveApprovals.require(
+            request,
+            "BROAD_PRIVILEGE",
+            "ADMIN_DIRECTORY_GROUP",
+            selected.distinguishedName.toLowerCase(),
+            body.justification.trim(),
+          );
     const group = await this.prisma.adminDirectoryGroup.create({
       data: {
         name: selected.name,
@@ -358,13 +362,17 @@ export class AdminAccountsController {
   async create(@Req() req: IsmsRequest, @Body() body: CreateAdminDto) {
     if (body.source === "LOCAL" && !body.password)
       throw new BadRequestException("A password is required for a local admin");
-    const approvalId = await this.sensitiveApprovals.require(
-      req,
-      "BROAD_PRIVILEGE",
-      "ADMIN_ACCOUNT",
-      body.username.trim().toLowerCase(),
-      body.justification.trim(),
-    );
+    // Moderators carry no administrative privilege: no second approval needed.
+    const approvalId =
+      body.role === "MODERATOR"
+        ? ""
+        : await this.sensitiveApprovals.require(
+            req,
+            "BROAD_PRIVILEGE",
+            "ADMIN_ACCOUNT",
+            body.username.trim().toLowerCase(),
+            body.justification.trim(),
+          );
     const account = await this.prisma.adminAccount.create({
       data: {
         username: body.username.trim(),
