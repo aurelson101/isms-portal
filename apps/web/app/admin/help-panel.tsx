@@ -428,8 +428,8 @@ const topics: Array<{ target: HelpTarget; title: Text; paragraphs: Text[] }> = [
     title: ["Documents sensibles", "Sensitive documents"],
     paragraphs: [
       [
-        "Menu Contenu et accès > Documents sensibles. Ajoutez par identifiant ou e-mail les utilisateurs autorisés à créer des documents sensibles : eux seuls peuvent cocher « Document sensible » à l'import (y compris pour une nouvelle version). Chaque utilisateur ajouté reçoit un e-mail modèle « Sensitive document » ; Retirer supprime le droit sans effacer les documents.",
-        "Content and access > Sensitive documents. Add, by sign-in name or email, the users allowed to create sensitive documents: only they can tick “Sensitive document” at import (including for a new version). Each added user receives a “Sensitive document” template email; Remove withdraws the right without deleting documents.",
+        "Menu Contenu et accès > Documents sensibles. Ajoutez par identifiant ou e-mail les utilisateurs autorisés à créer des documents sensibles : eux et les administrateurs peuvent cocher « Document sensible » à l'import, ou le modifier sur un document existant via Éditer (y compris publié ; le filigrane est alors généré). Chaque utilisateur ajouté reçoit un e-mail modèle « Sensitive document » ; Retirer supprime le droit sans effacer les documents.",
+        "Content and access > Sensitive documents. Add, by sign-in name or email, the users allowed to create sensitive documents: they and administrators can tick “Sensitive document” at import, or change it on an existing document via Edit (including published ones; the watermarked copy is then generated). Each added user receives a “Sensitive document” template email; Remove withdraws the right without deleting documents.",
       ],
       [
         "Un utilisateur désigné ouvre un document sensible publié, déplie « Partager ce document sensible », saisit le destinataire et choisit 24 heures, 7, 30 ou 90 jours, une date précise ou À vie. Le destinataire reçoit un e-mail, lit le document avec son propre compte (lecture seule, filigrane, sans téléchargement) et reçoit un rappel environ 48 heures avant l'expiration.",
@@ -1097,8 +1097,8 @@ const technicalExamples: Record<
   sensitive: {
     steps: [
       [
-        "Dans Documents sensibles, saisissez l'identifiant ou l'e-mail de l'utilisateur puis Ajouter et notifier. Seul cet utilisateur peut ensuite cocher « Document sensible » à l'import.",
-        "In Sensitive documents, enter the user's sign-in name or email, then Add and notify. Only this user can then tick “Sensitive document” at import.",
+        "Dans Documents sensibles, saisissez l'identifiant ou l'e-mail de l'utilisateur puis Ajouter et notifier. Cet utilisateur (et les administrateurs) peut ensuite cocher ou modifier « Document sensible ».",
+        "In Sensitive documents, enter the user's sign-in name or email, then Add and notify. This user (and administrators) can then tick or change “Sensitive document”.",
       ],
       [
         "Pour partager : ouvrez le document publié, dépliez Partager, choisissez le destinataire et la durée (24 h, 7, 30, 90 jours, date précise ou À vie).",

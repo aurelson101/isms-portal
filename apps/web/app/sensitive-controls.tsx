@@ -11,8 +11,8 @@ function useSensitiveDepositor() {
   useEffect(() => {
     void fetch("/api/sensitive/me", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
-      .then((data: { depositor?: boolean } | null) =>
-        setDepositor(Boolean(data?.depositor)),
+      .then((data: { canMark?: boolean } | null) =>
+        setDepositor(Boolean(data?.canMark)),
       )
       .catch(() => setDepositor(false));
   }, []);

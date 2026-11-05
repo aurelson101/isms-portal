@@ -25,7 +25,7 @@ import { AuthorizationService } from "./authorization.service";
 import { DirectoryService } from "./directory.service";
 import { portalLink } from "./notification-email";
 import { PrismaService } from "./prisma.service";
-import { AdminOnly } from "./security";
+import { AdminOnly, isAdminIdentity } from "./security";
 import type { IsmsRequest } from "./types";
 
 const DAY = 86_400_000;
@@ -75,6 +75,15 @@ export async function assertSensitiveDepositor(
     throw new ForbiddenException(
       "Only designated users can create or share sensitive documents",
     );
+}
+
+// Administrators and designated users may create sensitive documents or change the flag.
+export async function assertCanMarkSensitive(
+  prisma: PrismaService,
+  req: IsmsRequest,
+) {
+  if (isAdminIdentity(req.identity.groups)) return;
+  await assertSensitiveDepositor(prisma, req.identity.username);
 }
 
 export async function hasSensitiveShare(
@@ -223,8 +232,13 @@ export class SensitiveController {
 
   @Get("me")
   async me(@Req() req: IsmsRequest) {
+    const depositor = await isSensitiveDepositor(
+      this.prisma,
+      req.identity.username,
+    );
     return {
-      depositor: await isSensitiveDepositor(this.prisma, req.identity.username),
+      depositor,
+      canMark: depositor || isAdminIdentity(req.identity.groups),
     };
   }
 

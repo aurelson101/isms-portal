@@ -938,6 +938,10 @@ export default function ModeratorPage() {
               value={metadata}
               onChange={setMetadata}
               onSave={saveMetadata}
+              onSensitivityChanged={async () => {
+                closeEditor(true);
+                await load(documentPage);
+              }}
               busy={busy}
               locale={locale}
               onCancel={() => closeEditor()}

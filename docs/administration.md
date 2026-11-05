@@ -35,7 +35,9 @@ la règle d’accès accorde explicitement la permission `download`.
 ## Documents sensibles
 
 Le menu **Contenu et accès > Documents sensibles** liste les utilisateurs
-autorisés à créer des documents sensibles (import et nouvelle version). Chaque
+autorisés à créer des documents sensibles (import et nouvelle version) ; ces
+utilisateurs et les administrateurs peuvent aussi activer ou retirer le
+caractère sensible d'un document existant (Éditer, y compris publié). Chaque
 utilisateur ajouté reçoit un e-mail (modèle « Sensitive document »). Un
 utilisateur désigné partage un document sensible publié avec des personnes
 nommées : 24 h, 7, 30 ou 90 jours, date précise ou à vie. Le destinataire lit
