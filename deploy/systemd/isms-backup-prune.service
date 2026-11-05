@@ -1,0 +1,16 @@
+[Unit]
+Description=Apply the ISMS backup retention policy (14 days, at least 10 kept)
+ConditionPathExists=/opt/isms-backups
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/isms-prune-backups /opt/isms-backups
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/isms-backups
+LockPersonality=true
+RestrictSUIDSGID=true

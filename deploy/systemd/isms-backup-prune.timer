@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily ISMS backup retention
+
+[Timer]
+OnCalendar=*-*-* 04:15:00
+RandomizedDelaySec=20m
+Persistent=true
+Unit=isms-backup-prune.service
+
+[Install]
+WantedBy=timers.target
