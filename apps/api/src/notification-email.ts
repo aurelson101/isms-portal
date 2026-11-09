@@ -22,6 +22,7 @@ export type EmailTemplate =
   | "report"
   | "access"
   | "governance"
+  | "review"
   | "sensitive"
   | "service";
 
@@ -62,6 +63,13 @@ const templateCopy: Record<
     action: "Open ISMS Portal",
     footer:
       "Use ISMS Portal to review the assigned action. Do not reply to this automated message.",
+    color: "#005f73",
+  },
+  review: {
+    header: "Document review",
+    action: "Open reviews",
+    footer:
+      "Sign in to ISMS Portal to review the document and record your decision. Access permissions still apply. Do not reply to this automated message.",
     color: "#005f73",
   },
   sensitive: {

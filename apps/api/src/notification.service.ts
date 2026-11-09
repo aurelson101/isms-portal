@@ -15,9 +15,9 @@ export const notificationLabels: Record<string, string> = {
   "document.metadata.update": "Document updated",
   "document.delete": "Document deleted",
   "document.version.overdue": "Document version overdue",
-  "document.review.annual": "Annual document review due",
-  "document.review.reminder": "Annual document review reminder",
-  "document.review.overdue": "Annual document review overdue",
+  "document.review.annual": "Document review due",
+  "document.review.reminder": "Document review reminder",
+  "document.review.overdue": "Document review overdue",
   "document-report.create": "Document issue reported",
   "document-report.resolve": "Document report resolved",
   "security-report.create": "Security report submitted",
@@ -41,6 +41,7 @@ export type NotificationJob = {
   at: string;
   accepted?: string[];
   documentVersionId?: string;
+  reviewDueAt?: string;
   reviewIds?: string[];
   reviewReminderBefore?: string;
   documentIds?: string[];
@@ -54,20 +55,23 @@ type PreparedNotification = {
 };
 export type EmailTestType = "document" | "approval" | "review" | "report";
 const emailTemplate = (action: string): EmailTemplate =>
-  action.startsWith("document-report") || action.startsWith("security-report")
-    ? "report"
-    : action.startsWith("access-request")
-      ? "access"
-      : action.startsWith("sensitive-approval") ||
-          action.startsWith("document-review")
-        ? "approval"
-        : action.startsWith("document")
-          ? "document"
-          : action.startsWith("risk-") ||
-              action.startsWith("incident-") ||
-              action.startsWith("corrective-")
-            ? "governance"
-            : "service";
+  action.startsWith("document.review.") || action === "document-review.overdue"
+    ? "review"
+    : action.startsWith("document-report") ||
+        action.startsWith("security-report")
+      ? "report"
+      : action.startsWith("access-request")
+        ? "access"
+        : action.startsWith("sensitive-approval") ||
+            action.startsWith("document-review")
+          ? "approval"
+          : action.startsWith("document")
+            ? "document"
+            : action.startsWith("risk-") ||
+                action.startsWith("incident-") ||
+                action.startsWith("corrective-")
+              ? "governance"
+              : "service";
 export const notificationConnection = () => {
   const url = new URL(process.env.REDIS_URL || "redis://redis:6379");
   const database = url.pathname.slice(1);
@@ -416,17 +420,15 @@ export class NotificationService {
       if (!reviews.length) return null;
       const summary = reviews.map(
         (review) =>
-          `- ${review.document.translations.find((item) => item.locale === "fr")?.title || review.document.translations[0]?.title || review.documentId} (due ${review.dueAt.toISOString().slice(0, 10)})`,
+          `- ${review.document.translations.find((item) => item.locale === "en")?.title || review.document.translations[0]?.title || review.documentId} (due ${review.dueAt.toISOString().slice(0, 10)})`,
       );
-      const subject = `[ISMS Portal] ${reviews.length} publication review(s) overdue / revue(s) en retard`;
+      const subject = `[ISMS Portal] ${reviews.length} publication review(s) overdue`;
       const text = [
-        `${reviews.length} publication review(s) have been awaiting a decision for at least 30 days.`,
-        "Les revues suivantes attendent une approbation ou un refus depuis au moins 30 jours.",
+        `${reviews.length} publication review(s) have passed their decision deadline.`,
         "",
         ...summary,
         "",
         "Open the approvals page to approve or reject each review.",
-        "Ouvrez la page des approbations pour décider de chaque revue.",
         "---",
         `Recorded at: ${event.at}`,
       ].join("\n");
@@ -651,6 +653,14 @@ export class NotificationService {
         "document.review.annual",
         "document.review.overdue",
       ].includes(action);
+      if (
+        annualReview &&
+        event.reviewDueAt &&
+        (doc.versions[0]?.id !== event.documentVersionId ||
+          doc.versions[0]?.annualReviewDueAt?.toISOString() !==
+            event.reviewDueAt)
+      )
+        return null;
       if (published && doc.status !== "PUBLISHED") return null;
       if (resource.startsWith("document:")) {
         const permission = action === "document.delete" ? "archive" : "publish";
@@ -745,7 +755,7 @@ export class NotificationService {
         ];
         const state =
           action === "document.review.reminder"
-            ? "will be due in 30 days"
+            ? "is approaching its deadline"
             : action === "document.review.overdue"
               ? "is overdue"
               : "is due now";
@@ -755,8 +765,8 @@ export class NotificationService {
             : "Please review the current content and record one moderator or administrator decision in ISMS Portal.";
         return {
           recipients: [...new Set(recipients)],
-          subject: `[ISMS Portal] ${title} annual review ${state}`,
-          text: `This document's annual review ${state}. ${instruction}\n\nDocument description:\n${description}\n\nLocation: ${doc.space.nameEn || doc.space.nameFr} / ${category}\nVersion: ${version}\n---\n${metadata.join("\n")}`,
+          subject: `[ISMS Portal] ${title} review ${state}`,
+          text: `This document's review ${state}. ${instruction}\n\nDocument: ${title}\nDue date (UTC): ${doc.versions[0]?.annualReviewDueAt?.toISOString() || "See the approvals page"}\n\nDocument description:\n${description}\n\nLocation: ${doc.space.nameEn || doc.space.nameFr} / ${category}\nVersion: ${version}\n---\n${metadata.join("\n")}`,
           link: portalLink("/approvals"),
         };
       }
@@ -856,7 +866,13 @@ export class NotificationService {
             ? "annualReviewOverdueAt"
             : "annualReviewNotifiedAt";
       await this.prisma.documentVersion.updateMany({
-        where: { id: job.data.documentVersionId, [field]: null },
+        where: {
+          id: job.data.documentVersionId,
+          [field]: null,
+          ...(job.data.reviewDueAt
+            ? { annualReviewDueAt: new Date(job.data.reviewDueAt) }
+            : {}),
+        },
         data: { [field]: new Date() },
       });
     }

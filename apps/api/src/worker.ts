@@ -227,7 +227,7 @@ async function schedule(db: Prisma.TransactionClient) {
           annualReviewReminderAt: null,
           annualReviewDueAt: { gt: new Date(now), lte: reminderAt },
         },
-        select: { id: true, documentId: true },
+        select: { id: true, documentId: true, annualReviewDueAt: true },
         take: 100,
       })
     : [];
@@ -237,10 +237,11 @@ async function schedule(db: Prisma.TransactionClient) {
         action: "document.review.reminder",
         resource: `document:${version.documentId}`,
         documentVersionId: version.id,
+        reviewDueAt: version.annualReviewDueAt!.toISOString(),
         actor: "ISMS scheduler",
         at: new Date(now).toISOString(),
       },
-      `annual-review-reminder-${version.id}`,
+      `annual-review-reminder-${version.id}-${version.annualReviewDueAt!.getTime()}`,
     );
   const annualReviewVersions = await db.documentVersion.findMany({
     where: {
@@ -248,7 +249,7 @@ async function schedule(db: Prisma.TransactionClient) {
       annualReviewNotifiedAt: null,
       annualReviewDueAt: { lte: new Date(now) },
     },
-    select: { id: true, documentId: true },
+    select: { id: true, documentId: true, annualReviewDueAt: true },
     orderBy: { annualReviewDueAt: "asc" },
     take: 100,
   });
@@ -279,10 +280,11 @@ async function schedule(db: Prisma.TransactionClient) {
         action: "document.review.annual",
         resource: `document:${version.documentId}`,
         documentVersionId: version.id,
+        reviewDueAt: version.annualReviewDueAt!.toISOString(),
         actor: "ISMS scheduler",
         at: new Date(now).toISOString(),
       },
-      `annual-review-${version.documentId}-${version.id}-${new Date(now).toISOString().slice(0, 10)}`,
+      `annual-review-${version.documentId}-${version.id}-${version.annualReviewDueAt!.getTime()}`,
     );
   }
   const reviewOverdues = reminderSettings.enabled
@@ -294,7 +296,7 @@ async function schedule(db: Prisma.TransactionClient) {
             lte: new Date(now - reminderSettings.overdueDays * 86400000),
           },
         },
-        select: { id: true, documentId: true },
+        select: { id: true, documentId: true, annualReviewDueAt: true },
         take: 100,
       })
     : [];
@@ -304,10 +306,11 @@ async function schedule(db: Prisma.TransactionClient) {
         action: "document.review.overdue",
         resource: `document:${version.documentId}`,
         documentVersionId: version.id,
+        reviewDueAt: version.annualReviewDueAt!.toISOString(),
         actor: "ISMS scheduler",
         at: new Date(now).toISOString(),
       },
-      `annual-review-overdue-${version.id}`,
+      `annual-review-overdue-${version.id}-${version.annualReviewDueAt!.getTime()}`,
     );
   const connections = await db.directoryConnection.findMany({
     where: { enabled: true },

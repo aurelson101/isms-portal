@@ -1,6 +1,7 @@
 import { ConflictException } from "@nestjs/common";
 import type { PrismaService } from "./prisma.service";
 import type { ReviewDecisionDto } from "./governance.dto";
+import { reviewSettings } from "./review-settings";
 
 export async function recordReviewDecision(
   prisma: PrismaService,
@@ -50,8 +51,10 @@ export async function recordReviewDecision(
       (review.automaticAnnual || review.automaticPublication) &&
       review.versionId
     ) {
-      const annualReviewDueAt = new Date(decidedAt!);
-      annualReviewDueAt.setFullYear(annualReviewDueAt.getFullYear() + 1);
+      const { intervalDays } = await reviewSettings(tx);
+      const annualReviewDueAt = new Date(
+        decidedAt!.getTime() + intervalDays * 86400000,
+      );
       await tx.documentVersion.update({
         where: { id: review.versionId },
         data: {

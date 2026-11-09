@@ -910,6 +910,29 @@ function ReviewsSection({
     approver: "",
     dueAt: "",
   });
+  const [intervalDays, setIntervalDays] = useState(30);
+  const [savedIntervalDays, setSavedIntervalDays] = useState<number | null>(
+    null,
+  );
+  const [settingsError, setSettingsError] = useState("");
+  const [savingSettings, setSavingSettings] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void jsonApi<{ intervalDays: number }>(
+      "/api/admin/governance/review-settings",
+    )
+      .then((settings) => {
+        if (!active) return;
+        setIntervalDays(settings.intervalDays);
+        setSavedIntervalDays(settings.intervalDays);
+      })
+      .catch((error: Error) => {
+        if (active) setSettingsError(error.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   const [decision, setDecision] = useState<{
     id: string;
     status: "APPROVED" | "REJECTED";
@@ -1031,6 +1054,57 @@ function ReviewsSection({
       </form>
       <div className="governance-list">
         <h2>{t("File de gestion des revues", "Review management queue")}</h2>
+        <form
+          className="admin-form governance-card"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setSavingSettings(true);
+            setSettingsError("");
+            void submit(
+              "/api/admin/governance/review-settings",
+              { intervalDays },
+              "PUT",
+            )
+              .then(() => setSavedIntervalDays(intervalDays))
+              .catch((error: Error) => setSettingsError(error.message))
+              .finally(() => setSavingSettings(false));
+          }}
+        >
+          <h3>{t("Paramètres des revues", "Review settings")}</h3>
+          <label>
+            {t("Délai des revues automatiques", "Automatic review interval")}
+            <select
+              value={intervalDays}
+              disabled={savingSettings || savedIntervalDays === null}
+              onChange={(event) => setIntervalDays(Number(event.target.value))}
+            >
+              {[30, 60, 90, 180, 365].map((days) => (
+                <option key={days} value={days}>
+                  {days} {t("jours", "days")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <small>
+            {t(
+              "30 jours par défaut. S’applique aux nouvelles revues automatiques et après approbation. Les échéances déjà planifiées restent inchangées. Les alertes sont envoyées en anglais aux administrateurs et modérateurs habilités.",
+              "Default: 30 days. Applies to new automatic reviews and after approval. Already scheduled deadlines remain unchanged. Alerts are sent in English to authorized administrators and moderators.",
+            )}
+          </small>
+          {settingsError && <p role="alert">{settingsError}</p>}
+          <button
+            type="submit"
+            disabled={
+              savingSettings ||
+              savedIntervalDays === null ||
+              intervalDays === savedIntervalDays
+            }
+          >
+            {savingSettings
+              ? t("Enregistrement…", "Saving…")
+              : t("Enregistrer", "Save")}
+          </button>
+        </form>
         <div
           className="review-queue-filters"
           role="group"
@@ -1068,16 +1142,16 @@ function ReviewsSection({
               {review.automaticAnnual && (
                 <small>
                   {t(
-                    "Revue annuelle automatique : une seule décision de modérateur ou administrateur est requise.",
-                    "Automatic annual review: one moderator or administrator decision is required.",
+                    "Revue périodique automatique : une seule décision de modérateur ou administrateur est requise.",
+                    "Automatic periodic review: one moderator or administrator decision is required.",
                   )}
                 </small>
               )}
               {review.automaticPublication && (
                 <small>
                   {t(
-                    "Revue automatique après publication : décision attendue sous 30 jours. Un refus archive le document.",
-                    "Automatic publication review: a decision is due within 30 days. Rejection archives the document.",
+                    "Revue automatique après publication : décision attendue à l’échéance indiquée. Un refus archive le document.",
+                    "Automatic publication review: a decision is required by the displayed deadline. Rejection archives the document.",
                   )}
                 </small>
               )}
@@ -1150,8 +1224,9 @@ function ReviewsSection({
                         type="button"
                         className="primary schedule-next-review"
                         onClick={() => {
-                          const next = new Date();
-                          next.setFullYear(next.getFullYear() + 1);
+                          const next = new Date(
+                            Date.now() + (savedIntervalDays ?? 30) * 86400000,
+                          );
                           setDraft({
                             documentId: review.document.id,
                             owner: review.owner,
@@ -1169,8 +1244,8 @@ function ReviewsSection({
                       >
                         <Icon name="audit" />{" "}
                         {t(
-                          "Planifier la prochaine revue dans un an",
-                          "Schedule the next review in one year",
+                          "Planifier la prochaine revue",
+                          "Schedule the next review",
                         )}
                       </button>
                     )}

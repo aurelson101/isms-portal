@@ -35,6 +35,7 @@ import {
   RiskExceptionDecisionDto,
   RiskExceptionDto,
   ReviewDecisionDto,
+  ReviewSettingsDto,
   SavedViewDto,
   SensitiveApprovalDecisionDto,
   SensitiveApprovalDto,
@@ -46,6 +47,7 @@ import { AntivirusService } from "./antivirus.service";
 import { AdminOnly, ApproverOnly } from "./security";
 import type { IsmsRequest } from "./types";
 import { recordReviewDecision } from "./review-decision";
+import { reviewSettings, REVIEW_SETTINGS_KEY } from "./review-settings";
 
 const clean = (value?: string) => value?.trim() || null;
 const reviewEvidenceTypes: Record<string, string[]> = {
@@ -69,6 +71,32 @@ export class GovernanceController {
     private readonly storage: StorageService,
     private readonly antivirus: AntivirusService,
   ) {}
+
+  @Get("review-settings")
+  reviewSettings() {
+    return reviewSettings(this.prisma);
+  }
+
+  @Put("review-settings")
+  async saveReviewSettings(
+    @Req() req: IsmsRequest,
+    @Body() body: ReviewSettingsDto,
+  ) {
+    const settings = { intervalDays: body.intervalDays };
+    await this.prisma.applicationSetting.upsert({
+      where: { key: REVIEW_SETTINGS_KEY },
+      create: { key: REVIEW_SETTINGS_KEY, value: settings },
+      update: { value: settings },
+    });
+    await this.audit.record(
+      req,
+      "document-review.settings.update",
+      `setting:${REVIEW_SETTINGS_KEY}`,
+      "success",
+      settings,
+    );
+    return settings;
+  }
 
   private async refreshRiskExceptions() {
     const reviewAt = new Date(Date.now() + 30 * 86400000);
