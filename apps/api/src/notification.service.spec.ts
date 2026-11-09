@@ -88,6 +88,104 @@ const event = {
   at: "2026-09-11T12:00:00Z",
 };
 describe("Notification routing", () => {
+  it.each([
+    "document.review.reminder",
+    "document.review.annual",
+    "document.review.overdue",
+    "document-review.overdue",
+  ])("sends a separate GLPI email for %s", async (action) => {
+    const h = setup();
+    vi.spyOn(h.service, "prepare").mockResolvedValue({
+      recipients: ["admin@example.com"],
+      subject: "[ISMS Portal] Review due",
+      text: "Document: Security policy\nDue date: 2026-12-01",
+      link: "https://isms.example.com/approvals",
+    });
+    await h.service.process({
+      data: { ...event, action },
+      updateData: vi.fn(),
+    } as never);
+    expect(h.alerts.sendPreferredTo).toHaveBeenCalledTimes(2);
+    const ticket = h.alerts.sendPreferredTo.mock
+      .calls[1] as unknown as unknown[];
+    expect(ticket[0]).toEqual(["helpdesk-soc@deftagroup.com"]);
+    expect(ticket[1]).toContain("[ISMS Review]");
+    expect(ticket[1]).toContain("Security policy");
+    expect(ticket[2]).toContain(
+      "ISMS review URL: https://isms.example.com/approvals",
+    );
+    expect(ticket[2]).toContain("Original notification subject:");
+    expect(ticket[2]).toContain("Due date: 2026-12-01");
+  });
+  it.each(["APPROVED", "REJECTED", "IN_REVIEW", "CANCELLED"])(
+    "copies a review decision to GLPI only when approved: %s",
+    async (status) => {
+      const h = setup();
+      const review = await h.prisma.documentReview.findUnique();
+      review.status = status;
+      const data = {
+        ...event,
+        action: "document-review.decision",
+        resource: "document-review:review",
+      };
+      await h.service.process({ data, updateData: vi.fn() } as never);
+      const tickets = h.alerts.sendPreferredTo.mock.calls.filter((call) =>
+        (call as unknown as string[][])[0].includes(
+          "helpdesk-soc@deftagroup.com",
+        ),
+      );
+      expect(tickets).toHaveLength(status === "APPROVED" ? 1 : 0);
+      if (status === "APPROVED") {
+        expect((tickets[0] as unknown as unknown[])[1]).toContain(
+          "Review approved",
+        );
+        expect((tickets[0] as unknown as unknown[])[2]).toContain(
+          "https://isms.example.com/approvals#review-review",
+        );
+      }
+    },
+  );
+  it("retries a failed GLPI delivery without resending accepted staff emails", async () => {
+    const h = setup();
+    vi.spyOn(h.service, "prepare").mockResolvedValue({
+      recipients: ["admin@example.com"],
+      subject: "Review due",
+      text: "Document: Policy",
+      link: "https://isms.example.com/approvals",
+    });
+    h.alerts.sendPreferredTo
+      .mockResolvedValueOnce({ delivered: true })
+      .mockRejectedValueOnce(new Error("Temporary SOC delivery error"))
+      .mockResolvedValue({ delivered: true });
+    const job = {
+      data: {
+        ...event,
+        action: "document.review.annual",
+        accepted: [] as string[],
+      },
+      updateData: vi.fn(),
+    };
+    job.updateData.mockImplementation(async (data) => {
+      job.data = data;
+    });
+    await expect(h.service.process(job as never)).rejects.toThrow(
+      "Temporary SOC delivery error",
+    );
+    expect(job.data.accepted).toEqual(["admin@example.com"]);
+    await expect(h.service.process(job as never)).resolves.toMatchObject({
+      accepted: 2,
+      audience: 2,
+    });
+    expect(
+      h.alerts.sendPreferredTo.mock.calls.map(
+        (call) => (call as unknown as unknown[])[0],
+      ),
+    ).toEqual([
+      ["admin@example.com"],
+      ["helpdesk-soc@deftagroup.com"],
+      ["helpdesk-soc@deftagroup.com"],
+    ]);
+  });
   it("repeats only eligible overdue reviews and never marks a failed delivery", async () => {
     const h = setup();
     h.prisma.documentReview.findMany.mockResolvedValue([

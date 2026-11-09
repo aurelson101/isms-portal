@@ -51,7 +51,56 @@ type PreparedNotification = {
   subject: string;
   text: string;
   link: string;
+  reviewApproved?: boolean;
   recipientMessages?: Map<string, { subject: string; text: string }>;
+};
+const SOC_REVIEW_MAILBOX = "helpdesk-soc@deftagroup.com";
+const reviewTicket = (
+  event: NotificationJob,
+  message: PreparedNotification,
+) => {
+  const approved =
+    event.action === "document-review.decision" && message.reviewApproved;
+  const alert = [
+    "document.review.reminder",
+    "document.review.annual",
+    "document.review.overdue",
+    "document-review.overdue",
+  ].includes(event.action);
+  if (!approved && !alert) return null;
+  const label = approved ? "Review approved" : notificationLabels[event.action];
+  const title =
+    message.text.match(/^Document: (.+)$/mu)?.[1] ||
+    message.subject.replace(/^\[[^\]]+\]\s*/u, "");
+  return {
+    subject: `[ISMS Review] ${label} - ${title} [${event.resource}]`
+      .replace(/[\r\n\t]+/gu, " ")
+      .slice(0, 240),
+    text: [
+      "ISMS DOCUMENT GOVERNANCE - GLPI TICKET",
+      `Event: ${label}`,
+      `Reference: ${event.resource}`,
+      ...(event.documentVersionId
+        ? [`Document version reference: ${event.documentVersionId}`]
+        : []),
+      ...(event.reviewIds?.length
+        ? [`Review references: ${event.reviewIds.join(", ")}`]
+        : []),
+      `Event time (UTC): ${event.at}`,
+      `Actor: ${event.actor}`,
+      "",
+      approved
+        ? "Requested action: Record this approved review as audit evidence. Verify the decision in ISMS Portal before closing the ticket."
+        : "Requested action: Assign this ticket to the document owner or an authorized ISMS moderator. Review the document and record the decision in ISMS Portal.",
+      "",
+      `ISMS review URL: ${message.link}`,
+      "Authentication and existing access permissions are required.",
+      "",
+      `Original notification subject: ${message.subject}`,
+      "Original notification:",
+      message.text,
+    ].join("\n"),
+  };
 };
 export type EmailTestType = "document" | "approval" | "review" | "report";
 const emailTemplate = (action: string): EmailTemplate =>
@@ -723,6 +772,7 @@ export class NotificationService {
           subject: `[ISMS Portal] ${heading}`,
           text: body.join("\n"),
           link: portalLink(path),
+          reviewApproved: reviewContext.status === "APPROVED",
         };
       }
       if (published) {
@@ -804,22 +854,35 @@ export class NotificationService {
       throw new Error(
         "No eligible mail recipients: check active ACLs and the AD mail attribute",
       );
+    const ticket = reviewTicket(job.data, message);
+    const recipients = ticket
+      ? [
+          ...message.recipients.filter(
+            (address) => address.trim().toLowerCase() !== SOC_REVIEW_MAILBOX,
+          ),
+          SOC_REVIEW_MAILBOX,
+        ]
+      : message.recipients;
+    const recipientMessages = new Map(message.recipientMessages);
+    if (ticket) recipientMessages.set(SOC_REVIEW_MAILBOX, ticket);
     const accepted = new Set(
       (job.data.accepted || []).map((address) => address.trim().toLowerCase()),
     );
     const audience = new Set(
-      message.recipients.map((address) => address.trim().toLowerCase()),
+      recipients.map((address) => address.trim().toLowerCase()),
     );
-    for (const address of message.recipients) {
+    for (const address of recipients) {
       const recipient = address.trim().toLowerCase();
       if (accepted.has(recipient)) continue;
-      const content = message.recipientMessages?.get(address) || message;
+      const content = recipientMessages.get(address) || message;
       const result = await this.alerts.sendPreferredTo(
         [address.trim()],
         content.subject,
         content.text,
         message.link,
-        emailTemplate(job.data.action),
+        ticket && recipient === SOC_REVIEW_MAILBOX
+          ? "review"
+          : emailTemplate(job.data.action),
       );
       if (!result.delivered)
         throw new Error("Microsoft Graph is not configured");
