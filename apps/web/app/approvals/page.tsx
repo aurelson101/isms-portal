@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { responseMessage } from "../request-errors";
 import { useInterfaceLocale } from "../i18n/use-locale";
+import { useBranding } from "../branding";
+import { getPortalIdentity } from "../auth-session";
 import "./approvals.css";
 
 type Item = {
@@ -46,6 +48,76 @@ const itemKey = (item: Item) =>
   `${item.review ? "review" : "approval"}-${item.id}`;
 const isPending = (status: string) =>
   status === "PENDING" || status === "IN_REVIEW";
+const navigationCopy = {
+  fr: {
+    menu: "Menu",
+    portal: "Portail",
+    documents: "Documents",
+    administration: "Administration",
+    governance: "Gouvernance ISMS",
+    moderator: "Espace modérateur",
+    search: "Rechercher une demande",
+    all: "Toutes les demandes",
+    reviews: "Revues documentaires",
+    approvals: "Demandes d’approbation",
+    language: "Langue",
+    details: "Détails de la demande",
+    privilege: "Accès privilégié",
+    deletion: "Suppression définitive",
+    decide: "Examiner et décider",
+  },
+  en: {
+    menu: "Menu",
+    portal: "Portal",
+    documents: "Documents",
+    administration: "Administration",
+    governance: "ISMS governance",
+    moderator: "Moderator workspace",
+    search: "Search requests",
+    all: "All requests",
+    reviews: "Document reviews",
+    approvals: "Approval requests",
+    language: "Language",
+    details: "Request details",
+    privilege: "Privileged access",
+    deletion: "Permanent deletion",
+    decide: "Review and decide",
+  },
+  es: {
+    menu: "Menú",
+    portal: "Portal",
+    documents: "Documentos",
+    administration: "Administración",
+    governance: "Gobernanza ISMS",
+    moderator: "Espacio del moderador",
+    search: "Buscar solicitudes",
+    all: "Todas las solicitudes",
+    reviews: "Revisiones documentales",
+    approvals: "Solicitudes de aprobación",
+    language: "Idioma",
+    details: "Detalles de la solicitud",
+    privilege: "Acceso privilegiado",
+    deletion: "Eliminación permanente",
+    decide: "Revisar y decidir",
+  },
+  sk: {
+    menu: "Ponuka",
+    portal: "Portál",
+    documents: "Dokumenty",
+    administration: "Správa",
+    governance: "Riadenie ISMS",
+    moderator: "Pracovný priestor moderátora",
+    search: "Hľadať žiadosti",
+    all: "Všetky žiadosti",
+    reviews: "Revízie dokumentov",
+    approvals: "Žiadosti o schválenie",
+    language: "Jazyk",
+    details: "Podrobnosti žiadosti",
+    privilege: "Privilegovaný prístup",
+    deletion: "Trvalé odstránenie",
+    decide: "Preskúmať a rozhodnúť",
+  },
+};
 const copy = withLocales({
   fr: {
     title: "Approbations et revues",
@@ -130,7 +202,28 @@ export default function ApprovalsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [comments, setComments] = useState<Record<string, string>>({});
-  const [filter, setFilter] = useState("ALL");
+  const [expandedDecision, setExpandedDecision] = useState<string | null>(null);
+  const [filter, setFilter] = useState("PENDING");
+  const [kind, setKind] = useState("ALL");
+  const [search, setSearch] = useState("");
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const [viewer, setViewer] = useState<{
+    username?: string;
+    isAdmin?: boolean;
+    isModerator?: boolean;
+  }>({});
+  const branding = useBranding();
+  useEffect(() => {
+    let active = true;
+    void getPortalIdentity<typeof viewer>()
+      .then((identity) => {
+        if (active) setViewer(identity);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
   const [year, setYear] = useState(() => String(new Date().getFullYear()));
   const [month, setMonth] = useState("ALL");
   const [page, setPage] = useState(1);
@@ -142,8 +235,9 @@ export default function ApprovalsPage() {
   const request = useRef(0);
   const controller = useRef<AbortController | null>(null);
   const deciding = useRef(false);
-  const [locale] = useInterfaceLocale();
+  const [locale, changeLocale] = useInterfaceLocale();
   const t = copy[locale];
+  const n = navigationCopy[locale];
   const dateFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(translate(locale, "fr-FR", "en-GB"), {
@@ -185,39 +279,48 @@ export default function ApprovalsPage() {
         : [];
       const assigned = (await reviews.json()) as Review[];
       if (current !== request.current) return;
-      setItems([
-        ...sensitive,
-        ...assigned.map((r) => ({
-          id: r.id,
-          operation: t.review,
-          targetType: t.document,
-          targetId:
-            r.document.translations.find((item) => item.locale === locale)
-              ?.title ||
-            r.document.translations.find((item) => item.locale === "en")
-              ?.title ||
-            r.document.translations[0]?.title ||
-            r.document.slug,
-          requestedBy: r.owner,
-          reason:
-            r.decisionComment ||
-            translate(
-              locale,
-              "Examinez le document et enregistrez votre décision.",
-              "Review the document and record your decision.",
-            ),
-          status: r.status,
-          approvedBy: r.decidedBy,
-          approvedAt: r.decidedAt,
-          createdAt: r.createdAt,
-          review: true,
-          canDecide: r.canDecide,
-          slug: r.document.slug,
-          dueAt: r.dueAt,
-          reviewer: r.reviewer,
-          approver: r.approver,
-        })),
-      ]);
+      setItems(
+        [
+          ...sensitive,
+          ...assigned.map((r) => ({
+            id: r.id,
+            operation: t.review,
+            targetType: t.document,
+            targetId:
+              r.document.translations.find((item) => item.locale === locale)
+                ?.title ||
+              r.document.translations.find((item) => item.locale === "en")
+                ?.title ||
+              r.document.translations[0]?.title ||
+              r.document.slug,
+            requestedBy: r.owner,
+            reason:
+              r.decisionComment ||
+              translate(
+                locale,
+                "Examinez le document et enregistrez votre décision.",
+                "Review the document and record your decision.",
+              ),
+            status: r.status,
+            approvedBy: r.decidedBy,
+            approvedAt: r.decidedAt,
+            createdAt: r.createdAt,
+            review: true,
+            canDecide: r.canDecide,
+            slug: r.document.slug,
+            dueAt: r.dueAt,
+            reviewer: r.reviewer,
+            approver: r.approver,
+          })),
+        ].sort((a, b) => {
+          const priority = (item: Item) =>
+            isPending(item.status) ? (item.canDecide ? 0 : 1) : 2;
+          return (
+            priority(a) - priority(b) ||
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        }),
+      );
     } catch (reason) {
       if (current === request.current)
         setError(reason instanceof Error ? reason.message : t.error);
@@ -279,12 +382,19 @@ export default function ApprovalsPage() {
     () =>
       items.filter(
         (item) =>
-          filter === "ALL" ||
-          (filter === "PENDING"
-            ? isPending(item.status)
-            : item.status === filter),
+          (kind === "ALL" ||
+            (kind === "REVIEW" ? item.review : !item.review)) &&
+          (!search.trim() ||
+            [item.targetId, item.operation, item.requestedBy, item.reason]
+              .join(" ")
+              .toLocaleLowerCase(locale)
+              .includes(search.trim().toLocaleLowerCase(locale))) &&
+          (filter === "ALL" ||
+            (filter === "PENDING"
+              ? isPending(item.status)
+              : item.status === filter)),
       ),
-    [items, filter],
+    [items, filter, kind, search, locale],
   );
   const counts = useMemo(
     () =>
@@ -305,6 +415,8 @@ export default function ApprovalsPage() {
       const index = items.findIndex((item) => itemKey(item) === id);
       if (index < 0) return;
       setFilter("ALL");
+      setKind("ALL");
+      setSearch("");
       setPage(Math.floor(index / 20) + 1);
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() =>
@@ -350,15 +462,139 @@ export default function ApprovalsPage() {
     [locale],
   );
   return (
-    <main className="approvals-shell">
-      <section className="approvals-panel">
+    <div className="approvals-shell">
+      <aside
+        className="approvals-navigation"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            setNavigationOpen(false);
+            event.currentTarget
+              .querySelector<HTMLButtonElement>(".approvals-menu-toggle")
+              ?.focus();
+          }
+        }}
+      >
+        <a className="approvals-brand" href="/">
+          {branding.logoDataUrl ? (
+            <img src={branding.logoDataUrl} alt="" />
+          ) : (
+            <Icon name="shield" />
+          )}
+          <strong>{branding.title}</strong>
+        </a>
+        <button
+          type="button"
+          className="approvals-menu-toggle"
+          aria-expanded={navigationOpen}
+          aria-controls="approvals-navigation-links"
+          onClick={() => setNavigationOpen(!navigationOpen)}
+        >
+          <Icon name="menu" /> {n.menu}
+        </button>
+        <nav
+          id="approvals-navigation-links"
+          aria-label={n.menu}
+          className={navigationOpen ? "is-open" : ""}
+        >
+          <a href="/">
+            <Icon name="home" />
+            {n.portal}
+          </a>
+          <a href="/explorer">
+            <Icon name="documents" />
+            {n.documents}
+          </a>
+          <a href="/approvals" aria-current="page">
+            <Icon name="check" />
+            {t.title}
+            <span>{counts.PENDING || 0}</span>
+          </a>
+          {viewer.isAdmin && (
+            <>
+              <a href="/admin">
+                <Icon name="shield" />
+                {n.administration}
+              </a>
+              <a href="/admin#governance">
+                <Icon name="audit" />
+                {n.governance}
+              </a>
+            </>
+          )}
+          {!viewer.isAdmin && viewer.isModerator && (
+            <a href="/moderator">
+              <Icon name="shield" />
+              {n.moderator}
+            </a>
+          )}
+        </nav>
+      </aside>
+      <main className="approvals-panel">
+        <div className="approvals-topbar">
+          <a href="/">{n.portal}</a>
+          <div className="approvals-account">
+            <div
+              className="approvals-languages"
+              role="group"
+              aria-label={n.language}
+            >
+              {(branding.languages?.enabled || ["fr", "en", "es", "sk"]).map(
+                (language) => (
+                  <button
+                    type="button"
+                    key={language}
+                    aria-pressed={language === locale}
+                    onClick={() => changeLocale(language)}
+                  >
+                    {language.toUpperCase()}
+                  </button>
+                ),
+              )}
+            </div>
+            {viewer.username && <span>{viewer.username}</span>}
+          </div>
+        </div>
         <div className="approvals-heading">
           <div>
-            <span className="approvals-eyebrow">ISMS Portal</span>
+            <span className="approvals-eyebrow">{branding.title}</span>
             <h1>{t.title}</h1>
             <p>{t.subtitle}</p>
           </div>
-          <a href="/">{t.portal}</a>
+          <button
+            className="approvals-refresh"
+            type="button"
+            disabled={!!busy || loading}
+            onClick={() => void reload()}
+          >
+            <Icon name="sync" />
+            {t.refresh}
+          </button>
+        </div>
+        <div className="approvals-kind" role="group" aria-label={n.all}>
+          {(["ALL", "REVIEW", "APPROVAL"] as const).map((value) => (
+            <button
+              type="button"
+              key={value}
+              aria-pressed={kind === value}
+              onClick={() => {
+                setKind(value);
+                setPage(1);
+              }}
+            >
+              {value === "ALL"
+                ? n.all
+                : value === "REVIEW"
+                  ? n.reviews
+                  : n.approvals}
+              <span>
+                {value === "ALL"
+                  ? items.length
+                  : items.filter((item) =>
+                      value === "REVIEW" ? item.review : !item.review,
+                    ).length}
+              </span>
+            </button>
+          ))}
         </div>
         <div className="approval-summary" aria-label={t.title}>
           {(["PENDING", "APPROVED", "REJECTED"] as const).map((status) => (
@@ -375,6 +611,18 @@ export default function ApprovalsPage() {
           ))}
         </div>
         <div className="approval-toolbar">
+          <label className="approvals-search">
+            <span>{n.search}</span>
+            <input
+              type="search"
+              value={search}
+              placeholder={n.search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+            />
+          </label>
           <div className="approval-period">
             <label>
               {t.period}
@@ -420,15 +668,6 @@ export default function ApprovalsPage() {
                 <option value="REJECTED">{t.rejected}</option>
               </select>
             </label>
-            <button
-              type="button"
-              title={t.refresh}
-              aria-label={t.refresh}
-              disabled={!!busy || loading}
-              onClick={() => void reload()}
-            >
-              <Icon name="sync" />
-            </button>
           </div>
         </div>
         <p className="approval-result-count" role="status">
@@ -451,7 +690,15 @@ export default function ApprovalsPage() {
                 id={itemKey(item)}
               >
                 <div>
-                  <strong>{item.operation.replace(/_/gu, " ")}</strong>
+                  <strong>
+                    {item.review
+                      ? item.targetId
+                      : item.operation === "BROAD_PRIVILEGE"
+                        ? n.privilege
+                        : item.operation === "PERMANENT_DELETE"
+                          ? n.deletion
+                          : item.operation.replace(/_/gu, " ")}
+                  </strong>
                   <span
                     className={`approval-status ${item.status.toLowerCase()}`}
                   >
@@ -459,35 +706,47 @@ export default function ApprovalsPage() {
                   </span>
                 </div>
                 <span className="approval-target">
-                  {item.targetType}: {item.targetId}
+                  {item.review
+                    ? t.review
+                    : `${item.targetType.replace(/_/gu, " ")}: ${item.targetId}`}
                 </span>
                 <p>{item.reason}</p>
-                <dl className="approval-details">
-                  <div>
-                    <dt>{t.requested}</dt>
-                    <dd>{item.requestedBy}</dd>
-                  </div>
-                  <div>
-                    <dt>{item.review ? t.due : t.history}</dt>
-                    <dd>
-                      {date(
-                        item.review && item.dueAt ? item.dueAt : item.createdAt,
-                      )}
-                    </dd>
-                  </div>
-                  {item.review && (
-                    <>
-                      <div>
-                        <dt>{t.reviewer}</dt>
-                        <dd>{item.reviewer || "-"}</dd>
-                      </div>
-                      <div>
-                        <dt>{t.approver}</dt>
-                        <dd>{item.approver || "-"}</dd>
-                      </div>
-                    </>
-                  )}
-                </dl>
+                {item.dueAt && (
+                  <small className="approval-due">
+                    {t.due}: {date(item.dueAt)}
+                  </small>
+                )}
+                <details className="approval-metadata">
+                  <summary>{n.details}</summary>
+                  <dl className="approval-details">
+                    <div>
+                      <dt>{t.requested}</dt>
+                      <dd>{item.requestedBy}</dd>
+                    </div>
+                    <div>
+                      <dt>{item.review ? t.due : t.history}</dt>
+                      <dd>
+                        {date(
+                          item.review && item.dueAt
+                            ? item.dueAt
+                            : item.createdAt,
+                        )}
+                      </dd>
+                    </div>
+                    {item.review && (
+                      <>
+                        <div>
+                          <dt>{t.reviewer}</dt>
+                          <dd>{item.reviewer || "-"}</dd>
+                        </div>
+                        <div>
+                          <dt>{t.approver}</dt>
+                          <dd>{item.approver || "-"}</dd>
+                        </div>
+                      </>
+                    )}
+                  </dl>
+                </details>
                 {item.approvedBy && (
                   <p className="approval-decision">
                     <strong>{t.decided}:</strong> {item.approvedBy}
@@ -502,66 +761,95 @@ export default function ApprovalsPage() {
                     </p>
                   )}
                 {item.slug && (
-                  <p>
+                  <div className="approval-document-actions">
                     <a
                       className="approval-document-link"
                       href={`/documents/${encodeURIComponent(item.slug)}`}
                     >
                       {t.open}
                     </a>
-                  </p>
+                    {item.review &&
+                      item.canDecide &&
+                      isPending(item.status) && (
+                        <button
+                          type="button"
+                          className="approval-review-toggle"
+                          aria-expanded={expandedDecision === itemKey(item)}
+                          aria-controls={`decision-${itemKey(item)}`}
+                          onClick={() =>
+                            setExpandedDecision(
+                              expandedDecision === itemKey(item)
+                                ? null
+                                : itemKey(item),
+                            )
+                          }
+                        >
+                          <Icon name="check" />
+                          {n.decide}
+                        </button>
+                      )}
+                  </div>
                 )}
                 {["PENDING", "IN_REVIEW"].includes(item.status) &&
                   item.canDecide && (
                     <>
                       <p className="approval-action-note">{t.pendingAction}</p>
-                      {item.review && (
-                        <label>
-                          {t.comment}
-                          <textarea
-                            disabled={!!busy}
-                            placeholder={t.commentHint}
-                            maxLength={1000}
-                            value={comments[itemKey(item)] || ""}
-                            onChange={(e) =>
-                              setComments((current) => ({
-                                ...current,
-                                [itemKey(item)]: e.target.value,
-                              }))
+                      <div
+                        id={`decision-${itemKey(item)}`}
+                        hidden={
+                          !!item.review && expandedDecision !== itemKey(item)
+                        }
+                      >
+                        {item.review && (
+                          <label>
+                            {t.comment}
+                            <textarea
+                              disabled={!!busy}
+                              placeholder={t.commentHint}
+                              maxLength={1000}
+                              value={comments[itemKey(item)] || ""}
+                              onChange={(e) =>
+                                setComments((current) => ({
+                                  ...current,
+                                  [itemKey(item)]: e.target.value,
+                                }))
+                              }
+                            />
+                          </label>
+                        )}
+                        <div className="button-row">
+                          <button
+                            type="button"
+                            disabled={
+                              !!busy ||
+                              (!!item.review &&
+                                (comments[itemKey(item)]?.trim().length || 0) <
+                                  3)
                             }
-                          />
-                        </label>
-                      )}
-                      <div className="button-row">
-                        <button
-                          type="button"
-                          disabled={
-                            !!busy ||
-                            (!!item.review &&
-                              (comments[itemKey(item)]?.trim().length || 0) < 3)
-                          }
-                          onClick={() => {
-                            if (window.confirm(t.confirmApprove))
-                              void decide(item, "APPROVED");
-                          }}
-                        >
-                          <Icon name="check" /> {t.approve}
-                        </button>
-                        <button
-                          type="button"
-                          className="danger"
-                          disabled={
-                            !!busy ||
-                            (!!item.review &&
-                              (comments[itemKey(item)]?.trim().length || 0) < 3)
-                          }
-                          onClick={() => {
-                            if (window.confirm(t.confirmReject))
-                              void decide(item, "REJECTED");
-                          }}
-                        >
-                          <Icon name="close" /> {t.reject}
-                        </button>
+                            onClick={() => {
+                              if (window.confirm(t.confirmApprove))
+                                void decide(item, "APPROVED");
+                            }}
+                          >
+                            <Icon name="check" /> {t.approve}
+                          </button>
+                          <button
+                            type="button"
+                            className="danger"
+                            disabled={
+                              !!busy ||
+                              (!!item.review &&
+                                (comments[itemKey(item)]?.trim().length || 0) <
+                                  3)
+                            }
+                            onClick={() => {
+                              if (window.confirm(t.confirmReject))
+                                void decide(item, "REJECTED");
+                            }}
+                          >
+                            <Icon name="close" /> {t.reject}
+                          </button>
+                        </div>
                       </div>
                     </>
                   )}
@@ -601,7 +889,7 @@ export default function ApprovalsPage() {
             </button>
           </nav>
         )}
-      </section>
-    </main>
+      </main>
+    </div>
   );
 }
