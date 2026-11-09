@@ -1,4 +1,14 @@
 export const slovakMessages: Readonly<Record<string, string>> = {
+  "Review settings": "Nastavenia revízií",
+  "Automatic review interval": "Interval automatických revízií",
+  days: "dní",
+  "Schedule the next review": "Naplánovať ďalšiu revíziu",
+  "Automatic periodic review: one moderator or administrator decision is required.":
+    "Automatická pravidelná revízia: vyžaduje sa jedno rozhodnutie moderátora alebo správcu.",
+  "Automatic publication review: a decision is required by the displayed deadline. Rejection archives the document.":
+    "Automatická revízia po zverejnení: rozhodnutie sa vyžaduje do uvedeného termínu. Zamietnutím sa dokument archivuje.",
+  "Default: 30 days. Applies to new automatic reviews and after approval. Already scheduled deadlines remain unchanged. Alerts are sent in English to authorized administrators and moderators.":
+    "Predvolená hodnota: 30 dní. Platí pre nové automatické revízie a po schválení. Už naplánované termíny zostávajú nezmenené. Upozornenia sa posielajú v angličtine oprávneným správcom a moderátorom.",
   "GED metadata": "Metadáta GED",
   "The list uses twenty documents per page. Search covers titles, descriptions and metadata across all authorized pages. Sorting lets you compare latest updates, publication dates or states. The timeline shows key dates and versions.":
     "Zoznam zobrazuje dvadsať dokumentov na stránku. Vyhľadávanie zahŕňa názvy, opisy a metadáta na všetkých povolených stránkach. Zoradiť možno podľa zmeny, zverejnenia alebo stavu. Časová os zobrazuje hlavné dátumy a verzie.",
@@ -2003,11 +2013,14 @@ export const slovakMessages: Readonly<Record<string, string>> = {
   "Small image (optional)": "Malý obrázok (voliteľné)",
   "External link": "Externý odkaz",
   "Open external link": "Otvoriť externý odkaz",
-  "Lifetime": "Doživotne",
+  Lifetime: "Doživotne",
   "User added and email sent.": "Používateľ bol pridaný a e-mail odoslaný.",
-  "User added; no email could be sent.": "Používateľ bol pridaný; e-mail sa nepodarilo odoslať.",
-  "Only the users listed here can create a sensitive document and share it with named people, for a chosen period or for life.": "Citlivý dokument môžu vytvárať a menovite zdieľať iba tu uvedení používatelia, na zvolené obdobie alebo doživotne.",
-  "Search the directory (name, sign-in) or type an email": "Hľadať v adresári (meno, prihlasovacie meno) alebo zadať e-mail",
+  "User added; no email could be sent.":
+    "Používateľ bol pridaný; e-mail sa nepodarilo odoslať.",
+  "Only the users listed here can create a sensitive document and share it with named people, for a chosen period or for life.":
+    "Citlivý dokument môžu vytvárať a menovite zdieľať iba tu uvedení používatelia, na zvolené obdobie alebo doživotne.",
+  "Search the directory (name, sign-in) or type an email":
+    "Hľadať v adresári (meno, prihlasovacie meno) alebo zadať e-mail",
   "Display name (optional)": "Zobrazované meno (voliteľné)",
   "Add and notify by email": "Pridať a upozorniť e-mailom",
   "Authorised users": "Oprávnení používatelia",
@@ -2015,8 +2028,8 @@ export const slovakMessages: Readonly<Record<string, string>> = {
   "added by": "pridal",
   "Active shares": "Aktívne zdieľania",
   "No active share.": "Žiadne aktívne zdieľanie.",
-  "by": "od",
-  "expires": "vyprší",
+  by: "od",
+  expires: "vyprší",
   "No match in the directory.": "V adresári sa nič nenašlo.",
   "Shared; email sent.": "Zdieľané; e-mail odoslaný.",
   "Shared; no email could be sent.": "Zdieľané; e-mail sa nepodarilo odoslať.",
@@ -2028,17 +2041,18 @@ export const slovakMessages: Readonly<Record<string, string>> = {
   "90 days": "90 dní",
   "Specific date": "Konkrétny dátum",
   "Expires on": "Vyprší dňa",
-  "Share": "Zdieľať",
-  "active": "aktívny",
-  "expired": "vypršaný",
-  "revoked": "zrušený",
+  Share: "Zdieľať",
+  active: "aktívny",
+  expired: "vypršaný",
+  revoked: "zrušený",
   "Sensitive documents shared with me": "Citlivé dokumenty zdieľané so mnou",
-  "until": "do",
-  "lifetime": "doživotne",
-  "Sensitive document (watermarked, shared by name only)": "Citlivý dokument (vodoznak, zdieľanie iba menovite)",
+  until: "do",
+  lifetime: "doživotne",
+  "Sensitive document (watermarked, shared by name only)":
+    "Citlivý dokument (vodoznak, zdieľanie iba menovite)",
   "Saved.": "Uložené.",
   "Page middle": "Stred strany",
-  "Apply": "Použiť",
+  Apply: "Použiť",
   "Remove link": "Odstrániť odkaz",
   "Link removed.": "Odkaz bol odstránený.",
 };
