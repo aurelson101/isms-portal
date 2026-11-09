@@ -34,34 +34,56 @@ describe("review decisions", () => {
     expect(tx.documentVersion.update).not.toHaveBeenCalled();
   });
 
-  it("schedules the annual review only after an automatic review is approved", async () => {
-    const tx = {
-      documentReview: {
-        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-        findUniqueOrThrow: vi.fn().mockResolvedValue({
-          id: "review",
-          status: "APPROVED",
-          automaticPublication: true,
-          versionId: "version",
+  it.each([30, 60, 90])(
+    "schedules the next approved review after %i days",
+    async (days) => {
+      const tx = {
+        applicationSetting: {
+          findUnique: vi
+            .fn()
+            .mockResolvedValue(
+              days === 30 ? null : { value: { intervalDays: days } },
+            ),
+        },
+        documentReview: {
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+          findUniqueOrThrow: vi.fn().mockResolvedValue({
+            id: "review",
+            status: "APPROVED",
+            automaticPublication: true,
+            versionId: "version",
+          }),
+        },
+        document: { updateMany: vi.fn() },
+        documentVersion: { update: vi.fn().mockResolvedValue({}) },
+      };
+      const prisma = { $transaction: vi.fn((callback) => callback(tx)) };
+      const result = await recordReviewDecision(
+        prisma as never,
+        "review",
+        "doc",
+        { status: "APPROVED", comment: "Validated" },
+        "admin",
+      );
+      expect(result.archived).toBe(false);
+      expect(tx.documentVersion.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "version" },
+          data: expect.objectContaining({
+            annualReviewDueAt: expect.any(Date),
+          }),
         }),
-      },
-      document: { updateMany: vi.fn() },
-      documentVersion: { update: vi.fn().mockResolvedValue({}) },
-    };
-    const prisma = { $transaction: vi.fn((callback) => callback(tx)) };
-    const result = await recordReviewDecision(
-      prisma as never,
-      "review",
-      "doc",
-      { status: "APPROVED", comment: "Validated" },
-      "admin",
-    );
-    expect(result.archived).toBe(false);
-    expect(tx.documentVersion.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "version" },
-        data: expect.objectContaining({ annualReviewDueAt: expect.any(Date) }),
-      }),
-    );
-  });
+      );
+      const decidedAt =
+        tx.documentReview.updateMany.mock.calls[0][0].data.decidedAt;
+      expect(
+        tx.documentVersion.update.mock.calls[0][0].data.annualReviewDueAt.getTime(),
+      ).toBe(decidedAt.getTime() + days * 86400000);
+      expect(tx.documentVersion.update.mock.calls[0][0].data).toMatchObject({
+        annualReviewNotifiedAt: null,
+        annualReviewReminderAt: null,
+        annualReviewOverdueAt: null,
+      });
+    },
+  );
 });

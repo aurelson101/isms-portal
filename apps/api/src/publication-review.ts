@@ -4,6 +4,7 @@ import type { IsmsRequest } from "./types";
 import { persistAudit } from "./audit-event";
 import { assertDocumentTypeComplete } from "./document-types";
 import { promoteLatestToMajor } from "./version-label";
+import { reviewSettings } from "./review-settings";
 
 export async function publishWithReview(
   prisma: PrismaService,
@@ -27,6 +28,9 @@ export async function publishWithReview(
     if (changed.count !== 1)
       throw new ConflictException("Document is already published");
     await promoteLatestToMajor(tx, documentId);
+    const { intervalDays } = firstPublication
+      ? await reviewSettings(tx)
+      : { intervalDays: 30 };
     const review = firstPublication
       ? await tx.documentReview.create({
           data: {
@@ -35,7 +39,7 @@ export async function publishWithReview(
             owner: "ISMS scheduler",
             reviewer: "ISMS moderators",
             approver: "ISMS administrators",
-            dueAt: new Date(publishedAt.getTime() + 30 * 86400000),
+            dueAt: new Date(publishedAt.getTime() + intervalDays * 86400000),
             automaticPublication: true,
           },
         })

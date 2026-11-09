@@ -449,7 +449,35 @@ describe("Notification routing", () => {
       expect.arrayContaining(["user@example.com", "member@example.com"]),
     );
     expect(h.auth.can).not.toHaveBeenCalled();
-    expect(result?.subject).toContain("annual review is due now");
+    expect(result?.subject).toContain("review is due now");
+    expect(result?.subject).not.toContain("annual");
+  });
+  it("uses the actual deadline in English and skips jobs from a previous review cycle", async () => {
+    const h = setup();
+    const doc = await h.prisma.document.findUnique();
+    doc.versions = [
+      {
+        id: "version",
+        version: 2,
+        annualReviewDueAt: new Date("2026-12-01T10:00:00Z"),
+      },
+    ] as never;
+    const reminder = {
+      ...event,
+      action: "document.review.reminder",
+      documentVersionId: "version",
+      reviewDueAt: "2026-12-01T10:00:00.000Z",
+    };
+    const result = await h.service.prepare(reminder);
+    expect(result?.subject).toContain("review is approaching its deadline");
+    expect(result?.text).toContain("Due date (UTC): 2026-12-01T10:00:00.000Z");
+    expect(result?.text).not.toContain("in 30 days");
+    expect(
+      await h.service.prepare({
+        ...reminder,
+        reviewDueAt: "2026-11-01T10:00:00.000Z",
+      }),
+    ).toBeNull();
   });
   it("routes reports to managers and the reporter", async () => {
     const h = setup();

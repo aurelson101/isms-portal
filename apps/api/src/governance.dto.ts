@@ -11,6 +11,11 @@ import {
   MaxLength,
   MinLength,
 } from "class-validator";
+import { REVIEW_INTERVALS } from "./review-settings";
+
+export class ReviewSettingsDto {
+  @IsIn([...REVIEW_INTERVALS]) intervalDays!: number;
+}
 
 export class DocumentReviewDto {
   @IsString() @MinLength(1) @MaxLength(128) documentId!: string;
