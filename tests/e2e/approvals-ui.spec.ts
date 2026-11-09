@@ -10,6 +10,15 @@ for (const width of [390, 1440]) {
     await page.route("**/api/**", async (route) => {
       const request = route.request();
       const url = new URL(request.url());
+      if (url.pathname === "/api/me")
+        return route.fulfill({
+          json: {
+            username: "approver@example.test",
+            isAdmin: true,
+            isModerator: false,
+            locale: "fr",
+          },
+        });
       if (url.pathname === "/api/approvals")
         return route.fulfill({
           json: [
@@ -65,8 +74,44 @@ for (const width of [390, 1440]) {
     await expect(
       page.getByRole("heading", { name: "Approbations et revues" }),
     ).toBeVisible();
+    if (width === 390)
+      await page.getByRole("button", { name: "Menu", exact: true }).click();
+    const navigation = page.getByRole("navigation", {
+      name: "Menu",
+      exact: true,
+    });
+    await expect(
+      navigation.getByRole("link", { name: "Administration", exact: true }),
+    ).toHaveAttribute("href", "/admin");
+    await expect(
+      navigation.getByRole("link", { name: "Documents", exact: true }),
+    ).toHaveAttribute("href", "/explorer");
+    await expect(navigation.locator('[aria-current="page"]')).toHaveAttribute(
+      "href",
+      "/approvals",
+    );
+    if (width === 390) {
+      await page
+        .getByRole("button", { name: "Menu", exact: true })
+        .press("Escape");
+      await expect(
+        page.getByRole("button", { name: "Menu", exact: true }),
+      ).toHaveAttribute("aria-expanded", "false");
+    }
     await expect(page.locator("#approval-approval-id")).toBeVisible();
     await expect(page.locator("#review-review-id")).toBeVisible();
+    await expect(
+      page.getByRole("textbox", { name: "Commentaire de décision" }),
+    ).toHaveCount(0);
+    await page.getByRole("button", { name: "Examiner et décider" }).click();
+    await page
+      .getByRole("textbox", { name: "Commentaire de décision" })
+      .fill("Revue validée");
+    await expect(
+      page
+        .locator("#review-review-id")
+        .getByRole("button", { name: "Approuver", exact: true }),
+    ).toBeEnabled();
     await expect(
       page.getByRole("button", { name: "Approuver" }).first(),
     ).toBeVisible();
@@ -81,5 +126,16 @@ for (const width of [390, 1440]) {
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Approuver" }).first().click();
     await expect(page.getByText("Décision par:")).toBeVisible();
+    await page.getByRole("button", { name: /Revues documentaires/ }).click();
+    await expect(page.locator(".approval-card")).toHaveCount(1);
+    await expect(page.locator("#review-review-id")).toBeVisible();
+    await page
+      .getByRole("searchbox", { name: "Rechercher une demande" })
+      .fill("aucun document");
+    await expect(page.locator(".approval-card")).toHaveCount(0);
+    await page
+      .getByRole("searchbox", { name: "Rechercher une demande" })
+      .fill("Politique");
+    await expect(page.locator(".approval-card")).toHaveCount(1);
   });
 }
