@@ -37,6 +37,7 @@ import {
 import { ArticlesAdmin } from "../articles";
 import { SensitivePanel } from "./sensitive-panel";
 import { GovernancePanel } from "./governance-panel";
+import ApprovalsPanel from "../approvals/approvals-panel";
 import { StoragePanel } from "./storage-panel";
 import { HelpPanel } from "./help-panel";
 import { loginDestination, ssoDestination } from "../auth-navigation";
@@ -117,6 +118,7 @@ type Tab =
   | "incidents"
   | "requests"
   | "governance"
+  | "approvals"
   | "directory"
   | "sso"
   | "certificates"
@@ -771,6 +773,7 @@ const tabs: Array<[Tab, IconName, string, string]> = [
   ["incidents", "audit", "Rapports d’incidents", "Incident reports"],
   ["requests", "rules", "Demandes utilisateurs", "User requests"],
   ["governance", "shield", "Gouvernance ISMS", "ISMS governance"],
+  ["approvals", "check", "Approbations et revues", "Approvals and Reviews"],
   ["directory", "sync", "Synchronisation LDAP", "LDAP synchronization"],
   ["sso", "shield", "Connexion SSO", "SSO sign-in"],
   ["certificates", "certificate", "Certificats CA", "CA certificates"],
@@ -821,7 +824,9 @@ const navigationGroups: Array<[string, string, typeof tabs]> = [
     "infrastructure",
     "Infrastructure",
     tabs.filter(([key]) =>
-      ["governance", "directory", "sso", "certificates"].includes(key),
+      ["governance", "approvals", "directory", "sso", "certificates"].includes(
+        key,
+      ),
     ),
   ],
   [
@@ -997,15 +1002,9 @@ export default function Admin() {
     );
   useEffect(() => {
     const activeGroup =
-      tabs.findIndex(([key]) => key === tab) === 0
-        ? "overview"
-        : tabs.findIndex(([key]) => key === tab) < 8
-          ? "content"
-          : tabs.findIndex(([key]) => key === tab) < 12
-            ? "infrastructure"
-            : tabs.findIndex(([key]) => key === tab) < 14
-              ? "system"
-              : "configuration";
+      navigationGroups.find(([, , groupTabs]) =>
+        groupTabs.some(([key]) => key === tab),
+      )?.[0] || "overview";
     setExpandedNavigationGroups((current) =>
       current.has(activeGroup) ? current : new Set([...current, activeGroup]),
     );
@@ -1701,6 +1700,9 @@ export default function Admin() {
                     onError={setError}
                     onNotice={setNotice}
                   />
+                )}
+                {tab === "approvals" && (
+                  <ApprovalsPanel embedded interfaceLocale={locale} />
                 )}
                 {tab === "directory" && (
                   <DirectoryPanel

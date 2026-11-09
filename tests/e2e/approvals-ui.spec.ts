@@ -10,7 +10,7 @@ for (const width of [390, 1440]) {
     await page.route("**/api/**", async (route) => {
       const request = route.request();
       const url = new URL(request.url());
-      if (url.pathname === "/api/me")
+      if (url.pathname === "/api/me" || url.pathname === "/api/admin/check")
         return route.fulfill({
           json: {
             username: "approver@example.test",
@@ -68,34 +68,55 @@ for (const width of [390, 1440]) {
         decided = true;
         return route.fulfill({ json: {} });
       }
-      return route.fulfill({ json: {} });
+      if (url.pathname === "/api/admin/documents")
+        return route.fulfill({ json: { items: [], total: 0 } });
+      if (url.pathname === "/api/admin/audit")
+        return route.fulfill({ json: { items: [] } });
+      if (url.pathname === "/api/admin/dashboard")
+        return route.fulfill({ json: null });
+      if (url.pathname === "/api/health/details")
+        return route.fulfill({ json: { services: {} } });
+      return route.fulfill({
+        json: url.pathname === "/api/branding" ? {} : [],
+      });
     });
     await page.goto("/approvals#approval-approval-id");
     await expect(
       page.getByRole("heading", { name: "Approbations et revues" }),
     ).toBeVisible();
-    if (width === 390)
-      await page.getByRole("button", { name: "Menu", exact: true }).click();
-    const navigation = page.getByRole("navigation", {
-      name: "Menu",
-      exact: true,
-    });
-    await expect(
-      navigation.getByRole("link", { name: "Administration", exact: true }),
-    ).toHaveAttribute("href", "/admin");
-    await expect(
-      navigation.getByRole("link", { name: "Documents", exact: true }),
-    ).toHaveAttribute("href", "/explorer");
-    await expect(navigation.locator('[aria-current="page"]')).toHaveAttribute(
-      "href",
-      "/approvals",
+    await expect(page).toHaveURL(
+      /\/admin\?request=approval-approval-id#approvals$/,
     );
+    if (width === 390)
+      await page
+        .getByRole("button", { name: "Afficher la navigation", exact: true })
+        .click();
+    const navigation = page.locator("#admin-navigation");
+    await expect(
+      navigation.getByRole("button", { name: "Infrastructure", exact: true }),
+    ).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      page
+        .locator("#admin-navigation-infrastructure")
+        .getByRole("button", { name: "Approbations et revues", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      navigation.getByRole("button", { name: "Gouvernance ISMS", exact: true }),
+    ).toBeVisible();
+    await expect(page.locator(".approvals-navigation")).toHaveCount(0);
+    await page.screenshot({
+      path: test.info().outputPath("infrastructure-navigation.png"),
+      fullPage: true,
+    });
     if (width === 390) {
       await page
-        .getByRole("button", { name: "Menu", exact: true })
+        .getByRole("button", { name: "Masquer la navigation", exact: true })
         .press("Escape");
       await expect(
-        page.getByRole("button", { name: "Menu", exact: true }),
+        page.getByRole("button", {
+          name: "Afficher la navigation",
+          exact: true,
+        }),
       ).toHaveAttribute("aria-expanded", "false");
     }
     await expect(page.locator("#approval-approval-id")).toBeVisible();
@@ -139,3 +160,33 @@ for (const width of [390, 1440]) {
     await expect(page.locator(".approval-card")).toHaveCount(1);
   });
 }
+
+test("non-administrator participants keep access without entering administration", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+  let adminRequests = 0;
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.startsWith("/api/admin/")) adminRequests++;
+    if (path === "/api/me")
+      return route.fulfill({
+        json: {
+          username: "participant@example.test",
+          isAdmin: false,
+          isModerator: false,
+          locale: "en",
+        },
+      });
+    if (path === "/api/approvals")
+      return route.fulfill({ status: 403, json: {} });
+    return route.fulfill({ json: path === "/api/branding" ? {} : [] });
+  });
+  await page.goto("/approvals");
+  await expect(
+    page.getByRole("heading", { name: "Approvals and Reviews" }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/approvals$/);
+  await expect(page.locator('a[href="/admin"]')).toHaveCount(0);
+  expect(adminRequests).toBe(0);
+});
