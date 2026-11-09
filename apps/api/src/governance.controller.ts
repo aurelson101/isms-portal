@@ -563,16 +563,6 @@ export class GovernanceController {
         "success",
         { reason: "review.rejected", reviewId: id },
       );
-    if (closed)
-      await this.notifications.enqueue(
-        {
-          action: "document-review.decision",
-          resource: `document-review:${id}`,
-          actor: req.identity.username,
-          at: new Date().toISOString(),
-        },
-        `document-review-decision-${id}`,
-      );
     return review;
   }
 
