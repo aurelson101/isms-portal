@@ -1,4 +1,14 @@
 export const spanishMessages: Readonly<Record<string, string>> = {
+  "Review settings": "Configuración de revisiones",
+  "Automatic review interval": "Intervalo de revisión automática",
+  days: "días",
+  "Schedule the next review": "Programar la próxima revisión",
+  "Automatic periodic review: one moderator or administrator decision is required.":
+    "Revisión periódica automática: se requiere una decisión de un moderador o administrador.",
+  "Automatic publication review: a decision is required by the displayed deadline. Rejection archives the document.":
+    "Revisión automática tras la publicación: se requiere una decisión antes del plazo indicado. El rechazo archiva el documento.",
+  "Default: 30 days. Applies to new automatic reviews and after approval. Already scheduled deadlines remain unchanged. Alerts are sent in English to authorized administrators and moderators.":
+    "Valor predeterminado: 30 días. Se aplica a las nuevas revisiones automáticas y después de la aprobación. Los plazos ya programados no cambian. Las alertas se envían en inglés a los administradores y moderadores autorizados.",
   "At /moderator, Managed documents, Document import and My document permissions are separate views. Space submenus show only areas you can manage; choosing a space filters documents on the server.":
     "En /moderator, Documentos gestionados, Importación documental y Mis permisos documentales son vistas separadas. Los submenús solo muestran los espacios que puede gestionar; al elegir un espacio, los documentos se filtran en el servidor.",
   "The portal and moderator workspace show at most twenty documents per page. Previous and Next retain the space and search. Changing space or returning to Managed documents starts at page 1.":
@@ -1686,11 +1696,14 @@ export const spanishMessages: Readonly<Record<string, string>> = {
   "Small image (optional)": "Imagen pequeña (opcional)",
   "External link": "Enlace externo",
   "Open external link": "Abrir enlace externo",
-  "Lifetime": "De por vida",
+  Lifetime: "De por vida",
   "User added and email sent.": "Usuario añadido y correo enviado.",
-  "User added; no email could be sent.": "Usuario añadido; no se pudo enviar ningún correo.",
-  "Only the users listed here can create a sensitive document and share it with named people, for a chosen period or for life.": "Solo los usuarios de esta lista pueden crear un documento sensible y compartirlo con personas concretas, durante un periodo elegido o de por vida.",
-  "Search the directory (name, sign-in) or type an email": "Buscar en el directorio (nombre, identificador) o escribir un correo",
+  "User added; no email could be sent.":
+    "Usuario añadido; no se pudo enviar ningún correo.",
+  "Only the users listed here can create a sensitive document and share it with named people, for a chosen period or for life.":
+    "Solo los usuarios de esta lista pueden crear un documento sensible y compartirlo con personas concretas, durante un periodo elegido o de por vida.",
+  "Search the directory (name, sign-in) or type an email":
+    "Buscar en el directorio (nombre, identificador) o escribir un correo",
   "Display name (optional)": "Nombre mostrado (opcional)",
   "Add and notify by email": "Añadir y notificar por correo",
   "Authorised users": "Usuarios autorizados",
@@ -1698,11 +1711,12 @@ export const spanishMessages: Readonly<Record<string, string>> = {
   "added by": "añadido por",
   "Active shares": "Accesos compartidos activos",
   "No active share.": "Ningún acceso compartido activo.",
-  "by": "por",
-  "expires": "caduca",
+  by: "por",
+  expires: "caduca",
   "No match in the directory.": "Sin resultados en el directorio.",
   "Shared; email sent.": "Compartido; correo enviado.",
-  "Shared; no email could be sent.": "Compartido; no se pudo enviar ningún correo.",
+  "Shared; no email could be sent.":
+    "Compartido; no se pudo enviar ningún correo.",
   "Share this sensitive document": "Compartir este documento sensible",
   "Recipient sign-in name or email": "Identificador o correo del destinatario",
   "24 hours": "24 horas",
@@ -1711,17 +1725,19 @@ export const spanishMessages: Readonly<Record<string, string>> = {
   "90 days": "90 días",
   "Specific date": "Fecha concreta",
   "Expires on": "Caduca el",
-  "Share": "Compartir",
-  "active": "activo",
-  "expired": "caducado",
-  "revoked": "revocado",
-  "Sensitive documents shared with me": "Documentos sensibles compartidos conmigo",
-  "until": "hasta",
-  "lifetime": "de por vida",
-  "Sensitive document (watermarked, shared by name only)": "Documento sensible (marca de agua, solo compartido por nombre)",
+  Share: "Compartir",
+  active: "activo",
+  expired: "caducado",
+  revoked: "revocado",
+  "Sensitive documents shared with me":
+    "Documentos sensibles compartidos conmigo",
+  until: "hasta",
+  lifetime: "de por vida",
+  "Sensitive document (watermarked, shared by name only)":
+    "Documento sensible (marca de agua, solo compartido por nombre)",
   "Saved.": "Guardado.",
   "Page middle": "Centro de la página",
-  "Apply": "Aplicar",
+  Apply: "Aplicar",
   "Remove link": "Quitar el enlace",
   "Link removed.": "Enlace quitado.",
 };
