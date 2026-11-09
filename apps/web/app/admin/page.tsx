@@ -38,6 +38,7 @@ import { ArticlesAdmin } from "../articles";
 import { SensitivePanel } from "./sensitive-panel";
 import { GovernancePanel } from "./governance-panel";
 import ApprovalsPanel from "../approvals/approvals-panel";
+import { ReviewTicketEmailSettings } from "./review-ticket-email-settings";
 import { StoragePanel } from "./storage-panel";
 import { HelpPanel } from "./help-panel";
 import { loginDestination, ssoDestination } from "../auth-navigation";
@@ -7209,7 +7210,7 @@ function SettingsPanel({
   onError: (message: string) => void;
   onNotice: (message: string) => void;
 }) {
-  const { t } = useAdminI18n();
+  const { locale, t } = useAdminI18n();
   const confirmAction = useContext(ConfirmContext);
   const [key, setKey] = useState("certificates.expiry-alert-days");
   const [value, setValue] = useState('{"days":[90,60,30,15,7]}');
@@ -8232,6 +8233,9 @@ function SettingsPanel({
             ))}
           </div>
         </section>
+      )}
+      {section === "advanced" && (
+        <ReviewTicketEmailSettings locale={locale} onNotice={onNotice} />
       )}
       {section === "advanced" && (
         <form

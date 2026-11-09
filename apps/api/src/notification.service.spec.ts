@@ -16,6 +16,7 @@ afterAll(() => {
 
 function setup() {
   const prisma = {
+    applicationSetting: { findUnique: vi.fn().mockResolvedValue(null) },
     documentReview: {
       findMany: vi.fn().mockResolvedValue([]),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -88,6 +89,34 @@ const event = {
   at: "2026-09-11T12:00:00Z",
 };
 describe("Notification routing", () => {
+  it.each([false, true])(
+    "uses the configured separate email setting: enabled=%s",
+    async (enabled) => {
+      const h = setup();
+      h.prisma.applicationSetting.findUnique.mockResolvedValue({
+        value: { enabled, recipient: "glpi@example.com" },
+      } as never);
+      vi.spyOn(h.service, "prepare").mockResolvedValue({
+        recipients: ["admin@example.com"],
+        subject: "Review due",
+        text: "Document: Policy",
+        link: "https://isms.example.com/approvals",
+      });
+      await h.service.process({
+        data: { ...event, action: "document.review.reminder" },
+        updateData: vi.fn(),
+      } as never);
+      expect(
+        h.alerts.sendPreferredTo.mock.calls.map(
+          (call) => (call as unknown as unknown[])[0],
+        ),
+      ).toEqual(
+        enabled
+          ? [["admin@example.com"], ["glpi@example.com"]]
+          : [["admin@example.com"]],
+      );
+    },
+  );
   it.each([
     "document.review.reminder",
     "document.review.annual",

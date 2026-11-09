@@ -774,6 +774,36 @@ résolution afin que leurs membres disposant d’une adresse e-mail reçoivent l
 notification. Les permissions du document restent appliquées au lien inclus
 dans le message.
 
+### E-mail séparé des revues vers GLPI
+
+Dans **Administration → Configuration → Paramètres avancés → E-mail séparé des
+revues (GLPI)**, un administrateur peut activer ou désactiver l'envoi séparé et
+modifier l'adresse destinataire. La configuration initiale est activée avec
+`helpdesk-soc@deftagroup.com`. Elle est enregistrée en base et relue lors des
+envois, sans redéploiement. La modification est inscrite dans le journal d'audit.
+
+Cet e-mail s'ajoute aux notifications habituelles pour chaque revue approuvée,
+rappel, échéance atteinte et alerte de retard. Son objet et son corps sont en
+anglais : référence, document, statut, échéance, décision et lien authentifié
+vers ISMS, selon l'événement. Le collecteur GLPI utilise le sujet pour le titre
+du ticket et le corps pour sa description ; les règles GLPI restent à configurer
+dans GLPI. Aucun fichier documentaire n'est joint. Désactiver cette option
+arrête uniquement la copie séparée, et non les notifications des administrateurs
+et modérateurs. Les messages déjà envoyés ne sont pas rappelés.
+
+Le suivi par destinataire permet de reprendre un échec de livraison sans
+renvoyer les messages déjà acceptés. Un succès Microsoft Graph confirme la prise
+en charge du mail, pas la création du ticket : vérifier celle-ci dans GLPI.
+
+### Ajout de comptes et groupes administrateurs
+
+Un administrateur habilité peut ajouter un compte ou un groupe administrateur
+sans validation par un second administrateur. Les demandes existantes de type
+`BROAD_PRIVILEGE` ciblant `ADMIN_ACCOUNT` ou `ADMIN_DIRECTORY_GROUP` peuvent aussi
+être décidées par leur demandeur administrateur. Les contrôles d'accès, la
+justification et le journal d'audit restent appliqués. Les autres opérations
+sensibles conservent leur validation indépendante.
+
 Les demandes, décisions et commentaires sont consultables dans
 **Approvals and Reviews** ; les administrateurs disposent également des
 éléments en attente dans leur espace de supervision et du journal d’audit.

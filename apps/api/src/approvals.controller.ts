@@ -15,6 +15,7 @@ import { AuditService } from "./audit.service";
 import { PrismaService } from "./prisma.service";
 import { ApproverOnly } from "./security";
 import { isAdminIdentity, isModeratorIdentity } from "./security";
+import { requiresIndependentApproval } from "./sensitive-approval.service";
 import { ReviewDecisionDto } from "./governance.dto";
 import type { IsmsRequest } from "./types";
 import { recordReviewDecision } from "./review-decision";
@@ -69,6 +70,7 @@ export class ApprovalsController {
     return approvals.map((item) => ({
       ...item,
       canDecide:
+        !requiresIndependentApproval(item.operation, item.targetType) ||
         item.requestedBy.toLowerCase() !== req.identity.username.toLowerCase(),
     }));
   }
@@ -94,6 +96,7 @@ export class ApprovalsController {
     if (existing.status !== "PENDING")
       throw new ConflictException("Approval already decided");
     if (
+      requiresIndependentApproval(existing.operation, existing.targetType) &&
       existing.requestedBy.toLowerCase() === req.identity.username.toLowerCase()
     )
       throw new ConflictException(

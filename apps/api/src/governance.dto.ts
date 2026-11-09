@@ -3,6 +3,7 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsEmail,
   IsIn,
   IsObject,
   IsOptional,
@@ -15,6 +16,11 @@ import { REVIEW_INTERVALS } from "./review-settings";
 
 export class ReviewSettingsDto {
   @IsIn([...REVIEW_INTERVALS]) intervalDays!: number;
+}
+
+export class ReviewTicketEmailDto {
+  @IsBoolean() enabled!: boolean;
+  @IsEmail() @MaxLength(254) recipient!: string;
 }
 
 export class DocumentReviewDto {

@@ -3,6 +3,15 @@ import { NotificationService } from "./notification.service";
 import { PrismaService } from "./prisma.service";
 import type { IsmsRequest } from "./types";
 
+export const requiresIndependentApproval = (
+  operation: string,
+  targetType: string,
+) =>
+  !(
+    operation === "BROAD_PRIVILEGE" &&
+    ["ADMIN_ACCOUNT", "ADMIN_DIRECTORY_GROUP"].includes(targetType)
+  );
+
 @Injectable()
 export class SensitiveApprovalService {
   constructor(
@@ -76,6 +85,7 @@ export class SensitiveApprovalService {
     targetId: string,
     reason: string,
   ) {
+    if (!requiresIndependentApproval(operation, targetType)) return "";
     if (operation === "BROAD_PRIVILEGE") {
       const [accounts, groups] = await Promise.all([
         this.prisma.adminAccount.count({ where: { active: true } }),

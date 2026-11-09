@@ -5,6 +5,7 @@ import { DirectoryService } from "./directory.service";
 import { AuthorizationService, type Permission } from "./authorization.service";
 import { AlertDeliveryService } from "./alert-delivery.service";
 import { portalLink, type EmailTemplate } from "./notification-email";
+import { reviewTicketSettings } from "./review-ticket-settings";
 
 export const notificationLabels: Record<string, string> = {
   "document.publish": "Document published",
@@ -54,7 +55,6 @@ type PreparedNotification = {
   reviewApproved?: boolean;
   recipientMessages?: Map<string, { subject: string; text: string }>;
 };
-const SOC_REVIEW_MAILBOX = "helpdesk-soc@deftagroup.com";
 const reviewTicket = (
   event: NotificationJob,
   message: PreparedNotification,
@@ -855,16 +855,24 @@ export class NotificationService {
         "No eligible mail recipients: check active ACLs and the AD mail attribute",
       );
     const ticket = reviewTicket(job.data, message);
-    const recipients = ticket
-      ? [
-          ...message.recipients.filter(
-            (address) => address.trim().toLowerCase() !== SOC_REVIEW_MAILBOX,
-          ),
-          SOC_REVIEW_MAILBOX,
-        ]
-      : message.recipients;
+    const ticketSettings = ticket
+      ? await reviewTicketSettings(this.prisma)
+      : null;
+    const ticketRecipient = ticketSettings?.enabled
+      ? ticketSettings.recipient
+      : null;
+    const recipients =
+      ticket && ticketRecipient
+        ? [
+            ...message.recipients.filter(
+              (address) => address.trim().toLowerCase() !== ticketRecipient,
+            ),
+            ticketRecipient,
+          ]
+        : message.recipients;
     const recipientMessages = new Map(message.recipientMessages);
-    if (ticket) recipientMessages.set(SOC_REVIEW_MAILBOX, ticket);
+    if (ticket && ticketRecipient)
+      recipientMessages.set(ticketRecipient, ticket);
     const accepted = new Set(
       (job.data.accepted || []).map((address) => address.trim().toLowerCase()),
     );
@@ -880,7 +888,7 @@ export class NotificationService {
         content.subject,
         content.text,
         message.link,
-        ticket && recipient === SOC_REVIEW_MAILBOX
+        ticket && recipient === ticketRecipient
           ? "review"
           : emailTemplate(job.data.action),
       );

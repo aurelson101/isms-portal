@@ -22,7 +22,10 @@ import type { Response } from "express";
 import { createHash, randomUUID } from "crypto";
 import { basename, extname } from "path";
 import { AuditService } from "./audit.service";
-import { SensitiveApprovalService } from "./sensitive-approval.service";
+import {
+  SensitiveApprovalService,
+  requiresIndependentApproval,
+} from "./sensitive-approval.service";
 import {
   AccessCertificationDto,
   ComplianceControlDto,
@@ -36,6 +39,7 @@ import {
   RiskExceptionDto,
   ReviewDecisionDto,
   ReviewSettingsDto,
+  ReviewTicketEmailDto,
   SavedViewDto,
   SensitiveApprovalDecisionDto,
   SensitiveApprovalDto,
@@ -48,6 +52,10 @@ import { AdminOnly, ApproverOnly } from "./security";
 import type { IsmsRequest } from "./types";
 import { recordReviewDecision } from "./review-decision";
 import { reviewSettings, REVIEW_SETTINGS_KEY } from "./review-settings";
+import {
+  reviewTicketSettings,
+  REVIEW_TICKET_SETTING,
+} from "./review-ticket-settings";
 
 const clean = (value?: string) => value?.trim() || null;
 const reviewEvidenceTypes: Record<string, string[]> = {
@@ -75,6 +83,35 @@ export class GovernanceController {
   @Get("review-settings")
   reviewSettings() {
     return reviewSettings(this.prisma);
+  }
+
+  @Get("review-ticket-email")
+  reviewTicketEmail() {
+    return reviewTicketSettings(this.prisma);
+  }
+
+  @Put("review-ticket-email")
+  async saveReviewTicketEmail(
+    @Req() req: IsmsRequest,
+    @Body() body: ReviewTicketEmailDto,
+  ) {
+    const settings = {
+      enabled: body.enabled,
+      recipient: body.recipient.trim().toLowerCase(),
+    };
+    await this.prisma.applicationSetting.upsert({
+      where: { key: REVIEW_TICKET_SETTING },
+      create: { key: REVIEW_TICKET_SETTING, value: settings },
+      update: { value: settings },
+    });
+    await this.audit.record(
+      req,
+      "document-review.ticket-email.update",
+      `setting:${REVIEW_TICKET_SETTING}`,
+      "success",
+      settings,
+    );
+    return settings;
   }
 
   @Put("review-settings")
@@ -390,6 +427,7 @@ export class GovernanceController {
     if (existing.status !== "PENDING")
       throw new ConflictException("Approval already decided");
     if (
+      requiresIndependentApproval(existing.operation, existing.targetType) &&
       existing.requestedBy.toLowerCase() === req.identity.username.toLowerCase()
     )
       throw new ConflictException("A second administrator is required");
