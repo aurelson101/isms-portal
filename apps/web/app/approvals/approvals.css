@@ -13,6 +13,21 @@
   padding: 24px 32px 40px;
   margin: 0 auto;
 }
+.approvals-shell.approvals-embedded {
+  display: block;
+  min-height: 0;
+  background: transparent;
+}
+.approvals-embedded .approvals-panel {
+  width: 100%;
+  padding: 0;
+}
+.approvals-embedded .approvals-eyebrow {
+  display: none;
+}
+.approvals-embedded .approvals-heading h1 {
+  font-size: 24px;
+}
 .approvals-navigation {
   position: sticky;
   top: 0;
