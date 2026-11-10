@@ -631,7 +631,7 @@ for (const width of [320, 768, 1440, 1920, 2560, 3440, 3840, 5120]) {
         await expect(navigation).toBeVisible();
         await expect(toggle).toBeHidden();
       }
-      await expect(navigation.locator("a")).toHaveCount(4);
+      await expect(navigation.locator("a")).toHaveCount(5);
       const back = page.locator(".moderator-shell > aside .back-link");
       await expect(back).toHaveAttribute("href", "/explorer");
       await expect(back).toHaveCSS("text-decoration-line", "none");
@@ -750,6 +750,10 @@ for (const width of [320, 768, 1440, 1920, 2560, 3440, 3840, 5120]) {
       page.getByRole("button", { name: "Reset", exact: true }),
     ).toHaveCount(0);
     expect(queries.at(-1)).toBe("");
+    page.once("dialog", async (dialog) => {
+      expect(dialog.message()).toContain("Confirm publication?");
+      await dialog.accept();
+    });
     await page.getByRole("button", { name: "Publish", exact: true }).click();
     for (const [locale, , , , notice] of languages) {
       await page.getByRole("button", { name: locale, exact: true }).click();
@@ -888,8 +892,13 @@ for (const width of [320, 768, 1280]) {
     await page
       .getByRole("button", { name: "New version", exact: true })
       .click();
-    await page.getByLabel("Change summary").fill("Updated policy");
-    const file = page.getByLabel("File", { exact: true });
+    await page
+      .locator("#moderator-version-form")
+      .getByLabel("Change summary")
+      .fill("Updated policy");
+    const file = page
+      .locator("#moderator-version-form")
+      .getByLabel("File", { exact: true });
     await file.setInputFiles({
       name: "policy.pdf",
       mimeType: "application/pdf",
@@ -904,9 +913,9 @@ for (const width of [320, 768, 1280]) {
         await expect(page.locator(".moderator-document-view")).toBeVisible();
       else await expect(page.locator(".moderator-document-view")).toBeHidden();
     }
-    await expect(page.getByLabel("Change summary")).toHaveValue(
-      "Updated policy",
-    );
+    await expect(
+      page.locator("#moderator-version-form").getByLabel("Change summary"),
+    ).toHaveValue("Updated policy");
     expect(
       await file.evaluate((input: HTMLInputElement) => input.files?.[0]?.name),
     ).toBe("policy.pdf");
@@ -919,9 +928,9 @@ for (const width of [320, 768, 1280]) {
     await expect(
       page.getByRole("button", { name: "Upload and scan", exact: true }),
     ).toBeEnabled();
-    await expect(page.getByLabel("Change summary")).toHaveValue(
-      "Updated policy",
-    );
+    await expect(
+      page.locator("#moderator-version-form").getByLabel("Change summary"),
+    ).toHaveValue("Updated policy");
     expect(
       await file.evaluate((input: HTMLInputElement) => input.files?.[0]?.name),
     ).toBe("policy.pdf");

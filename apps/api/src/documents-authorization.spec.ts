@@ -581,6 +581,45 @@ describe("DocumentsController ACL scoping", () => {
     });
   });
 
+  it("restricts the links/videos filter to link-only documents while retaining language and ACL filters", async () => {
+    grant({ read: [general] });
+    await controller.list(
+      request,
+      "",
+      undefined,
+      undefined,
+      undefined,
+      "recent",
+      "1",
+      "20",
+      "false",
+      "link",
+      "fr",
+    );
+    const where = count.mock.calls[0][0].where;
+    expect(where).toMatchObject({
+      externalUrl: { not: null },
+      versions: { none: {} },
+    });
+    expect(where.AND).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          OR: expect.arrayContaining([
+            expect.objectContaining({
+              translations: { some: { locale: "fr" } },
+            }),
+          ]),
+        }),
+      ]),
+    );
+    expect(where.OR).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ spaceId: { in: [general.id] } }),
+      ]),
+    );
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
+  });
+
   it("does not expose a draft to a read-only identity", async () => {
     findFirst.mockResolvedValue({
       id: "draft-1",

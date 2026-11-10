@@ -46,6 +46,13 @@ export function SensitiveShare({
   const [busy, setBusy] = useState(false);
   const [recipient, setRecipient] = useState("");
   const [recipientType, setRecipientType] = useState<"user" | "group">("user");
+  const [preview, setPreview] = useState<{
+    key: string;
+    recipient: string;
+    emailCount: number;
+    recipients: string[];
+    expiresAt: string | null;
+  } | null>(null);
   const [suggestions, setSuggestions] = useState<
     Array<{ displayName: string; email: string }>
   >([]);
@@ -132,23 +139,38 @@ export function SensitiveShare({
     setBusy(true);
     setMessage("");
     try {
+      const body = JSON.stringify({
+        recipient: data.get("recipient"),
+        recipientType,
+        duration,
+        ...(duration === "custom"
+          ? { expiresAt: new Date(custom).toISOString() }
+          : {}),
+      });
+      const previewKey = `${documentId}:${body}`;
+      if (recipientType === "group" && preview?.key !== previewKey) {
+        const result = await request<Omit<NonNullable<typeof preview>, "key">>(
+          `/api/sensitive/documents/${encodeURIComponent(documentId)}/share-preview`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body,
+          },
+        );
+        setPreview({ ...result, key: previewKey });
+        return;
+      }
       const result = await request<{ emailSent: boolean }>(
         `/api/sensitive/documents/${encodeURIComponent(documentId)}/shares`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            recipient: data.get("recipient"),
-            recipientType,
-            duration,
-            ...(duration === "custom"
-              ? { expiresAt: new Date(custom).toISOString() }
-              : {}),
-          }),
+          body,
         },
       );
       form.reset();
       setRecipient("");
+      setPreview(null);
       setMessage(
         result.emailSent
           ? t("Partagé ; e-mail envoyé.", "Shared; email sent.")
@@ -189,7 +211,9 @@ export function SensitiveShare({
           {t("Type de destinataire", "Recipient type")}
           <select
             value={recipientType}
+            disabled={busy}
             onChange={(event) => {
+              setPreview(null);
               setRecipientType(event.target.value as "user" | "group");
               setRecipient("");
               setSuggestions([]);
@@ -213,13 +237,17 @@ export function SensitiveShare({
               )}
           <input
             name="recipient"
+            disabled={busy}
             required
             minLength={3}
             maxLength={254}
             autoComplete="off"
             list="sensitive-recipient-suggestions"
             value={recipient}
-            onChange={(event) => setRecipient(event.target.value)}
+            onChange={(event) => {
+              setRecipient(event.target.value);
+              setPreview(null);
+            }}
           />
           <datalist id="sensitive-recipient-suggestions">
             {suggestions.map((user) => (
@@ -244,7 +272,11 @@ export function SensitiveShare({
           {t("Durée d’accès", "Access duration")}
           <select
             value={duration}
-            onChange={(event) => setDuration(event.target.value)}
+            disabled={busy}
+            onChange={(event) => {
+              setDuration(event.target.value);
+              setPreview(null);
+            }}
           >
             <option value="24h">{t("24 heures", "24 hours")}</option>
             <option value="7d">{t("7 jours", "7 days")}</option>
@@ -257,12 +289,47 @@ export function SensitiveShare({
         {duration === "custom" && (
           <label>
             {t("Expire le", "Expires on")}
-            <input name="expiresAt" type="datetime-local" required />
+            <input
+              name="expiresAt"
+              type="datetime-local"
+              disabled={busy}
+              required
+              onChange={() => setPreview(null)}
+            />
           </label>
         )}
         <button className="primary" disabled={busy}>
-          {t("Partager", "Share")}
+          {recipientType === "group"
+            ? preview?.key.startsWith(`${documentId}:`)
+              ? t("Confirmer le partage", "Confirm sharing")
+              : t("Prévisualiser les destinataires", "Preview recipients")
+            : t("Partager", "Share")}
         </button>
+        {recipientType === "group" &&
+          preview?.key.startsWith(`${documentId}:`) && (
+            <div role="status">
+              <strong>
+                {preview.recipient} — {preview.emailCount}{" "}
+                {t("destinataires e-mail", "email recipients")}
+              </strong>
+              <p>
+                {t(
+                  "Aucun partage ni e-mail n’a encore été créé. Les droits restent liés à l’appartenance au groupe ; la liste peut évoluer. Aperçu limité à 10 adresses.",
+                  "No share or email has been created yet. Access remains tied to group membership; the list may change. Preview limited to 10 addresses.",
+                )}
+              </p>
+              <ul>
+                {preview.recipients.map((email) => (
+                  <li key={email}>{email}</li>
+                ))}
+              </ul>
+              <p>
+                {preview.expiresAt
+                  ? new Date(preview.expiresAt).toLocaleString(locale)
+                  : t("À vie", "Lifetime")}
+              </p>
+            </div>
+          )}
       </form>
       {message && <p role="status">{message}</p>}
       <ul className="plain-list">

@@ -86,6 +86,67 @@ function fixture({ shared = false, manager = false } = {}) {
 }
 
 describe("sensitive documents: named access only", () => {
+  it("previews at most ten group email recipients without creating shares or sending messages", async () => {
+    const f = fixture({ manager: true });
+    const emails = Array.from(
+      { length: 12 },
+      (_, i) => `reader${i}@example.test`,
+    );
+    const directory = {
+      searchGroups: vi.fn().mockResolvedValue([
+        {
+          name: "Finance",
+          distinguishedName: "CN=Finance",
+          connectionId: "ldap",
+        },
+      ]),
+      emailsForGroup: vi.fn().mockResolvedValue([...emails, emails[0]]),
+    };
+    const alerts = { sendPreferredTo: vi.fn() };
+    const controller = new SensitiveController(
+      f.prisma as never,
+      f.audit as never,
+      f.authorization as never,
+      alerts as never,
+      directory as never,
+    );
+    const preview = await controller.sharePreview(req, "document", {
+      recipient: "Finance",
+      recipientType: "group",
+      duration: "7d",
+    });
+    expect(preview).toMatchObject({
+      recipient: "Finance",
+      emailCount: 12,
+      recipients: emails.slice(0, 10),
+      expiresAt: expect.any(Date),
+    });
+    expect(f.prisma.$transaction).not.toHaveBeenCalled();
+    expect(alerts.sendPreferredTo).not.toHaveBeenCalled();
+    expect(f.audit.record).not.toHaveBeenCalled();
+  });
+
+  it("does not expose group addresses to an unauthorized sensitive-document reader", async () => {
+    const f = fixture();
+    const directory = { searchGroups: vi.fn(), emailsForGroup: vi.fn() };
+    const controller = new SensitiveController(
+      f.prisma as never,
+      f.audit as never,
+      f.authorization as never,
+      {} as never,
+      directory as never,
+    );
+    await expect(
+      controller.sharePreview(req, "document", {
+        recipient: "Finance",
+        recipientType: "group",
+        duration: "7d",
+      }),
+    ).rejects.toThrow();
+    expect(directory.searchGroups).not.toHaveBeenCalled();
+    expect(directory.emailsForGroup).not.toHaveBeenCalled();
+  });
+
   it("matches only the caller or their authenticated AD groups, keeping expiry and revocation", () => {
     const now = new Date();
     expect(

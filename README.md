@@ -31,6 +31,15 @@ fait foi.
 
 ## Dernières nouveautés
 
+### Filtres et confirmations documentaires (10 novembre 2026)
+
+- Filtre **Liens / Vidéos**, combinable avec la langue et les droits d'accès.
+- Prévisualisation des destinataires e-mail d'un groupe AD avant confirmation
+  du partage sensible : aucune invitation n'est envoyée pendant l'aperçu.
+- Récapitulatif de publication commun au portail, aux administrateurs et aux
+  modérateurs : titre, langues, emplacement et politique de notification.
+  Voir [la procédure](docs/document-management.md#filtres-et-confirmations).
+
 ### Liens SharePoint et documents sensibles (10 novembre 2026)
 
 - Création d'un fichier ou d'un lien/vidéo SharePoint depuis le portail,

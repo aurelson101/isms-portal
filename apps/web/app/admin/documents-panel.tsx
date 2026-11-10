@@ -47,6 +47,7 @@ import {
   ExternalSourceFields,
 } from "../document-source-fields";
 import { SensitiveShare } from "../sensitive-share";
+import { publicationSummary } from "../publication-summary";
 import { SensitivityToggle } from "../sensitive-controls";
 
 export function DocumentsPanel({
@@ -242,7 +243,9 @@ export function DocumentsPanel({
     try {
       if (
         !(await confirmAction(
-          `${t("État")} : ${statusLabel(document.status)} → ${statusLabel(status)} ?`,
+          status === "PUBLISHED"
+            ? publicationSummary(document, locale)
+            : `${t("État")} : ${statusLabel(document.status)} → ${statusLabel(status)} ?`,
         ))
       )
         return;

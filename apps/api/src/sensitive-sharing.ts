@@ -150,16 +150,25 @@ export const expiryLabel = (expiresAt: Date | null) =>
     ? `until ${expiresAt.toISOString().replace("T", " ").slice(0, 16)} UTC`
     : "with no expiry date (until revoked)";
 
+async function recipientGroup(directory: DirectoryService, value: string) {
+  const name = normalizeIdentity(value);
+  if (name.length > 120)
+    throw new BadRequestException("AD group name is too long");
+  const groups = (await directory.searchGroups(name)).filter(
+    (group) => normalizeIdentity(group.name) === name,
+  );
+  if (groups.length !== 1)
+    throw new BadRequestException("Select one unambiguous AD group");
+  return groups[0];
+}
+
 async function mailFor(directory: DirectoryService, identity: string) {
   if (identity.startsWith(GROUP_RECIPIENT_PREFIX)) {
     const name = identity.slice(GROUP_RECIPIENT_PREFIX.length);
-    const groups = (await directory.searchGroups(name)).filter(
-      (group) => normalizeIdentity(group.name) === name,
-    );
-    if (groups.length !== 1) return [];
+    const group = await recipientGroup(directory, name);
     return directory.emailsForGroup(
-      groups[0].distinguishedName,
-      groups[0].connectionId,
+      group.distinguishedName,
+      group.connectionId,
     );
   }
   if (identity.includes("@")) return [identity];
@@ -417,6 +426,33 @@ export class SensitiveController {
     return rows.map(shareRow);
   }
 
+  @Post("documents/:id/share-preview")
+  async sharePreview(
+    @Req() req: IsmsRequest,
+    @Param("id") id: string,
+    @Body() body: ShareDto,
+  ) {
+    await this.sharableDocument(req, id);
+    if (body.recipientType !== "group")
+      throw new BadRequestException("An AD group is required");
+    const expiresAt = resolveExpiry(body);
+    const group = await recipientGroup(this.directory, body.recipient);
+    const emails = [
+      ...new Set(
+        await this.directory.emailsForGroup(
+          group.distinguishedName,
+          group.connectionId,
+        ),
+      ),
+    ];
+    return {
+      recipient: group.name,
+      emailCount: emails.length,
+      recipients: emails.slice(0, 10),
+      expiresAt,
+    };
+  }
+
   @Post("documents/:id/shares")
   async share(
     @Req() req: IsmsRequest,
@@ -426,14 +462,8 @@ export class SensitiveController {
     const document = await this.sharableDocument(req, id);
     let recipient = normalizeIdentity(body.recipient);
     if (body.recipientType === "group") {
-      if (recipient.length > 120)
-        throw new BadRequestException("AD group name is too long");
-      const groups = (await this.directory.searchGroups(recipient)).filter(
-        (group) => normalizeIdentity(group.name) === recipient,
-      );
-      if (groups.length !== 1)
-        throw new BadRequestException("Select one unambiguous AD group");
-      recipient = groupRecipient(groups[0].name);
+      const group = await recipientGroup(this.directory, recipient);
+      recipient = groupRecipient(group.name);
     } else if (
       /\s/u.test(recipient) ||
       recipient.startsWith(GROUP_RECIPIENT_PREFIX)
