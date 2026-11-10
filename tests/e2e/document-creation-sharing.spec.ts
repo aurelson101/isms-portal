@@ -58,6 +58,19 @@ async function mockApi(page: Page, role: "reader" | "moderator" | "admin") {
       });
     if (pathname === "/api/admin/spaces")
       return route.fulfill({ json: [space] });
+    if (pathname === "/api/sensitive/directory-groups")
+      return route.fulfill({ json: [{ name: "Finance" }] });
+    if (
+      pathname === "/api/sensitive/documents/sensitive-document/share-preview"
+    )
+      return route.fulfill({
+        json: {
+          recipient: "Finance",
+          emailCount: 2,
+          recipients: ["first@example.test", "second@example.test"],
+          expiresAt: null,
+        },
+      });
     if (pathname === "/api/sensitive/me")
       return route.fulfill({ json: { depositor: true, canMark: true } });
     if (
@@ -90,7 +103,11 @@ async function mockApi(page: Page, role: "reader" | "moderator" | "admin") {
           ? [
               {
                 id: "share",
-                recipient: "recipient@example.test",
+                recipient: String(
+                  shared[shared.length - 1]?.recipient ||
+                    "recipient@example.test",
+                ),
+                recipientType: shared[shared.length - 1]?.recipientType,
                 createdBy: "editor@example.test",
                 expiresAt: new Date(Date.now() + 86400000).toISOString(),
                 state: "active",
@@ -153,9 +170,10 @@ for (const role of ["reader", "moderator", "admin"] as const) {
         })
         .fill(url);
       await expect(form.locator(".sharepoint-video-player")).toHaveCount(1);
+      await expect(form.locator(".sharepoint-video-player")).toBeVisible();
       await expect(
         form.getByRole("link", { name: "Open in SharePoint" }),
-      ).toHaveAttribute("href", url);
+      ).toHaveCount(0);
       await form
         .getByRole("checkbox", {
           name:
@@ -188,36 +206,72 @@ for (const role of ["reader", "moderator", "admin"] as const) {
 }
 
 for (const role of ["admin", "moderator"] as const) {
-  test(`${role} can select a sensitive document, share it by name and revoke access`, async ({
-    page,
-  }) => {
-    const state = await mockApi(page, role);
-    await page.goto(
-      role === "admin" ? "/admin#sensitive" : "/moderator#moderator-sensitive",
-    );
-    const manager = page.locator(".sensitive-document-manager");
-    await manager
-      .getByRole("combobox", { name: "Document", exact: true })
-      .selectOption("sensitive-document");
-    await manager
-      .locator("summary")
-      .filter({ hasText: "Share this sensitive document" })
-      .click();
-    await manager
-      .locator('input[name="recipient"]')
-      .fill("recipient@example.test");
-    await manager.getByRole("button", { name: "Share", exact: true }).click();
-    await expect.poll(() => state.shared.length).toBe(1);
-    expect(state.shared[0]).toEqual({
-      recipient: "recipient@example.test",
-      duration: "7d",
+  for (const recipientType of ["user", "group"] as const) {
+    test(`${role} can select a sensitive document, share it by ${recipientType} and revoke access`, async ({
+      page,
+    }) => {
+      const state = await mockApi(page, role);
+      await page.goto(
+        role === "admin"
+          ? "/admin#sensitive"
+          : "/moderator#moderator-sensitive",
+      );
+      const manager = page.locator(".sensitive-document-manager");
+      await manager
+        .getByRole("combobox", { name: "Document", exact: true })
+        .selectOption("sensitive-document");
+      await manager
+        .locator("summary")
+        .filter({ hasText: "Share this sensitive document" })
+        .click();
+      const recipient =
+        recipientType === "group" ? "Finance" : "recipient@example.test";
+      await manager
+        .getByRole("combobox", { name: "Recipient type", exact: true })
+        .selectOption(recipientType);
+      await manager.locator('input[name="recipient"]').fill(recipient);
+      if (recipientType === "group") {
+        await manager
+          .getByRole("button", { name: "Preview recipients", exact: true })
+          .click();
+        await expect(
+          manager.getByRole("button", { name: "Confirm sharing", exact: true }),
+        ).toBeVisible();
+        expect(state.shared).toHaveLength(0);
+        await expect(manager.getByRole("status")).toContainText(
+          "2 email recipients",
+        );
+        await manager
+          .getByRole("combobox", { name: "Access duration", exact: true })
+          .selectOption("30d");
+        await expect(
+          manager.getByRole("button", { name: "Confirm sharing", exact: true }),
+        ).toHaveCount(0);
+        await manager
+          .getByRole("button", { name: "Preview recipients", exact: true })
+          .click();
+        await manager
+          .getByRole("button", { name: "Confirm sharing", exact: true })
+          .click();
+      } else
+        await manager
+          .getByRole("button", { name: "Share", exact: true })
+          .click();
+      await expect.poll(() => state.shared.length).toBe(1);
+      expect(state.shared[0]).toEqual({
+        recipient,
+        recipientType,
+        duration: recipientType === "group" ? "30d" : "7d",
+      });
+      await expect(manager.getByRole("status")).toContainText(
+        "Shared; email sent.",
+      );
+      await manager
+        .getByRole("button", { name: "Revoke", exact: true })
+        .click();
+      await expect(
+        manager.getByRole("button", { name: "Revoke", exact: true }),
+      ).toHaveCount(0);
     });
-    await expect(manager.getByRole("status")).toContainText(
-      "Shared; email sent.",
-    );
-    await manager.getByRole("button", { name: "Revoke", exact: true }).click();
-    await expect(
-      manager.getByRole("button", { name: "Revoke", exact: true }),
-    ).toHaveCount(0);
-  });
+  }
 }

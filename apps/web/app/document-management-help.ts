@@ -41,7 +41,14 @@ const videoHelp = {
   es: "Vídeos de SharePoint: al crear un documento, elija Enlace / vídeo de SharePoint, pegue el enlace HTTPS y compruebe la vista previa. El reproductor se adapta a la pantalla; la gestión documental permanece en un panel horizontal plegable. Use los controles del vídeo para pantalla completa o Abrir en el navegador, sin botón duplicado. Los enlaces ordinarios conservan su botón. Los idiomas disponibles proceden de la ficha del enlace; su versión se gestiona en el origen. Se requieren permisos de SharePoint, incluso con SSO de ISMS.",
   sk: "Videá SharePoint: pri vytváraní dokumentu vyberte Odkaz / video SharePoint, vložte odkaz HTTPS a skontrolujte náhľad. Prehrávač sa prispôsobí obrazovke; správa dokumentov zostáva v zbaliteľnom vodorovnom paneli. Na celú obrazovku alebo otvorenie v prehliadači použite ovládanie videa bez duplicitného tlačidla. Bežné odkazy si tlačidlo ponechávajú. Dostupné jazyky pochádzajú z údajov dokumentu; verzia sa spravuje pri zdroji. Povolenia SharePoint sú potrebné aj pri SSO ISMS.",
 };
+const workflowHelp = {
+  fr: "Liens / Vidéos : ce filtre de format conserve les filtres de langue et les ACL. Pour un groupe AD, Prévisualiser les destinataires montre le nombre d’adresses et dix exemples maximum, sans partager ni envoyer de message ; confirmez ensuite le partage. Avant publication, vérifiez le titre, les langues, l’emplacement et la politique de notification dans le récapitulatif. Annuler ne publie rien.",
+  en: "Links / Videos: this format filter preserves language filters and ACLs. For an AD group, Preview recipients shows the address count and up to ten examples without sharing or sending a message; confirm sharing afterwards. Before publication, check the title, languages, location and notification policy in the summary. Cancelling does not publish anything.",
+  es: "Enlaces / Vídeos: este filtro conserva los filtros de idioma y los permisos. Para un grupo AD, la vista previa muestra el número de direcciones y hasta diez ejemplos sin compartir ni enviar mensajes; confirme después. Antes de publicar, revise el título, los idiomas, la ubicación y las notificaciones. Cancelar no publica nada.",
+  sk: "Odkazy / Videá: filter zachováva jazykové filtre a oprávnenia. Náhľad príjemcov skupiny AD zobrazuje počet adries a najviac desať príkladov bez zdieľania a odoslania správy; zdieľanie potom potvrďte. Pred publikovaním skontrolujte názov, jazyky, umiestnenie a upozornenia. Zrušenie nič nepublikuje.",
+};
 export const documentManagementHelp = (locale: Locale) => [
+  workflowHelp[locale],
   viewHelp[locale],
   videoHelp[locale],
   ...paragraphs[locale],

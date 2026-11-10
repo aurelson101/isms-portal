@@ -1,4 +1,5 @@
 "use client";
+import { publicationSummary } from "../publication-summary";
 import { fetchWithTimeout as fetch, RequestTimeoutError } from "../http-client";
 import { loginDestination } from "../auth-navigation";
 import { uploadAttempt, type UploadAttempt } from "../upload-attempt";
@@ -380,7 +381,9 @@ export default function ModeratorPage() {
       editing ? "moderator-version-form" : "moderator-metadata-form",
     );
     form
-      ?.querySelector<HTMLElement>("select, input:not([type=hidden])")
+      ?.querySelector<HTMLElement>(
+        ".moderator-fields select, .moderator-fields input:not([type=hidden])",
+      )
       ?.focus({ preventScroll: true });
     form?.scrollIntoView({
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -409,6 +412,11 @@ export default function ModeratorPage() {
     name: "publish" | "archive" | "restore" | "delete",
   ) =>
     mutate(async () => {
+      if (name === "publish") {
+        const target = documents.find((item) => item.id === id);
+        if (!target || !window.confirm(publicationSummary(target, locale)))
+          return;
+      }
       const endpoint = await fetch(
         name === "delete"
           ? `/api/documents/${id}`

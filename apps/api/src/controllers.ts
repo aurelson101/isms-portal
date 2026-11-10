@@ -723,6 +723,9 @@ export class DocumentsController {
       ...(sensitive === "true" || sensitive === "false"
         ? { sensitive: sensitive === "true" }
         : {}),
+      ...(format.toLowerCase() === "link"
+        ? { externalUrl: { not: null }, versions: { none: {} } }
+        : {}),
       ...(selectedMime
         ? {
             versions: {
@@ -747,6 +750,7 @@ export class DocumentsController {
         metadata: true,
         externalUrl: true,
         status: true,
+        suppressEmailNotifications: true,
         sensitive: true,
         watermarkPosition: true,
         sensitiveShares: {

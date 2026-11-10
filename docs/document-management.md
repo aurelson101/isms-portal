@@ -270,6 +270,26 @@ droit de téléchargement ; les gestionnaires disposant des capacités de gestio
 du document conservent leur accès. Pour un lien sensible, ISMS protège l'accès au
 lien, sans chiffrer ni filigraner le fichier hébergé sur le site distant.
 
+## Filtres et confirmations
+
+Dans l'explorateur, choisir **Liens / Vidéos** dans le filtre de format pour
+afficher les documents constitués d'un lien sans fichier. Les filtres de langue,
+de catégorie, de favoris et les ACL continuent de s'appliquer avant pagination.
+
+Pour partager un document sensible avec un groupe AD, saisir son nom et la durée,
+puis choisir **Prévisualiser les destinataires**. L'aperçu indique le nombre
+d'adresses e-mail résolues et affiche au maximum dix adresses. Il ne crée aucun
+partage et n'envoie aucun message. Choisir **Confirmer le partage** pour appliquer
+le partage. Modifier le groupe ou la durée impose un nouvel aperçu. Le droit de
+lecture reste lié à l'appartenance au groupe ; les membres sans attribut e-mail
+peuvent ne pas être inclus dans le compteur des notifications.
+
+Avant une publication, vérifier le récapitulatif commun aux trois interfaces :
+titre, langues disponibles, espace/catégorie et notifications. Une confirmation
+annulée n'effectue aucune publication. Les notifications non supprimées restent
+soumises aux ACL, au workflow et à la configuration de messagerie ; le résumé
+ne constitue pas une preuve de réception d'e-mail.
+
 ## English quick reference
 
 Administrators and moderators share List/Windows document views, remembered in

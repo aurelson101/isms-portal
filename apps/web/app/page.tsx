@@ -61,6 +61,7 @@ import { SensitiveShare } from "./sensitive-share";
 import { SharedWithMe } from "./shared-with-me";
 import { ExternalLinkEditor } from "./external-link-editor";
 import { ExternalDocumentLink } from "./external-document-link";
+import { publicationSummary } from "./publication-summary";
 import {
   DocumentSourceChoice,
   ExternalSourceFields,
@@ -1438,6 +1439,11 @@ export function Portal({
     document: PortalDocument,
     action: "publish" | "archive" | "restore",
   ) => {
+    if (
+      action === "publish" &&
+      !window.confirm(publicationSummary(document, locale))
+    )
+      return;
     setActionError("");
     const response = await fetch(`/api/documents/${document.id}/${action}`, {
       method: "POST",
@@ -2574,6 +2580,16 @@ export function Portal({
                           <option value="pdf">PDF</option>
                           <option value="docx">Word</option>
                           <option value="xlsx">Excel</option>
+                          <option value="link">
+                            {
+                              {
+                                fr: "Liens / Vidéos",
+                                en: "Links / Videos",
+                                es: "Enlaces / Vídeos",
+                                sk: "Odkazy / Videá",
+                              }[locale]
+                            }
+                          </option>
                         </select>
                         <select
                           value={documentLanguage}
