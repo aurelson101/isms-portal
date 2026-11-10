@@ -5,6 +5,7 @@ import { prepareBrandLogo } from "./branding";
 import { fetchWithTimeout as fetch } from "./http-client";
 import { translate } from "./i18n/translate";
 import type { Locale } from "./i18n/locale";
+import { ExternalDocumentLink } from "./external-document-link";
 
 // Add, change or remove the external link (and small image) of an existing document.
 export function ExternalLinkEditor({
@@ -28,7 +29,10 @@ export function ExternalLinkEditor({
     setImage(undefined);
   }, [externalUrl, documentId]);
 
-  const save = async (body: { url: string | null; thumbnail?: string | null }) => {
+  const save = async (body: {
+    url: string | null;
+    thumbnail?: string | null;
+  }) => {
     setBusy(true);
     setMessage("");
     try {
@@ -49,7 +53,11 @@ export function ExternalLinkEditor({
             `HTTP ${response.status}`,
         );
       }
-      setMessage(body.url ? t("Enregistré.", "Saved.") : t("Lien retiré.", "Link removed."));
+      setMessage(
+        body.url
+          ? t("Enregistré.", "Saved.")
+          : t("Lien retiré.", "Link removed."),
+      );
       await onChanged();
     } catch (error) {
       setMessage((error as Error).message);
@@ -110,6 +118,15 @@ export function ExternalLinkEditor({
         )}
       </div>
       {message && <p role="status">{message}</p>}
+      {externalUrl && (
+        <div className="document-external-link">
+          <ExternalDocumentLink
+            url={externalUrl}
+            title={t("Aperçu du lien", "Link preview")}
+            locale={locale}
+          />
+        </div>
+      )}
     </fieldset>
   );
 }

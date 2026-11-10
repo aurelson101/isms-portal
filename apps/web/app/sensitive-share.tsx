@@ -8,6 +8,7 @@ import type { Locale } from "./i18n/locale";
 type Share = {
   id: string;
   recipient: string;
+  recipientType?: "user" | "group";
   createdBy: string;
   expiresAt: string | null;
   state: "active" | "expired" | "revoked";
@@ -31,9 +32,11 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 export function SensitiveShare({
   documentId,
   locale,
+  showUnavailable = false,
 }: {
   documentId: string;
   locale: Locale;
+  showUnavailable?: boolean;
 }) {
   const t = (fr: string, en: string) => translate(locale, fr, en);
   const [allowed, setAllowed] = useState(false);
@@ -42,30 +45,51 @@ export function SensitiveShare({
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [recipient, setRecipient] = useState("");
+  const [recipientType, setRecipientType] = useState<"user" | "group">("user");
   const [suggestions, setSuggestions] = useState<
     Array<{ displayName: string; email: string }>
   >([]);
 
   useEffect(() => {
     const term = recipient.trim();
-    if (!allowed || term.length < 2 || term.includes("@")) {
+    if (!allowed || term.length < 2) {
       setSuggestions([]);
       return;
     }
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      request<Array<{ displayName: string; email: string }>>(
-        `/api/sensitive/directory-users?q=${encodeURIComponent(term)}`,
+      request<Array<{ displayName?: string; email?: string; name?: string }>>(
+        `/api/sensitive/directory-${recipientType === "group" ? "groups" : "users"}?q=${encodeURIComponent(term)}`,
         { cache: "no-store" },
       )
-        .then((users) => !cancelled && setSuggestions(users))
-        .catch(() => !cancelled && setSuggestions([]));
+        .then(
+          (entries) =>
+            !cancelled &&
+            setSuggestions(
+              entries.map((entry) => ({
+                displayName: entry.displayName || entry.name || "",
+                email: entry.email || entry.name || "",
+              })),
+            ),
+        )
+        .catch(() => {
+          if (!cancelled) {
+            setSuggestions([]);
+            setMessage(
+              translate(
+                locale,
+                "Recherche AD indisponible. Réessayez.",
+                "AD search unavailable. Please retry.",
+              ),
+            );
+          }
+        });
     }, 300);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [recipient, allowed]);
+  }, [recipient, allowed, recipientType, locale]);
 
   const load = useCallback(async () => {
     try {
@@ -75,8 +99,9 @@ export function SensitiveShare({
           { cache: "no-store" },
         ),
       );
-    } catch {
+    } catch (failure) {
       setShares([]);
+      setMessage((failure as Error).message);
     }
   }, [documentId]);
   useEffect(() => {
@@ -89,7 +114,15 @@ export function SensitiveShare({
       })
       .catch(() => setAllowed(false));
   }, [load]);
-  if (!allowed) return null;
+  if (!allowed)
+    return showUnavailable ? (
+      <p>
+        {t(
+          "Le partage est réservé aux utilisateurs désignés dans Documents sensibles par un administrateur.",
+          "Sharing is limited to users designated by an administrator in Sensitive documents.",
+        )}
+      </p>
+    ) : null;
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -106,6 +139,7 @@ export function SensitiveShare({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             recipient: data.get("recipient"),
+            recipientType,
             duration,
             ...(duration === "custom"
               ? { expiresAt: new Date(custom).toISOString() }
@@ -152,10 +186,31 @@ export function SensitiveShare({
       </summary>
       <form className="admin-form" onSubmit={(event) => void submit(event)}>
         <label>
-          {t(
-            "Identifiant ou e-mail du destinataire",
-            "Recipient sign-in name or email",
-          )}
+          {t("Type de destinataire", "Recipient type")}
+          <select
+            value={recipientType}
+            onChange={(event) => {
+              setRecipientType(event.target.value as "user" | "group");
+              setRecipient("");
+              setSuggestions([]);
+              setMessage("");
+            }}
+          >
+            <option value="user">
+              {t("Utilisateur / e-mail", "User / email")}
+            </option>
+            <option value="group">
+              {t("Groupe Active Directory", "Active Directory group")}
+            </option>
+          </select>
+        </label>
+        <label>
+          {recipientType === "group"
+            ? t("Nom du groupe AD", "AD group name")
+            : t(
+                "Identifiant ou e-mail du destinataire",
+                "Recipient sign-in name or email",
+              )}
           <input
             name="recipient"
             required
@@ -174,6 +229,17 @@ export function SensitiveShare({
             ))}
           </datalist>
         </label>
+        <small>
+          {recipientType === "group"
+            ? t(
+                "Seuls les membres authentifiés du groupe sélectionné pourront lire le document pendant la durée choisie.",
+                "Only authenticated members of the selected group can read the document during the chosen period.",
+              )
+            : t(
+                "Saisissez un nom ou un e-mail pour rechercher dans l’AD, ou renseignez directement l’e-mail du compte ISMS.",
+                "Enter a name or email to search AD, or enter the ISMS account email directly.",
+              )}
+        </small>
         <label>
           {t("Durée d’accès", "Access duration")}
           <select
@@ -202,6 +268,8 @@ export function SensitiveShare({
       <ul className="plain-list">
         {shares.map((share) => (
           <li key={share.id}>
+            {share.recipientType === "group" &&
+              `${t("Groupe AD", "AD group")}: `}
             {share.recipient} —{" "}
             {share.expiresAt
               ? new Date(share.expiresAt).toLocaleString(locale)

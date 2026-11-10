@@ -238,6 +238,33 @@ builds, de la recette Docker isolée, de la performance et du contrôle des imag
 Un échec Prettier ou Knip bloque la publication ; il n'est pas ignoré. Le tag doit
 correspondre à la version de `package.json` et ne doit pas déjà exister.
 
+## Documents sensibles et liens SharePoint
+
+Dans le formulaire de dépôt du portail, de l'administration ou de l'espace
+modérateur, choisir **Fichier** ou **Lien / vidéo SharePoint**. Pour un lien,
+coller l'URL HTTPS SharePoint et vérifier l'aperçu avant de créer le brouillon.
+Publier ensuite le document depuis sa liste de gestion. Le lecteur propose la
+vidéo intégrée lorsqu'un lien compatible est reconnu, ainsi qu'une ouverture
+externe ; l'authentification et les permissions SharePoint restent applicables.
+
+Dans **Documents sensibles**, sélectionner un document publié puis ouvrir son
+partage. Choisir **Utilisateur / e-mail** pour rechercher un compte AD par nom ou
+e-mail, ou saisir l'e-mail du compte ISMS. Choisir **Groupe Active Directory**
+pour rechercher et sélectionner un groupe AD. Définir une durée ou une date
+d'expiration ; un partage peut également être révoqué avant cette échéance.
+
+Le partage de groupe accorde la consultation aux membres du groupe présents dans
+l'identité authentifiée utilisée par l'API, sans créer d'autorisations
+individuelles permanentes. Après une modification d'appartenance AD, les groupes
+de l'identité doivent être actualisés. Les groupes introuvables ou ambigus sont
+refusés. Les notifications sont adressées séparément aux membres ayant un e-mail.
+
+Les droits ordinaires de lecture ou de téléchargement sur l'espace ne suffisent
+pas pour lire un document sensible. Les destinataires autorisés consultent sans
+droit de téléchargement ; les gestionnaires disposant des capacités de gestion
+du document conservent leur accès. Pour un lien sensible, ISMS protège l'accès au
+lien, sans chiffrer ni filigraner le fichier hébergé sur le site distant.
+
 ## English quick reference
 
 Administrators and moderators share List/Windows document views, remembered in
