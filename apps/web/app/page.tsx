@@ -679,19 +679,25 @@ function DocumentRows({
             <span className="locales">
               {interfaceLocales
                 .filter((item) => available.includes(item))
-                .map((item) => (
-                  <button
-                    className={selected === item ? "selected" : ""}
-                    disabled={!available.includes(item)}
-                    title={
-                      !available.includes(item) ? t.unavailable : undefined
-                    }
-                    onClick={() => onLocale(document.id, item)}
-                    key={item}
-                  >
-                    {item.toUpperCase()}
-                  </button>
-                ))}
+                .map((item) =>
+                  document.externalUrl ? (
+                    <span className="document-language-label" key={item}>
+                      {item.toUpperCase()}
+                    </span>
+                  ) : (
+                    <button
+                      className={selected === item ? "selected" : ""}
+                      disabled={!available.includes(item)}
+                      title={
+                        !available.includes(item) ? t.unavailable : undefined
+                      }
+                      onClick={() => onLocale(document.id, item)}
+                      key={item}
+                    >
+                      {item.toUpperCase()}
+                    </button>
+                  ),
+                )}
             </span>
             <span className="document-row-actions">
               <button
@@ -3794,20 +3800,26 @@ export function Portal({
             <div className="modal-locales">
               {interfaceLocales
                 .filter((item) => openedLocales.includes(item))
-                .map((item) => (
-                  <button
-                    key={item}
-                    className={openedLocale === item ? "selected" : ""}
-                    onClick={() =>
-                      setSelectedLocales((current) => ({
-                        ...current,
-                        [opened.id]: item,
-                      }))
-                    }
-                  >
-                    {item.toUpperCase()}
-                  </button>
-                ))}
+                .map((item) =>
+                  opened.externalUrl ? (
+                    <span className="document-language-label" key={item}>
+                      {item.toUpperCase()}
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      className={openedLocale === item ? "selected" : ""}
+                      onClick={() =>
+                        setSelectedLocales((current) => ({
+                          ...current,
+                          [opened.id]: item,
+                        }))
+                      }
+                    >
+                      {item.toUpperCase()}
+                    </button>
+                  ),
+                )}
             </div>
             <ReaderInformation
               key={opened.id}

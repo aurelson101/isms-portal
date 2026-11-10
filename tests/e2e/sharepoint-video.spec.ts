@@ -1,6 +1,6 @@
 import { expect, test } from "./test";
 
-for (const [width, preview, locale, plainLink = false] of [
+for (const [width, preview, locale, plainLink = false, file = false] of [
   [390, true, "en"],
   [1440, true, "en"],
   [1440, true, "fr"],
@@ -8,8 +8,9 @@ for (const [width, preview, locale, plainLink = false] of [
   [844, true, "en"],
   [390, false, "en"],
   [390, true, "en", true],
+  [1440, true, "en", false, true],
 ] as const) {
-  test(`SharePoint player respects preview access at ${width}px (${preview}, ${locale}, ${plainLink})`, async ({
+  test(`SharePoint player respects preview access at ${width}px (${preview}, ${locale}, ${plainLink}, ${file})`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: width === 844 ? 390 : 1000 });
@@ -42,8 +43,15 @@ for (const [width, preview, locale, plainLink = false] of [
         { locale: "en", title: "Training video", description: "" },
         { locale: "fr", title: "Vidéo de formation", description: "" },
       ],
-      versions: [],
-      externalUrl: preview ? url : null,
+      versions: file
+        ? ["en", "fr"].map((language) => ({
+            id: language,
+            locale: language,
+            version: 1,
+            storedFile: { mimeType: "text/plain" },
+          }))
+        : [],
+      externalUrl: preview && !file ? url : null,
       permissions: { read: true, preview, download: false },
       favorite: false,
     };
@@ -97,6 +105,25 @@ for (const [width, preview, locale, plainLink = false] of [
       return route.fulfill({ json: path === "/api/branding" ? {} : [] });
     });
     await page.goto("/explorer");
+    const card = page.locator(".document").first();
+    if (file) {
+      await card
+        .locator(".locales")
+        .getByRole("button", { name: "FR", exact: true })
+        .click();
+      await expect(card.locator(".document-title")).toHaveText(
+        "Vidéo de formation",
+      );
+      await card
+        .locator(".locales")
+        .getByRole("button", { name: "EN", exact: true })
+        .click();
+      await expect(card.locator(".document-title")).toHaveText(
+        "Training video",
+      );
+      return;
+    }
+    await expect(card.locator(".locales button")).toHaveCount(0);
     await page
       .getByRole("button", {
         name: locale === "fr" ? "Vidéo de formation" : "Training video",
@@ -121,12 +148,9 @@ for (const [width, preview, locale, plainLink = false] of [
     }
     await expect(player).toBeVisible();
     const languages = page.locator(".modal-locales");
-    await expect(
-      languages.getByRole("button", { name: "EN", exact: true }),
-    ).toBeEnabled();
-    await expect(
-      languages.getByRole("button", { name: "FR", exact: true }),
-    ).toBeEnabled();
+    await expect(languages.getByText("EN", { exact: true })).toBeVisible();
+    await expect(languages.getByText("FR", { exact: true })).toBeVisible();
+    await expect(languages.getByRole("button")).toHaveCount(0);
     await expect(page.locator(".document-version-badge").first()).toHaveText(
       locale === "fr" ? "Lien" : "Link",
     );
@@ -134,11 +158,8 @@ for (const [width, preview, locale, plainLink = false] of [
     await expect(information).toContainText(
       locale === "fr" ? "Gérée à la source" : "Managed at source",
     );
-    await languages
-      .getByRole("button", { name: locale === "en" ? "FR" : "EN", exact: true })
-      .click();
     await expect(page.locator(".document-modal h2")).toHaveText(
-      locale === "en" ? "Vidéo de formation" : "Training video",
+      locale === "fr" ? "Vidéo de formation" : "Training video",
     );
     await expect(external).toHaveCount(0);
     const modal = page.locator(".document-modal");
