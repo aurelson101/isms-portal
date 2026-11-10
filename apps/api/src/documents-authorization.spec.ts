@@ -22,6 +22,7 @@ describe("DocumentsController ACL scoping", () => {
     .fn()
     .mockResolvedValue({ locale: "en", title: "Guide" });
   const upsertActivity = vi.fn().mockResolvedValue({});
+  const deleteTranslations = vi.fn().mockResolvedValue({ count: 1 });
   const upsertFavorite = vi.fn();
   const reviewFindMany = vi.fn().mockResolvedValue([]);
   const deleteReviews = vi.fn().mockResolvedValue({ count: 0 });
@@ -40,7 +41,10 @@ describe("DocumentsController ACL scoping", () => {
       findMany: categoryFindMany,
     },
     documentVersion: { findFirst: findVersion, update: updateVersion },
-    documentTranslation: { upsert: upsertTranslation },
+    documentTranslation: {
+      upsert: upsertTranslation,
+      deleteMany: deleteTranslations,
+    },
     userDocumentActivity: { upsert: upsertActivity },
     userFavorite: { upsert: upsertFavorite },
     documentReview: { findMany: reviewFindMany, deleteMany: deleteReviews },
@@ -77,6 +81,7 @@ describe("DocumentsController ACL scoping", () => {
   } as IsmsRequest;
 
   beforeEach(() => {
+    deleteTranslations.mockClear();
     auditRecord.mockClear();
     count.mockClear();
     findMany.mockClear();
@@ -597,11 +602,65 @@ describe("DocumentsController ACL scoping", () => {
       where: { id: "version-1" },
       data: { locale: "en" },
     });
+    expect(deleteTranslations).not.toHaveBeenCalled();
     expect(upsertTranslation).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({ locale: "en", title: "Guide" }),
       }),
     );
+  });
+
+  it("replaces stale languages when saving the language of a link without files", async () => {
+    findFirst.mockResolvedValue({
+      id: "doc-1",
+      spaceId: general.id,
+      categoryId: null,
+      updatedAt: new Date("2026-01-01"),
+      translations: [],
+      externalUrl: "https://example.test/training",
+      _count: { versions: 0 },
+    });
+    can.mockResolvedValue(true);
+    await controller.updateMetadata(request, "doc-1", {
+      locale: "fr",
+      title: "Formation",
+    });
+    expect(deleteTranslations).toHaveBeenCalledWith({
+      where: { documentId: "doc-1", locale: { not: "fr" } },
+    });
+    expect(upsertTranslation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ locale: "fr" }),
+      }),
+    );
+    expect(auditRecord).toHaveBeenCalledWith(
+      request,
+      "document.metadata.update",
+      "document:doc-1",
+      "success",
+      expect.objectContaining({
+        fields: expect.arrayContaining(["language"]),
+        removedLinkLanguages: 1,
+      }),
+    );
+  });
+
+  it("preserves actual file languages on a document that also has an external link", async () => {
+    findFirst.mockResolvedValue({
+      id: "doc-1",
+      spaceId: general.id,
+      categoryId: null,
+      updatedAt: new Date("2026-01-01"),
+      translations: [],
+      externalUrl: "https://example.test/training",
+      _count: { versions: 2 },
+    });
+    can.mockResolvedValue(true);
+    await controller.updateMetadata(request, "doc-1", {
+      locale: "fr",
+      title: "Formation",
+    });
+    expect(deleteTranslations).not.toHaveBeenCalled();
   });
 
   it("refuses to overwrite an existing version in the target language", async () => {

@@ -1386,6 +1386,8 @@ export class DocumentsController {
         categoryId: true,
         updatedAt: true,
         metadata: true,
+        externalUrl: true,
+        _count: { select: { versions: true } },
         translations: {
           where: { locale: body.locale },
           select: { title: true, description: true },
@@ -1484,6 +1486,10 @@ export class DocumentsController {
       Boolean(version && version.locale !== body.locale);
     const categoryChanged =
       body.categoryId !== undefined && body.categoryId !== document.categoryId;
+    const linkOnly = Boolean(
+      document.externalUrl && document._count.versions === 0,
+    );
+    let removedLinkLanguages = 0;
     const translation = await this.prisma.$transaction(async (tx) => {
       const metadata =
         body.metadata !== undefined
@@ -1515,6 +1521,12 @@ export class DocumentsController {
           where: { id: version.id },
           data: { locale: body.locale },
         });
+      if (linkOnly) {
+        const removed = await tx.documentTranslation.deleteMany({
+          where: { documentId: id, locale: { not: body.locale } },
+        });
+        removedLinkLanguages = removed.count;
+      }
       return tx.documentTranslation.upsert({
         where: { documentId_locale: { documentId: id, locale: body.locale } },
         update: { title, description },
@@ -1523,7 +1535,7 @@ export class DocumentsController {
     });
     await this.audit.record(
       req,
-      categoryChanged && !metadataChanged
+      categoryChanged && !metadataChanged && !removedLinkLanguages
         ? "document.category.update"
         : "document.metadata.update",
       `document:${id}`,
@@ -1533,11 +1545,14 @@ export class DocumentsController {
         fields: [
           existing?.title !== title ? "title" : "",
           existing?.description !== description ? "description" : "",
-          version && version.locale !== body.locale ? "language" : "",
+          (version && version.locale !== body.locale) || removedLinkLanguages
+            ? "language"
+            : "",
           categoryChanged ? "category" : "",
         ].filter(Boolean),
         versionId: version?.id,
         previousLocale: version?.locale,
+        ...(removedLinkLanguages ? { removedLinkLanguages } : {}),
         categoryId: body.categoryId,
         ...(categoryChanged ? { previousCategoryId: document.categoryId } : {}),
         ...(customFieldsChanged ? { metadataFields: fieldChanges } : {}),
