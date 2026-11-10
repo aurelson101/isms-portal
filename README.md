@@ -34,7 +34,9 @@ fait foi.
 ### Liens SharePoint et documents sensibles (10 novembre 2026)
 
 - Création d'un fichier ou d'un lien/vidéo SharePoint depuis le portail,
-  l'administration et l'espace modérateur ; lecteur intégré et ouverture externe.
+  l'administration et l'espace modérateur ; lecteur vidéo responsive, volet GED
+  horizontal et commandes intégrées pour le plein écran ou l'ouverture externe,
+  sans bouton en doublon. Les liens ordinaires conservent leur bouton d'ouverture.
 - Partage sensible par utilisateur/e-mail avec recherche AD, ou par groupe AD,
   avec expiration et révocation. Les ACL de lecture de l'espace seules ne donnent
   pas accès ; les gestionnaires autorisés conservent la gestion du document.

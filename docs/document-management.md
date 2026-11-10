@@ -244,8 +244,13 @@ Dans le formulaire de dépôt du portail, de l'administration ou de l'espace
 modérateur, choisir **Fichier** ou **Lien / vidéo SharePoint**. Pour un lien,
 coller l'URL HTTPS SharePoint et vérifier l'aperçu avant de créer le brouillon.
 Publier ensuite le document depuis sa liste de gestion. Le lecteur propose la
-vidéo intégrée lorsqu'un lien compatible est reconnu, ainsi qu'une ouverture
-externe ; l'authentification et les permissions SharePoint restent applicables.
+vidéo intégrée lorsqu'un lien compatible est reconnu. Sa taille s'adapte à
+l'écran et les outils GED restent dans un volet horizontal repliable. Utiliser
+les commandes de la vidéo pour le plein écran ou **Ouvrir dans le navigateur** ;
+aucun bouton d'ouverture supplémentaire n'est affiché. Les liens ordinaires
+conservent leur bouton externe. L'authentification et les permissions SharePoint
+restent applicables. Les boutons de langue utilisent les langues de la fiche ;
+pour un lien sans fichier, la version est indiquée **Gérée à la source**.
 
 Dans **Documents sensibles**, sélectionner un document publié puis ouvrir son
 partage. Choisir **Utilisateur / e-mail** pour rechercher un compte AD par nom ou
