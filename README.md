@@ -31,6 +31,16 @@ fait foi.
 
 ## Dernières nouveautés
 
+### Liens SharePoint et documents sensibles (10 novembre 2026)
+
+- Création d'un fichier ou d'un lien/vidéo SharePoint depuis le portail,
+  l'administration et l'espace modérateur ; lecteur intégré et ouverture externe.
+- Partage sensible par utilisateur/e-mail avec recherche AD, ou par groupe AD,
+  avec expiration et révocation. Les ACL de lecture de l'espace seules ne donnent
+  pas accès ; les gestionnaires autorisés conservent la gestion du document.
+- Les permissions SharePoint restent nécessaires pour les contenus externes.
+  Voir [la procédure de partage](docs/document-management.md#documents-sensibles-et-liens-sharepoint).
+
 ### Préversion v0.9.63-rc.2 (31 octobre 2026)
 
 - Menus **Métadonnées GED** dédiés aux administrateurs et modérateurs, avec
@@ -967,7 +977,7 @@ Attribut email       mail
 ### LDAP
 
 Sélectionner `LDAP`, généralement sur TCP/389, laisser le certificat CA vide,
-puis saisir chaque contrôleur sous forme d’adresse IP (`10.1.1.4`) ou de nom
+puis saisir chaque contrôleur sous forme d’adresse IP (`192.0.2.10`) ou de nom
 d’hôte. LDAP transmet le bind sans protection TLS : il ne doit être utilisé que
 sur un réseau isolé et maîtrisé. Préférer LDAPS.
 

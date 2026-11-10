@@ -5,6 +5,7 @@ import { DocumentMetadataFields } from "../document-metadata-fields";
 import { LanguageSelect } from "../language-controls";
 import { SensitivityToggle } from "../sensitive-controls";
 import { ExternalLinkEditor } from "../external-link-editor";
+import { SensitiveShare } from "../sensitive-share";
 
 import type { Locale, DocumentLocale } from "../i18n/locale";
 import {
@@ -57,9 +58,19 @@ export function MetadataForm({
       <SensitivityToggle
         documentId={document.id}
         sensitive={Boolean(document.sensitive)}
+        linkOnly={
+          Boolean(document.externalUrl) && document.versions.length === 0
+        }
         locale={actions.locale}
         onChanged={onSensitivityChanged}
       />
+      {document.sensitive && document.status === "PUBLISHED" && (
+        <SensitiveShare
+          documentId={document.id}
+          locale={actions.locale}
+          showUnavailable
+        />
+      )}
       <form
         onInput={actions.onDirty}
         onSubmit={(event) => {

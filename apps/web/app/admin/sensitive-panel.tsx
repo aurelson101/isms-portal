@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api } from "./api-client";
 import { translate } from "../i18n/translate";
 import type { Locale } from "../i18n/locale";
+import { SensitiveDocumentManager } from "../sensitive-document-manager";
 
 type Depositor = {
   id: string;
@@ -66,7 +67,14 @@ export function SensitivePanel({
         .then((users) => {
           if (cancelled) return;
           setMatches(users.slice(0, 8));
-          setSearchNote(users.length ? "" : t("Aucun résultat dans l’annuaire.", "No match in the directory."));
+          setSearchNote(
+            users.length
+              ? ""
+              : t(
+                  "Aucun résultat dans l’annuaire.",
+                  "No match in the directory.",
+                ),
+          );
         })
         .catch((error: Error) => {
           if (cancelled) return;
@@ -159,7 +167,10 @@ export function SensitivePanel({
       </p>
       <form className="admin-form" onSubmit={(event) => void add(event)}>
         <label>
-          {t("Rechercher dans l’annuaire (nom, identifiant) ou saisir un e-mail", "Search the directory (name, sign-in) or type an email")}
+          {t(
+            "Rechercher dans l’annuaire (nom, identifiant) ou saisir un e-mail",
+            "Search the directory (name, sign-in) or type an email",
+          )}
           <input
             name="identity"
             required
@@ -187,7 +198,11 @@ export function SensitivePanel({
                 </button>
               </li>
             ))}
-            {searchNote && <li><small>{searchNote}</small></li>}
+            {searchNote && (
+              <li>
+                <small>{searchNote}</small>
+              </li>
+            )}
           </ul>
         )}
         <label>
@@ -205,6 +220,7 @@ export function SensitivePanel({
           </button>
         </div>
       </form>
+      <SensitiveDocumentManager locale={locale} />
       <h2>{t("Utilisateurs autorisés", "Authorised users")}</h2>
       {depositors.length === 0 ? (
         <p>{t("Aucun utilisateur désigné.", "No user designated.")}</p>

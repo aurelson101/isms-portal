@@ -28,6 +28,7 @@ import { AuthorizationService, type Permission } from "./authorization.service";
 import { AuditService } from "./audit.service";
 import { notifySubscribers, persistAudit } from "./audit-event";
 import { isAdminIdentity } from "./security";
+import { sensitiveDocumentAccess } from "./sensitive-sharing";
 import type { IsmsRequest } from "./types";
 import { versionLabel } from "./version-label";
 import {
@@ -115,8 +116,12 @@ export async function visibleDocument(
       permission,
       document.categoryId,
     );
-  const allowed =
-    document.status === "PUBLISHED"
+  const sensitiveAccess = document.sensitive
+    ? await sensitiveDocumentAccess(prisma, authorization, req, document)
+    : null;
+  const allowed = sensitiveAccess
+    ? sensitiveAccess.manage || sensitiveAccess.shared
+    : document.status === "PUBLISHED"
       ? await can("read")
       : (
           await Promise.all((["edit", "publish", "archive"] as const).map(can))

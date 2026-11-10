@@ -62,10 +62,13 @@ import {
 } from "./admin.dto";
 import { AuditService } from "./audit.service";
 import { validateArticleUrl } from "./articles.controller";
+import { createExternalDocument } from "./external-documents";
+import { canonicalDocumentSlug } from "./document-slug";
 import {
   activeShareWhere,
   assertCanMarkSensitive,
-  hasSensitiveShare,
+  sensitiveDocumentAccess,
+  normalizeIdentity,
 } from "./sensitive-sharing";
 import { validateBrandingLogo } from "./branding.controller";
 import { StorageService } from "./storage.service";
@@ -526,7 +529,7 @@ export class DocumentsController {
     const visibleSpaceIds = [
       ...new Set([...readableSpaceIds, ...managedSpaceIds]),
     ];
-    if (visibleSpaceIds.length === 0) return emptyResult;
+    if (visibleSpaceIds.length === 0 && managed === "true") return emptyResult;
     let selectedCategoryIds: string[] | undefined;
     const categoryIdIsUuid = Boolean(
       categoryId &&
@@ -619,7 +622,32 @@ export class DocumentsController {
     if (q && fullTextMatches.length === 0) return emptyResult;
     const where: Prisma.DocumentWhereInput = {
       deletedAt: null,
-      ...(metadataFilters.length ? { AND: metadataFilters } : {}),
+      AND: [
+        ...metadataFilters,
+        {
+          OR: [
+            { sensitive: false },
+            {
+              OR: permissionEntries
+                .filter(([permission]) =>
+                  ["edit", "publish", "archive"].includes(permission),
+                )
+                .map(([, records]) => categoryDocumentWhere(records)),
+            },
+            {
+              sensitive: true,
+              status: "PUBLISHED",
+              sensitiveShares: {
+                some: activeShareWhere(
+                  req.identity.username,
+                  new Date(),
+                  req.identity.groups,
+                ),
+              },
+            },
+          ],
+        },
+      ],
       ...(selectedStatus ? { status: selectedStatus } : {}),
       OR:
         managed === "true"
@@ -638,6 +666,18 @@ export class DocumentsController {
               },
             ]
           : [
+              {
+                status: "PUBLISHED",
+                sensitive: true,
+                sensitiveShares: {
+                  some: activeShareWhere(
+                    req.identity.username,
+                    new Date(),
+                    req.identity.groups,
+                  ),
+                },
+                ...(space ? { space: { slug: space, deletedAt: null } } : {}),
+              },
               {
                 status: "PUBLISHED",
                 spaceId: { in: readableSpaceIds },
@@ -695,6 +735,15 @@ export class DocumentsController {
         status: true,
         sensitive: true,
         watermarkPosition: true,
+        sensitiveShares: {
+          where: activeShareWhere(
+            req.identity.username,
+            new Date(),
+            req.identity.groups,
+          ),
+          select: { id: true },
+          take: 1,
+        },
         publishedAt: true,
         updatedAt: true,
         viewCount: true,
@@ -765,7 +814,7 @@ export class DocumentsController {
       take: paginated ? limit : 100,
     });
     const items = documents.map((document) => {
-      const permissions = Object.fromEntries(
+      let permissions = Object.fromEntries(
         permissionEntries.map(([permission, records]) => [
           permission,
           categoryAllowed(
@@ -774,20 +823,35 @@ export class DocumentsController {
           ),
         ]),
       );
+      if (
+        document.sensitive &&
+        !permissions.edit &&
+        !permissions.publish &&
+        !permissions.archive
+      ) {
+        permissions = Object.fromEntries(
+          permissionNames.map((permission) => [
+            permission,
+            permission === "preview" &&
+              Boolean(document.sensitiveShares?.length),
+          ]),
+        );
+      }
       return {
-      ...document,
-      // The link is the content: only readers allowed to preview receive it.
-      externalUrl: permissions.preview ? document.externalUrl : null,
-      favorite: document.favorites.length > 0,
-      permissions,
-      versions: document.versions.map((version) => ({
-        ...version,
-        storedFile: {
-          ...version.storedFile,
-          size: version.storedFile.size.toString(),
-        },
-      })),
-      favorites: undefined,
+        ...document,
+        sensitiveShares: undefined,
+        // The link is the content: only readers allowed to preview receive it.
+        externalUrl: permissions.preview ? document.externalUrl : null,
+        favorite: document.favorites.length > 0,
+        permissions,
+        versions: document.versions.map((version) => ({
+          ...version,
+          storedFile: {
+            ...version.storedFile,
+            size: version.storedFile.size.toString(),
+          },
+        })),
+        favorites: undefined,
       };
     });
     return paginated
@@ -805,22 +869,38 @@ export class DocumentsController {
   async addFavorite(@Req() req: IsmsRequest, @Param("id") id: string) {
     const document = await this.prisma.document.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true, spaceId: true, categoryId: true, status: true },
+      select: {
+        id: true,
+        spaceId: true,
+        categoryId: true,
+        status: true,
+        sensitive: true,
+      },
     });
-    const allowed = document
-      ? document.status === "PUBLISHED"
-        ? await this.authorization.can(
-            req.identity.groups,
-            document.spaceId,
-            "read",
-            document.categoryId ?? null,
-          )
-        : await this.canManageDocument(
-            req,
-            document.spaceId,
-            document.categoryId ?? null,
-          )
-      : false;
+    const sensitiveAccess = document?.sensitive
+      ? await sensitiveDocumentAccess(
+          this.prisma,
+          this.authorization,
+          req,
+          document,
+        )
+      : null;
+    const allowed = sensitiveAccess
+      ? sensitiveAccess.manage || sensitiveAccess.shared
+      : document
+        ? document.status === "PUBLISHED"
+          ? await this.authorization.can(
+              req.identity.groups,
+              document.spaceId,
+              "read",
+              document.categoryId ?? null,
+            )
+          : await this.canManageDocument(
+              req,
+              document.spaceId,
+              document.categoryId ?? null,
+            )
+        : false;
     if (!document || !allowed) throw new NotFoundException();
     await this.prisma.userFavorite.upsert({
       where: {
@@ -904,6 +984,23 @@ export class DocumentsController {
       { notify: false },
     );
     return { queued: true, documents: documentIds.length };
+  }
+
+  @Post("external")
+  async createExternal(
+    @Req() req: IsmsRequest,
+    @Body() body: ExternalDocumentDto,
+  ) {
+    if (
+      !(await this.authorization.can(
+        req.identity.groups,
+        body.spaceId,
+        "upload",
+        body.categoryId ?? null,
+      ))
+    )
+      throw new NotFoundException();
+    return createExternalDocument(this.prisma, this.audit, req, body);
   }
 
   @Post("upload")
@@ -1036,6 +1133,17 @@ export class DocumentsController {
               spaceId: body.spaceId,
               categoryId: body.categoryId || null,
               sensitive,
+              ...(sensitive
+                ? {
+                    sensitiveShares: {
+                      create: {
+                        recipient: normalizeIdentity(req.identity.username),
+                        createdBy: req.identity.username,
+                        expiresAt: null,
+                      },
+                    },
+                  }
+                : {}),
               watermarkPosition,
               suppressEmailNotifications,
               status: scan.status === "CLEAN" ? "DRAFT" : "QUARANTINED",
@@ -1152,7 +1260,12 @@ export class DocumentsController {
   ) {
     const document = await this.prisma.document.findFirst({
       where: { id, deletedAt: null },
-      select: { spaceId: true, categoryId: true, externalUrl: true, thumbnail: true },
+      select: {
+        spaceId: true,
+        categoryId: true,
+        externalUrl: true,
+        thumbnail: true,
+      },
     });
     const allowed =
       document &&
@@ -1202,7 +1315,9 @@ export class DocumentsController {
         status: true,
         watermarkPosition: true,
         externalUrl: true,
-        versions: { select: { storedFile: { select: { originalName: true } } } },
+        versions: {
+          select: { storedFile: { select: { originalName: true } } },
+        },
       },
     });
     const allowed =
@@ -1215,7 +1330,8 @@ export class DocumentsController {
       ));
     if (!document || !allowed) throw new NotFoundException();
     const position = parseWatermarkPosition(body.watermarkPosition);
-    if (body.sensitive === document.sensitive) return { sensitive: body.sensitive };
+    if (body.sensitive === document.sensitive)
+      return { sensitive: body.sensitive };
     if (body.sensitive) {
       for (const version of document.versions)
         assertSensitiveFormat(
@@ -1719,27 +1835,34 @@ export class DocumentsController {
         },
       },
     });
-    const shared =
-      document?.sensitive && document.status === "PUBLISHED"
-        ? await hasSensitiveShare(this.prisma, id, req.identity.username)
-        : false;
-    const canRead = document
-      ? shared ||
-        (await this.authorization.can(
-          req.identity.groups,
-          document.spaceId,
-          "read",
-          document.categoryId ?? null,
-        ))
-      : false;
+    const sensitiveAccess = document?.sensitive
+      ? await sensitiveDocumentAccess(
+          this.prisma,
+          this.authorization,
+          req,
+          document,
+        )
+      : null;
+    const shared = sensitiveAccess?.shared ?? false;
     const canManage =
-      document && document.status !== "PUBLISHED"
-        ? await this.canManageDocument(
+      document && (document.sensitive || document.status !== "PUBLISHED")
+        ? (sensitiveAccess?.manage ??
+          (await this.canManageDocument(
             req,
             document.spaceId,
             document.categoryId ?? null,
-          )
+          )))
         : false;
+    const canRead = document
+      ? document.sensitive
+        ? shared || canManage
+        : await this.authorization.can(
+            req.identity.groups,
+            document.spaceId,
+            "read",
+            document.categoryId ?? null,
+          )
+      : false;
     if (
       !document ||
       (document.status === "PUBLISHED" ? !canRead : !canManage)
@@ -1796,7 +1919,7 @@ export class DocumentsController {
     );
     // A share alone only allows viewing; it never grants download or edit rights.
     const permissions =
-      shared && !aclPermissions.preview
+      document.sensitive && !canManage
         ? {
             ...Object.fromEntries(permissionNames.map((name) => [name, false])),
             preview: true,
@@ -1827,28 +1950,47 @@ export class DocumentsController {
   ) {
     const document = await this.prisma.document.findFirst({
       where: { id, deletedAt: null, status: "PUBLISHED" },
-      select: { spaceId: true, categoryId: true, thumbnail: true },
+      select: {
+        id: true,
+        spaceId: true,
+        categoryId: true,
+        status: true,
+        sensitive: true,
+        thumbnail: true,
+      },
     });
     const image = document?.thumbnail
       ? /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/u.exec(
           document.thumbnail,
         )
       : null;
+    const sensitiveAccess = document?.sensitive
+      ? await sensitiveDocumentAccess(
+          this.prisma,
+          this.authorization,
+          req,
+          document,
+        )
+      : null;
     const allowed =
       document &&
       image &&
-      (await this.authorization.can(
-        req.identity.groups,
-        document.spaceId,
-        "preview",
-        document.categoryId ?? null,
-      ));
+      (sensitiveAccess
+        ? sensitiveAccess.manage || sensitiveAccess.shared
+        : await this.authorization.can(
+            req.identity.groups,
+            document.spaceId,
+            "preview",
+            document.categoryId ?? null,
+          ));
     if (!allowed || !image) throw new NotFoundException();
     response
       .type(image[1])
       .set({
         "X-Content-Type-Options": "nosniff",
-        "Cache-Control": "private, max-age=300",
+        "Cache-Control": document?.sensitive
+          ? "private, no-store"
+          : "private, max-age=300",
         "Content-Security-Policy": "default-src 'none'",
       })
       .send(Buffer.from(image[2], "base64"));
@@ -1916,19 +2058,26 @@ export class DocumentsController {
         },
       },
     });
-    const hasRequestedPermission = document
-      ? (await this.authorization.can(
+    const sensitiveAccess = document?.sensitive
+      ? await sensitiveDocumentAccess(
+          this.prisma,
+          this.authorization,
+          req,
+          document,
+        )
+      : null;
+    const aclPermission = document
+      ? await this.authorization.can(
           req.identity.groups,
           document.spaceId,
           permission,
           document.categoryId ?? null,
-        )) ||
-        // A named share grants read-only viewing of one published sensitive document.
-        (permission === "preview" &&
-          document.sensitive &&
-          document.status === "PUBLISHED" &&
-          (await hasSensitiveShare(this.prisma, id, req.identity.username)))
+        )
       : false;
+    const hasRequestedPermission = sensitiveAccess
+      ? (sensitiveAccess.manage && aclPermission) ||
+        (permission === "preview" && sensitiveAccess.shared)
+      : aclPermission;
     const canManage =
       document && document.status !== "PUBLISHED"
         ? await this.canManageDocument(
@@ -3602,17 +3751,6 @@ const isUtf8Text = (content: Buffer) => {
     return false;
   }
 };
-const canonicalDocumentSlug = (title: string, id: string) => {
-  const normalized = title
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 72);
-  return `${normalized || "document"}-${id.slice(0, 8)}`;
-};
-
 const magicMatches = (content: Buffer, extension: string) => {
   if (extension === ".pdf")
     return content.subarray(0, 5).toString() === "%PDF-";
@@ -3810,66 +3948,7 @@ export class DocumentAdminController {
     @Req() req: IsmsRequest,
     @Body() body: ExternalDocumentDto,
   ) {
-    if (!(supportedLanguages as readonly string[]).includes(body.locale))
-      throw new BadRequestException("Unsupported document language");
-    if (body.sensitive === true)
-      await assertCanMarkSensitive(this.prisma, req);
-    const externalUrl = validateArticleUrl(body.url);
-    const thumbnail = validateBrandingLogo(body.thumbnail, "thumbnail");
-    const [space, category] = await Promise.all([
-      this.prisma.documentSpace.findFirst({
-        where: { id: body.spaceId, deletedAt: null },
-      }),
-      body.categoryId
-        ? this.prisma.documentCategory.findFirst({
-            where: {
-              id: body.categoryId,
-              spaceId: body.spaceId,
-              deletedAt: null,
-            },
-          })
-        : Promise.resolve(null),
-    ]);
-    if (!space || (body.categoryId && !category))
-      throw new BadRequestException("Invalid space or category");
-    if (
-      await this.prisma.document.findFirst({
-        where: { spaceId: body.spaceId, externalUrl, deletedAt: null },
-        select: { id: true },
-      })
-    )
-      throw new ConflictException("This link already exists in this space");
-    const documentId = randomUUID();
-    const title = body.title.trim();
-    const document = await this.prisma.document.create({
-      data: {
-        id: documentId,
-        slug: canonicalDocumentSlug(title, documentId),
-        spaceId: body.spaceId,
-        categoryId: body.categoryId || null,
-        externalUrl,
-        thumbnail,
-        sensitive: body.sensitive === true,
-        suppressEmailNotifications: body.suppressEmailNotifications === true,
-        translations: {
-          create: {
-            locale: body.locale,
-            title,
-            description: body.description?.trim() || null,
-          },
-        },
-      },
-      include: { translations: true, versions: true },
-    });
-    await this.audit.record(
-      req,
-      "document.external.create",
-      `document:${documentId}`,
-      "success",
-      { locale: body.locale, host: new URL(externalUrl).host },
-      { notify: !document.suppressEmailNotifications },
-    );
-    return document;
+    return createExternalDocument(this.prisma, this.audit, req, body);
   }
 
   @Post()

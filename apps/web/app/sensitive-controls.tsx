@@ -20,17 +20,29 @@ function useSensitiveDepositor() {
 }
 
 // Checkbox for upload forms; only shown to designated users.
-export function SensitiveDepositOption({ locale }: { locale: Locale }) {
+export function SensitiveDepositOption({
+  locale,
+  external = false,
+}: {
+  locale: Locale;
+  external?: boolean;
+}) {
   const depositor = useSensitiveDepositor();
   if (!depositor) return null;
   return (
     <label className="check">
       <input name="sensitive" value="true" type="checkbox" />{" "}
-      {translate(
-        locale,
-        "Document sensible (filigrane, partage nominatif uniquement)",
-        "Sensitive document (watermarked, shared by name only)",
-      )}
+      {external
+        ? translate(
+            locale,
+            "Lien sensible (partage nominatif dans ISMS)",
+            "Sensitive link (named sharing in ISMS)",
+          )
+        : translate(
+            locale,
+            "Document sensible (filigrane, partage nominatif uniquement)",
+            "Sensitive document (watermarked, shared by name only)",
+          )}
     </label>
   );
 }
@@ -56,7 +68,7 @@ export function SensitivityToggle({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   useEffect(() => setChecked(sensitive), [sensitive, documentId]);
-  if (!depositor || linkOnly) return null;
+  if (!depositor) return null;
 
   const apply = async () => {
     setBusy(true);
@@ -100,12 +112,17 @@ export function SensitivityToggle({
           checked={checked}
           onChange={(event) => setChecked(event.target.checked)}
         />{" "}
-        {t(
-          "Document sensible (filigrane, partage nominatif uniquement)",
-          "Sensitive document (watermarked, shared by name only)",
-        )}
+        {linkOnly
+          ? t(
+              "Lien sensible (partage nominatif dans ISMS)",
+              "Sensitive link (named sharing in ISMS)",
+            )
+          : t(
+              "Document sensible (filigrane, partage nominatif uniquement)",
+              "Sensitive document (watermarked, shared by name only)",
+            )}
       </label>
-      {checked && (
+      {checked && !linkOnly && (
         <label>
           {t("Position du filigrane", "Watermark position")}
           <select

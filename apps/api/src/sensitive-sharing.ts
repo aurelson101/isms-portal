@@ -49,8 +49,18 @@ const durationDays: Record<string, number> = {
 export const normalizeIdentity = (value: string) => value.trim().toLowerCase();
 
 // A share is valid until revoked and, unless it is a lifetime share, until it expires.
-export const activeShareWhere = (identity: string, now = new Date()) => ({
-  recipient: normalizeIdentity(identity),
+const GROUP_RECIPIENT_PREFIX = "ad-group:";
+const groupRecipient = (name: string) =>
+  `${GROUP_RECIPIENT_PREFIX}${normalizeIdentity(name)}`;
+
+export const activeShareWhere = (
+  identity: string,
+  now = new Date(),
+  groups: string[] = [],
+) => ({
+  recipient: groups.length
+    ? { in: [normalizeIdentity(identity), ...groups.map(groupRecipient)] }
+    : normalizeIdentity(identity),
   revokedAt: null,
   OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
 });
@@ -90,13 +100,49 @@ export async function hasSensitiveShare(
   prisma: PrismaService,
   documentId: string,
   identity: string,
+  groups: string[] = [],
 ) {
   return Boolean(
     await prisma.sensitiveShare.findFirst({
-      where: { documentId, ...activeShareWhere(identity) },
+      where: { documentId, ...activeShareWhere(identity, new Date(), groups) },
       select: { id: true },
     }),
   );
+}
+
+// Space read/download ACLs alone never grant access to a sensitive document.
+export async function sensitiveDocumentAccess(
+  prisma: PrismaService,
+  authorization: AuthorizationService,
+  req: IsmsRequest,
+  document: {
+    id: string;
+    spaceId: string;
+    categoryId?: string | null;
+    status: string;
+  },
+) {
+  const rights = await Promise.all(
+    (["edit", "publish", "archive"] as const).map((permission) =>
+      authorization.can(
+        req.identity.groups,
+        document.spaceId,
+        permission,
+        document.categoryId ?? null,
+      ),
+    ),
+  );
+  const manage = rights.some(Boolean);
+  const shared =
+    !manage &&
+    document.status === "PUBLISHED" &&
+    (await hasSensitiveShare(
+      prisma,
+      document.id,
+      req.identity.username,
+      req.identity.groups,
+    ));
+  return { manage, shared };
 }
 
 export const expiryLabel = (expiresAt: Date | null) =>
@@ -105,8 +151,19 @@ export const expiryLabel = (expiresAt: Date | null) =>
     : "with no expiry date (until revoked)";
 
 async function mailFor(directory: DirectoryService, identity: string) {
-  if (identity.includes("@")) return identity;
-  return (await directory.emailsForIdentities([identity]))[0] || null;
+  if (identity.startsWith(GROUP_RECIPIENT_PREFIX)) {
+    const name = identity.slice(GROUP_RECIPIENT_PREFIX.length);
+    const groups = (await directory.searchGroups(name)).filter(
+      (group) => normalizeIdentity(group.name) === name,
+    );
+    if (groups.length !== 1) return [];
+    return directory.emailsForGroup(
+      groups[0].distinguishedName,
+      groups[0].connectionId,
+    );
+  }
+  if (identity.includes("@")) return [identity];
+  return directory.emailsForIdentities([identity]);
 }
 
 export async function sendSensitiveMail(
@@ -118,10 +175,23 @@ export async function sendSensitiveMail(
   link: string,
 ) {
   try {
-    const address = await mailFor(directory, identity);
-    if (!address) return false;
-    await alerts.sendPreferredTo([address], subject, text, link, "sensitive");
-    return true;
+    const addresses = await mailFor(directory, identity);
+    if (!addresses.length) return false;
+    let delivered = true;
+    for (const address of addresses) {
+      try {
+        await alerts.sendPreferredTo(
+          [address],
+          subject,
+          text,
+          link,
+          "sensitive",
+        );
+      } catch {
+        delivered = false;
+      }
+    }
+    return delivered;
   } catch {
     return false;
   }
@@ -139,7 +209,7 @@ export async function remindExpiringSensitiveShares(
       revokedAt: null,
       reminderSentAt: null,
       expiresAt: { gt: now, lte: new Date(now.getTime() + REMINDER_WINDOW) },
-      document: { deletedAt: null },
+      document: { deletedAt: null, sensitive: true, status: "PUBLISHED" },
     },
     select: {
       id: true,
@@ -157,7 +227,13 @@ export async function remindExpiringSensitiveShares(
   let sent = 0;
   for (const share of due) {
     const claimed = await prisma.sensitiveShare.updateMany({
-      where: { id: share.id, reminderSentAt: null },
+      where: {
+        id: share.id,
+        reminderSentAt: null,
+        revokedAt: null,
+        expiresAt: { gt: now },
+        document: { deletedAt: null, sensitive: true, status: "PUBLISHED" },
+      },
       data: { reminderSentAt: now },
     });
     if (claimed.count !== 1) continue;
@@ -171,6 +247,11 @@ export async function remindExpiringSensitiveShares(
       portalLink(`/documents/${encodeURIComponent(share.document.slug)}`),
     );
     if (delivered) sent += 1;
+    else
+      await prisma.sensitiveShare.updateMany({
+        where: { id: share.id, reminderSentAt: now },
+        data: { reminderSentAt: null },
+      });
   }
   return sent;
 }
@@ -182,6 +263,7 @@ export class DepositorDto {
 
 export class ShareDto {
   @IsString() @MinLength(3) @MaxLength(254) recipient!: string;
+  @IsOptional() @IsIn(["user", "group"]) recipientType?: "user" | "group";
   @IsIn(shareDurations) duration!: (typeof shareDurations)[number];
   @IsOptional() @IsISO8601() expiresAt?: string;
 }
@@ -209,7 +291,12 @@ const shareRow = (share: {
   revokedAt: Date | null;
 }) => ({
   id: share.id,
-  recipient: share.recipient,
+  recipient: share.recipient.startsWith(GROUP_RECIPIENT_PREFIX)
+    ? share.recipient.slice(GROUP_RECIPIENT_PREFIX.length)
+    : share.recipient,
+  recipientType: share.recipient.startsWith(GROUP_RECIPIENT_PREFIX)
+    ? "group"
+    : "user",
   createdBy: share.createdBy,
   createdAt: share.createdAt,
   expiresAt: share.expiresAt,
@@ -254,12 +341,25 @@ export class SensitiveController {
       .map((user) => ({ displayName: user.displayName, email: user.email }));
   }
 
+  @Get("directory-groups")
+  async directoryGroups(@Req() req: IsmsRequest, @Query("q") q = "") {
+    await assertSensitiveDepositor(this.prisma, req.identity.username);
+    if (typeof q !== "string" || q.trim().length < 2) return [];
+    return (await this.directory.searchGroups(q))
+      .slice(0, 8)
+      .map((group) => ({ name: group.name }));
+  }
+
   // Sensitive documents currently shared with the caller.
   @Get("shared-with-me")
   async sharedWithMe(@Req() req: IsmsRequest) {
     const rows = await this.prisma.sensitiveShare.findMany({
       where: {
-        ...activeShareWhere(req.identity.username),
+        ...activeShareWhere(
+          req.identity.username,
+          new Date(),
+          req.identity.groups,
+        ),
         document: { deletedAt: null, status: "PUBLISHED", sensitive: true },
       },
       orderBy: { createdAt: "desc" },
@@ -295,14 +395,13 @@ export class SensitiveController {
         translations: { select: { title: true }, take: 1 },
       },
     });
-    const allowed =
-      document &&
-      (await this.authorization.can(
-        req.identity.groups,
-        document.spaceId,
-        "preview",
-        document.categoryId ?? null,
-      ));
+    const access = document
+      ? await sensitiveDocumentAccess(this.prisma, this.authorization, req, {
+          ...document,
+          status: "PUBLISHED",
+        })
+      : null;
+    const allowed = access && (access.manage || access.shared);
     if (!document || !allowed) throw new NotFoundException();
     return document;
   }
@@ -325,8 +424,21 @@ export class SensitiveController {
     @Body() body: ShareDto,
   ) {
     const document = await this.sharableDocument(req, id);
-    const recipient = normalizeIdentity(body.recipient);
-    if (/\s/u.test(recipient)) throw new BadRequestException("Invalid recipient");
+    let recipient = normalizeIdentity(body.recipient);
+    if (body.recipientType === "group") {
+      if (recipient.length > 120)
+        throw new BadRequestException("AD group name is too long");
+      const groups = (await this.directory.searchGroups(recipient)).filter(
+        (group) => normalizeIdentity(group.name) === recipient,
+      );
+      if (groups.length !== 1)
+        throw new BadRequestException("Select one unambiguous AD group");
+      recipient = groupRecipient(groups[0].name);
+    } else if (
+      /\s/u.test(recipient) ||
+      recipient.startsWith(GROUP_RECIPIENT_PREFIX)
+    )
+      throw new BadRequestException("Invalid recipient");
     if (recipient === normalizeIdentity(req.identity.username))
       throw new BadRequestException("You already have access to this document");
     const expiresAt = resolveExpiry(body);
@@ -372,6 +484,11 @@ export class SensitiveController {
       where: { id: shareId },
     });
     if (!share) throw new NotFoundException();
+    if (
+      normalizeIdentity(share.createdBy) !==
+      normalizeIdentity(req.identity.username)
+    )
+      await this.sharableDocument(req, share.documentId);
     await this.prisma.sensitiveShare.updateMany({
       where: { id: share.id, revokedAt: null },
       data: { revokedAt: new Date() },

@@ -229,10 +229,10 @@ describe("DocumentsController ACL scoping", () => {
 
     expect(count).toHaveBeenCalledWith({
       where: expect.objectContaining({
-        OR: [
+        OR: expect.arrayContaining([
           expect.objectContaining({ status: "PUBLISHED", spaceId: { in: [] } }),
           expect.objectContaining({ spaceId: { in: ["space-it"] } }),
-        ],
+        ]),
       }),
     });
   });
@@ -342,13 +342,13 @@ describe("DocumentsController ACL scoping", () => {
     expect(count).toHaveBeenCalledWith({
       where: expect.objectContaining({
         status: "DRAFT",
-        OR: [
+        OR: expect.arrayContaining([
           expect.objectContaining({
             status: "PUBLISHED",
             spaceId: { in: ["space-general"] },
           }),
           expect.objectContaining({ spaceId: { in: [] } }),
-        ],
+        ]),
       }),
     });
   });
@@ -370,13 +370,13 @@ describe("DocumentsController ACL scoping", () => {
 
     expect(count).toHaveBeenCalledWith({
       where: expect.objectContaining({
-        OR: [
+        OR: expect.arrayContaining([
           expect.objectContaining({
             status: "PUBLISHED",
             spaceId: { in: ["space-it"] },
           }),
           expect.objectContaining({ spaceId: { in: ["space-it"] } }),
-        ],
+        ]),
         id: { in: ["document-it"] },
       }),
     });
@@ -427,13 +427,13 @@ describe("DocumentsController ACL scoping", () => {
     expect(count).toHaveBeenCalledWith({
       where: expect.objectContaining({
         favorites: { some: { identity: "acl-user@example.test" } },
-        OR: [
+        OR: expect.arrayContaining([
           expect.objectContaining({
             status: "PUBLISHED",
             spaceId: { in: ["space-general"] },
           }),
           expect.objectContaining({ spaceId: { in: [] } }),
-        ],
+        ]),
       }),
     });
   });
@@ -460,10 +460,10 @@ describe("DocumentsController ACL scoping", () => {
       where: expect.objectContaining({
         id: { in: ["metadata-match"] },
         favorites: { some: { identity: "acl-user@example.test" } },
-        OR: [
+        OR: expect.arrayContaining([
           expect.objectContaining({ spaceId: { in: ["space-general"] } }),
           expect.objectContaining({ spaceId: { in: [] } }),
-        ],
+        ]),
       }),
     });
   });

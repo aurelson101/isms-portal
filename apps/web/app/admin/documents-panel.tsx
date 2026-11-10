@@ -43,8 +43,11 @@ import {
 import { prepareBrandLogo } from "../branding";
 import { ExternalLinkEditor } from "../external-link-editor";
 import {
-  SensitivityToggle,
-} from "../sensitive-controls";
+  DocumentSourceChoice,
+  ExternalSourceFields,
+} from "../document-source-fields";
+import { SensitiveShare } from "../sensitive-share";
+import { SensitivityToggle } from "../sensitive-controls";
 
 export function DocumentsPanel({
   metadataOnly = false,
@@ -393,6 +396,13 @@ export function DocumentsPanel({
               ? t("Déposer une nouvelle version")
               : t("Déposer un document", "Upload a document")}
           </h2>
+          {!versionUploadDocument && (
+            <DocumentSourceChoice
+              external={externalOnly}
+              onChange={setExternalOnly}
+              locale={locale}
+            />
+          )}
           {versionUploadDocument && (
             <p className="notice">
               {t("Document sélectionné")}:{" "}
@@ -475,31 +485,8 @@ export function DocumentsPanel({
               placeholder={t("Décrivez ce qui change dans cette version.")}
             />
           </label>
-          {!versionUploadDocument && (
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={externalOnly}
-                onChange={(event) => setExternalOnly(event.target.checked)}
-              />{" "}
-              {t("Lien externe uniquement (sans fichier)")}
-            </label>
-          )}
           {externalOnly && !versionUploadDocument ? (
-            <>
-              <label>
-                {t("Lien externe (http ou https)")}
-                <input name="url" type="url" required maxLength={2000} />
-              </label>
-              <label>
-                {t("Petite image (facultative)")}
-                <input
-                  name="thumbnail"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                />
-              </label>
-            </>
+            <ExternalSourceFields locale={locale} />
           ) : (
             <>
               <label>
@@ -653,6 +640,10 @@ export function DocumentsPanel({
           <SensitivityToggle
             documentId={editingMetadataDocument.id}
             sensitive={editingMetadataDocument.sensitive}
+            linkOnly={
+              Boolean(editingMetadataDocument.externalUrl) &&
+              editingMetadataDocument.versions.length === 0
+            }
             locale={locale}
             onChanged={async () => {
               setEditingMetadataDocument(null);
@@ -660,6 +651,14 @@ export function DocumentsPanel({
               await onChanged();
             }}
           />
+          {editingMetadataDocument.sensitive &&
+            editingMetadataDocument.status === "PUBLISHED" && (
+              <SensitiveShare
+                documentId={editingMetadataDocument.id}
+                locale={locale}
+                showUnavailable
+              />
+            )}
           <DocumentMetadataFields
             t={t}
             disabled={savingMetadata}

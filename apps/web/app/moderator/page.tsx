@@ -27,6 +27,8 @@ import {
   type MetadataFilters,
 } from "../document-management-copy";
 import { BatchImport } from "../batch-import";
+import { DocumentDepositForm } from "../document-deposit-form";
+import { SensitiveDocumentManager } from "../sensitive-document-manager";
 import {
   documentFilters,
   documentPage as parseDocumentPage,
@@ -254,7 +256,13 @@ export default function ModeratorPage() {
     const selectSection = () => {
       const section = window.location.hash.replace(/^#moderator-/, "");
       setActiveSection(
-        ["documents", "metadata", "import", "permissions"].includes(section)
+        [
+          "documents",
+          "metadata",
+          "import",
+          "sensitive",
+          "permissions",
+        ].includes(section)
           ? section
           : "documents",
       );
@@ -568,6 +576,11 @@ export default function ModeratorPage() {
                     "upload",
                     t("Import de documents", "Document import"),
                   ],
+                  [
+                    "sensitive",
+                    "shield",
+                    t("Documents sensibles", "Sensitive documents"),
+                  ],
                 ],
               ],
               [
@@ -727,7 +740,9 @@ export default function ModeratorPage() {
             <strong className="moderator-current-section">
               {activeSection === "import"
                 ? t("Import de documents", "Document import")
-                : t("Mes droits documentaires", "My document permissions")}
+                : activeSection === "sensitive"
+                  ? t("Documents sensibles", "Sensitive documents")
+                  : t("Mes droits documentaires", "My document permissions")}
             </strong>
           )}
           <div
@@ -895,6 +910,13 @@ export default function ModeratorPage() {
           hidden={activeSection !== "import"}
           tabIndex={-1}
         >
+          <DocumentDepositForm
+            spaces={permissionsSpaces.filter(
+              (space) => space.permissions.upload,
+            )}
+            locale={locale}
+            onComplete={() => load(documentPage)}
+          />
           <BatchImport
             locale={locale}
             disabled={busy || Boolean(editing || metadataEditing)}
@@ -905,6 +927,9 @@ export default function ModeratorPage() {
             }}
           />
         </section>
+        {activeSection === "sensitive" && (
+          <SensitiveDocumentManager locale={locale} />
+        )}
         <div className="moderator-document-view" hidden={!documentView}>
           <DocumentSearchForm
             locale={locale}

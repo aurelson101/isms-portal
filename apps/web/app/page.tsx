@@ -60,6 +60,12 @@ import { ArticlesSection } from "./articles";
 import { SensitiveShare } from "./sensitive-share";
 import { SharedWithMe } from "./shared-with-me";
 import { ExternalLinkEditor } from "./external-link-editor";
+import { ExternalDocumentLink } from "./external-document-link";
+import {
+  DocumentSourceChoice,
+  ExternalSourceFields,
+} from "./document-source-fields";
+import { prepareBrandLogo } from "./branding";
 import {
   SensitiveDepositOption,
   SensitivityToggle,
@@ -251,7 +257,6 @@ function ExternalThumbnail({
   return failed ? (
     <>{fallback}</>
   ) : (
-    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={`/api/documents/${encodeURIComponent(id)}/thumbnail`}
       alt=""
@@ -819,6 +824,7 @@ export function Portal({
   const [editDescription, setEditDescription] = useState("");
   const [editMetadata, setEditMetadata] = useState<Record<string, string>>({});
   const [depositOpen, setDepositOpen] = useState(false);
+  const [depositExternal, setDepositExternal] = useState(false);
   const [actionError, setActionError] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [accessRefreshing, setAccessRefreshing] = useState(false);
@@ -2270,9 +2276,7 @@ export function Portal({
             </button>
           </div>
         )}
-        {!explorerMode && !reportsMode && (
-          <ArticlesSection label="Articles" />
-        )}
+        {!explorerMode && !reportsMode && <ArticlesSection label="Articles" />}
         {!explorerMode && !reportsMode && <SharedWithMe locale={locale} />}
         {!explorerMode && !reportsMode && (
           <section className="cards" aria-label={t.spaces}>
@@ -4030,19 +4034,11 @@ export function Portal({
                         )?.description
                       }
                     </p>
-                    <a
-                      className="primary-link"
-                      href={opened.externalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {translate(
-                        locale,
-                        "Ouvrir le lien externe",
-                        "Open external link",
-                      )}
-                    </a>
-                    <small>{new URL(opened.externalUrl).host}</small>
+                    <ExternalDocumentLink
+                      url={opened.externalUrl}
+                      title={titleFor(opened, openedLocale || locale)}
+                      locale={locale}
+                    />
                   </div>
                 )}
                 {openedVersion && opened.permissions.preview ? (
@@ -4580,6 +4576,9 @@ export function Portal({
               <SensitivityToggle
                 documentId={editing.id}
                 sensitive={editing.sensitive}
+                linkOnly={
+                  Boolean(editing.externalUrl) && editing.versions.length === 0
+                }
                 locale={locale}
                 onChanged={async () => {
                   setEditing(null);
@@ -4624,10 +4623,33 @@ export function Portal({
                 uploadInFlight.current = true;
                 let response: Response;
                 try {
-                  response = await fetch("/api/documents/upload", {
-                    method: "POST",
-                    body: uploadAttempt(data, uploadRetry),
-                  });
+                  if (depositExternal) {
+                    const image = data.get("thumbnail");
+                    response = await fetch("/api/documents/external", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        spaceId: selectedSpace.id,
+                        categoryId: data.get("categoryId") || undefined,
+                        locale: data.get("locale"),
+                        title: data.get("title"),
+                        description: data.get("description") || undefined,
+                        url: data.get("url"),
+                        thumbnail:
+                          image instanceof File && image.size
+                            ? await prepareBrandLogo(image)
+                            : null,
+                        sensitive: data.get("sensitive") === "true",
+                        suppressEmailNotifications:
+                          data.get("suppressEmailNotifications") === "true",
+                      }),
+                    });
+                  } else {
+                    response = await fetch("/api/documents/upload", {
+                      method: "POST",
+                      body: uploadAttempt(data, uploadRetry),
+                    });
+                  }
                 } catch (error) {
                   setActionError(
                     error instanceof Error ? error.message : t.depositError,
@@ -4686,18 +4708,32 @@ export function Portal({
                 {translate(locale, "Résumé des changements", "Change summary")}
                 <textarea name="changeSummary" maxLength={2000} />
               </label>
-              <label>
-                {t.file}
-                <input
-                  name="file"
-                  type="file"
-                  required
-                  accept={documentFileAccept}
-                />
-              </label>
-              <small>{t.acceptedFiles}</small>
-              <StorageSelect spaceId={selectedSpace.id} locale={locale} />
-              <SensitiveDepositOption locale={locale} />
+              <DocumentSourceChoice
+                external={depositExternal}
+                onChange={setDepositExternal}
+                locale={locale}
+              />
+              {depositExternal ? (
+                <ExternalSourceFields locale={locale} />
+              ) : (
+                <>
+                  <label>
+                    {t.file}
+                    <input
+                      name="file"
+                      type="file"
+                      required
+                      accept={documentFileAccept}
+                    />
+                  </label>
+                  <small>{t.acceptedFiles}</small>
+                  <StorageSelect spaceId={selectedSpace.id} locale={locale} />
+                </>
+              )}
+              <SensitiveDepositOption
+                locale={locale}
+                external={depositExternal}
+              />
               <label className="check">
                 <input
                   name="suppressEmailNotifications"
