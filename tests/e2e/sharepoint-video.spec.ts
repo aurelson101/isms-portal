@@ -1,15 +1,18 @@
 import { expect, test } from "./test";
 
-for (const [width, preview, locale] of [
+for (const [width, preview, locale, plainLink = false] of [
   [390, true, "en"],
   [1440, true, "en"],
   [1440, true, "fr"],
+  [2560, true, "en"],
+  [844, true, "en"],
   [390, false, "en"],
+  [390, true, "en", true],
 ] as const) {
-  test(`SharePoint player respects preview access at ${width}px (${preview}, ${locale})`, async ({
+  test(`SharePoint player respects preview access at ${width}px (${preview}, ${locale}, ${plainLink})`, async ({
     page,
   }) => {
-    await page.setViewportSize({ width, height: 1000 });
+    await page.setViewportSize({ width, height: width === 844 ? 390 : 1000 });
     await page.addInitScript(
       (language) => localStorage.setItem("isms-locale", language),
       locale,
@@ -22,8 +25,9 @@ for (const [width, preview, locale] of [
       categories: [],
       permissions: { read: true, search: true },
     };
-    const url =
-      "https://training.sharepoint.com/:v:/r/sites/Academy/Shared%20Documents/Training.mp4?d=w12345678123441238123123456789abc&web=1";
+    const url = plainLink
+      ? "https://example.test/guide"
+      : "https://training.sharepoint.com/:v:/r/sites/Academy/Shared%20Documents/Training.mp4?d=w12345678123441238123123456789abc&web=1";
     const document = {
       id: "video",
       slug: "training-video",
@@ -108,6 +112,13 @@ for (const [width, preview, locale] of [
       await expect(external).toHaveCount(0);
       return;
     }
+    if (plainLink) {
+      await expect(player).toHaveCount(0);
+      await expect(
+        page.getByRole("link", { name: "Open external link", exact: true }),
+      ).toHaveAttribute("href", url);
+      return;
+    }
     await expect(player).toBeVisible();
     const languages = page.locator(".modal-locales");
     await expect(
@@ -129,7 +140,16 @@ for (const [width, preview, locale] of [
     await expect(page.locator(".document-modal h2")).toHaveText(
       locale === "en" ? "Vidéo de formation" : "Training video",
     );
-    await expect(external).toHaveAttribute("href", url);
+    await expect(external).toHaveCount(0);
+    const modal = page.locator(".document-modal");
+    expect(
+      await modal.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth + 1,
+      ),
+    ).toBe(true);
+    const management = modal.locator(".document-ged-panel > summary");
+    if (await management.count())
+      await expect(management).toHaveCSS("writing-mode", "horizontal-tb");
     const bounds = await player.boundingBox();
     expect(bounds).not.toBeNull();
     expect(bounds!.width).toBeLessThanOrEqual(width);

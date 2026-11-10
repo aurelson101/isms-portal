@@ -4048,12 +4048,12 @@ export function Portal({
                 )}
                 {opened.externalUrl && opened.permissions.preview && (
                   <div className="document-external-link">
-                    <ExternalThumbnail id={opened.id} />
+                    <ExternalThumbnail id={opened.id} fallback="" />
                     <p>
                       {
                         (
                           opened.translations.find(
-                            (item) => item.locale === locale,
+                            (item) => item.locale === openedLocale,
                           ) || opened.translations[0]
                         )?.description
                       }

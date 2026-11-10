@@ -6,20 +6,16 @@ import { sharePointVideoEmbedUrl } from "./sharepoint-video";
 
 const playerCopy = {
   fr: {
-    open: "Ouvrir dans SharePoint",
-    help: "La vidéo nécessite vos autorisations SharePoint. Si elle ne se charge pas, ouvrez-la dans SharePoint pour vous connecter à Microsoft.",
+    help: "Utilisez les commandes du lecteur pour le plein écran ou « Ouvrir dans le navigateur ». Votre compte Microsoft doit être autorisé dans SharePoint.",
   },
   en: {
-    open: "Open in SharePoint",
-    help: "The video requires your SharePoint permissions. If it does not load, open it in SharePoint to sign in to Microsoft.",
+    help: "Use the player controls for full screen or Open in browser. Your Microsoft account must have access in SharePoint.",
   },
   es: {
-    open: "Abrir en SharePoint",
-    help: "El vídeo requiere sus permisos de SharePoint. Si no se carga, ábralo en SharePoint para iniciar sesión en Microsoft.",
+    help: "Use los controles del reproductor para pantalla completa o Abrir en el navegador. Su cuenta Microsoft debe tener acceso en SharePoint.",
   },
   sk: {
-    open: "Otvoriť v SharePointe",
-    help: "Video vyžaduje vaše povolenia v SharePointe. Ak sa nenačíta, otvorte ho v SharePointe a prihláste sa do Microsoftu.",
+    help: "Použite ovládanie prehrávača na celú obrazovku alebo otvorenie v prehliadači. Vaše konto Microsoft musí mať prístup v SharePointe.",
   },
 };
 
@@ -58,17 +54,19 @@ export function ExternalDocumentLink({
           <p className="muted">{copy.help}</p>
         </>
       )}
-      <a
-        className="primary-link"
-        href={source.href}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {player
-          ? copy.open
-          : translate(locale, "Ouvrir le lien externe", "Open external link")}
-      </a>
-      <small>{source.host}</small>
+      {!player && (
+        <>
+          <a
+            className="primary-link"
+            href={source.href}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {translate(locale, "Ouvrir le lien externe", "Open external link")}
+          </a>
+          <small>{source.host}</small>
+        </>
+      )}
     </>
   );
 }

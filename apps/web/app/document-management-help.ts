@@ -35,7 +35,14 @@ const viewHelp = {
   es: "Documentos y Metadatos: elija Lista o Ventanas. Ambas vistas muestran 20 documentos por página con Anterior/Siguiente, conservan los filtros y recuerdan la presentación en el navegador para administración y moderación.",
   sk: "Dokumenty a Metadáta: vyberte Zoznam alebo Okná. Oba pohľady zobrazujú 20 dokumentov na stránku s tlačidlami Späť/Ďalej, zachovávajú filtre a pamätajú si zobrazenie v prehliadači pre správu aj moderovanie.",
 };
+const videoHelp = {
+  fr: "Vidéos SharePoint : dans le dépôt, choisissez Lien / vidéo SharePoint, collez le lien HTTPS puis vérifiez l’aperçu. Le lecteur adapte sa taille à l’écran ; la gestion documentaire reste dans un volet horizontal repliable. Utilisez les commandes intégrées à la vidéo pour le plein écran ou Ouvrir dans le navigateur : aucun second bouton d’ouverture n’est ajouté. Les liens ordinaires conservent leur bouton. Les langues disponibles proviennent de la fiche du lien ; sa version est gérée à la source. Les permissions SharePoint restent nécessaires, même avec le SSO ISMS.",
+  en: "SharePoint videos: choose Link / SharePoint video when creating a document, paste the HTTPS link and check the preview. The player adapts to your screen; document management stays in a collapsible horizontal panel. Use the video’s controls for full screen or Open in browser: no duplicate open button is added. Ordinary links keep their button. Available languages come from the link’s document information; its version is managed at source. SharePoint permissions remain necessary, even with ISMS SSO.",
+  es: "Vídeos de SharePoint: al crear un documento, elija Enlace / vídeo de SharePoint, pegue el enlace HTTPS y compruebe la vista previa. El reproductor se adapta a la pantalla; la gestión documental permanece en un panel horizontal plegable. Use los controles del vídeo para pantalla completa o Abrir en el navegador, sin botón duplicado. Los enlaces ordinarios conservan su botón. Los idiomas disponibles proceden de la ficha del enlace; su versión se gestiona en el origen. Se requieren permisos de SharePoint, incluso con SSO de ISMS.",
+  sk: "Videá SharePoint: pri vytváraní dokumentu vyberte Odkaz / video SharePoint, vložte odkaz HTTPS a skontrolujte náhľad. Prehrávač sa prispôsobí obrazovke; správa dokumentov zostáva v zbaliteľnom vodorovnom paneli. Na celú obrazovku alebo otvorenie v prehliadači použite ovládanie videa bez duplicitného tlačidla. Bežné odkazy si tlačidlo ponechávajú. Dostupné jazyky pochádzajú z údajov dokumentu; verzia sa spravuje pri zdroji. Povolenia SharePoint sú potrebné aj pri SSO ISMS.",
+};
 export const documentManagementHelp = (locale: Locale) => [
   viewHelp[locale],
+  videoHelp[locale],
   ...paragraphs[locale],
 ];
