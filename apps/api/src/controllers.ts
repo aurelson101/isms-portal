@@ -624,6 +624,20 @@ export class DocumentsController {
       deletedAt: null,
       AND: [
         ...metadataFilters,
+        ...(selectedLocale && !selectedMime
+          ? [
+              {
+                OR: [
+                  { versions: { some: { locale: selectedLocale } } },
+                  {
+                    externalUrl: { not: null },
+                    versions: { none: {} },
+                    translations: { some: { locale: selectedLocale } },
+                  },
+                ],
+              },
+            ]
+          : []),
         {
           OR: [
             { sensitive: false },
@@ -709,7 +723,7 @@ export class DocumentsController {
       ...(sensitive === "true" || sensitive === "false"
         ? { sensitive: sensitive === "true" }
         : {}),
-      ...(selectedMime || selectedLocale
+      ...(selectedMime
         ? {
             versions: {
               some: {

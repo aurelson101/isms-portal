@@ -719,7 +719,7 @@ function DocumentRows({
               >
                 {t.open}
               </button>
-              {selected && document.permissions.download && (
+              {selectedVersion && selected && document.permissions.download && (
                 <a
                   className="download"
                   href={`/api/documents/${document.id}/download?locale=${selected}`}

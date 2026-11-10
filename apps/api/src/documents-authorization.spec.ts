@@ -504,6 +504,52 @@ describe("DocumentsController ACL scoping", () => {
     expect(upsertFavorite).toHaveBeenCalled();
   });
 
+  it("filters file and link languages together without replacing the access predicates", async () => {
+    grant({ read: [general] });
+    await controller.list(
+      request,
+      "",
+      undefined,
+      undefined,
+      undefined,
+      "recent",
+      "1",
+      "20",
+      "false",
+      "",
+      "fr",
+    );
+    const where = count.mock.calls[0][0].where;
+    expect(where.AND).toEqual(
+      expect.arrayContaining([
+        {
+          OR: [
+            { versions: { some: { locale: "fr" } } },
+            {
+              externalUrl: { not: null },
+              versions: { none: {} },
+              translations: { some: { locale: "fr" } },
+            },
+          ],
+        },
+      ]),
+    );
+    expect(where.OR).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ spaceId: { in: [general.id] } }),
+      ]),
+    );
+    expect(where.AND).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          OR: expect.arrayContaining([{ sensitive: false }]),
+        }),
+      ]),
+    );
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
+    expect(where.versions).toBeUndefined();
+  });
+
   it("combines format, document language and sensitivity filters", async () => {
     grant({ read: [general] });
 
