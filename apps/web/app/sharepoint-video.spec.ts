@@ -54,7 +54,7 @@ describe("SharePoint video documents", () => {
     expect(sharePointVideoEmbedUrl(url)).toBeNull();
   });
 
-  it("renders the responsive player and keeps the original external link", () => {
+  it("renders the responsive player without a duplicate external open button", () => {
     const markup = renderToStaticMarkup(
       createElement(ExternalDocumentLink, {
         url: shared,
@@ -65,10 +65,9 @@ describe("SharePoint video documents", () => {
     expect(markup).toContain('class="sharepoint-video-player"');
     expect(markup).toContain('title="Training video"');
     expect(markup).toContain('sandbox="allow-scripts allow-same-origin');
-    expect(markup).toContain("Ouvrir dans SharePoint");
-    expect(markup).toContain('target="_blank"');
-    expect(markup).toContain('rel="noopener noreferrer"');
-    expect(markup).toContain(shared.replaceAll("&", "&amp;"));
+    expect(markup).toContain("Ouvrir dans le navigateur");
+    expect(markup).not.toContain("<a");
+    expect(markup).not.toContain("sharing-code");
   });
 
   it.each(["en", "fr", "es", "sk"] as const)(
@@ -96,6 +95,8 @@ describe("SharePoint video documents", () => {
     );
     expect(markup).not.toContain("<iframe");
     expect(markup).toContain("Open external link");
+    expect(markup).toContain('target="_blank"');
+    expect(markup).toContain('rel="noopener noreferrer"');
     expect(
       renderToStaticMarkup(
         createElement(ExternalDocumentLink, {
