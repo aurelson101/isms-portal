@@ -190,6 +190,40 @@ describe("DirectoryService user authentication", () => {
     expect(search).toHaveBeenCalledOnce();
   });
 
+  it("resolves the exact trusted UPN when the AD mail attribute is empty", async () => {
+    const { service, search, userBind } = harness([
+      { ...alice, mail: [], userPrincipalName: "Alice@Example.com" },
+    ]);
+    await expect(
+      service.resolveUserByMail("alice@example.com"),
+    ).resolves.toMatchObject({
+      username: "alice@example.com",
+      displayName: "Alice Example",
+      groups: ["ITAD", "Domain Users"],
+    });
+    expect(search.mock.calls[0][1]).toMatchObject({
+      sizeLimit: 2,
+      attributes: expect.arrayContaining(["userPrincipalName", "displayName"]),
+    });
+    expect(search.mock.calls[0][1].filter).toContain(
+      "(userPrincipalName=alice@example.com)",
+    );
+    expect(search.mock.calls[0][1].filter).toContain(
+      "(!(userAccountControl:1.2.840.113556.1.4.803:=2))",
+    );
+    expect(userBind).not.toHaveBeenCalled();
+  });
+
+  it("rejects a returned account whose mail and UPN do not exactly match the trusted identity", async () => {
+    const { service, search } = harness([
+      { ...alice, mail: [], userPrincipalName: "other@example.com" },
+    ]);
+    await expect(
+      service.resolveUserByMail("alice@example.com"),
+    ).resolves.toBeNull();
+    expect(search).toHaveBeenCalledOnce();
+  });
+
   it("distinguishes an unavailable directory from an unknown SSO mail", async () => {
     const prisma = {
       directoryConnection: {

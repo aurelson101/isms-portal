@@ -236,14 +236,19 @@ export class DirectoryService {
           if (!/^[a-z][a-z0-9-]{0,79}$/iu.test(attribute))
             throw new Error("Invalid directory attribute");
         ({ client } = await this.bindWithFallback(connection));
-        const mailFilter = escapeFilter`(${connection.emailAttribute}=${mail})`;
+        // Synced accounts can have an empty mail attribute and a valid UPN.
+        const mailFilter = escapeFilter`(|(${connection.emailAttribute}=${mail})(userPrincipalName=${mail}))`;
         const result = await client.search(
           connection.userBaseDn || connection.baseDn,
           {
             scope: "sub",
-            filter: `(&${connection.userFilter}${mailFilter})`,
+            filter: `(&${connection.userFilter}${mailFilter}(!(userAccountControl:1.2.840.113556.1.4.803:=2)))`,
             sizeLimit: 2,
-            attributes: [connection.emailAttribute, "displayName"],
+            attributes: [
+              connection.emailAttribute,
+              "userPrincipalName",
+              "displayName",
+            ],
           },
         );
         if (result.searchEntries.length !== 1) continue;
@@ -251,7 +256,10 @@ export class DirectoryService {
         const resolvedMail = String(user[connection.emailAttribute] || "")
           .trim()
           .toLowerCase();
-        if (resolvedMail !== mail) continue;
+        const resolvedUpn = String(user.userPrincipalName || "")
+          .trim()
+          .toLowerCase();
+        if (resolvedMail !== mail && resolvedUpn !== mail) continue;
         const membershipRule = connection.nestedGroups
           ? escapeFilter`(member:1.2.840.113556.1.4.1941:=${user.dn})`
           : escapeFilter`(member=${user.dn})`;
@@ -265,8 +273,8 @@ export class DirectoryService {
           },
         );
         return {
-          username: resolvedMail,
-          displayName: String(user.displayName || resolvedMail).trim(),
+          username: mail,
+          displayName: String(user.displayName || mail).trim(),
           groups: [
             ...new Set(
               groupResult.searchEntries
