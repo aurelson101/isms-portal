@@ -668,8 +668,13 @@ function DocumentRows({
                 : document.status === "ARCHIVED"
                   ? translate(locale, "Archivé", "Archived")
                   : document.status === "QUARANTINED"
-                    ? "Review"
-                    : "Draft"}
+                    ? {
+                        fr: "En quarantaine",
+                        en: "Quarantined",
+                        es: "En cuarentena",
+                        sk: "V karanténe",
+                      }[locale]
+                    : translate(locale, "Brouillon", "Draft")}
             </span>
             <span className="document-updated">
               {selectedVersion?.createdAt
