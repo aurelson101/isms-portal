@@ -1,15 +1,19 @@
 import { expect, test } from "./test";
 
-for (const [width, preview] of [
-  [390, true],
-  [1440, true],
-  [390, false],
+for (const [width, preview, locale] of [
+  [390, true, "en"],
+  [1440, true, "en"],
+  [1440, true, "fr"],
+  [390, false, "en"],
 ] as const) {
-  test(`SharePoint player respects preview access at ${width}px (${preview})`, async ({
+  test(`SharePoint player respects preview access at ${width}px (${preview}, ${locale})`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 1000 });
-    await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+    await page.addInitScript(
+      (language) => localStorage.setItem("isms-locale", language),
+      locale,
+    );
     const space = {
       id: "space",
       slug: "general",
@@ -32,6 +36,7 @@ for (const [width, preview] of [
       metadata: {},
       translations: [
         { locale: "en", title: "Training video", description: "" },
+        { locale: "fr", title: "Vidéo de formation", description: "" },
       ],
       versions: [],
       externalUrl: preview ? url : null,
@@ -51,7 +56,7 @@ for (const [width, preview] of [
           json: {
             username: "reader@example.test",
             displayName: "Reader",
-            locale: "en",
+            locale,
             isAdmin: false,
             isModerator: false,
             spaces: [space],
@@ -89,16 +94,41 @@ for (const [width, preview] of [
     });
     await page.goto("/explorer");
     await page
-      .getByRole("button", { name: "Training video", exact: true })
+      .getByRole("button", {
+        name: locale === "fr" ? "Vidéo de formation" : "Training video",
+        exact: true,
+      })
       .click();
     const player = page.locator(".sharepoint-video-player");
-    const external = page.getByRole("link", { name: "Open in SharePoint" });
+    const external = page.getByRole("link", {
+      name: locale === "fr" ? "Ouvrir dans SharePoint" : "Open in SharePoint",
+    });
     if (!preview) {
       await expect(player).toHaveCount(0);
       await expect(external).toHaveCount(0);
       return;
     }
     await expect(player).toBeVisible();
+    const languages = page.locator(".modal-locales");
+    await expect(
+      languages.getByRole("button", { name: "EN", exact: true }),
+    ).toBeEnabled();
+    await expect(
+      languages.getByRole("button", { name: "FR", exact: true }),
+    ).toBeEnabled();
+    await expect(page.locator(".document-version-badge").first()).toHaveText(
+      locale === "fr" ? "Lien" : "Link",
+    );
+    const information = page.locator(".document-reader-meta");
+    await expect(information).toContainText(
+      locale === "fr" ? "Gérée à la source" : "Managed at source",
+    );
+    await languages
+      .getByRole("button", { name: locale === "en" ? "FR" : "EN", exact: true })
+      .click();
+    await expect(page.locator(".document-modal h2")).toHaveText(
+      locale === "en" ? "Vidéo de formation" : "Training video",
+    );
     await expect(external).toHaveAttribute("href", url);
     const bounds = await player.boundingBox();
     expect(bounds).not.toBeNull();

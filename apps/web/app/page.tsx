@@ -492,6 +492,18 @@ function PortalContentSkeleton({ label }: { label: string }) {
   );
 }
 
+const documentLocales = (document: PortalDocument): Locale[] =>
+  [
+    ...new Set(
+      (document.externalUrl ? document.translations : document.versions).map(
+        (item) => item.locale,
+      ),
+    ),
+  ].filter(isLocale);
+
+const versionLabel = (version: Version) =>
+  `${version.versionMajor ?? version.version}.${version.versionMinor ?? 0}`;
+
 const titleFor = (document: PortalDocument, locale: Locale) =>
   document.translations.find((translation) => translation.locale === locale)
     ?.title ||
@@ -566,9 +578,7 @@ function DocumentRows({
         </div>
       )}
       {documents.map((document) => {
-        const available = Array.from(
-          new Set(document.versions.map((version) => version.locale)),
-        ) as Locale[];
+        const available = documentLocales(document);
         const selected = available.includes(selectedLocales[document.id])
           ? selectedLocales[document.id]
           : available.includes(locale)
@@ -616,11 +626,21 @@ function DocumentRows({
             </span>
             <details className="document-version-details">
               <summary className="document-version-badge">
-                v{selectedVersion?.version ?? "—"}
+                {selectedVersion
+                  ? `v${versionLabel(selectedVersion)}`
+                  : document.externalUrl
+                    ? translate(locale, "Lien", "Link")
+                    : "—"}
               </summary>
               <div>
                 <strong>
-                  {translate(locale, "Version publiée", "Published version")}
+                  {document.externalUrl && !selectedVersion
+                    ? translate(
+                        locale,
+                        "Gérée à la source",
+                        "Managed at source",
+                      )
+                    : translate(locale, "Version publiée", "Published version")}
                 </strong>
                 <span>
                   {selectedVersion?.createdAt
@@ -658,9 +678,7 @@ function DocumentRows({
             </span>
             <span className="locales">
               {interfaceLocales
-                .filter((item) =>
-                  document.versions.some((version) => version.locale === item),
-                )
+                .filter((item) => available.includes(item))
                 .map((item) => (
                   <button
                     className={selected === item ? "selected" : ""}
@@ -1595,11 +1613,13 @@ export function Portal({
         .toUpperCase(),
     [identity],
   );
+  const openedLocales = opened ? documentLocales(opened) : [];
   const openedLocale = opened
-    ? selectedLocales[opened.id] ||
-      (opened.versions.some((version) => version.locale === locale)
+    ? openedLocales.includes(selectedLocales[opened.id])
+      ? selectedLocales[opened.id]
+      : openedLocales.includes(locale)
         ? locale
-        : (opened.versions[0]?.locale as Locale))
+        : openedLocales[0]
     : null;
   const openedIndex = opened
     ? documents.findIndex((document) => document.id === opened.id)
@@ -2768,9 +2788,14 @@ export function Portal({
                       document.versions.find(
                         (item) => item.locale === selectedLocales[document.id],
                       ) || document.versions[0];
-                    const documentLocale = isLocale(version?.locale)
-                      ? version.locale
-                      : locale;
+                    const available = documentLocales(document);
+                    const documentLocale = available.includes(
+                      selectedLocales[document.id],
+                    )
+                      ? selectedLocales[document.id]
+                      : available.includes(locale)
+                        ? locale
+                        : available[0] || locale;
                     const translation =
                       document.translations.find(
                         (item) => item.locale === documentLocale,
@@ -3768,17 +3793,10 @@ export function Portal({
             )}
             <div className="modal-locales">
               {interfaceLocales
-                .filter((item) =>
-                  opened.versions.some((version) => version.locale === item),
-                )
+                .filter((item) => openedLocales.includes(item))
                 .map((item) => (
                   <button
                     key={item}
-                    disabled={
-                      !opened.versions.some(
-                        (version) => version.locale === item,
-                      )
-                    }
                     className={openedLocale === item ? "selected" : ""}
                     onClick={() =>
                       setSelectedLocales((current) => ({
@@ -3823,8 +3841,14 @@ export function Portal({
                   <dt>{translate(locale, "Version", "Version")}</dt>
                   <dd>
                     {openedVersion
-                      ? `${openedVersion.versionMajor ?? openedVersion.version}.${openedVersion.versionMinor ?? 0}`
-                      : "—"}
+                      ? versionLabel(openedVersion)
+                      : opened.externalUrl
+                        ? translate(
+                            locale,
+                            "Gérée à la source",
+                            "Managed at source",
+                          )
+                        : "—"}
                   </dd>
                 </div>
                 <div>
