@@ -496,9 +496,10 @@ function PortalContentSkeleton({ label }: { label: string }) {
 const documentLocales = (document: PortalDocument): Locale[] =>
   [
     ...new Set(
-      (document.externalUrl ? document.translations : document.versions).map(
-        (item) => item.locale,
-      ),
+      (document.externalUrl && !document.versions.length
+        ? document.translations
+        : document.versions
+      ).map((item) => item.locale),
     ),
   ].filter(isLocale);
 
@@ -686,7 +687,7 @@ function DocumentRows({
               {interfaceLocales
                 .filter((item) => available.includes(item))
                 .map((item) =>
-                  document.externalUrl ? (
+                  document.externalUrl && !document.versions.length ? (
                     <span className="document-language-label" key={item}>
                       {item.toUpperCase()}
                     </span>
@@ -3822,7 +3823,7 @@ export function Portal({
               {interfaceLocales
                 .filter((item) => openedLocales.includes(item))
                 .map((item) =>
-                  opened.externalUrl ? (
+                  opened.externalUrl && !opened.versions.length ? (
                     <span className="document-language-label" key={item}>
                       {item.toUpperCase()}
                     </span>

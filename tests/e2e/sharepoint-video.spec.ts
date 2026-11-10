@@ -1,6 +1,13 @@
 import { expect, test } from "./test";
 
-for (const [width, preview, locale, plainLink = false, file = false] of [
+for (const [
+  width,
+  preview,
+  locale,
+  plainLink = false,
+  file = false,
+  linkedFile = false,
+] of [
   [390, true, "en"],
   [1440, true, "en"],
   [1440, true, "fr"],
@@ -9,8 +16,10 @@ for (const [width, preview, locale, plainLink = false, file = false] of [
   [390, false, "en"],
   [390, true, "en", true],
   [1440, true, "en", false, true],
+  [390, true, "en", false, true, true],
+  [1440, true, "en", false, true, true],
 ] as const) {
-  test(`SharePoint player respects preview access at ${width}px (${preview}, ${locale}, ${plainLink}, ${file})`, async ({
+  test(`SharePoint player respects preview access at ${width}px (${preview}, ${locale}, ${plainLink}, ${file}, ${linkedFile})`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: width === 844 ? 390 : 1000 });
@@ -42,6 +51,9 @@ for (const [width, preview, locale, plainLink = false, file = false] of [
       translations: [
         { locale: "en", title: "Training video", description: "" },
         { locale: "fr", title: "Vidéo de formation", description: "" },
+        ...(linkedFile
+          ? [{ locale: "es", title: "Metadata only", description: "" }]
+          : []),
       ],
       versions: file
         ? ["en", "fr"].map((language) => ({
@@ -51,7 +63,7 @@ for (const [width, preview, locale, plainLink = false, file = false] of [
             storedFile: { mimeType: "text/plain" },
           }))
         : [],
-      externalUrl: preview && !file ? url : null,
+      externalUrl: preview && (!file || linkedFile) ? url : null,
       permissions: { read: true, preview, download: false },
       favorite: false,
     };
@@ -121,6 +133,22 @@ for (const [width, preview, locale, plainLink = false, file = false] of [
       await expect(card.locator(".document-title")).toHaveText(
         "Training video",
       );
+      await expect(
+        card.locator(".locales").getByText("ES", { exact: true }),
+      ).toHaveCount(0);
+      await card.locator(".document-title").click();
+      const languages = page.locator(".modal-locales");
+      await expect(
+        languages.getByRole("button", { name: "FR", exact: true }),
+      ).toBeEnabled();
+      await expect(languages.getByText("ES", { exact: true })).toHaveCount(0);
+      await languages.getByRole("button", { name: "FR", exact: true }).click();
+      await expect(page.locator(".document-modal h2")).toHaveText(
+        "Vidéo de formation",
+      );
+      await expect(
+        languages.getByRole("button", { name: "FR", exact: true }),
+      ).toHaveClass("selected");
       return;
     }
     await expect(card.locator(".locales button")).toHaveCount(0);
