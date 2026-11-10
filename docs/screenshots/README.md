@@ -1,4 +1,4 @@
-# Captures du 31 octobre 2026
+# Captures du 10 novembre 2026
 
 Ces PNG sont des captures réelles du frontend, prises avec Playwright et des
 réponses API de démonstration. Identités, documents et métadonnées sont fictifs ;

@@ -202,7 +202,7 @@ distincts de l'authentification SSO.
 
 ## Captures d'écran
 
-Captures réelles du navigateur renouvelées le **31 octobre 2026**, avec des données
+Captures réelles du navigateur renouvelées le **10 novembre 2026**, avec des données
 de démonstration anonymisées. Aucun contenu de production n'est affiché.
 [Scénarios et régénération](docs/screenshots/README.md).
 
