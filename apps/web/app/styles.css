@@ -951,7 +951,9 @@ h1 {
   gap: 8px;
 }
 .locales button,
-.modal-locales button {
+.modal-locales button,
+.locales .document-language-label,
+.modal-locales .document-language-label {
   border: 1px solid #d8e1ef;
   border-radius: 7px;
   padding: 8px;
