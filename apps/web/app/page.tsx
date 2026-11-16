@@ -2833,6 +2833,7 @@ export function Portal({
                     setEditTitle(translation?.title || "");
                     setEditDescription(translation?.description || "");
                     setEditMetadata(document.metadata || {});
+                    setActionError("");
                     setEditing(document);
                   }}
                   onTransition={(document, action) =>
