@@ -4518,6 +4518,7 @@ export function Portal({
               className="admin-form"
               onSubmit={async (event) => {
                 event.preventDefault();
+                setActionError("");
                 const values = Object.fromEntries(
                   new FormData(event.currentTarget),
                 );
@@ -4643,6 +4644,11 @@ export function Portal({
                   await loadDocuments();
                 }}
               />
+              {actionError && (
+                <p className="error-state" role="alert">
+                  {actionError}
+                </p>
+              )}
               <div className="button-row">
                 <button className="primary">{t.save}</button>
                 <button type="button" onClick={() => setEditing(null)}>
