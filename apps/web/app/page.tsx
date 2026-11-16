@@ -534,6 +534,7 @@ function DocumentRows({
   onLocale,
   onOpen,
   onEdit,
+  onNewVersion,
   onTransition,
   onDelete,
   onFavorite,
@@ -545,6 +546,7 @@ function DocumentRows({
   onLocale: (id: string, locale: Locale) => void;
   onOpen: (document: PortalDocument) => void;
   onEdit: (document: PortalDocument) => void;
+  onNewVersion: (document: PortalDocument) => void;
   onTransition: (
     document: PortalDocument,
     action: "publish" | "archive" | "restore",
@@ -748,6 +750,14 @@ function DocumentRows({
                       {t.edit}
                     </button>
                   )}
+                  {document.permissions.edit && selectedVersion && (
+                    <button
+                      type="button"
+                      onClick={() => onNewVersion(document)}
+                    >
+                      {translate(locale, "Nouvelle version", "New version")}
+                    </button>
+                  )}
                   {document.permissions.publish &&
                     document.status !== "PUBLISHED" && (
                       <button
@@ -847,6 +857,7 @@ export function Portal({
   const [securityReportOpen, setSecurityReportOpen] = useState(false);
   const [securityReportFeedback, setSecurityReportFeedback] = useState("");
   const [editing, setEditing] = useState<PortalDocument | null>(null);
+  const [versioning, setVersioning] = useState<PortalDocument | null>(null);
   const uploadRetry = useRef<UploadAttempt | null>(null);
   const uploadInFlight = useRef(false);
   const [editVersionId, setEditVersionId] = useState("");
@@ -2836,6 +2847,10 @@ export function Portal({
                     setActionError("");
                     setEditing(document);
                   }}
+                  onNewVersion={(document) => {
+                    setActionError("");
+                    setVersioning(document);
+                  }}
                   onTransition={(document, action) =>
                     void transitionDocument(document, action)
                   }
@@ -4653,6 +4668,123 @@ export function Portal({
               <div className="button-row">
                 <button className="primary">{t.save}</button>
                 <button type="button" onClick={() => setEditing(null)}>
+                  {t.cancel}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+      {versioning && (
+        <div className="modal-backdrop" role="presentation">
+          <section
+            className="modal small-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-version-title"
+          >
+            <h2 id="new-version-title">
+              {translate(
+                locale,
+                "Déposer une nouvelle version",
+                "Upload a new version",
+              )}
+            </h2>
+            <form
+              className="admin-form"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                setActionError("");
+                const data = new FormData(event.currentTarget);
+                if (uploadInFlight.current) return;
+                uploadInFlight.current = true;
+                try {
+                  const response = await fetch("/api/documents/upload", {
+                    method: "POST",
+                    body: uploadAttempt(data, uploadRetry),
+                  });
+                  if (!response.ok) {
+                    setActionError(
+                      await responseMessage(response, t.depositError),
+                    );
+                    return;
+                  }
+                } catch (error) {
+                  setActionError(
+                    error instanceof Error ? error.message : t.depositError,
+                  );
+                  return;
+                } finally {
+                  uploadInFlight.current = false;
+                }
+                uploadRetry.current = null;
+                setVersioning(null);
+                await loadDocuments();
+              }}
+            >
+              <input name="documentId" type="hidden" value={versioning.id} />
+              <input name="spaceId" type="hidden" value={versioning.space.id} />
+              <fieldset className="document-language-field">
+                <legend>{t.documentLanguage}</legend>
+                <LanguageSelect
+                  name="locale"
+                  defaultValue={versioning.versions[0]?.locale || locale}
+                  preserveCurrent
+                  required
+                />
+              </fieldset>
+              <label>
+                {t.title}
+                <input
+                  name="title"
+                  required
+                  maxLength={200}
+                  defaultValue={
+                    translationFields(
+                      versioning,
+                      isLocale(versioning.versions[0]?.locale)
+                        ? versioning.versions[0].locale
+                        : locale,
+                    ).title
+                  }
+                />
+              </label>
+              <label>
+                {translate(locale, "Résumé des changements", "Change summary")}
+                <textarea name="changeSummary" required maxLength={2000} />
+              </label>
+              <label>
+                {t.file}
+                <input
+                  name="file"
+                  type="file"
+                  required
+                  accept={documentFileAccept}
+                />
+              </label>
+              <small>{t.acceptedFiles}</small>
+              <label className="check">
+                <input
+                  name="suppressEmailNotifications"
+                  value="true"
+                  type="checkbox"
+                />
+                {translate(
+                  locale,
+                  "Ne pas envoyer d’e-mail",
+                  "Do not send email notifications",
+                )}
+              </label>
+              {actionError && (
+                <p className="error-state" role="alert">
+                  {actionError}
+                </p>
+              )}
+              <div className="button-row">
+                <button className="primary">
+                  {translate(locale, "Déposer et analyser", "Upload and scan")}
+                </button>
+                <button type="button" onClick={() => setVersioning(null)}>
                   {t.cancel}
                 </button>
               </div>
