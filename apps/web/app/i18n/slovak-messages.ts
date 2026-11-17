@@ -1,4 +1,55 @@
 export const slovakMessages: Readonly<Record<string, string>> = {
+  "A designated user opens a published sensitive document, expands “Share this sensitive document”, enters the recipient and picks 24 hours, 7, 30 or 90 days, a specific date or Lifetime. The recipient receives an email, reads the document with their own account (read-only, watermarked, no download) and gets a reminder about 48 hours before expiry.":
+    "Určený používateľ otvorí zverejnený citlivý dokument, rozbalí „Zdieľať tento citlivý dokument“, zadá príjemcu a vyberie 24 hodín, 7, 30 alebo 90 dní, konkrétny dátum alebo Natrvalo. Príjemca dostane e-mail, číta dokument vo svojom účte (iba na čítanie, s vodoznakom a bez sťahovania) a približne 48 hodín pred uplynutím dostane pripomienku.",
+  "A designated user shares a published sensitive document with named people for a chosen period or for life.":
+    "Určený používateľ zdieľa zverejnený citlivý dokument s konkrétnymi osobami na zvolené obdobie alebo natrvalo.",
+  "A moderator's scope: the account carries three global permissions (manage, publish, delete). In Access rules, edit, publish and archive permissions are then set per space, per category and per subcategory; a subcategory inherits from its category unless a rule says otherwise. There is no per-menu setting: displayed menus follow these effective rights, and the API refuses any action outside the scope.":
+    "Rozsah moderátora: účet má tri globálne oprávnenia (spravovať, publikovať, odstrániť). V Pravidlách prístupu sa upravovanie, publikovanie a archivácia nastavujú podľa priestoru, kategórie a podkategórie; podkategória dedí oprávnenia kategórie, ak pravidlo neurčuje inak. Nastavenie podľa ponuky neexistuje: zobrazené ponuky vychádzajú z účinných práv a API odmietne každú akciu mimo rozsahu.",
+  "AD search unavailable. Please retry.":
+    "Vyhľadávanie v AD nie je dostupné. Skúste to znova.",
+  "Add a document": "Pridať dokument",
+  "Add the users allowed to create sensitive documents; each receives an email.":
+    "Pridajte používateľov oprávnených vytvárať citlivé dokumenty; každý dostane e-mail.",
+  "Choose a document to view it and manage named recipients. Space read permissions alone do not grant access.":
+    "Vyberte dokument na zobrazenie a správu konkrétnych príjemcov. Samotné právo čítania priestoru neudeľuje prístup.",
+  "Confirm sharing": "Potvrdiť zdieľanie",
+  "Content and access > Sensitive documents. Add, by sign-in name or email, the users allowed to create sensitive documents: they and administrators can tick “Sensitive document” at import, or change it on an existing document via Edit (including published ones; the watermarked copy is then generated). Each added user receives a “Sensitive document” template email; Remove withdraws the right without deleting documents.":
+    "Obsah a prístup > Citlivé dokumenty. Podľa prihlasovacieho mena alebo e-mailu pridajte používateľov oprávnených vytvárať citlivé dokumenty: oni a správcovia môžu pri importe označiť „Citlivý dokument“ alebo túto voľbu zmeniť cez Upraviť pri existujúcom dokumente (aj zverejnenom; vytvorí sa kópia s vodoznakom). Každý pridaný používateľ dostane e-mail podľa šablóny „Citlivý dokument“; Odobrať zruší právo bez odstránenia dokumentov.",
+  "Create linked document": "Vytvoriť dokument s odkazom",
+  "Document created as a draft. Publish it from managed documents.":
+    "Dokument bol vytvorený ako koncept. Zverejnite ho zo spravovaných dokumentov.",
+  "Enter a name or email to search AD, or enter the ISMS account email directly.":
+    "Zadajte meno alebo e-mail na vyhľadanie v AD alebo priamo e-mail účtu ISMS.",
+  "In Moderators, select the AD user or group from search results and enter a justification. Check membership before granting the MODERATOR role. Adding a moderator does not require a second administrator's approval (reserved for administrator accounts and groups).":
+    "V časti Moderátori vyberte používateľa alebo skupinu AD z výsledkov a zadajte odôvodnenie. Pred udelením roly MODERATOR overte členstvo. Pridanie moderátora nevyžaduje schválenie druhým správcom (to je vyhradené pre účty a skupiny správcov).",
+  "In Sensitive documents, enter the user's sign-in name or email, then Add and notify. This user (and administrators) can then tick or change “Sensitive document”.":
+    "V časti Citlivé dokumenty zadajte prihlasovacie meno alebo e-mail používateľa a vyberte Pridať a upozorniť. Tento používateľ a správcovia potom môžu označiť alebo zmeniť „Citlivý dokument“.",
+  "Link preview": "Ukážka odkazu",
+  "Manage a sensitive document": "Spravovať citlivý dokument",
+  "Managed at source": "Spravované pri zdroji",
+  "No sensitive document in this view. Upload a file or create a link with Sensitive document selected.":
+    "V tomto zobrazení nie je žiadny citlivý dokument. Nahrajte súbor alebo vytvorte odkaz s označenou voľbou Citlivý dokument.",
+  "No share or email has been created yet. Access remains tied to group membership; the list may change. Preview limited to 10 addresses.":
+    "Zatiaľ nebol vytvorený žiadny prístup ani odoslaný e-mail. Prístup zostáva viazaný na členstvo v skupine; zoznam sa môže zmeniť. Ukážka je obmedzená na 10 adries.",
+  "Only authenticated members of the selected group can read the document during the chosen period.":
+    "Dokument môžu počas zvoleného obdobia čítať iba overení členovia vybranej skupiny.",
+  "Preview recipients": "Zobraziť ukážku príjemcov",
+  "Publish the document from Documents before creating a named share.":
+    "Pred vytvorením menovitého prístupu zverejnite dokument v časti Dokumenty.",
+  "Recipient type": "Typ príjemcu",
+  "Sensitive documents: a moderator can create or share them only if designated in Sensitive documents (administration). Otherwise the “sensitive” option is refused at import.":
+    "Citlivé dokumenty: moderátor ich môže vytvárať alebo zdieľať iba vtedy, ak je určený v časti Citlivé dokumenty (správa). Inak sa voľba „citlivý“ pri importe odmietne.",
+  "Sensitive link (named sharing in ISMS)":
+    "Citlivý odkaz (menovité zdieľanie v ISMS)",
+  "Sharing is limited to users designated by an administrator in Sensitive documents.":
+    "Zdieľanie je obmedzené na používateľov určených správcom v časti Citlivé dokumenty.",
+  "The Active shares list lets you revoke an access at any time. Sharing again with the same person replaces their previous share. Creations, shares and revocations are written to the audit log. No anonymous link exists for sensitive documents.":
+    "Zoznam Aktívne prístupy umožňuje kedykoľvek zrušiť prístup. Opätovné zdieľanie s rovnakou osobou nahradí jej predchádzajúci prístup. Vytvorenie, zdieľanie a zrušenie sa zapisujú do auditu. Pre citlivé dokumenty neexistuje anonymný odkaz.",
+  "To share: open the published document, expand Share, choose the recipient and duration (24 h, 7, 30, 90 days, specific date or Lifetime).":
+    "Zdieľanie: otvorte zverejnený dokument, rozbaľte Zdieľať a vyberte príjemcu a trvanie (24 h, 7, 30, 90 dní, konkrétny dátum alebo Natrvalo).",
+  "User / email": "Používateľ / e-mail",
+  "email recipients": "e-mailoví príjemcovia",
+
   "Review settings": "Nastavenia revízií",
   "Automatic review interval": "Interval automatických revízií",
   days: "dní",

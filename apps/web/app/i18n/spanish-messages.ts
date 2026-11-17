@@ -1,4 +1,55 @@
 export const spanishMessages: Readonly<Record<string, string>> = {
+  "A designated user opens a published sensitive document, expands “Share this sensitive document”, enters the recipient and picks 24 hours, 7, 30 or 90 days, a specific date or Lifetime. The recipient receives an email, reads the document with their own account (read-only, watermarked, no download) and gets a reminder about 48 hours before expiry.":
+    "Un usuario designado abre un documento sensible publicado, despliega «Compartir este documento sensible», introduce el destinatario y elige 24 horas, 7, 30 o 90 días, una fecha concreta o Sin caducidad. El destinatario recibe un correo, lee el documento con su cuenta (solo lectura, con marca de agua y sin descarga) y recibe un recordatorio unas 48 horas antes del vencimiento.",
+  "A designated user shares a published sensitive document with named people for a chosen period or for life.":
+    "Un usuario designado comparte un documento sensible publicado con personas identificadas durante un período elegido o sin caducidad.",
+  "A moderator's scope: the account carries three global permissions (manage, publish, delete). In Access rules, edit, publish and archive permissions are then set per space, per category and per subcategory; a subcategory inherits from its category unless a rule says otherwise. There is no per-menu setting: displayed menus follow these effective rights, and the API refuses any action outside the scope.":
+    "Ámbito del moderador: la cuenta tiene tres permisos globales (gestionar, publicar, eliminar). En Reglas de acceso se definen los permisos de edición, publicación y archivo por espacio, categoría y subcategoría; la subcategoría hereda de su categoría salvo regla contraria. No hay un ajuste por menú: los menús siguen los derechos efectivos y la API rechaza acciones fuera del ámbito.",
+  "AD search unavailable. Please retry.":
+    "Búsqueda de AD no disponible. Inténtelo de nuevo.",
+  "Add a document": "Añadir un documento",
+  "Add the users allowed to create sensitive documents; each receives an email.":
+    "Añada los usuarios autorizados a crear documentos sensibles; cada uno recibe un correo.",
+  "Choose a document to view it and manage named recipients. Space read permissions alone do not grant access.":
+    "Elija un documento para verlo y gestionar destinatarios identificados. Los permisos de lectura del espacio por sí solos no dan acceso.",
+  "Confirm sharing": "Confirmar uso compartido",
+  "Content and access > Sensitive documents. Add, by sign-in name or email, the users allowed to create sensitive documents: they and administrators can tick “Sensitive document” at import, or change it on an existing document via Edit (including published ones; the watermarked copy is then generated). Each added user receives a “Sensitive document” template email; Remove withdraws the right without deleting documents.":
+    "Contenido y acceso > Documentos sensibles. Añada por identificador o correo los usuarios autorizados a crear documentos sensibles: ellos y los administradores pueden marcar «Documento sensible» al importar o cambiarlo en un documento existente desde Editar (también si está publicado; se genera la copia con marca de agua). Cada usuario añadido recibe un correo de la plantilla «Documento sensible»; Quitar retira el derecho sin borrar documentos.",
+  "Create linked document": "Crear documento enlazado",
+  "Document created as a draft. Publish it from managed documents.":
+    "Documento creado como borrador. Publíquelo desde los documentos gestionados.",
+  "Enter a name or email to search AD, or enter the ISMS account email directly.":
+    "Introduzca un nombre o correo para buscar en AD, o escriba directamente el correo de la cuenta ISMS.",
+  "In Moderators, select the AD user or group from search results and enter a justification. Check membership before granting the MODERATOR role. Adding a moderator does not require a second administrator's approval (reserved for administrator accounts and groups).":
+    "En Moderadores, seleccione el usuario o grupo AD de los resultados e indique una justificación. Verifique la pertenencia antes de conceder el rol MODERATOR. Añadir un moderador no requiere la aprobación de un segundo administrador (reservada a cuentas y grupos administradores).",
+  "In Sensitive documents, enter the user's sign-in name or email, then Add and notify. This user (and administrators) can then tick or change “Sensitive document”.":
+    "En Documentos sensibles, introduzca el identificador o correo del usuario y elija Añadir y notificar. Este usuario y los administradores podrán marcar o cambiar «Documento sensible».",
+  "Link preview": "Vista previa del enlace",
+  "Manage a sensitive document": "Gestionar un documento sensible",
+  "Managed at source": "Gestionado en origen",
+  "No sensitive document in this view. Upload a file or create a link with Sensitive document selected.":
+    "No hay documentos sensibles en esta vista. Cargue un archivo o cree un enlace marcando Documento sensible.",
+  "No share or email has been created yet. Access remains tied to group membership; the list may change. Preview limited to 10 addresses.":
+    "Todavía no se ha creado ningún acceso ni enviado correos. El acceso sigue ligado a la pertenencia al grupo; la lista puede cambiar. Vista previa limitada a 10 direcciones.",
+  "Only authenticated members of the selected group can read the document during the chosen period.":
+    "Solo los miembros autenticados del grupo seleccionado pueden leer el documento durante el período elegido.",
+  "Preview recipients": "Previsualizar destinatarios",
+  "Publish the document from Documents before creating a named share.":
+    "Publique el documento desde Documentos antes de crear un acceso nominativo.",
+  "Recipient type": "Tipo de destinatario",
+  "Sensitive documents: a moderator can create or share them only if designated in Sensitive documents (administration). Otherwise the “sensitive” option is refused at import.":
+    "Documentos sensibles: un moderador solo puede crearlos o compartirlos si está designado en Documentos sensibles (administración). De lo contrario, la opción «sensible» se rechaza al importar.",
+  "Sensitive link (named sharing in ISMS)":
+    "Enlace sensible (uso compartido nominativo en ISMS)",
+  "Sharing is limited to users designated by an administrator in Sensitive documents.":
+    "El uso compartido se limita a los usuarios designados por un administrador en Documentos sensibles.",
+  "The Active shares list lets you revoke an access at any time. Sharing again with the same person replaces their previous share. Creations, shares and revocations are written to the audit log. No anonymous link exists for sensitive documents.":
+    "La lista Accesos activos permite revocar el acceso en cualquier momento. Compartir de nuevo con la misma persona sustituye el acceso anterior. La creación, el uso compartido y la revocación quedan en el registro de auditoría. No existen enlaces anónimos para documentos sensibles.",
+  "To share: open the published document, expand Share, choose the recipient and duration (24 h, 7, 30, 90 days, specific date or Lifetime).":
+    "Para compartir: abra el documento publicado, despliegue Compartir y elija el destinatario y la duración (24 h, 7, 30, 90 días, fecha concreta o Sin caducidad).",
+  "User / email": "Usuario / correo",
+  "email recipients": "destinatarios de correo",
+
   "Review settings": "Configuración de revisiones",
   "Automatic review interval": "Intervalo de revisión automática",
   days: "días",

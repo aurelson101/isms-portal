@@ -27,6 +27,7 @@ esac
 echo "nested:$0:$COMPOSE_PROJECT_NAME:$COMPOSE_FILE" >> "$TEST_LOG"
 '''
         self.write_script(self.root / "scripts/provision-runtime-credentials.sh", common + "touch .env.app .env.redis\n")
+        (self.root / "scripts/provision-runtime-credentials.sh").chmod(0o600)
         self.write_script(self.root / "scripts/backup.sh", common + 'mkdir -p "$1"\n')
         self.write_script(self.root / "scripts/restore.sh", common + '[ "$FAIL_RESTORE" = 0 ] || exit 42\n')
 

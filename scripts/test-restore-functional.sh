@@ -35,7 +35,7 @@ trap cleanup EXIT HUP INT TERM
 
 cd "$project_root"
 docker compose up -d --build --wait postgres
-"$script_dir/provision-runtime-credentials.sh"
+sh "$script_dir/provision-runtime-credentials.sh"
 docker compose run --rm --build migrate
 docker compose up -d --build --wait reverse-proxy
 docker compose exec -T api node prisma/seed.js
@@ -43,7 +43,7 @@ docker compose exec -T api node prisma/seed.js
 docker compose down -v
 rm -f "$project_root/.env.app" "$project_root/.env.redis"
 docker compose up -d --build --wait postgres
-"$script_dir/provision-runtime-credentials.sh"
+sh "$script_dir/provision-runtime-credentials.sh"
 "$script_dir/restore.sh" "$validation_root/source"
 docker compose up -d --build --wait reverse-proxy
 
