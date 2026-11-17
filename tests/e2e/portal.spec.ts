@@ -2257,7 +2257,7 @@ test("governance workflows support lifetime access, reviews, SoA, retention, ide
     version: { version: expect.any(Number) },
   });
   await createdReview
-    .getByRole("button", { name: "Planifier la prochaine revue dans un an" })
+    .getByRole("button", { name: "Planifier la prochaine revue", exact: true })
     .click();
   await expect(reviewForm.getByLabel("Document")).not.toHaveValue("");
   await expect(reviewForm.getByLabel("Échéance")).not.toHaveValue("");

@@ -74,6 +74,7 @@ async function mockApi(page: Page, locale: "en" | "fr") {
     if (url.pathname === "/api/admin/check" || url.pathname === "/api/me")
       json = {
         isAdmin: true,
+        isModerator: false,
         username: "test@example.test",
         displayName: "Test user",
         primaryAdmin: true,
