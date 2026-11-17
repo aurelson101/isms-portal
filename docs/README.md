@@ -10,6 +10,27 @@ Document list/windows views, pagination, optional metadata, bulk changes,
 history, duplicate detection and reminders: [Document management](document-management.md).
 Current anonymized browser captures: [Screenshots](screenshots/README.md).
 
+## How the portal works
+
+The server resolves the signed-in identity and applies role and category ACLs
+before returning menus, documents or search results. Readers consult published
+content and manage personal preferences. Moderators manage the documents covered
+by their effective rights; administrators configure the application and access.
+
+Files are scanned before publication. Editing a record changes metadata without
+creating a file version; replacing content uses the version workflow. Management
+views combine text, optional metadata and status filters before counting and
+pagination. Lists and windows show twenty items per page. Favorites and saved
+searches remain account-specific and ACL-filtered.
+
+Reviews, decisions and reminders are separate from file versions and technical
+alerts. Provider acceptance of email is not proof of inbox delivery. Optional
+SharePoint and MIP integrations keep their own Microsoft authorization requirements.
+
+Start with the [French user guide](user-guide-fr.md), [English user guide](user-guide-en.md)
+and [document workflows](document-management.md). For operations, use
+[backup and restore](backup-restore.md) and the dedicated configuration pages below.
+
 ## System at a glance
 
 ISMS Portal is a Docker Compose application:

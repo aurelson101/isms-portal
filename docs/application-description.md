@@ -18,9 +18,9 @@ Les droits sont contrôlés par l'API, avec un refus par défaut. Un modérateur
 
 ## Gestion documentaire
 
-Les formats acceptés sont PDF, Word DOCX et Excel XLSX. Au dépôt, l'auteur renseigne l'espace, la catégorie éventuelle, la langue, le titre, la description, le résumé des changements et la sensibilité. Le fichier est analysé par ClamAV avant son traitement. Un document sensible peut recevoir un filigrane selon la configuration choisie.
+Le dépôt accepte PDF, DOCX, XLSX, PPTX, PNG/JPEG, TXT et CSV, avec une limite de 50 Mio. Les fichiers sensibles sont limités à PDF, DOCX et XLSX. L'auteur renseigne l'espace, la catégorie éventuelle, la langue, le titre, la description, le résumé des changements et la sensibilité. Les fichiers sont analysés par ClamAV avant publication. Un document sensible peut recevoir un filigrane selon la configuration choisie. Une fiche peut aussi contenir un lien externe sans fichier, notamment une vidéo SharePoint compatible avec le lecteur intégré.
 
-Un document suit un cycle de vie : brouillon, revue, publié, archivé ou supprimé. Une nouvelle version conserve l'historique, les dates et le résumé des changements. La conservation physique est maîtrisée afin de ne pas encombrer le stockage. L'administration affiche vingt documents par page avec navigation.
+Les états documentaires sont brouillon, publié, archivé et quarantaine ; les revues et approbations constituent des suivis distincts. La suppression et la restauration suivent les règles de corbeille. Une nouvelle version conserve l'historique et le résumé des changements. Modifier uniquement la fiche, la langue ou la catégorie ne crée pas de version. Les listes de gestion affichent vingt documents par page et combinent recherche et filtre d'état avant décompte et pagination.
 
 Les capacités read, preview et download sont distinctes. Un utilisateur peut donc lire ou prévisualiser un document sans pouvoir le télécharger. Les documents sont rangés dans des espaces, catégories et sous-catégories, par exemple Documents généraux, IT, RH ou zones métier spécifiques.
 
@@ -30,6 +30,14 @@ Suivant. Les menus de métadonnées permettent une modification sans nouvelle ve
 la recherche ciblée, les lots avec aperçu et l'historique des changements. Les champs
 métier restent facultatifs. Le suivi des revues et les rappels configurables restent
 distincts des alertes techniques. Voir [Gestion documentaire](document-management.md).
+
+Le lecteur Excel propose les feuilles, les filtres, la recherche et des réglages
+d'affichage en lecture seule. Le lecteur PDF sépare les commandes de consultation
+des capacités de téléchargement. Les langues disponibles d'un fichier suivent
+ses versions ; celles d'une fiche constituée d'un lien suivent ses traductions.
+La lecture SharePoint requiert les permissions Microsoft de la source. Le lecteur
+MIP/Purview est une intégration optionnelle, configurée séparément du SSO ; une
+connexion Entra seule ne donne pas accès au contenu chiffré.
 
 ## ACL, identités et authentification
 
@@ -50,6 +58,12 @@ Le module de gouvernance centralise les revues, accès permanents, contrôles et
 L'application envoie des e-mails lors d'une publication, nouvelle version, demande d'approbation, décision, revue assignée, revue annuelle ou signalement. Les destinataires sont calculés à partir des ACL, groupes AD et rôles concernés; l'attribut Active Directory mail doit être renseigné.
 
 Les modèles sont en anglais, responsives et contextualisés. Ils indiquent le titre, la description, la catégorie, la version et un lien vers le portail. Les liens d'approbation redirigent vers une page authentifiée avec les décisions possibles. Microsoft Graph et SMTP sont deux canaux distincts, chacun avec son propre test d'envoi.
+
+L'observabilité affiche les envois en attente, en traitement, différés, acceptés,
+ignorés ou échoués. Un envoi accepté par le fournisseur ne prouve pas sa réception
+dans la boîte. Les échecs peuvent être relancés depuis l'écran autorisé. Les
+alertes disque, services et intégrations de supervision ont des canaux et seuils
+distincts des notifications documentaires.
 
 ## Espace personnel
 

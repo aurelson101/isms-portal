@@ -29,189 +29,88 @@ et non d'une licence open source au sens de l'OSI, puisque les usages commerciau
 sont restreints. Le résumé ci-dessus est informatif ; le texte de la licence
 fait foi.
 
-## Dernières nouveautés
+## Comment fonctionne ISMS Portal ?
 
-### Filtres et confirmations documentaires (10 novembre 2026)
+ISMS Portal réunit une **gestion électronique des documents (GED)** et le suivi
+**ISMS** : il organise les contenus, contrôle leur accès et conserve les preuves
+utiles aux revues et à l'audit.
 
-- Filtre **Liens / Vidéos**, combinable avec la langue et les droits d'accès.
-- Prévisualisation des destinataires e-mail d'un groupe AD avant confirmation
-  du partage sensible : aucune invitation n'est envoyée pendant l'aperçu.
-- Récapitulatif de publication commun au portail, aux administrateurs et aux
-  modérateurs : titre, langues, emplacement et politique de notification.
-  Voir [la procédure](docs/document-management.md#filtres-et-confirmations).
+1. **Se connecter** avec Microsoft lorsque le SSO est configuré, ou avec la
+   connexion Active Directory proposée. Les comptes locaux de secours restent
+   disponibles selon la configuration. L'API détermine les rôles et les droits.
+2. **Explorer** les espaces, catégories et sous-catégories autorisés. La recherche
+   combine texte, métadonnées, langue, format et favoris. Les gestionnaires
+   filtrent aussi par état : brouillon, publié, archivé ou en quarantaine.
+3. **Déposer** un fichier ou créer une fiche contenant un lien externe, selon ses
+   permissions. Choisir l'emplacement, la langue et les informations du document.
+   Les fichiers sont analysés par ClamAV avant publication.
+4. **Mettre à jour** la fiche avec Éditer les métadonnées, sans nouvelle version.
+   Pour remplacer le fichier, utiliser Nouvelle version et décrire les changements.
+   Une fiche constituée d'un lien conserve sa version à la source.
+5. **Publier et revoir** le contenu depuis l'administration ou la modération.
+   Le récapitulatif de publication précise les langues, l'emplacement et la
+   politique de notification. Les revues et rappels suivent les réglages de
+   gouvernance ; une date de métadonnée ne planifie pas à elle seule une revue.
+6. **Consulter** en lecture seule avec les capacités accordées par l'API.
+   Lecture, prévisualisation et téléchargement sont des droits distincts.
+   Les lecteurs PDF et Excel restent intégrés au portail.
+7. **Suivre** les favoris, recherches enregistrées, notifications et demandes
+   dans l'espace personnel. Les gestionnaires retrouvent l'historique des
+   modifications et l'audit des opérations autorisées.
 
-### Liens SharePoint et documents sensibles (10 novembre 2026)
+### Rôles et espaces de travail
 
-- Création d'un fichier ou d'un lien/vidéo SharePoint depuis le portail,
-  l'administration et l'espace modérateur ; lecteur vidéo responsive, volet GED
-  horizontal et commandes intégrées pour le plein écran ou l'ouverture externe,
-  sans bouton en doublon. Les liens ordinaires conservent leur bouton d'ouverture.
-- Partage sensible par utilisateur/e-mail avec recherche AD, ou par groupe AD,
-  avec expiration et révocation. Les ACL de lecture de l'espace seules ne donnent
-  pas accès ; les gestionnaires autorisés conservent la gestion du document.
-- Les permissions SharePoint restent nécessaires pour les contenus externes.
-  Voir [la procédure de partage](docs/document-management.md#documents-sensibles-et-liens-sharepoint).
+| Rôle           | Fonctionnement                                                                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Utilisateur    | Consulter les contenus autorisés, filtrer, gérer ses favoris et préférences, demander un accès ou signaler un problème. Le dépôt dépend des droits accordés. |
+| Modérateur     | Gérer les documents, métadonnées, imports, versions et décisions dans son périmètre effectif. Les menus sont séparés et les listes paginées.                 |
+| Administrateur | Configurer l'identité du portail, les langues, les comptes et groupes, les ACL, les espaces, l'authentification, les canaux, le stockage et la supervision.  |
 
-### Préversion v0.9.63-rc.2 (31 octobre 2026)
+Les catégories héritent des droits de leur parent jusqu'à une règle explicite
+pour la branche concernée. Les contrôles sont appliqués côté serveur ; masquer
+un bouton ne constitue pas le contrôle d'accès.
 
-- Menus **Métadonnées GED** dédiés aux administrateurs et modérateurs, avec
-  l'éditeur partagé, la recherche, la pagination et les capacités par document.
-- Correctif `qs` 6.16.1 et tests de compatibilité des archives intégrés à `npm test`.
-- Point restant : `npm audit --omit=dev` signale sept entrées modérées transitives
-  liées à l'[avis minimatch](https://github.com/advisories/GHSA-g3hv-75wg-m249)
-  via l'ancien `glob`. La substitution majeure incompatible n'est pas appliquée ;
-  cette préversion ne constitue pas une validation de sécurité exhaustive.
+### Fonctionnalités disponibles
 
-- **SSO sans groupe (option)** : limiter l'acces aux comptes internes actifs
-  disposant d'une boite Exchange personnelle dans les domaines autorises.
-  Les boites partagees et invites sont refuses ; les ACL restent appliquees.
-  Validation Graph en lecture seule, certificat et refus en cas d'indisponibilite.
-  Voir [configuration et activation progressive](docs/sso.md).
+| Domaine              | Capacités                                                                                                                                              |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Catalogue            | Espaces hiérarchiques, recherche, filtres combinés, favoris et recherches sauvegardées.                                                                |
+| Gestion documentaire | Liste ou Fenêtres, 20 documents par page, Précédent/Suivant, états, imports unitaires ou par lot, archivage et corbeille.                              |
+| Métadonnées          | Champs existants et personnalisés facultatifs, modèles, recherche, aperçu des modifications groupées et protection contre les changements concurrents. |
+| Versions             | Historique des fichiers, résumé des changements et comparaison textuelle avant/après lorsqu'elle est disponible.                                       |
+| Lecture              | PDF, aperçu Office, feuilles Excel en lecture seule avec filtres et recherche ; liens et vidéos SharePoint intégrables.                                |
+| Documents sensibles  | Créateurs désignés, destinataires nommés ou groupes AD, aperçu des adresses, durée, expiration, révocation et filigrane selon le format.               |
+| Gouvernance          | Revues documentaires, approbations, accès permanents, contrôles/SoA, rétention, exceptions, incidents/CAPA et indicateurs.                             |
+| Notifications        | E-mails Graph ou SMTP, historique des envois et relance des échecs ; canaux et politiques d'alertes techniques configurables séparément.               |
+| Préférences          | Français, anglais, espagnol et slovaque selon les langues activées ; choix personnel, détection du navigateur et réglages d'affichage.                 |
+| Exploitation         | Audit, santé des services, observabilité, sauvegarde PostgreSQL et fichiers, tests isolés de restauration et de performance.                           |
 
-### Lecteur de documents : bloc GED et modules activables (3 novembre 2026)
+### Intégrations et modules optionnels
 
-Dans le lecteur, suivi, réservation, liens, commentaires, versions, signatures et
-partage sont regroupés dans un bloc **Gestion documentaire** replié par défaut :
-le document garde toute la place. Dans **Administration → GED → Options GED**,
-un administrateur peut désactiver _Documents liés_, _Commentaires_ et
-_Signatures électroniques_ ; le _Partage externe_ reste désactivé tant qu'il
-n'est pas autorisé. Un module désactivé est masqué pour tous et son API répond
-`404` ; les données sont conservées. Voir
-[Gestion documentaire](docs/document-management.md#fonctions-ged-novembre-2026).
+- **Active Directory / Entra ID** : annuaire LDAP/LDAPS, groupes et SSO Microsoft.
+  Voir [l'annuaire](docs/active-directory.md) et [le SSO](docs/sso.md).
+- **SharePoint** : lecture intégrée des liens vidéo compatibles. Les droits
+  Microsoft de la source restent nécessaires, même avec le SSO du portail.
+- **Microsoft Information Protection / Purview** : lecteur optionnel configuré
+  séparément, soumis aux autorisations et formats pris en charge. Le SSO seul
+  n'ouvre pas un document chiffré. Voir [le lecteur MIP](docs/mip-reader.md).
+- **GED** : documents liés, commentaires, signatures et partage selon les modules
+  activés par l'administrateur. Les options masquées ne suppriment pas les données.
+- **Stockage et supervision** : cibles S3/SMB et intégrations d'observabilité
+  suivant la configuration du déploiement.
 
-### Métadonnées GED et gestion documentaire (30 octobre 2026)
+### Où trouver les procédures ?
 
-**Documents admin et modérateur : Liste ou Fenêtres, 20 documents par page avec
-Précédent/Suivant.** Le choix d'affichage est mémorisé dans le navigateur ; les
-filtres restent actifs pendant la pagination. Voir la procédure et les exemples
-dans [Gestion documentaire](docs/document-management.md).
-
-Nouveautés du 31 octobre : recherche GED par référence, responsable, type, mots-clés
-et plage de dates de revue, combinable aux langues, catégories et favoris. Les recherches
-enregistrées conservent ces critères. Les recherches textuelles sur un champ précis
-respectent sa casse ; la recherche générale reste insensible à la casse.
-
-Les menus Documents et Métadonnées des administrateurs et modérateurs proposent
-un **traitement par lot** de la page courante : sélection de 50 documents maximum,
-changement de catégorie et ajout/remplacement de valeurs de métadonnées, aperçu avant
-confirmation. Les autres champs restent conservés. Les ACL source et destination
-sont vérifiées pour chaque document ; toute modification concurrente annule le lot.
-**Aucune métadonnée n'est obligatoire.** Les modèles restent facultatifs.
-
-L'**historique des modifications**, accessible aux éditeurs depuis une fiche en cours
-d'édition, affiche auteur, date, action et noms des champs modifiés, séparément des
-versions du fichier. Il ne restitue pas les anciennes valeurs sensibles.
-La détection SHA-256 d'un dépôt initial retrouve les fichiers identiques parmi les
-documents que le déposant peut modifier et propose d'ouvrir l'existant ou de gérer
-une nouvelle version ; aucun document inaccessible n'est dévoilé.
-
-**Suivi documentaire** affiche les responsables manquants, les champs conseillés non
-renseignés et les revues en retard dans le périmètre d'édition. L'administrateur peut
-configurer les rappels annuels (avant échéance et délai de retard) et la répétition des
-rappels de revues de publication. La répétition vaut `0` par défaut (un seul rappel).
-La date de métadonnée reste descriptive : elle ne crée pas de revue automatique.
-Les rappels utilisent les canaux documentaires existants ; aucune campagne de mail
-n'est déclenchée par l'affichage de ces compteurs.
-
-Le workflow **Validated release** doit être lancé sur `main` avec un nouveau tag :
-qualité, build, recette Docker isolée des rôles, performance et contrôle des images
-doivent tous réussir avant la création de la release, de son ZIP et des empreintes.
-Il publie le SHA testé et refuse de remplacer un tag existant. Un contrôle en échec
-bloque la publication. La migration additive `20261031120000_document_lookup_indexes`
-indexe les empreintes et l'historique ; sauvegarder PostgreSQL avant migration.
-
-- **[Métadonnées documentaires](#métadonnées-documentaires)** : modèles de fiche,
-  champs personnalisés, recherche et édition sans nouvelle version du fichier.
-- **[ACL par catégorie](#acl-des-catégories-et-sous-catégories)** : héritage avec
-  exceptions, choix des sous-catégories dans les règles d'accès et filtres associés.
-- **Lecture plus compacte** : informations documentaires en grille responsive,
-  textes longs adaptés et mots-clés cliquables, sans cases vides ni doublons de casse.
-- **Administration et modération** : branches documentaires repliables, statut
-  stylisé, confirmation de sauvegarde et protection contre l'abandon des champs modifiés.
-- **Aide FR/EN/ES/SK** : rubrique **Métadonnées GED** dans `/admin#help`, avec
-  exemples, limites, étapes d'enregistrement et explication des dates de revue.
-
-### Lecteur Microsoft Information Protection optionnel (19 octobre 2026)
-
-- Intégration pilote du SDK MIP pour les fichiers DOCX/XLSX chiffrés par Microsoft Purview, sans OneDrive ni SharePoint. L'original reste chiffré dans le stockage ISMS ; les fichiers ordinaires suivent le parcours existant.
-- Option **désactivée par défaut** : `MIP_READER_ENABLED=false`. Le service natif isolé se charge uniquement avec `docker-compose.mip.yml` et le profil `mip`.
-- L'API contrôle les ACL ISMS, exige une identité issue du SSO Microsoft et demande au SDK de travailler pour cet utilisateur. L'aperçu web exige les droits Purview `VIEW` et `EXTRACT`, avec analyse antivirus du contenu déchiffré. Un droit de lecture seul ne suffit pas à autoriser cette restitution web.
-- Cette intégration ne remplace pas un client Office gérant toutes les restrictions DRM. Pas de prise en charge des copies filigranées ISMS, fichiers protégés par mot de passe, anciens XLS, DKE/HYOK ou de tous les tenants/clouds Microsoft.
-- **Configuration Entra** : ajouter **Azure Rights Management Service → Autorisations d'application → `Content.DelegatedReader`**, avec consentement administrateur. Cette permission n'appartient pas à Microsoft Graph. Ne pas ajouter `Content.SuperUser`.
-- Une application MIP dédiée est recommandée ; la réutilisation de l'application SSO et de son certificat est possible après validation explicite. Microsoft Graph `Mail.Send` reste réservé à l'application d'envoi des e-mails et n'est pas requis pour lire les fichiers Purview.
-- **Pas d'activation automatique en production** : configurer le certificat et les secrets hors Git, puis valider les accès autorisés/refusés avant d'activer `MIP_READER_ENABLED=true`. Procédure, paramètres et limites : [Lecteur MIP optionnel](docs/mip-reader.md).
-
-### Navigation et diagnostic (17 octobre 2026)
-
-- Modération : espace, état, recherche et page sont conservés dans l'URL au rechargement. La recherche attend 350 ms après la saisie et annule les anciennes requêtes ; les droits restent contrôlés par l'API.
-- La recherche des menus administrateur reconnaît aussi leurs libellés espagnols et slovaques.
-- L'espace modérateur reprend les contrôles de l'administration : barre de recherche, langues, actualisation et compte, avec des groupes de navigation repliables. Les menus et actions restent limités à ses droits effectifs.
-- `sh scripts/diagnose-postgres.sh` produit un bilan en lecture seule : connexions, cache, transactions, entretien automatique, index et temps cumulés des requêtes si `pg_stat_statements` est installé. Aucun contenu documentaire, texte SQL ou secret n'est affiché. Les compteurs sont cumulatifs depuis leur remise à zéro : un index peu utilisé ne doit pas être supprimé sans observation représentative.
-
-### Gestion documentaire et affichage (15 octobre 2026)
-
-- Espace `/moderator` avec vues Documents gérés, Import de documents et Mes droits documentaires, et sous-menus pour les espaces autorisés. Les filtres sont appliqués par l'API, sans élargissement des droits.
-- Portail principal et espace modérateur : vingt documents au maximum par page, navigation Précédent/Suivant et retour en première page lors d'un changement d'espace. Les fiches documentaires s'adaptent aux écrans mobiles, QHD, 4K et ultralarges.
-- Boutons mobiles corrigés dans les catégories et la gouvernance des accès. L'API `/api/documents` normalise les paramètres de pagination invalides avant les requêtes PostgreSQL ; les limites valides restent plafonnées à 100.
-
-- Audit conservé sans limite de 50 événements. `AUDIT_RETENTION_DAYS=0` désactive la purge ; une durée positive approuvée active une maintenance quotidienne par lots. Les événements déjà supprimés ne sont pas récupérés.
-- Notifications durables dans une outbox PostgreSQL, transférées vers BullMQ par le worker avec reprise après panne Redis. Publication, revue et événements correspondants sont enregistrés atomiquement. Le transfert peut prendre environ une minute ; l’acceptation par le transport ne prouve pas la réception en boîte.
-- Planificateur exclusif entre workers, contrôle Docker fondé sur une activité récente et arrêt gracieux. Ne pas augmenter le nombre de workers sans conserver ce verrou.
-- Résumés documentaires paginés, panneau Documents admin isolé, champs traduits partagés et délais réseau sans relance automatique des écritures. La mise à jour exige `prisma migrate deploy` avant le démarrage des nouveaux services.
-- Avec le compte applicatif restreint, effectuer une sauvegarde, construire la nouvelle image API puis exécuter `sh ./scripts/migrate.sh`. Ce script utilise le compte PostgreSQL administratif dans une tâche isolée, supprime son fichier temporaire et n’accorde aucun droit de création de tables au compte applicatif.
-
-- **Interface FR / EN / ES / SK** : connexion, portail, administration, modération,
-  gouvernance et aide technique disposent de traductions espagnoles et slovaques. Sans choix
-  enregistré, la première langue prise en charge dans les préférences du
-  navigateur est utilisée (par exemple `es-ES`, `es-MX` ou `sk-SK`). Le choix manuel
-  enregistré reste prioritaire ; l'anglais sert de repli. La langue du document
-  et les contenus saisis par les utilisateurs ne sont pas traduits automatiquement.
-  Les contrôles de couverture et les tests navigateur valident les traductions,
-  les quatre langues et les affichages mobile, tablette et bureau.
-
-### Administration et aide technique — 10 octobre 2026
-
-- **Aide intégrée** dans `/admin#help` : rubriques regroupées par domaine,
-  recherche, navigation précédent/suivant et langue français/anglais/espagnol/slovaque pilotée par
-  les boutons de l'en-tête, sans commandes de langue en doublon dans l'aide.
-  Une seule rubrique est affichée à la fois ; sur mobile, un sélecteur remplace
-  la navigation latérale.
-- **Ateliers de configuration** : création d'un espace, d'une catégorie et
-  d'une sous-catégorie, synchronisation de groupes AD, attribution des droits,
-  import des certificats CA, configuration LDAPS, inscription Entra SSO et
-  gestion des documents. Les 24 menus disposent désormais d'un atelier technique,
-  y compris stockage S3/SMB, SMTP/Graph, MFA, comptes, alertes, supervision,
-  audit et gouvernance. Les procédures donnent des valeurs d'exemple,
-  des commandes de diagnostic et les points de contrôle, en distinguant
-  configuration dans l'interface et intervention côté serveur.
-- **Menu Modérateurs bilingue** : titres, formulaires local/AD/groupe, permissions,
-  boutons, confirmations et messages suivent la langue de l'interface. Le
-  formulaire local se vide correctement après un ajout réussi. Les commandes
-  de langue de l'en-tête restent accessibles sur mobile.
-- **Portée des permissions clarifiée** : une règle de l'éditeur des droits
-  associe un groupe à un espace, une catégorie ou une sous-catégorie.
-  Les catégories héritent des droits du parent jusqu'à une règle explicite
-  remplaçant cet héritage pour la branche. Vérifiez le résultat avec un
-  utilisateur standard ; créer une catégorie seule n'ajoute aucune restriction.
-- **Reconnexion administrateur corrigée** : après expiration de session,
-  « Se reconnecter » relance le SSO, y compris lorsque l'API ne fournit pas
-  d'URL de connexion. Pour une session AD/locale, le bouton ouvre la connexion
-  administrateur dédiée. Le retour conserve l'URL et le menu précédemment ouvert.
-- **Tests de non-régression** : l'aide bilingue et son affichage mobile/desktop
-  sont couverts par `tests/e2e/admin-management-help.spec.ts`. Les reconnexions
-  SSO, SSO sans URL, AD/locale et sans métadonnées d'authentification sont
-  couvertes par `tests/e2e/admin-session-expiry.spec.ts`.
-
-Les domaines et chemins des ateliers sont fictifs : les adapter à votre
-environnement. Ces exemples ne modifient aucune configuration et ne contiennent
-aucun secret. Le menu SSO propose des diagnostics ; ses identifiants restent
-configurés côté serveur. Le proxy SSO actuel utilise un **secret client**, pas
-un certificat client. Les certificats CA LDAPS et Microsoft Graph ont des usages
-distincts de l'authentification SSO.
+- [Guide utilisateur](docs/user-guide-fr.md) / [User guide](docs/user-guide-en.md).
+- [Gestion des documents et métadonnées](docs/document-management.md).
+- [Description de l'application](docs/application-description.md).
+- [Documentation technique et exploitation](docs/README.md).
+- **Aide intégrée** dans l'administration : fonctionnement, exemples de
+  configuration et contrôles, avec les langues activées dans l'en-tête.
 
 ## Captures d'écran
 
-Captures réelles du navigateur renouvelées le **10 novembre 2026**, avec des données
+Captures réelles du navigateur avec des données
 de démonstration anonymisées. Aucun contenu de production n'est affiché.
 [Scénarios et régénération](docs/screenshots/README.md).
 
@@ -584,11 +483,13 @@ PostgreSQL, séparément du volume documentaire.
 
 ## Documents et lecture seule
 
-L’administration accepte uniquement les formats PDF, Word DOCX et Excel XLSX,
-avec une limite de 50 Mio et une analyse ClamAV avant publication. Les PDF sont
-affichés dans le lecteur intégré. Les DOCX sont convertis en texte et les XLSX
-en tableau directement dans le navigateur, sans service tiers et sans fonction
-d’édition.
+Le dépôt accepte les formats PDF, DOCX, XLSX, PPTX, PNG/JPEG, TXT et CSV,
+avec une limite de 50 Mio et une analyse ClamAV avant publication. Les documents
+sensibles sont limités aux formats PDF, DOCX et XLSX. Les PDF utilisent le lecteur
+intégré ; les fichiers Excel proposent une consultation locale en lecture seule,
+avec feuilles, recherche, filtres et réglage de l’affichage. Les aperçus ne
+permettent pas de modifier le fichier stocké. Un lien externe peut aussi être
+enregistré sans joindre de fichier.
 
 Les permissions `read`, `preview` et `download` sont distinctes. L’API renvoie
 les capacités autorisées et l’interface masque le téléchargement lorsqu’il

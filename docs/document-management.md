@@ -117,7 +117,7 @@ comme envoyé. Le worker relit les réglages sans redéploiement ; les canaux
 documentaires et destinataires existants restent appliqués. Les alertes techniques
 Teams/disque/services constituent une configuration distincte.
 
-## Fonctions GED (novembre 2026)
+## Fonctions GED
 
 **Affichage dans le lecteur** — les fonctions GED sont regroupées dans un bloc
 **Gestion documentaire**, replié par défaut au-dessus du lecteur pour lui laisser
