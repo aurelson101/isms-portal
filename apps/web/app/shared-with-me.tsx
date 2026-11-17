@@ -18,7 +18,9 @@ export function SharedWithMe({ locale }: { locale: Locale }) {
   useEffect(() => {
     void fetch("/api/sensitive/shared-with-me", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : []))
-      .then((data: SharedDocument[]) => setItems(Array.isArray(data) ? data : []))
+      .then((data: SharedDocument[]) =>
+        setItems(Array.isArray(data) ? data : []),
+      )
       .catch(() => setItems([]));
   }, []);
   if (items.length === 0) return null;
@@ -46,7 +48,9 @@ export function SharedWithMe({ locale }: { locale: Locale }) {
             item.slug;
           return (
             <li key={item.id}>
-              <a href={`/documents/${encodeURIComponent(item.slug)}`}>{title}</a>{" "}
+              <a href={`/documents/${encodeURIComponent(item.slug)}`}>
+                {title}
+              </a>{" "}
               <small>
                 {item.expiresAt
                   ? `${translate(locale, "jusqu’au", "until")} ${new Date(item.expiresAt).toLocaleString(locale)}`

@@ -38,14 +38,12 @@ for (const width of [390, 1440]) {
       return route.fulfill({ json: path === "/api/branding" ? {} : [] });
     });
     await page.goto("/admin#advanced-settings");
-    const section = page
-      .locator("section.admin-card")
-      .filter({
-        has: page.getByRole("heading", {
-          name: "Separate review email (GLPI)",
-          exact: true,
-        }),
-      });
+    const section = page.locator("section.admin-card").filter({
+      has: page.getByRole("heading", {
+        name: "Separate review email (GLPI)",
+        exact: true,
+      }),
+    });
     const recipient = section.getByRole("textbox", {
       name: "Recipient email address",
     });

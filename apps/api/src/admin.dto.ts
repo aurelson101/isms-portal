@@ -298,7 +298,9 @@ export class ExternalDocumentDto {
 
 export class SensitivityDto {
   @IsBoolean() sensitive!: boolean;
-  @IsOptional() @IsIn(["HEADER", "CENTER", "FOOTER"]) watermarkPosition?: string;
+  @IsOptional()
+  @IsIn(["HEADER", "CENTER", "FOOTER"])
+  watermarkPosition?: string;
 }
 
 export class ExternalLinkDto {
