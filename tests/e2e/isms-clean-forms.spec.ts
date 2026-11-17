@@ -149,27 +149,33 @@ test("moderator preserves dirty forms on cancellation and category load failure"
   });
   await page.goto("/moderator");
   await page.getByRole("button", { name: "New version", exact: true }).click();
-  await page.getByLabel("Change summary").fill("Do not lose this change");
+  await page
+    .locator("#moderator-version-form")
+    .getByLabel("Change summary")
+    .fill("Do not lose this change");
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByLabel("Change summary")).toHaveValue(
-    "Do not lose this change",
-  );
+  await expect(
+    page.locator("#moderator-version-form").getByLabel("Change summary"),
+  ).toHaveValue("Do not lose this change");
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.locator(".error-state[role=alert]")).toHaveText(
     "Invalid category response",
   );
-  await expect(page.getByLabel("Change summary")).toHaveValue(
-    "Do not lose this change",
-  );
+  await expect(
+    page.locator("#moderator-version-form").getByLabel("Change summary"),
+  ).toHaveValue("Do not lose this change");
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByLabel("Change summary")).toBeVisible();
+  await expect(
+    page.locator("#moderator-version-form").getByLabel("Change summary"),
+  ).toBeVisible();
   categoriesFail = false;
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.locator("#moderator-metadata-form")).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Archive", exact: true }).click();
   await expect(page.locator("#moderator-metadata-form")).toHaveCount(0);
 });

@@ -238,7 +238,9 @@ for (const width of [320, 1280]) {
       .fill("policy & travel");
     await expect.poll(() => queries.at(-1)?.get("q")).toBe("policy & travel");
     expect(queries.at(-1)?.get("page")).toBe("1");
-    await page.locator(".admin-management-tools select").selectOption("status");
+    await page
+      .getByRole("combobox", { name: "Trier par", exact: true })
+      .selectOption("status");
     await expect.poll(() => queries.at(-1)?.get("sort")).toBe("status");
     await page.goto("/admin#help");
     await expect(

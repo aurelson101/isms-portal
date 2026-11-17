@@ -64,6 +64,29 @@ test("Excel filter choices follow the selected worksheet and reset safely", asyn
       return route.fulfill({
         json: { items: [document], page: 1, total: 1, totalPages: 1 },
       });
+    if (
+      path === "/api/documents/document" ||
+      path === "/api/documents/by-slug/test-workbook"
+    )
+      return route.fulfill({ json: document });
+    if (path.endsWith("/ged"))
+      return route.fulfill({
+        json: {
+          features: {
+            links: false,
+            comments: false,
+            signatures: false,
+            sharing: false,
+          },
+          subscribed: false,
+          canEdit: false,
+          isAdmin: false,
+          lock: null,
+          links: [],
+          comments: [],
+          versions: [],
+        },
+      });
     if (path.includes("/preview") || path.endsWith("/content"))
       return route.fulfill({
         body: preview,

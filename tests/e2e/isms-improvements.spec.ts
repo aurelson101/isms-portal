@@ -88,6 +88,7 @@ for (const width of [320, 768, 1280]) {
       .getByRole("button", { name: "Previous", exact: true })
       .click();
     const review = page.locator("#review-0");
+    await review.locator(".approval-review-toggle").click();
     await review.getByLabel("Decision comment").fill(" Evidence checked ");
     page.on("dialog", (dialog) => dialog.accept());
     await review.getByRole("button", { name: "Approve", exact: true }).click();
@@ -182,12 +183,18 @@ test("moderator keeps server errors recoverable and validates uploads before sen
   ).toBeEnabled();
   expect(query).toBe("policy");
   await page.getByRole("button", { name: "New version", exact: true }).click();
-  await page.getByLabel("Change summary").fill("Update");
-  await page.getByLabel("File", { exact: true }).setInputFiles({
-    name: "file.exe",
-    mimeType: "application/octet-stream",
-    buffer: Buffer.from("not a document"),
-  });
+  await page
+    .locator("#moderator-version-form")
+    .getByLabel("Change summary")
+    .fill("Update");
+  await page
+    .locator("#moderator-version-form")
+    .getByLabel("File", { exact: true })
+    .setInputFiles({
+      name: "file.exe",
+      mimeType: "application/octet-stream",
+      buffer: Buffer.from("not a document"),
+    });
   await page
     .getByRole("button", { name: "Upload and scan", exact: true })
     .click();
@@ -195,16 +202,20 @@ test("moderator keeps server errors recoverable and validates uploads before sen
     "Unsupported format",
   );
   expect(uploads).toBe(0);
-  await page.getByLabel("File", { exact: true }).setInputFiles({
-    name: "empty.pdf",
-    mimeType: "application/pdf",
-    buffer: Buffer.alloc(0),
-  });
+  await page
+    .locator("#moderator-version-form")
+    .getByLabel("File", { exact: true })
+    .setInputFiles({
+      name: "empty.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.alloc(0),
+    });
   await page
     .getByRole("button", { name: "Upload and scan", exact: true })
     .click();
   await expect(page.locator(".error-state")).toHaveText("The file is empty.");
   await page
+    .locator("#moderator-version-form")
     .getByLabel("File", { exact: true })
     .evaluate((input: HTMLInputElement) => {
       const transfer = new DataTransfer();
@@ -222,12 +233,18 @@ test("moderator keeps server errors recoverable and validates uploads before sen
   await expect(page.locator(".error-state")).toHaveText(
     "The file exceeds 50 MB.",
   );
-  await page.getByLabel("File", { exact: true }).setInputFiles({
-    name: "policy.pdf",
-    mimeType: "application/pdf",
-    buffer: Buffer.from("%PDF-1.4\n%%EOF"),
-  });
-  await page.getByLabel("Change summary").fill("   ");
+  await page
+    .locator("#moderator-version-form")
+    .getByLabel("File", { exact: true })
+    .setInputFiles({
+      name: "policy.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4\n%%EOF"),
+    });
+  await page
+    .locator("#moderator-version-form")
+    .getByLabel("Change summary")
+    .fill("   ");
   await page
     .getByRole("button", { name: "Upload and scan", exact: true })
     .click();
