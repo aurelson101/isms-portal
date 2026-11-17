@@ -216,13 +216,7 @@ export class AlertDeliveryService {
     }
   }
 
-  private async graph(
-    config: StoredChannels,
-    subject: string,
-    text: string,
-    recipients: string[],
-    html?: string,
-  ) {
+  private async graphToken(config: StoredChannels) {
     if (
       !config.graphTenantId ||
       !config.graphClientId ||
@@ -231,8 +225,6 @@ export class AlertDeliveryService {
       !config.graphPrivateKeyPemEncrypted
     )
       throw new BadRequestException("Microsoft Graph is incomplete");
-    if (!recipients.length)
-      throw new BadRequestException("No Graph recipients configured");
     const certificate = new X509Certificate(
       this.decrypt(config.graphCertificatePemEncrypted),
     );
@@ -279,12 +271,102 @@ export class AlertDeliveryService {
     const token = (await tokenResponse.json()) as { access_token?: string };
     if (!token.access_token)
       throw new Error("Graph token response is incomplete");
+    return token.access_token;
+  }
+
+  /** Manual, read-only query. Never grants permissions or treats acceptance as delivery. */
+  async messageTraces() {
+    const config = await this.stored();
+    if (!config.graphSender)
+      return {
+        available: false,
+        reason: "NOT_CONFIGURED",
+        items: [],
+        truncated: false,
+      };
+    const now = new Date();
+    const filter = `senderAddress eq '${config.graphSender.replace(/'/gu, "''")}' and receivedDateTime ge ${new Date(now.getTime() - 48 * 3600000).toISOString()} and receivedDateTime le ${now.toISOString()}`;
+    try {
+      const token = await this.graphToken(config);
+      const query = new URLSearchParams({ $filter: filter, $top: "100" });
+      const response = await fetch(
+        `https://graph.microsoft.com/v1.0/admin/exchange/tracing/messageTraces?${query}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(15000),
+          redirect: "error",
+        },
+      );
+      if (!response.ok)
+        return {
+          available: false,
+          reason:
+            response.status === 401 || response.status === 403
+              ? "PERMISSION_REQUIRED"
+              : "PROVIDER_UNAVAILABLE",
+          items: [],
+          truncated: false,
+        };
+      const data = (await response.json()) as {
+        value?: Array<{
+          id: string;
+          senderAddress: string;
+          recipientAddress: string;
+          subject: string;
+          receivedDateTime: string;
+          status: string;
+        }>;
+        "@odata.nextLink"?: string;
+      };
+      if (!Array.isArray(data.value)) throw new Error("Invalid trace response");
+      return {
+        available: true,
+        reason: null,
+        items: data.value
+          .slice(0, 100)
+          .filter(
+            (item) =>
+              typeof item.senderAddress === "string" &&
+              item.senderAddress.toLowerCase() ===
+                config.graphSender!.toLowerCase(),
+          )
+          .map(
+            ({ id, recipientAddress, subject, receivedDateTime, status }) => ({
+              id,
+              recipientAddress,
+              subject,
+              receivedDateTime,
+              status,
+            }),
+          ),
+        truncated: !!data["@odata.nextLink"] || data.value.length > 100,
+      };
+    } catch {
+      return {
+        available: false,
+        reason: "PROVIDER_UNAVAILABLE",
+        items: [],
+        truncated: false,
+      };
+    }
+  }
+
+  private async graph(
+    config: StoredChannels,
+    subject: string,
+    text: string,
+    recipients: string[],
+    html?: string,
+  ) {
+    if (!recipients.length)
+      throw new BadRequestException("No Graph recipients configured");
+    const token = await this.graphToken(config);
     const response = await fetch(
-      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(config.graphSender)}/sendMail`,
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(config.graphSender!)}/sendMail`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token.access_token}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

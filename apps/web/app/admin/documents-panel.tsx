@@ -9,6 +9,7 @@ import {
   type ComponentType,
 } from "react";
 import type { Locale } from "../i18n/locale";
+import { documentStatuses } from "../document-status";
 import { isLocale } from "../i18n/locale";
 import { LanguageSelect } from "../language-controls";
 import { Icon } from "../icons";
@@ -127,9 +128,7 @@ export function DocumentsPanel({
       const sort = query.get("docSort") || "updatedAt";
       const status = query.get("docStatus") || "";
       setDocumentStatus(
-        ["DRAFT", "PUBLISHED", "ARCHIVED", "QUARANTINED"].includes(status)
-          ? status
-          : "",
+        documentStatuses.some((value) => value === status) ? status : "",
       );
       setDocumentSort(
         ["updatedAt", "publishedAt", "status"].includes(sort)
@@ -310,7 +309,7 @@ export function DocumentsPanel({
             }}
           >
             <option value="">{t("Tous les états", "All statuses")}</option>
-            {["DRAFT", "PUBLISHED", "ARCHIVED", "QUARANTINED"].map((status) => (
+            {documentStatuses.map((status) => (
               <option key={status} value={status}>
                 {statusLabel(status)}
               </option>

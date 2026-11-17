@@ -1176,3 +1176,19 @@ Le workflow manuel `Clean previous package version` accepte le SHA complet
 `old_tag` a retirer. Il exige une nouvelle publication valide sur `main`,
 protege `latest`, les signatures et les manifestes partages, et refuse les
 versions portant d'autres etiquettes. Il ne modifie pas le serveur de production.
+
+### GED diagnostics and optional Exchange traces
+
+Reference, owner and keyword filters ignore case and accents without changing stored
+metadata. Document follow-up also reports duplicate references, invalid metadata and
+malformed URLs within editable scopes, with an explicit 5,000-document analysis limit.
+It does not probe arbitrary external URLs. Admin, moderator and portal share document
+status labels in all four interface languages.
+
+Observability can query Exchange delivery traces for the configured Graph sender over
+the last 48 hours (up to 100 rows, partial results marked). This optional read-only
+feature uses the existing Graph certificate; it requires separate administrator
+consent for `ExchangeMessageTrace.Read.All` and Microsoft service-principal provisioning.
+ISMS never grants these tenant-wide trace permissions automatically. Provider acceptance,
+transport delivery and actual reading remain distinct. See the
+[GED operations guide](docs/document-management.md#diagnostic-et-suivi-des-envois).

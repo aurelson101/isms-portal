@@ -91,6 +91,43 @@ export function metadataWhere(
   return result;
 }
 
+/** Fold only search terms; the original metadata remains unchanged. */
+export function normalizeMetadataSearch(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .toLowerCase()
+    .replace(/œ/gu, "oe")
+    .replace(/æ/gu, "ae");
+}
+
+export async function resolvedMetadataWhere(
+  prisma: PrismaService,
+  filters: DocumentFilters,
+): Promise<Prisma.DocumentWhereInput[]> {
+  // Validate every criterion before querying. Dates and document types retain exact semantics.
+  metadataWhere(filters);
+  const textKeys = ["reference", "owner", "keywords"] as const;
+  const clauses = textKeys
+    .filter((key) => !!filters[key])
+    .map((key) => {
+      const field = Prisma.sql`COALESCE(metadata ->> ${`ged.${key}`}, '')`;
+      const folded = Prisma.sql`replace(replace(lower(regexp_replace(normalize(${field}, NFKD), ${"[\u0300-\u036f]"}, '', 'g')), 'œ', 'oe'), 'æ', 'ae')`;
+      return Prisma.sql`strpos(${folded}, ${normalizeMetadataSearch(filters[key]!)}) > 0`;
+    });
+  const exact = metadataWhere({
+    documentType: filters.documentType,
+    reviewFrom: filters.reviewFrom,
+    reviewTo: filters.reviewTo,
+  });
+  if (!clauses.length) return exact;
+  const matches = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT id FROM "Document" WHERE "deletedAt" IS NULL AND ${Prisma.join(clauses, " AND ")}
+  `);
+  // The caller combines these IDs with its existing ACL and sensitivity predicates before pagination.
+  return [...exact, { id: { in: matches.map(({ id }) => id) } }];
+}
+
 export function mergeMetadata(
   previous: Prisma.JsonValue | null,
   patch: Record<string, string> = {},

@@ -1,4 +1,6 @@
 "use client";
+import { documentStatuses, documentStatusLabel } from "../document-status";
+import { EmailTraces } from "../email-traces";
 import { fetchWithTimeout as fetch } from "../http-client";
 import { api } from "./api-client";
 import { DocumentsPanel } from "./documents-panel";
@@ -83,13 +85,11 @@ const useAdminI18n = () => {
   };
 };
 const localizedStatus = (locale: Locale, value: string) => {
+  if (documentStatuses.some((status) => status === value.toUpperCase()))
+    return documentStatusLabel(locale, value.toUpperCase());
   const labels: Record<string, [string, string]> = {
     ACTIVE: ["Actif", "Active"],
     INACTIVE: ["Inactif", "Inactive"],
-    PUBLISHED: ["Publié", "Published"],
-    ARCHIVED: ["Archivé", "Archived"],
-    DRAFT: ["Brouillon", "Draft"],
-    QUARANTINED: ["En quarantaine", "Quarantined"],
     CLEAN: ["Sain", "Clean"],
     SUCCESS: ["Succès", "Success"],
     ERROR: ["Erreur", "Error"],
@@ -6269,6 +6269,7 @@ function ObservabilityPanel({
             </div>
             <section className="operations-work-items">
               <p className="muted">{emailCopy.deliveryNote}</p>
+              <EmailTraces locale={locale} />
               <div className="section-heading">
                 <h2>{emailCopy.title}</h2>
                 <div className="email-history-tools">

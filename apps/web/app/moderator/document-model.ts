@@ -1,3 +1,4 @@
+import { documentStatuses } from "../document-status";
 import { translate } from "../i18n/translate";
 import type { Locale } from "../i18n/locale";
 
@@ -45,9 +46,7 @@ export function documentFilters(query: URLSearchParams) {
     page: Number.isSafeInteger(page) && page > 0 ? Math.min(page, 1000000) : 1,
     q: (query.get("q") || "").trim().slice(0, 200),
     space: (query.get("space") || "").slice(0, 200),
-    status: ["DRAFT", "PUBLISHED", "ARCHIVED", "QUARANTINED"].includes(status)
-      ? status
-      : "",
+    status: documentStatuses.some((value) => value === status) ? status : "",
   };
 }
 

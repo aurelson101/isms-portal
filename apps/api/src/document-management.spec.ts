@@ -2,6 +2,8 @@ import "reflect-metadata";
 import { describe, expect, it, vi } from "vitest";
 import {
   metadataWhere,
+  normalizeMetadataSearch,
+  resolvedMetadataWhere,
   mergeMetadata,
   readReminderSettings,
   rejectDuplicate,
@@ -270,6 +272,94 @@ describe("optional GED metadata management", () => {
       action: "document.metadata.update",
       fields: ["title", "ged.owner"],
     });
+  });
+  it("folds accents, case and ligatures without SQL wildcard semantics", async () => {
+    expect(normalizeMetadataSearch("ÉQUIPE Œuvre Æther")).toBe(
+      "equipe oeuvre aether",
+    );
+    const prisma = {
+      $queryRaw: vi.fn().mockResolvedValue([{ id: documentId }]),
+    };
+    expect(
+      await resolvedMetadataWhere(prisma as never, {
+        owner: "ÉQUIPE%_'",
+        reviewFrom: "2026-01-01",
+      }),
+    ).toEqual([
+      { metadata: { path: ["ged.reviewDate"], gte: "2026-01-01" } },
+      { id: { in: [documentId] } },
+    ]);
+    const query = prisma.$queryRaw.mock.calls[0][0];
+    expect(query.values).toContain("equipe%_'");
+    expect(query.sql).toContain("strpos");
+    expect(query.sql).not.toContain("equipe%_'");
+    await expect(
+      resolvedMetadataWhere(prisma as never, { reviewTo: "2026-02-30" }),
+    ).rejects.toThrow();
+    expect(prisma.$queryRaw).toHaveBeenCalledOnce();
+  });
+  it("keeps the newer metadata when two moderators save the same revision", async () => {
+    const { controller, prisma } = fixture();
+    let revision = at,
+      owner = "Alice";
+    prisma.document.updateMany.mockImplementation(async ({ where, data }) => {
+      if (where.updatedAt.toISOString() !== revision) return { count: 0 };
+      revision = data.updatedAt.toISOString();
+      owner = data.metadata["ged.owner"];
+      return { count: 1 };
+    });
+    const requests = ["Bob", "Carol"].map((name) =>
+      controller.apply(
+        {
+          ...req,
+          identity: { ...req.identity, username: `${name}@example.test` },
+        },
+        {
+          documents: [{ id: documentId, expectedUpdatedAt: at }],
+          metadata: { "ged.owner": name },
+        },
+      ),
+    );
+    const results = await Promise.allSettled(requests);
+    expect(
+      results.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === "rejected"),
+    ).toHaveLength(1);
+    expect(owner).toBe("Bob");
+    expect(prisma.auditEvent.create).toHaveBeenCalledOnce();
+  });
+  it("diagnoses only scoped records and does not fetch external links", async () => {
+    const { controller, prisma } = fixture();
+    prisma.document.count.mockResolvedValue(3);
+    prisma.document.findMany.mockResolvedValue([
+      {
+        id: "1",
+        metadata: { "ged.reference": "RÉF-1" },
+        externalUrl: "https://example.test",
+      },
+      {
+        id: "2",
+        metadata: { "ged.reference": "ref-1" },
+        externalUrl: "http://127.0.0.1",
+      },
+      {
+        id: "3",
+        metadata: { "ged.reviewDate": "2026-02-30" },
+        externalUrl: null,
+      },
+    ] as never);
+    expect(await controller.quality(req)).toMatchObject({
+      duplicateReferences: 2,
+      invalidMetadata: 1,
+      invalidLinks: 1,
+      examined: 3,
+      remaining: 0,
+    });
+    expect(
+      prisma.document.findMany.mock.calls[0][0].where.AND[0].OR[0],
+    ).toMatchObject({ spaceId: "space" });
   });
   it("counts quality only inside the editor's category scopes", async () => {
     const { controller, prisma } = fixture();

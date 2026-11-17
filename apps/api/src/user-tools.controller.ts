@@ -1056,6 +1056,11 @@ export class OperationsController {
     return { delivered: true };
   }
 
+  @Get("email-traces")
+  emailTraces() {
+    return this.alerts.messageTraces();
+  }
+
   @Get("email-deliveries")
   emailDeliveries() {
     return this.notifications.deliveryHistory();

@@ -33,7 +33,11 @@ import { AuditService } from "./audit.service";
 import { persistAudit } from "./audit-event";
 import { categoryDocumentWhere } from "./category-permissions";
 import { AdminOnly } from "./security";
-import { mergeMetadata, readReminderSettings } from "./document-management";
+import {
+  mergeMetadata,
+  normalizeMetadataSearch,
+  readReminderSettings,
+} from "./document-management";
 import { applyDocumentType } from "./document-types";
 import type { IsmsRequest } from "./types";
 
@@ -336,7 +340,73 @@ export class DocumentManagementController {
         }),
       ],
     );
-    return { total, missingOwner, incomplete, overdueReviews };
+    let examined = 0,
+      duplicateReferences = 0,
+      invalidMetadata = 0,
+      invalidLinks = 0;
+    const references = new Map<string, number>();
+    let cursor: string | undefined;
+    while (examined < Math.min(total, 5000)) {
+      const documents = await this.prisma.document.findMany({
+        where,
+        orderBy: { id: "asc" },
+        take: Math.min(200, 5000 - examined),
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        select: { id: true, metadata: true, externalUrl: true },
+      });
+      if (!documents.length) break;
+      for (const document of documents) {
+        examined++;
+        try {
+          if (
+            document.metadata !== null &&
+            (typeof document.metadata !== "object" ||
+              Array.isArray(document.metadata))
+          )
+            throw new Error("Invalid metadata");
+          mergeMetadata(
+            null,
+            (document.metadata || {}) as Record<string, string>,
+          );
+        } catch {
+          invalidMetadata++;
+        }
+        const reference =
+          document.metadata &&
+          typeof document.metadata === "object" &&
+          !Array.isArray(document.metadata)
+            ? document.metadata["ged.reference"]
+            : null;
+        if (typeof reference === "string" && reference.trim()) {
+          const key = normalizeMetadataSearch(reference.trim());
+          const previous = references.get(key) || 0;
+          duplicateReferences += previous === 1 ? 2 : previous > 1 ? 1 : 0;
+          references.set(key, previous + 1);
+        }
+        if (document.externalUrl) {
+          try {
+            const url = new URL(document.externalUrl);
+            if (url.protocol !== "https:" || url.username || url.password)
+              throw new Error("Invalid link");
+          } catch {
+            invalidLinks++;
+          }
+        }
+      }
+      cursor = documents.at(-1)!.id;
+      if (documents.length < 200) break;
+    }
+    return {
+      total,
+      missingOwner,
+      incomplete,
+      overdueReviews,
+      duplicateReferences,
+      invalidMetadata,
+      invalidLinks,
+      examined,
+      remaining: Math.max(0, total - examined),
+    };
   }
 
   @AdminOnly()

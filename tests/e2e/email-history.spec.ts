@@ -7,6 +7,7 @@ for (const width of [390, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
     const requests: string[] = [];
+    let traceCalls = 0;
     await page.route("**/api/**", async (route) => {
       const url = new URL(route.request().url());
       let json: unknown = [];
@@ -41,7 +42,31 @@ for (const width of [390, 768, 1280]) {
           fiveXxPercent: "5",
           deniedPerMinute: "20",
         };
-      else if (url.pathname.endsWith("/email-deliveries/counts"))
+      else if (url.pathname.endsWith("/email-traces")) {
+        traceCalls++;
+        json =
+          traceCalls === 1
+            ? {
+                available: false,
+                reason: "PERMISSION_REQUIRED",
+                items: [],
+                truncated: false,
+              }
+            : {
+                available: true,
+                reason: null,
+                truncated: true,
+                items: [
+                  {
+                    id: "trace",
+                    recipientAddress: "reader@example.test",
+                    subject: "Test notification",
+                    status: "delivered",
+                    receivedDateTime: "2026-01-01T12:00:00Z",
+                  },
+                ],
+              };
+      } else if (url.pathname.endsWith("/email-deliveries/counts"))
         json = { waiting: 0, active: 0, delayed: 0, completed: 2, failed: 1 };
       else if (url.pathname.endsWith("/email-deliveries"))
         json = ["ACCEPTED", "SKIPPED", "FAILED"].map((status) => ({
@@ -125,5 +150,21 @@ for (const width of [390, 768, 1280]) {
       ),
     ).toBe(true);
     await section.screenshot({ path: info.outputPath("email-history.png") });
+    const traces = page.locator(".email-traces");
+    await traces.locator("summary").click();
+    const checkTraces = traces.getByRole("button", {
+      name: "Check Exchange traces",
+    });
+    await checkTraces.click();
+    await expect(traces.getByRole("status")).toContainText(
+      "Traces unavailable",
+    );
+    await expect(traces.locator("tbody tr")).toHaveCount(0);
+    await checkTraces.click();
+    await expect(traces.getByRole("status")).toContainText(
+      "Limited to 100 traces",
+    );
+    await expect(traces.locator("tbody tr")).toHaveCount(1);
+    await expect(traces.locator("tbody")).toContainText("delivered");
   });
 }

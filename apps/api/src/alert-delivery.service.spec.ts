@@ -110,6 +110,61 @@ describe("AlertDeliveryService", () => {
     expect(result.configured.email).toBe(true);
   });
 
+  it("queries only configured sender traces and never follows pagination redirects", async () => {
+    const service = new AlertDeliveryService(
+      {
+        applicationSetting: {
+          findUnique: vi
+            .fn()
+            .mockResolvedValue({ value: { graphSender: "isms@example.test" } }),
+        },
+      } as never,
+      {} as never,
+    );
+    vi.spyOn(
+      service as unknown as { graphToken: () => Promise<string> },
+      "graphToken",
+    ).mockResolvedValue("test-token");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          value: [
+            {
+              id: "trace",
+              senderAddress: "isms@example.test",
+              recipientAddress: "user@example.test",
+              status: "delivered",
+            },
+            { id: "other", senderAddress: "other@example.test" },
+          ],
+          "@odata.nextLink": "https://untrusted.example.test",
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      expect(await service.messageTraces()).toMatchObject({
+        available: true,
+        truncated: true,
+        items: [{ id: "trace", status: "delivered" }],
+      });
+      const [url, options] = fetchMock.mock.calls[0];
+      expect(new URL(url).searchParams.get("$filter")).toContain(
+        "senderAddress eq 'isms@example.test'",
+      );
+      expect(options.redirect).toBe("error");
+      expect(fetchMock).toHaveBeenCalledOnce();
+      fetchMock.mockResolvedValueOnce(new Response(null, { status: 403 }));
+      expect(await service.messageTraces()).toMatchObject({
+        available: false,
+        reason: "PERMISSION_REQUIRED",
+        items: [],
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it("rejects invalid email recipients", async () => {
     const prisma = {
       applicationSetting: { findUnique: vi.fn(async () => null) },

@@ -101,6 +101,36 @@ const text = {
     "Seguimiento documental",
     "Sledovanie dokumentov",
   ],
+  duplicateReferences: [
+    "Références en doublon",
+    "Duplicate references",
+    "Referencias duplicadas",
+    "Duplicitné referencie",
+  ],
+  invalidMetadata: [
+    "Métadonnées invalides",
+    "Invalid metadata",
+    "Metadatos inválidos",
+    "Neplatné metadáta",
+  ],
+  invalidLinks: [
+    "URL invalides (sans test réseau)",
+    "Invalid URLs (no network test)",
+    "URL inválidas (sin prueba de red)",
+    "Neplatné URL (bez sieťového testu)",
+  ],
+  examined: [
+    "Documents analysés (5 000 maximum)",
+    "Documents checked (maximum 5,000)",
+    "Documentos analizados (máximo 5.000)",
+    "Skontrolované dokumenty (najviac 5 000)",
+  ],
+  remaining: [
+    "Documents non analysés",
+    "Documents not checked",
+    "Documentos no analizados",
+    "Neskontrolované dokumenty",
+  ],
   missingOwner: [
     "Sans responsable",
     "Missing owner",

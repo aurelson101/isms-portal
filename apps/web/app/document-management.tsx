@@ -463,14 +463,23 @@ export function DocumentQuality({
       </button>
       {counts && (
         <dl className="document-management-grid">
-          {(["missingOwner", "incomplete", "overdueReviews"] as const).map(
-            (key) => (
-              <div key={key}>
-                <dt>{documentLabel(locale, key)}</dt>
-                <dd>{counts[key]}</dd>
-              </div>
-            ),
-          )}
+          {(
+            [
+              "missingOwner",
+              "incomplete",
+              "overdueReviews",
+              "duplicateReferences",
+              "invalidMetadata",
+              "invalidLinks",
+              "examined",
+              "remaining",
+            ] as const
+          ).map((key) => (
+            <div key={key}>
+              <dt>{documentLabel(locale, key)}</dt>
+              <dd>{counts[key]}</dd>
+            </div>
+          ))}
         </dl>
       )}
       {admin && (

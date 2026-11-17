@@ -61,6 +61,7 @@ import { SensitiveShare } from "./sensitive-share";
 import { SharedWithMe } from "./shared-with-me";
 import { ExternalLinkEditor } from "./external-link-editor";
 import { ExternalDocumentLink } from "./external-document-link";
+import { documentStatusLabel } from "./document-status";
 import { publicationSummary } from "./publication-summary";
 import {
   DocumentSourceChoice,
@@ -667,18 +668,7 @@ function DocumentRows({
             <span
               className={`document-status status-${document.status.toLowerCase()}`}
             >
-              {document.status === "PUBLISHED"
-                ? translate(locale, "Publié", "Published")
-                : document.status === "ARCHIVED"
-                  ? translate(locale, "Archivé", "Archived")
-                  : document.status === "QUARANTINED"
-                    ? {
-                        fr: "En quarantaine",
-                        en: "Quarantined",
-                        es: "En cuarentena",
-                        sk: "V karanténe",
-                      }[locale]
-                    : translate(locale, "Brouillon", "Draft")}
+              {documentStatusLabel(locale, document.status)}
             </span>
             <span className="document-updated">
               {selectedVersion?.createdAt

@@ -1,4 +1,5 @@
 "use client";
+import { documentStatuses, documentStatusLabel } from "../document-status";
 import { publicationSummary } from "../publication-summary";
 import { fetchWithTimeout as fetch, RequestTimeoutError } from "../http-client";
 import { loginDestination } from "../auth-navigation";
@@ -369,12 +370,12 @@ export default function ModeratorPage() {
       })),
     [documents, locale, spacesById],
   );
-  const statusLabels: Record<string, string> = {
-    DRAFT: t("Brouillon", "Draft"),
-    PUBLISHED: t("Publié", "Published"),
-    ARCHIVED: t("Archivé", "Archived"),
-    QUARANTINED: t("En quarantaine", "Quarantined"),
-  };
+  const statusLabels: Record<string, string> = Object.fromEntries(
+    documentStatuses.map((status) => [
+      status,
+      documentStatusLabel(locale, status),
+    ]),
+  );
   useEffect(() => {
     if (!editing && !metadataEditing) return;
     const form = window.document.getElementById(

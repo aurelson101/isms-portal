@@ -40,9 +40,7 @@ describe("Admin document pagination", () => {
         where: {
           deletedAt: null,
           status,
-          AND: [
-            { metadata: { path: ["ged.owner"], string_contains: "Alice" } },
-          ],
+          AND: [{ id: { in: [] } }],
         },
       });
       expect(query.where.OR).toBeDefined();

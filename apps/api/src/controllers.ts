@@ -20,7 +20,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { createHash, createHmac, randomUUID } from "crypto";
 import { findUploadReceipt, uploadReceipt } from "./upload-receipt";
 import {
-  metadataWhere,
+  resolvedMetadataWhere,
   rejectDuplicate,
   type DocumentFilters,
 } from "./document-management";
@@ -447,7 +447,7 @@ export class DocumentsController {
     @Query("status") status = "",
     @Query() filters: DocumentFilters = {},
   ) {
-    const metadataFilters = metadataWhere(filters);
+    const metadataFilters = await resolvedMetadataWhere(this.prisma, filters);
     const q = query.trim().slice(0, 200);
     const selectedStatus = Object.values(DocumentStatus).find(
       (value) => value === status,
@@ -3845,7 +3845,7 @@ export class DocumentAdminController {
     )
       throw new BadRequestException("Invalid document status");
     const q = query.trim().slice(0, 200);
-    const metadataFilters = metadataWhere(filters);
+    const metadataFilters = await resolvedMetadataWhere(this.prisma, filters);
     const metadataMatches = q
       ? await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
       SELECT id FROM "Document" WHERE "deletedAt" IS NULL

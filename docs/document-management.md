@@ -37,7 +37,7 @@ rouvrir pour comparer, en conservant les valeurs saisies.
 
 La recherche générale couvre titres, descriptions et noms/valeurs de métadonnées
 sans tenir compte de la casse. **Recherche GED** cible référence, responsable,
-type, mots-clés et plage de dates. Ces filtres ciblés respectent la casse et
+type, mots-clés et plage de dates. Les filtres de référence, responsable et mots-clés ignorent la casse et les accents ; ils
 portent sur les clés `ged.*` ; les champs personnalisés restent accessibles par
 la recherche générale. Les critères se combinent avec langue, catégorie et
 favoris, selon les ACL. **Enregistrer la recherche** conserve les critères GED.
@@ -337,3 +337,26 @@ hidden and their API answers `404`, while existing data is kept.
 
 See [administration](administration.md), [API routes](routes.md),
 [versioning](VERSIONING.md) and [anonymized screenshots](screenshots/README.md).
+
+## Diagnostic et suivi des envois
+
+Le diagnostic analyse au maximum 5 000 documents autorisés, par lots de 200.
+Il distingue les champs conseillés absents des valeurs invalides, des références
+en doublon (casse et accents ignorés) et des URL syntaxiquement invalides.
+Les compteurs « analysés » et « non analysés » indiquent la couverture ; aucun
+appel réseau arbitraire aux liens n'est effectué. Un lien privé valide ne prouve
+pas que son contenu est accessible. Les métadonnées restent facultatives.
+
+Dans Administration > Observabilité, « Traces Exchange (48 heures) » interroge
+Microsoft Graph à la demande, avec le certificat du canal d'envoi existant.
+La requête cible uniquement l'expéditeur configuré et affiche au plus 100 traces ;
+une liste partielle est signalée. Les états fournisseur ne sont pas associés
+automatiquement aux tâches ISMS et ne prouvent pas que le destinataire a lu le mail.
+Une absence de traces ou un refus d'accès n'est jamais présenté comme une livraison.
+
+L'option nécessite `ExchangeMessageTrace.Read.All` (application), le consentement
+administrateur et le provisionnement Microsoft décrit dans le
+[guide officiel Exchange](https://learn.microsoft.com/en-us/exchange/monitoring/trace-an-email-message/graph-api-message-trace).
+Ce droit lit les traces du locataire : il n'est pas accordé automatiquement par ISMS,
+qui n'ajoute aucun droit de lecture des boîtes. Sans ce droit, l'envoi existant reste
+indépendant et l'interface affiche « indisponible ».
