@@ -937,6 +937,10 @@ export function Portal({
   const resultsRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const documentsLoadedRef = useRef(false);
+  const documentRequestRef = useRef(0);
+  const reloadDocumentsRef = useRef<
+    ((signal?: AbortSignal) => Promise<void>) | null
+  >(null);
   const initialDocumentReferenceRef = useRef<string | null>(null);
 
   const closeDocument = useCallback(() => {
@@ -1042,6 +1046,7 @@ export function Portal({
 
   const loadDocuments = useCallback(
     async (signal?: AbortSignal) => {
+      const request = ++documentRequestRef.current;
       if (documentsLoadedRef.current) setRefreshing(true);
       else setLoading(true);
       setLoadError(false);
@@ -1064,6 +1069,7 @@ export function Portal({
         });
         if (!response.ok) throw new Error("documents");
         const result = (await response.json()) as PaginatedDocuments;
+        if (signal?.aborted || request !== documentRequestRef.current) return;
         setDocuments(result.items);
         setTotal(result.total);
         setTotalPages(result.totalPages);
@@ -1080,9 +1086,13 @@ export function Portal({
           );
         }
       } catch (error) {
-        if ((error as Error).name !== "AbortError") setLoadError(true);
+        if (
+          request === documentRequestRef.current &&
+          (error as Error).name !== "AbortError"
+        )
+          setLoadError(true);
       } finally {
-        if (!signal?.aborted) {
+        if (!signal?.aborted && request === documentRequestRef.current) {
           documentsLoadedRef.current = true;
           setLoading(false);
           setRefreshing(false);
@@ -1102,6 +1112,10 @@ export function Portal({
       documentSort,
     ],
   );
+
+  useEffect(() => {
+    reloadDocumentsRef.current = loadDocuments;
+  }, [loadDocuments]);
 
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search);
@@ -1566,28 +1580,34 @@ export function Portal({
   };
   const toggleFavorite = async (document: PortalDocument) => {
     setActionError("");
-    const response = await fetch(`/api/documents/${document.id}/favorite`, {
-      method: document.favorite ? "DELETE" : "POST",
-    });
-    if (!response.ok) {
+    try {
+      const response = await fetch(`/api/documents/${document.id}/favorite`, {
+        method: document.favorite ? "DELETE" : "POST",
+      });
+      if (!response.ok) {
+        setActionError(t.error);
+        return;
+      }
+      const result = (await response.json()) as { favorite: boolean };
+      if (typeof result.favorite !== "boolean") throw new Error("favorite");
+      setDocuments((current) =>
+        favoritesOnly && !result.favorite
+          ? current.filter((item) => item.id !== document.id)
+          : current.map((item) =>
+              item.id === document.id
+                ? { ...item, favorite: result.favorite }
+                : item,
+            ),
+      );
+      setOpened((current) =>
+        current?.id === document.id
+          ? { ...current, favorite: result.favorite }
+          : current,
+      );
+      await reloadDocumentsRef.current?.();
+    } catch {
       setActionError(t.error);
-      return;
     }
-    const result = (await response.json()) as { favorite: boolean };
-    setDocuments((current) =>
-      favoritesOnly && !result.favorite
-        ? current.filter((item) => item.id !== document.id)
-        : current.map((item) =>
-            item.id === document.id
-              ? { ...item, favorite: result.favorite }
-              : item,
-          ),
-    );
-    setOpened((current) =>
-      current?.id === document.id
-        ? { ...current, favorite: result.favorite }
-        : current,
-    );
   };
   const refreshAccess = async () => {
     setAccessRefreshing(true);
