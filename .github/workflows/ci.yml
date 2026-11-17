@@ -8,7 +8,7 @@ on:
         description: Browser tests to diagnose
         type: choice
         default: all
-        options: [all, portal]
+        options: [all, portal, refresh-baselines]
   push:
     branches: [main]
   pull_request:
@@ -48,7 +48,14 @@ jobs:
       - run: ./scripts/test-e2e-isolated.sh
         timeout-minutes: 15
         env:
-          PLAYWRIGHT_ARGS: ${{ github.event_name == 'workflow_dispatch' && inputs.e2e_scope == 'portal' && 'portal.spec.ts --project=functional --no-deps' || '' }}
+          PLAYWRIGHT_ARGS: ${{ github.event_name == 'workflow_dispatch' && inputs.e2e_scope == 'refresh-baselines' && '--update-snapshots' || github.event_name == 'workflow_dispatch' && inputs.e2e_scope == 'portal' && 'portal.spec.ts --project=functional --no-deps' || '' }}
+      - name: Upload visual baseline candidates for review
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.e2e_scope == 'refresh-baselines' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: visual-baselines
+          path: tests/e2e/visual.spec.ts-snapshots/
+          retention-days: 7
       - name: Upload browser diagnostics
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

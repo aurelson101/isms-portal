@@ -3832,11 +3832,18 @@ export class DocumentAdminController {
     @Query("order") order: "asc" | "desc" = "desc",
     @Query("summary") summary?: string,
     @Query() filters: DocumentFilters = {},
+    @Query("status") status = "",
   ) {
     if (typeof query !== "string")
       throw new BadRequestException("q must be a string");
     if (order !== "asc" && order !== "desc")
       throw new BadRequestException("order must be asc or desc");
+    if (
+      typeof status !== "string" ||
+      (status !== "" &&
+        !Object.values(DocumentStatus).includes(status as DocumentStatus))
+    )
+      throw new BadRequestException("Invalid document status");
     const q = query.trim().slice(0, 200);
     const metadataFilters = metadataWhere(filters);
     const metadataMatches = q
@@ -3847,6 +3854,7 @@ export class DocumentAdminController {
       : [];
     const where: Prisma.DocumentWhereInput = {
       deletedAt: null,
+      ...(status ? { status: status as DocumentStatus } : {}),
       ...(metadataFilters.length ? { AND: metadataFilters } : {}),
       ...(q
         ? {

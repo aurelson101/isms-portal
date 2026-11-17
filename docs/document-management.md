@@ -272,6 +272,12 @@ lien, sans chiffrer ni filigraner le fichier hébergé sur le site distant.
 
 ## Filtres et confirmations
 
+Dans l'administration, le filtre **État** affiche tous les états ou seulement les
+brouillons, publiés, archivés ou documents en quarantaine. Il se combine avec la
+recherche textuelle, les métadonnées et le tri, avant le décompte et la pagination
+par vingt documents. Changer l'état recherché revient à la première page ; le
+filtre reste mémorisé dans l'URL après actualisation. Il ne modifie aucun document.
+
 Dans l'explorateur, choisir **Liens / Vidéos** dans le filtre de format pour
 afficher les documents constitués d'un lien sans fichier. Les filtres de langue,
 de catégorie, de favoris et les ACL continuent de s'appliquer avant pagination.
@@ -291,6 +297,11 @@ soumises aux ACL, au workflow et à la configuration de messagerie ; le résumé
 ne constitue pas une preuve de réception d'e-mail.
 
 ## English quick reference
+
+The administration **Status** filter selects All statuses, Draft, Published,
+Archived or Quarantined. It combines with text and metadata searches before
+counting and pagination; changing it resets the page and preserves the search.
+The selection survives reload through the URL and never changes document state.
 
 Delivery history distinguishes provider acceptance from inbox receipt; the
 explanation is visible in Observability, including on touch devices. For a

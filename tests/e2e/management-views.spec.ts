@@ -1,6 +1,41 @@
 import { expect, test } from "./test";
 import { installManagementDemo } from "./management-demo";
 
+for (const width of [320, 768, 1440]) {
+  test(`admin status search preserves drafts and archives across reload at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const { requests } = await installManagementDemo(page, "admin");
+    const latest = () =>
+      requests.filter((query) => !query.has("summary")).at(-1);
+    await page.goto(
+      "/admin?docPage=2&docStatus=ARCHIVED&docQ=policy#documents",
+    );
+    const filter = page.getByRole("combobox", { name: "Status", exact: true });
+    await expect(filter).toHaveValue("ARCHIVED");
+    await expect.poll(() => latest()?.get("status")).toBe("ARCHIVED");
+    expect(latest()?.get("q")).toBe("policy");
+    for (const status of ["DRAFT", "PUBLISHED", "ARCHIVED"]) {
+      await filter.selectOption(status);
+      await expect.poll(() => latest()?.get("status")).toBe(status);
+      expect(latest()?.get("page")).toBe("1");
+      expect(latest()?.get("q")).toBe("policy");
+      expect(latest()?.get("limit")).toBe("20");
+    }
+    await page.reload();
+    await expect(filter).toHaveValue("ARCHIVED");
+    await filter.selectOption("");
+    await expect.poll(() => latest()?.has("status")).toBe(false);
+    await expect(page).not.toHaveURL(/docStatus=/);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1,
+      ),
+    ).toBe(true);
+  });
+}
+
 for (const role of ["admin", "moderator"] as const)
   for (const width of [390, 1440]) {
     test(`${role} list and windows keep 20 documents and previous/next at ${width}px`, async ({

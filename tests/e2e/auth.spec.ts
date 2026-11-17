@@ -378,7 +378,7 @@ test("the generated administrator can sign in and manage the secure profile", as
   ).toBeVisible();
   await page.getByRole("menuitem", { name: "Mon profil" }).click();
   await expect(
-    page.getByRole("heading", { name: "Profil administrateur" }),
+    page.getByRole("heading", { name: "Profil administrateur", level: 1 }),
   ).toBeVisible();
   await page.goto("/admin#administrators");
   await expect(

@@ -63,7 +63,28 @@ for (const width of [390, 768, 1440, 2560, 3840]) {
         return route.fulfill({
           json: { items: [document], page: 1, total: 1, totalPages: 1 },
         });
-      if (path === "/api/documents/document")
+      if (path.endsWith("/ged"))
+        return route.fulfill({
+          json: {
+            features: {
+              links: false,
+              comments: false,
+              signatures: false,
+              sharing: false,
+            },
+            subscribed: false,
+            canEdit: false,
+            isAdmin: false,
+            lock: null,
+            links: [],
+            comments: [],
+            versions: [],
+          },
+        });
+      if (
+        path === "/api/documents/document" ||
+        path === "/api/documents/by-slug/test-policy"
+      )
         return route.fulfill({ json: document });
       if (path.includes("/preview") || path.endsWith("/content"))
         return route.fulfill({ body: preview, contentType: "application/pdf" });

@@ -114,6 +114,7 @@ export function DocumentsPanel({
     search.trim().slice(0, 200),
   );
   const [documentSort, setDocumentSort] = useState("updatedAt");
+  const [documentStatus, setDocumentStatus] = useState("");
   const [viewReady, setViewReady] = useState(false);
   useEffect(() => {
     const restore = () => {
@@ -124,6 +125,12 @@ export function DocumentsPanel({
         Number.isSafeInteger(page) && page > 0 ? Math.min(page, 1000000) : 1,
       );
       const sort = query.get("docSort") || "updatedAt";
+      const status = query.get("docStatus") || "";
+      setDocumentStatus(
+        ["DRAFT", "PUBLISHED", "ARCHIVED", "QUARANTINED"].includes(status)
+          ? status
+          : "",
+      );
       setDocumentSort(
         ["updatedAt", "publishedAt", "status"].includes(sort)
           ? sort
@@ -157,6 +164,7 @@ export function DocumentsPanel({
     for (const [key, value] of [
       ["docPage", documentPage > 1 ? String(documentPage) : ""],
       ["docSort", documentSort !== "updatedAt" ? documentSort : ""],
+      ["docStatus", documentStatus],
       ["docQ", documentQuery],
     ]) {
       if (value) url.searchParams.set(key, value);
@@ -167,7 +175,14 @@ export function DocumentsPanel({
       "",
       `${url.pathname}${url.search}${url.hash}`,
     );
-  }, [viewReady, documentPage, documentSort, documentQuery, metadataSearch]);
+  }, [
+    viewReady,
+    documentPage,
+    documentSort,
+    documentStatus,
+    documentQuery,
+    metadataSearch,
+  ]);
   useEffect(() => {
     const query = search.trim().slice(0, 200);
     if (query === documentQuery) return;
@@ -191,7 +206,7 @@ export function DocumentsPanel({
     setPageDocuments([]);
     try {
       const result = await api<{ items: AdminDocument[]; total: number }>(
-        `/api/admin/documents?${new URLSearchParams({ ...metadataSearch, page: String(documentPage), limit: String(documentPageSize), q: documentQuery, sort: documentSort, order: "desc" })}`,
+        `/api/admin/documents?${new URLSearchParams({ ...metadataSearch, page: String(documentPage), limit: String(documentPageSize), q: documentQuery, sort: documentSort, order: "desc", ...(documentStatus ? { status: documentStatus } : {}) })}`,
         { signal: controller.signal },
       );
       if (request !== documentRequest.current) return;
@@ -206,7 +221,14 @@ export function DocumentsPanel({
     } finally {
       if (request === documentRequest.current) setDocumentsLoading(false);
     }
-  }, [documentPage, documentQuery, documentSort, onError, metadataSearch]);
+  }, [
+    documentPage,
+    documentQuery,
+    documentSort,
+    documentStatus,
+    onError,
+    metadataSearch,
+  ]);
   useEffect(() => {
     if (refreshing || !viewReady) return;
     const requests = documentRequest;
@@ -278,6 +300,23 @@ export function DocumentsPanel({
       />
       <DocumentQuality locale={locale} admin />
       <div className="admin-management-tools">
+        <label>
+          {t("État")}
+          <select
+            value={documentStatus}
+            onChange={(event) => {
+              setDocumentPage(1);
+              setDocumentStatus(event.target.value);
+            }}
+          >
+            <option value="">{t("Tous les états", "All statuses")}</option>
+            {["DRAFT", "PUBLISHED", "ARCHIVED", "QUARANTINED"].map((status) => (
+              <option key={status} value={status}>
+                {statusLabel(status)}
+              </option>
+            ))}
+          </select>
+        </label>
         <label>
           {t("Rechercher un document", "Search documents")}
           <input

@@ -9,7 +9,7 @@ function setup() {
     count: vi.fn().mockResolvedValue(41),
   };
   const controller = new DocumentAdminController(
-    { document } as never,
+    { document, $queryRaw: vi.fn().mockResolvedValue([]) } as never,
     {} as never,
     {} as never,
     {} as never,
@@ -19,6 +19,55 @@ function setup() {
 }
 
 describe("Admin document pagination", () => {
+  it.each(["DRAFT", "PUBLISHED", "ARCHIVED", "QUARANTINED"])(
+    "filters %s before pagination and counting",
+    async (status) => {
+      const h = setup();
+      await h.controller.list(
+        "policy",
+        "2",
+        "20",
+        "updatedAt",
+        "desc",
+        undefined,
+        { owner: "Alice" },
+        status,
+      );
+      const query = h.document.findMany.mock.calls[0][0];
+      expect(query).toMatchObject({
+        skip: 20,
+        take: 20,
+        where: {
+          deletedAt: null,
+          status,
+          AND: [
+            { metadata: { path: ["ged.owner"], string_contains: "Alice" } },
+          ],
+        },
+      });
+      expect(query.where.OR).toBeDefined();
+      expect(h.document.count).toHaveBeenCalledWith({ where: query.where });
+    },
+  );
+  it.each(["invalid", ["DRAFT", "ARCHIVED"], null])(
+    "rejects invalid status %s before querying",
+    async (status) => {
+      const h = setup();
+      await expect(
+        h.controller.list(
+          "",
+          "1",
+          "20",
+          "updatedAt",
+          "desc",
+          undefined,
+          {},
+          status as never,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(h.document.findMany).not.toHaveBeenCalled();
+    },
+  );
   it("fetches only the requested page with a stable ordering", async () => {
     const h = setup();
     expect(await h.controller.list("", "2", "20")).toEqual({

@@ -45,6 +45,10 @@ for (const width of [320, 768, 1280]) {
         groupRequests++;
         return route.fulfill({ json: [] });
       }
+      if (path === "/api/admin/governance/review-ticket-email")
+        return route.fulfill({
+          json: { enabled: false, recipient: "helpdesk@example.test" },
+        });
       if (path === "/api/health/details")
         return route.fulfill({
           json: {
@@ -287,7 +291,11 @@ for (const width of [320, 768, 1280]) {
       fullPage: false,
     });
     for (const [hash, label, panel] of [
-      ["settings", "Identité visuelle", ".profile-settings"],
+      [
+        "settings",
+        "Identité visuelle",
+        ".profile-settings:has(> .branding-preview)",
+      ],
       ["profile", "Profil administrateur", ".profile-settings"],
       [
         "administrators",

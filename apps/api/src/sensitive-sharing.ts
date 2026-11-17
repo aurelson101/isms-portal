@@ -65,10 +65,7 @@ export const activeShareWhere = (
   OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
 });
 
-export async function isSensitiveDepositor(
-  prisma: PrismaService,
-  identity: string,
-) {
+async function isSensitiveDepositor(prisma: PrismaService, identity: string) {
   return Boolean(
     await prisma.sensitiveDepositor.findFirst({
       where: { identity: normalizeIdentity(identity), revokedAt: null },
@@ -77,7 +74,7 @@ export async function isSensitiveDepositor(
   );
 }
 
-export async function assertSensitiveDepositor(
+async function assertSensitiveDepositor(
   prisma: PrismaService,
   identity: string,
 ) {
@@ -96,7 +93,7 @@ export async function assertCanMarkSensitive(
   await assertSensitiveDepositor(prisma, req.identity.username);
 }
 
-export async function hasSensitiveShare(
+async function hasSensitiveShare(
   prisma: PrismaService,
   documentId: string,
   identity: string,
@@ -145,7 +142,7 @@ export async function sensitiveDocumentAccess(
   return { manage, shared };
 }
 
-export const expiryLabel = (expiresAt: Date | null) =>
+const expiryLabel = (expiresAt: Date | null) =>
   expiresAt
     ? `until ${expiresAt.toISOString().replace("T", " ").slice(0, 16)} UTC`
     : "with no expiry date (until revoked)";
