@@ -180,6 +180,7 @@ export function DocumentBulkEditor({
     <details className="document-management">
       <summary>{documentLabel(locale, "bulk")}</summary>
       <form
+        aria-busy={busy}
         onSubmit={async (event) => {
           event.preventDefault();
           if (inFlight.current || !chosen.length) return;
@@ -282,7 +283,8 @@ export function DocumentBulkEditor({
                       {documentLabel(locale, "category")}:{" "}
                       {categories.find(
                         (category) => category.id === item.categoryAfter,
-                      )?.nameEn || documentLabel(locale, "none")}
+                      )?.[locale === "fr" ? "nameFr" : "nameEn"] ||
+                        documentLabel(locale, "none")}
                     </li>
                   )}
                 </ul>
@@ -418,26 +420,47 @@ export function DocumentQuality({
   admin?: boolean;
 }) {
   const [counts, setCounts] = useState<Record<string, number> | null>(null);
+  const [revision, setRevision] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState<Reminders | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setError("");
     void request<Record<string, number>>("/api/documents/quality/summary")
       .then((value) => {
         if (active) setCounts(value);
       })
       .catch((reason) => {
         if (active) setError(reason.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [revision]);
   return (
     <details className="document-management">
       <summary>{documentLabel(locale, "quality")}</summary>
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => setRevision((value) => value + 1)}
+      >
+        {
+          {
+            fr: "Actualiser le diagnostic",
+            en: "Refresh diagnostics",
+            es: "Actualizar diagnóstico",
+            sk: "Obnoviť diagnostiku",
+          }[locale]
+        }
+      </button>
       {counts && (
         <dl className="document-management-grid">
           {(["missingOwner", "incomplete", "overdueReviews"] as const).map(

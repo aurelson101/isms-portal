@@ -3964,8 +3964,32 @@ export function Portal({
                         className="change-modified"
                         key={`modified-${index}`}
                       >
-                        <del>{change.before}</del>
-                        <ins>{change.after}</ins>
+                        <div>
+                          <strong>
+                            {
+                              {
+                                fr: "Avant",
+                                en: "Before",
+                                es: "Antes",
+                                sk: "Predtým",
+                              }[locale]
+                            }
+                          </strong>
+                          <del>{change.before}</del>
+                        </div>
+                        <div>
+                          <strong>
+                            {
+                              {
+                                fr: "Après",
+                                en: "After",
+                                es: "Después",
+                                sk: "Potom",
+                              }[locale]
+                            }
+                          </strong>
+                          <ins>{change.after}</ins>
+                        </div>
                       </div>
                     ),
                   )}

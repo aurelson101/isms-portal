@@ -60,6 +60,13 @@ for (const [
             id: language,
             locale: language,
             version: 1,
+            changeDetails: {
+              added: [],
+              removed: [],
+              modified: [
+                { before: "Previous content", after: "Updated content" },
+              ],
+            },
             storedFile: { mimeType: "text/plain" },
           }))
         : [],
@@ -149,6 +156,20 @@ for (const [
       await expect(
         languages.getByRole("button", { name: "FR", exact: true }),
       ).toHaveClass("selected");
+      await page
+        .getByText("Compare with the previous version", { exact: true })
+        .click();
+      const comparison = page.locator(".change-modified");
+      await expect(comparison).toContainText([
+        "BeforePrevious contentAfterUpdated content",
+      ]);
+      const columns = await comparison
+        .locator(":scope > div")
+        .evaluateAll((elements) =>
+          elements.map((element) => element.getBoundingClientRect().x),
+        );
+      if (width >= 1440) expect(columns[1]).toBeGreaterThan(columns[0]);
+      else expect(columns[1]).toBe(columns[0]);
       return;
     }
     await expect(card.locator(".locales button")).toHaveCount(0);

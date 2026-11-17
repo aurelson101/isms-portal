@@ -30,6 +30,7 @@ jobs:
           node-version: 22.23.4
           cache: npm
       - run: npm ci
+      - run: node --test scripts/performance-test.test.mjs
       - run: npm run verify
       - run: npm run build
 
@@ -65,4 +66,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - run: ./scripts/generate-secrets.sh
-      - run: ./scripts/test-performance-functional.sh
+      - run: ./scripts/test-performance-functional.sh | tee performance-results.txt
+        shell: bash
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-results
+          path: performance-results.txt
+          retention-days: 7

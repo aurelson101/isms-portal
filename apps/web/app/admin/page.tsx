@@ -6268,6 +6268,7 @@ function ObservabilityPanel({
               </article>
             </div>
             <section className="operations-work-items">
+              <p className="muted">{emailCopy.deliveryNote}</p>
               <div className="section-heading">
                 <h2>{emailCopy.title}</h2>
                 <div className="email-history-tools">

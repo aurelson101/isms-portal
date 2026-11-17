@@ -69,6 +69,12 @@ for (const width of [390, 768, 1280]) {
       has: page.getByRole("heading", { name: "Email delivery", exact: true }),
     });
     const table = section.locator("table");
+    await expect(
+      section.getByText(
+        "Mail provider acceptance does not guarantee inbox delivery. Check the provider delivery logs.",
+        { exact: true },
+      ),
+    ).toBeVisible();
     const refresh = section.getByRole("button", {
       name: "Refresh email history",
     });

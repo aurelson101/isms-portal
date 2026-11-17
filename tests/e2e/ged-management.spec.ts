@@ -1,5 +1,29 @@
 import { expect, test } from "./test";
 
+test("duplicate warnings support keyboard dismissal and restore focus", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("isms-locale", "en"));
+  await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
+  await page.goto("/login");
+  const trigger = page.locator("button:visible").first();
+  await trigger.focus();
+  await page.evaluate(() =>
+    window.dispatchEvent(
+      new CustomEvent("isms:duplicate-upload", {
+        detail: { slug: "existing-policy", title: "Existing policy" },
+      }),
+    ),
+  );
+  const notice = page.locator(".duplicate-upload-notice");
+  await expect(
+    notice.getByRole("button", { name: "Close", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(notice).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
 test("portal restores combined GED criteria and saves them without losing favorites", async ({
   page,
 }) => {
@@ -104,6 +128,7 @@ for (const scope of ["admin", "moderator"] as const)
         metadata: Record<string, string>;
       }> = [];
       const queries: string[] = [];
+      let qualityRequests = 0;
       await page.route("**/api/**", async (route) => {
         const request = route.request(),
           url = new URL(request.url()),
@@ -174,7 +199,8 @@ for (const scope of ["admin", "moderator"] as const)
               ],
             },
           });
-        if (path === "/api/documents/quality/summary")
+        if (path === "/api/documents/quality/summary") {
+          qualityRequests++;
           return route.fulfill({
             json: {
               total: 2,
@@ -183,6 +209,7 @@ for (const scope of ["admin", "moderator"] as const)
               overdueReviews: 0,
             },
           });
+        }
         if (path === "/api/admin/documents" || path === "/api/documents") {
           queries.push(url.searchParams.get("owner") || "");
           return route.fulfill({
@@ -200,6 +227,13 @@ for (const scope of ["admin", "moderator"] as const)
       await page.goto(
         scope === "admin" ? "/admin#metadata" : "/moderator#moderator-metadata",
       );
+      await page.getByText("Document follow-up", { exact: true }).click();
+      await expect.poll(() => qualityRequests).toBeGreaterThan(0);
+      const beforeRefresh = qualityRequests;
+      await page
+        .getByRole("button", { name: "Refresh diagnostics", exact: true })
+        .click();
+      await expect.poll(() => qualityRequests).toBeGreaterThan(beforeRefresh);
       await page.getByText("GED search", { exact: true }).click();
       const search = page
         .locator("details")
@@ -234,12 +268,41 @@ for (const scope of ["admin", "moderator"] as const)
         2,
       );
       expect(documents[0].metadata["ged.owner"]).toBe("Alice");
+      documents[0].updatedAt = "2026-10-31T10:30:00.000Z";
+      await search
+        .getByRole("searchbox", { name: "Owner", exact: true })
+        .fill("Alice refreshed");
+      await search.getByRole("button", { name: "Apply", exact: true }).click();
+      await expect.poll(() => queries.includes("Alice refreshed")).toBe(true);
+      await expect(
+        bulk.getByRole("button", { name: "Confirm batch", exact: true }),
+      ).toHaveCount(0);
+      await page.getByText("Bulk metadata editing", { exact: true }).click();
+      await bulk
+        .getByRole("checkbox", { name: "Policy A", exact: true })
+        .check();
+      await bulk
+        .getByRole("checkbox", { name: "Policy B", exact: true })
+        .check();
+      await bulk
+        .getByRole("combobox", { name: "Field name", exact: true })
+        .fill("ged.owner");
+      await bulk
+        .getByRole("textbox", { name: "Field value", exact: true })
+        .fill("Bob");
+      await bulk.getByRole("button", { name: "Add", exact: true }).click();
+      await bulk
+        .getByRole("button", { name: "Preview changes", exact: true })
+        .click();
+      await expect(bulk.locator(".document-bulk-preview article")).toHaveCount(
+        2,
+      );
       await bulk
         .getByRole("button", { name: "Confirm batch", exact: true })
         .click();
-      await expect.poll(() => batches.length).toBe(2);
+      await expect.poll(() => batches.length).toBe(3);
       expect(
-        batches[1].documents.every((document) => !!document.expectedUpdatedAt),
+        batches[2].documents.every((document) => !!document.expectedUpdatedAt),
       ).toBe(true);
       expect(
         documents.every(
@@ -254,10 +317,18 @@ for (const scope of ["admin", "moderator"] as const)
       await expect(
         page.getByText("document.metadata.bulk", { exact: false }),
       ).toBeVisible();
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth + 1,
-        ),
-      ).toBe(true);
+      const layout = await page.evaluate(() => ({
+        width: innerWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        overflowing: Array.from(document.querySelectorAll("main *"))
+          .filter(
+            (element) => element.getBoundingClientRect().right > innerWidth + 1,
+          )
+          .map((element) => `${element.tagName}.${element.className}`)
+          .slice(0, 15),
+      }));
+      expect(layout.scrollWidth, JSON.stringify(layout)).toBeLessThanOrEqual(
+        layout.width + 1,
+      );
     });
   }

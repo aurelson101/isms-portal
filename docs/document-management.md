@@ -292,6 +292,25 @@ ne constitue pas une preuve de réception d'e-mail.
 
 ## English quick reference
 
+Delivery history distinguishes provider acceptance from inbox receipt; the
+explanation is visible in Observability, including on touch devices. For a
+missing accepted message, check provider message trace, quarantine and the
+recipient mailbox. No automatic inbox receipt is asserted.
+
+Version text changes show labelled Before/After columns on wide screens and
+stack on small screens. SHA-256 duplicate warnings are keyboard accessible:
+focus moves to Close, Escape dismisses the notice and restores focus. Duplicate
+detection remains limited to editable documents.
+
+Bulk previews are invalidated if the visible document selection or revision
+changes. Category previews use the interface language. Document-quality counts
+can be refreshed after editing; recommended metadata stays optional.
+
+Performance checks bound request counts, concurrency and timeouts, and measure
+complete response bodies. The scheduled restoration drill refuses a live
+checkout containing runtime credentials and uses the same isolated Compose
+project/configuration for backup, restoration and cleanup.
+
 Administrators and moderators share List/Windows document views, remembered in
 the browser. Both request 20 items per page and support Previous/Next without
 changing document state or file versions. Optional `ged.*` metadata supports

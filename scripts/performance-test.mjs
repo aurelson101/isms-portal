@@ -1,10 +1,20 @@
 const baseUrl = process.env.PERFORMANCE_BASE_URL || "http://127.0.0.1:18080";
+const boundedInteger = (key, fallback, max) => {
+  const value = Number(process.env[key] || fallback);
+  if (!Number.isSafeInteger(value) || value < 1 || value > max)
+    throw new Error(`${key} must be an integer between 1 and ${max}`);
+  return value;
+};
+const requests = boundedInteger("PERFORMANCE_REQUESTS", 60, 10000);
+const concurrency = boundedInteger("PERFORMANCE_CONCURRENCY", 10, 100);
+const timeout = boundedInteger("PERFORMANCE_TIMEOUT_MS", 15000, 60000);
 const username = process.env.INITIAL_ADMIN_USERNAME;
 const password = process.env.INITIAL_ADMIN_PASSWORD;
 if (!username || !password)
   throw new Error("Administrator test credentials are required");
 
 const login = await fetch(`${baseUrl}/api/auth/login`, {
+  signal: AbortSignal.timeout(timeout),
   method: "POST",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({ username, password }),
@@ -31,9 +41,6 @@ const scenarios = [
     p95: 2000,
   },
 ];
-const requests = Number(process.env.PERFORMANCE_REQUESTS || 60);
-const concurrency = Number(process.env.PERFORMANCE_CONCURRENCY || 10);
-
 for (const scenario of scenarios) {
   const timings = [];
   let failures = 0;
@@ -45,10 +52,11 @@ for (const scenario of scenarios) {
           const startedAt = performance.now();
           const response = await fetch(`${baseUrl}${scenario.path}`, {
             headers: { cookie },
+            signal: AbortSignal.timeout(timeout),
           });
+          await response.arrayBuffer();
           timings.push(performance.now() - startedAt);
           if (!response.ok) failures += 1;
-          await response.arrayBuffer();
         },
       ),
     );
