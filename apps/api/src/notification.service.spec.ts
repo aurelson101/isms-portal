@@ -16,7 +16,7 @@ afterAll(() => {
 
 function setup() {
   const prisma = {
-    applicationSetting: { findUnique: vi.fn().mockResolvedValue(null) },
+    applicationSetting: { findUnique: vi.fn().mockResolvedValue({ value: { enabled: true, recipient: "helpdesk@example.com" } }) },
     documentReview: {
       findMany: vi.fn().mockResolvedValue([]),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),

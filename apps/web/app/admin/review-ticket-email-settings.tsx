@@ -61,7 +61,7 @@ export function ReviewTicketEmailSettings({
 }) {
   const t = copy[locale];
   const [settings, setSettings] = useState<Settings>({
-    enabled: true,
+    enabled: false,
     recipient: "helpdesk@example.com",
   });
   const [saved, setSaved] = useState<Settings | null>(null);

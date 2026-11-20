@@ -3,7 +3,7 @@ import type { PrismaService } from "./prisma.service";
 
 export const REVIEW_TICKET_SETTING = "governance.review-ticket-email";
 export const reviewTicketDefaults = {
-  enabled: true,
+  enabled: false,
   recipient: "helpdesk@example.com",
 };
 

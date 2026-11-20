@@ -4612,6 +4612,21 @@ export function Portal({
                   setActionError(await responseMessage(response, t.error));
                   return;
                 }
+                const externalUrl = String(values.externalUrl || "").trim();
+                if (externalUrl !== (editing.externalUrl || "")) {
+                  const linkResponse = await fetch(
+                    `/api/documents/${editing.id}/external-link`,
+                    {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ url: externalUrl || null }),
+                    },
+                  );
+                  if (!linkResponse.ok) {
+                    setActionError(await responseMessage(linkResponse, t.error));
+                    return;
+                  }
+                }
                 setEditing(null);
                 await loadDocuments();
               }}

@@ -73,6 +73,7 @@ export function ExternalLinkEditor({
         {t("Lien externe (http ou https)", "External link (http or https)")}
         <input
           type="url"
+          name="externalUrl"
           maxLength={2000}
           value={url}
           onChange={(event) => setUrl(event.target.value)}

@@ -1729,7 +1729,7 @@ export class DocumentsController {
       throw new ConflictException("Only archived documents can be restored");
     if (
       status === "PUBLISHED" &&
-      (document.versions.length === 0 ||
+      ((document.versions.length === 0 && !document.externalUrl) ||
         document.versions.some(
           (version) =>
             !version.storedFile.scans.some((scan) => scan.status === "CLEAN"),
